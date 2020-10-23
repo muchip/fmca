@@ -1,0 +1,23 @@
+// This file is part of FMCA, the Fast Multiresolution Covariance Analysis package.
+//
+// Copyright (c) 2020, Michael Multerer
+//
+// All rights reserved.
+//
+// This source code is subject to the BSD 3-clause license and without
+// any warranty, see <https://github.com/muchip/SPQRT> for further
+// information.
+//
+#ifndef FMCA_CLUSTERTREE_MODULE_
+#define FMCA_CLUSTERTREE_MODULE_
+
+#include <iostream>
+#include <memory>
+#include <numeric>
+#include <vector>
+
+#include <Eigen/Dense>
+
+#include "src/ClusterTree/ClusterTree.h"
+
+#endif
