@@ -1,13 +1,15 @@
 #include <Eigen/Dense>
 #include <fstream>
 
+#include "FMCA/BlockClusterTree"
 #include "FMCA/ClusterTree"
+
 #include "util/tictoc.hpp"
 #define NPTS 1e5
 #define DIM 3
 
-void plotBoxes(const std::string& fileName,
-               const std::vector<Eigen::Matrix3d>& bb) {
+void plotBoxes(const std::string &fileName,
+               const std::vector<Eigen::Matrix3d> &bb) {
   std::ofstream myfile;
   myfile.open(fileName);
   myfile << "# vtk DataFile Version 3.1\n";
@@ -44,13 +46,15 @@ void plotBoxes(const std::string& fileName,
   myfile << "CELLS " << bb.size() << " " << 9 * bb.size() << "\n";
   for (auto i = 0; i < bb.size(); ++i) {
     myfile << 8;
-    for (auto j = 0; j < 8; ++j) myfile << " " << int(8 * i + j);
+    for (auto j = 0; j < 8; ++j)
+      myfile << " " << int(8 * i + j);
     myfile << "\n";
   }
   myfile << "\n";
 
   myfile << "CELL_TYPES " << bb.size() << "\n";
-  for (auto i = 0; i < bb.size(); ++i) myfile << int(11) << "\n";
+  for (auto i = 0; i < bb.size(); ++i)
+    myfile << int(11) << "\n";
   myfile << "\n";
 
   myfile.close();
@@ -58,8 +62,8 @@ void plotBoxes(const std::string& fileName,
 }
 
 template <typename Derived1>
-void plotPoints(const std::string& fileName,
-                const Eigen::MatrixBase<Derived1>& P) {
+void plotPoints(const std::string &fileName,
+                const Eigen::MatrixBase<Derived1> &P) {
   std::ofstream myfile;
   myfile.open(fileName);
   myfile << "# vtk DataFile Version 3.1\n";
@@ -78,13 +82,15 @@ void plotPoints(const std::string& fileName,
   myfile << "CELLS " << P.cols() << " " << (nvertices + 1) * P.cols() << "\n";
   for (auto i = 0; i < P.cols(); ++i) {
     myfile << int(nvertices);
-    for (auto j = 0; j < nvertices; ++j) myfile << " " << int(i);
+    for (auto j = 0; j < nvertices; ++j)
+      myfile << " " << int(i);
     myfile << "\n";
   }
   myfile << "\n";
 
   myfile << "CELL_TYPES " << P.cols() << "\n";
-  for (auto i = 0; i < P.cols(); ++i) myfile << int(1) << "\n";
+  for (auto i = 0; i < P.cols(); ++i)
+    myfile << int(1) << "\n";
   myfile << "\n";
   myfile.close();
   return;
@@ -95,22 +101,24 @@ using ClusterT = FMCA::ClusterTree<double, DIM, 100>;
 int main() {
   srand(0);
   Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, NPTS);
-  //P.row(2) *= 0;
+  // P.row(2) *= 0;
   Eigen::VectorXd nrms = P.colwise().norm();
-  for (auto i = 0; i < P.cols(); ++i) P.col(i) *= 1 / nrms(i);
+  for (auto i = 0; i < P.cols(); ++i)
+    P.col(i) *= 1 / nrms(i);
   tictoc T;
   T.tic();
   ClusterT CT(P);
   T.toc("set up ct: ");
-
+  FMCA::BlockClusterTree<ClusterT> BT(CT);
   std::vector<std::vector<int>> tree;
   CT.exportTreeStructure(tree);
   for (auto i = 0; i < tree.size(); ++i) {
     int numInd = 0;
-    for (auto j = 0; j < tree[i].size(); ++j) numInd += tree[i][j];
+    for (auto j = 0; j < tree[i].size(); ++j)
+      numInd += tree[i][j];
     std::cout << i << ") " << tree[i].size() << " " << numInd << "\n";
   }
-  std::vector<ClusterT*> leafs;
+  std::vector<ClusterT *> leafs;
   CT.getLeafIterator(leafs);
   int numInd = 0;
   for (auto i = 0; i < leafs.size(); ++i)
@@ -121,9 +129,9 @@ int main() {
     CT.get_BboxVector(&bbvec, level);
     plotBoxes("boxes" + std::to_string(level) + ".vtk", bbvec);
   }
-    std::vector<Eigen::Matrix3d> bbvec;
-    CT.get_BboxVectorLeafs(&bbvec);
-    plotBoxes("boxesLeafs.vtk", bbvec);
+  std::vector<Eigen::Matrix3d> bbvec;
+  CT.get_BboxVectorLeafs(&bbvec);
+  plotBoxes("boxesLeafs.vtk", bbvec);
 
   plotPoints("points.vtk", P);
   return 0;

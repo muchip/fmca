@@ -16,8 +16,7 @@ namespace FMCA {
 
 namespace ClusterSplitter {
 
-template <typename T, unsigned int Dim>
-struct GeometricBisection {
+template <typename T, unsigned int Dim> struct GeometricBisection {
   template <class ClusterTree>
   void operator()(const Eigen::Matrix<T, Dim, Eigen::Dynamic> &P,
                   const std::vector<unsigned int> &indices,
@@ -42,8 +41,7 @@ struct GeometricBisection {
   }
 };
 
-template <typename Derived>
-struct CoordinateCompare {
+template <typename Derived> struct CoordinateCompare {
   const typename Eigen::MatrixBase<Derived> &P_;
   Eigen::Index cmp_;
   CoordinateCompare(const Eigen::MatrixBase<Derived> &P, Eigen::Index cmp)
@@ -54,8 +52,7 @@ struct CoordinateCompare {
   }
 };
 
-template <typename T, unsigned int Dim>
-struct CardinalityBisection {
+template <typename T, unsigned int Dim> struct CardinalityBisection {
   template <class ClusterTree>
   void operator()(const Eigen::Matrix<T, Dim, Eigen::Dynamic> &P,
                   const std::vector<unsigned int> &indices,
@@ -70,12 +67,12 @@ struct CardinalityBisection {
     std::sort(
         sorted_indices.begin(), sorted_indices.end(),
         CoordinateCompare<Eigen::Matrix<T, Dim, Eigen::Dynamic>>(P, longest));
-    c1.indices_ = std::vector<unsigned int>(
-        sorted_indices.begin(),
-        sorted_indices.begin() + sorted_indices.size() / 2);
-    c2.indices_ = std::vector<unsigned int>(
-        sorted_indices.begin() + sorted_indices.size() / 2,
-        sorted_indices.end());
+    c1.indices_ = std::vector<unsigned int>(sorted_indices.begin(),
+                                            sorted_indices.begin() +
+                                                sorted_indices.size() / 2);
+    c2.indices_ = std::vector<unsigned int>(sorted_indices.begin() +
+                                                sorted_indices.size() / 2,
+                                            sorted_indices.end());
     c1.bb_ = bb;
     c1.bb_(longest, 1) = P(longest, c1.indices_.back());
     c1.bb_(longest, 2) = c1.bb_(longest, 1) - c1.bb_(longest, 0);
@@ -85,9 +82,9 @@ struct CardinalityBisection {
   }
 };
 
-}  // namespace ClusterSplitter
+} // namespace ClusterSplitter
 
-struct TreeData {
+struct ClusterTreeData {
   double geometry_bb_;
   unsigned int max_wlevel_;
 };
@@ -103,7 +100,7 @@ template <typename T, unsigned int Dim, unsigned int MinClusterSize,
 class ClusterTree {
   friend Splitter;
 
- public:
+public:
   //////////////////////////////////////////////////////////////////////////////
   // constructors
   //////////////////////////////////////////////////////////////////////////////
@@ -115,7 +112,7 @@ class ClusterTree {
   void init(const Eigen::Matrix<T, Dim, Eigen::Dynamic> &P) {
     // set up bounding box for root node
     initBoundingBox(P);
-    tree_data_ = std::make_shared<TreeData>();
+    tree_data_ = std::make_shared<ClusterTreeData>();
     tree_data_->geometry_bb_ = bb_.col(2).norm();
     level_ = 0;
     id_ = 0;
@@ -133,9 +130,11 @@ class ClusterTree {
       for (auto i = 0; i < sons_.size(); ++i)
         sons_[i].get_BboxVector(bbvec, level);
     if (level_ == level)
-      if (indices_.size()) bbvec->push_back(bb_);
+      if (indices_.size())
+        bbvec->push_back(bb_);
     return;
   }
+  //////////////////////////////////////////////////////////////////////////////
   void get_BboxVectorLeafs(std::vector<Eigen::Matrix<T, Dim, 3u>> *bbvec) {
     if (sons_.size())
       for (auto i = 0; i < sons_.size(); ++i)
@@ -146,20 +145,26 @@ class ClusterTree {
   }
   //////////////////////////////////////////////////////////////////////////////
   const std::vector<unsigned int> &get_indices() { return indices_; }
+  //////////////////////////////////////////////////////////////////////////////
   void exportTreeStructure(std::vector<std::vector<int>> &tree) {
-    if (level_ >= tree.size()) tree.resize(level_ + 1);
+    if (level_ >= tree.size())
+      tree.resize(level_ + 1);
     tree[level_].push_back(indices_.size());
-    for (auto i = 0; i < sons_.size(); ++i) sons_[i].exportTreeStructure(tree);
+    for (auto i = 0; i < sons_.size(); ++i)
+      sons_[i].exportTreeStructure(tree);
   }
   //////////////////////////////////////////////////////////////////////////////
   void getLeafIterator(std::vector<ClusterTree *> &leafs) {
     if (sons_.size() == 0)
       leafs.push_back(this);
     else
-      for (auto i = 0; i < sons_.size(); ++i) sons_[i].getLeafIterator(leafs);
+      for (auto i = 0; i < sons_.size(); ++i)
+        sons_[i].getLeafIterator(leafs);
   }
   //////////////////////////////////////////////////////////////////////////////
- private:
+  unsigned int get_max_wlevel() const { return tree_data_->max_wlevel_; }
+  //////////////////////////////////////////////////////////////////////////////
+private:
   //////////////////////////////////////////////////////////////////////////////
   // private methods
   //////////////////////////////////////////////////////////////////////////////
@@ -193,7 +198,8 @@ class ClusterTree {
       // split index set and set sons bounding boxes
       split(P, indices_, bb_, sons_[0], sons_[1]);
       // let recursion handle the rest
-      for (auto i = 0; i < sons_.size(); ++i) sons_[i].computeClusters(P);
+      for (auto i = 0; i < sons_.size(); ++i)
+        sons_[i].computeClusters(P);
     }
     return;
   }
@@ -204,7 +210,8 @@ class ClusterTree {
     Eigen::Matrix<T, Dim, 3u> bbmat = Eigen::Matrix<T, Dim, 3u>::Zero();
     if (sons_.size()) {
       // assert that all sons have fitted bb's
-      for (auto i = 0; i < sons_.size(); ++i) sons_[i].shrinkToFit(P);
+      for (auto i = 0; i < sons_.size(); ++i)
+        sons_[i].shrinkToFit(P);
       // now update own bb
       // we need a son with indices to get a first bb
       for (auto i = 0; i < sons_.size(); ++i)
@@ -253,10 +260,10 @@ class ClusterTree {
   Eigen::Matrix<T, Dim, 3u> bb_;
   std::vector<unsigned int> indices_;
   std::vector<ClusterTree> sons_;
-  std::shared_ptr<TreeData> tree_data_;
+  std::shared_ptr<ClusterTreeData> tree_data_;
   unsigned int level_;
   unsigned int wlevel_;
   unsigned int id_;
-};  // namespace FMCA
-}  // namespace FMCA
+}; // namespace FMCA
+} // namespace FMCA
 #endif
