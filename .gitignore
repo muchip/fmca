@@ -1,1 +1,3 @@
-*.vtk
+.DS_Store
+*.o
+*.out
