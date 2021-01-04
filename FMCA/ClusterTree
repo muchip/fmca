@@ -18,6 +18,7 @@
 
 #include <Eigen/Dense>
 
+#include "src/util/Macros.h"
 #include "src/ClusterTree/ClusterTree.h"
 
 #endif

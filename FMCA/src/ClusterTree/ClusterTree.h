@@ -14,8 +14,6 @@
 
 namespace FMCA {
 
-#define FMCA_BBOX_THREASHOLD 5e-2
-
 namespace ClusterSplitter {
 
 template <typename T, unsigned int Dim>
@@ -44,23 +42,48 @@ struct GeometricBisection {
   }
 };
 
-#if 0
-struct CardinalityBisection {
-  Eigen::Matrix<T, Dim, 3u> operator()(
-      const Eigen::Matrix<T, Dim, Eigen::Dynamic> &P,
-      const std::vector<unsigned int> &indices, Eigen::Matrix<T, Dim, 3u> &bb,
-      bool index) const {
-    unsigned int longest;
-    bb.col(2).maxCoeff(&longest);
-    bb(longest, 2) *= 0.5;
-    if (index == false)
-      bb(longest, 1) -= bb(longest, 2);
-    else
-      bb(longest, 0) += bb(longest, 2);
-    return bb;
+template <typename Derived>
+struct CoordinateCompare {
+  const typename Eigen::MatrixBase<Derived> &P_;
+  Eigen::Index cmp_;
+  CoordinateCompare(const Eigen::MatrixBase<Derived> &P, Eigen::Index cmp)
+      : P_(P), cmp_(cmp){};
+
+  bool operator()(unsigned int i, unsigned int &j) {
+    return P_(cmp_, i) < P_(cmp_, j);
   }
 };
-#endif
+
+template <typename T, unsigned int Dim>
+struct CardinalityBisection {
+  template <class ClusterTree>
+  void operator()(const Eigen::Matrix<T, Dim, Eigen::Dynamic> &P,
+                  const std::vector<unsigned int> &indices,
+                  const Eigen::Matrix<T, Dim, 3u> &bb, ClusterTree &c1,
+                  ClusterTree &c2) const {
+    std::vector<unsigned int> sorted_indices;
+    unsigned int longest;
+    // assign bounding boxes by longest edge division
+    bb.col(2).maxCoeff(&longest);
+    sorted_indices = indices;
+    // sort father index set with respect to the longest edge component
+    std::sort(
+        sorted_indices.begin(), sorted_indices.end(),
+        CoordinateCompare<Eigen::Matrix<T, Dim, Eigen::Dynamic>>(P, longest));
+    c1.indices_ = std::vector<unsigned int>(
+        sorted_indices.begin(),
+        sorted_indices.begin() + sorted_indices.size() / 2);
+    c2.indices_ = std::vector<unsigned int>(
+        sorted_indices.begin() + sorted_indices.size() / 2,
+        sorted_indices.end());
+    c1.bb_ = bb;
+    c1.bb_(longest, 1) = P(longest, c1.indices_.back());
+    c1.bb_(longest, 2) = c1.bb_(longest, 1) - c1.bb_(longest, 0);
+    c2.bb_ = bb;
+    c2.bb_(longest, 0) = P(longest, c2.indices_.front());
+    c2.bb_(longest, 2) = c2.bb_(longest, 1) - c2.bb_(longest, 0);
+  }
+};
 
 }  // namespace ClusterSplitter
 
@@ -76,7 +99,7 @@ struct TreeData {
  *         afterwards always be recombined into an 2^n tree.
  */
 template <typename T, unsigned int Dim, unsigned int MinClusterSize,
-          typename Splitter = ClusterSplitter::GeometricBisection<T, Dim>>
+          typename Splitter = ClusterSplitter::CardinalityBisection<T, Dim>>
 class ClusterTree {
   friend Splitter;
 
