@@ -90,7 +90,7 @@ void plotPoints(const std::string& fileName,
   return;
 }
 
-using ClusterT = FMCA::ClusterTree<double, DIM, 100, 1>;
+using ClusterT = FMCA::ClusterTree<double, DIM, 100>;
 
 int main() {
   srand(0);
