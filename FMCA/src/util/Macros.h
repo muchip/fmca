@@ -15,7 +15,8 @@
 namespace FMCA {
 
 #define FMCA_BBOX_THREASHOLD 5e-2
-
+  
+typedef unsigned int IndexType;
 }
 
 #endif

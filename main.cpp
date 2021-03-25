@@ -3,7 +3,7 @@
 
 #include "FMCA/BlockClusterTree"
 #include "FMCA/ClusterTree"
-
+#include "FMCA/src/util/MultiIndexSet.h"
 #include "util/tictoc.hpp"
 #define NPTS 1e5
 #define DIM 3
@@ -46,15 +46,13 @@ void plotBoxes(const std::string &fileName,
   myfile << "CELLS " << bb.size() << " " << 9 * bb.size() << "\n";
   for (auto i = 0; i < bb.size(); ++i) {
     myfile << 8;
-    for (auto j = 0; j < 8; ++j)
-      myfile << " " << int(8 * i + j);
+    for (auto j = 0; j < 8; ++j) myfile << " " << int(8 * i + j);
     myfile << "\n";
   }
   myfile << "\n";
 
   myfile << "CELL_TYPES " << bb.size() << "\n";
-  for (auto i = 0; i < bb.size(); ++i)
-    myfile << int(11) << "\n";
+  for (auto i = 0; i < bb.size(); ++i) myfile << int(11) << "\n";
   myfile << "\n";
 
   myfile.close();
@@ -82,15 +80,13 @@ void plotPoints(const std::string &fileName,
   myfile << "CELLS " << P.cols() << " " << (nvertices + 1) * P.cols() << "\n";
   for (auto i = 0; i < P.cols(); ++i) {
     myfile << int(nvertices);
-    for (auto j = 0; j < nvertices; ++j)
-      myfile << " " << int(i);
+    for (auto j = 0; j < nvertices; ++j) myfile << " " << int(i);
     myfile << "\n";
   }
   myfile << "\n";
 
   myfile << "CELL_TYPES " << P.cols() << "\n";
-  for (auto i = 0; i < P.cols(); ++i)
-    myfile << int(1) << "\n";
+  for (auto i = 0; i < P.cols(); ++i) myfile << int(1) << "\n";
   myfile << "\n";
   myfile.close();
   return;
@@ -103,19 +99,24 @@ int main() {
   Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, NPTS);
   // P.row(2) *= 0;
   Eigen::VectorXd nrms = P.colwise().norm();
-  for (auto i = 0; i < P.cols(); ++i)
-    P.col(i) *= 1 / nrms(i);
+  for (auto i = 0; i < P.cols(); ++i) P.col(i) *= 1 / nrms(i);
   tictoc T;
   T.tic();
   ClusterT CT(P);
   T.toc("set up ct: ");
-  FMCA::BlockClusterTree<ClusterT> BT(CT);
+  FMCA::MultiIndexSet<DIM, FMCA::IndexSetType::TensorProduct> MIset;
+  MIset.init_MultiIndexSet(3);
+  auto set = MIset.get_MultiIndexSet();
+  for(auto i : set) {
+    for(auto j : i) std::cout << j <<" ";
+    std::cout << std::endl;
+  }
+  // FMCA::BlockClusterTree<ClusterT> BT(CT);
   std::vector<std::vector<int>> tree;
   CT.exportTreeStructure(tree);
   for (auto i = 0; i < tree.size(); ++i) {
     int numInd = 0;
-    for (auto j = 0; j < tree[i].size(); ++j)
-      numInd += tree[i][j];
+    for (auto j = 0; j < tree[i].size(); ++j) numInd += tree[i][j];
     std::cout << i << ") " << tree[i].size() << " " << numInd << "\n";
   }
   std::vector<ClusterT *> leafs;
