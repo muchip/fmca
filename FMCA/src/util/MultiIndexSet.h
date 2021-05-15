@@ -24,30 +24,27 @@ namespace FMCA {
 
 enum IndexSetType { TotalDegree, TensorProduct };
 
-template <IndexSetType T>
-struct IndexSetCriterion {};
+template <IndexSetType T> struct IndexSetCriterion {};
 
-template <>
-struct IndexSetCriterion<TotalDegree> {
+template <> struct IndexSetCriterion<TotalDegree> {
   IndexSetCriterion(){};
   IndexSetCriterion(IndexType max_degree) : max_degree_(max_degree) {}
-  template <typename T>
-  bool operator()(const T& index) {
+  template <typename T> bool operator()(const T &index) {
     IndexType sum = 0;
-    for (auto i : index) sum += i;
-    return sum < max_degree_;
+    for (auto i : index)
+      sum += i;
+    return sum <= max_degree_;
   }
   IndexType max_degree_;
 };
 
-template <>
-struct IndexSetCriterion<TensorProduct> {
+template <> struct IndexSetCriterion<TensorProduct> {
   IndexSetCriterion(){};
   IndexSetCriterion(IndexType max_degree) : max_degree_(max_degree) {}
-  template <typename T>
-  bool operator()(const T& index) {
+  template <typename T> bool operator()(const T &index) {
     IndexType max = 0;
-    for (auto i : index) max = max > i ? max : i;
+    for (auto i : index)
+      max = max > i ? max : i;
     return max <= max_degree_;
   }
   IndexType max_degree_;
@@ -56,11 +53,13 @@ struct IndexSetCriterion<TensorProduct> {
 /**
  *  \brief specialization for index sets with a general boolean criterion
  **/
-template <unsigned int Dim, IndexSetType T = TotalDegree>
-class MultiIndexSet {
- public:
+template <unsigned int Dim, IndexSetType T = TotalDegree> class MultiIndexSet {
+public:
   MultiIndexSet(){};
-  void init_MultiIndexSet(IndexType max_degree) {
+  MultiIndexSet(IndexType max_degree) { init(max_degree); }
+
+  void init(IndexType max_degree) {
+    max_degree_ = max_degree;
     is_element_.max_degree_ = max_degree;
     multi_index_set_.clear();
     std::array<IndexType, Dim> index;
@@ -74,12 +73,14 @@ class MultiIndexSet {
   }
 
   //////////////////////////////////////////////////////////////////////////////
-  const std::set<std::array<IndexType, Dim>>& get_MultiIndexSet() const {
+  IndexType max_degree() const { return max_degree; }
+
+  const std::set<std::array<IndexType, Dim>> &get_MultiIndexSet() const {
     return multi_index_set_;
   }
   //////////////////////////////////////////////////////////////////////////////
- private:
-  void addChildren(IndexType max_bit, std::array<IndexType, Dim>& index) {
+private:
+  void addChildren(IndexType max_bit, std::array<IndexType, Dim> &index) {
     // successively increase all entries in the current index
     for (auto i = max_bit; i < Dim; ++i) {
       index[i] += 1;
@@ -95,8 +96,9 @@ class MultiIndexSet {
   }
   std::set<std::array<IndexType, Dim>> multi_index_set_;
   IndexSetCriterion<T> is_element_;
+  IndexType max_degree_;
 };
 
-}  // namespace FMCA
+} // namespace FMCA
 
 #endif

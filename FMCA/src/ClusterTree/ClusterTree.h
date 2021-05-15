@@ -14,79 +14,8 @@
 
 namespace FMCA {
 
-namespace ClusterSplitter {
-
-template <typename T, unsigned int Dim> struct GeometricBisection {
-  template <class ClusterTree>
-  void operator()(const Eigen::Matrix<T, Dim, Eigen::Dynamic> &P,
-                  const std::vector<unsigned int> &indices,
-                  const Eigen::Matrix<T, Dim, 3u> &bb, ClusterTree &c1,
-                  ClusterTree &c2) const {
-    // assign bounding boxes by longest edge bisection
-    unsigned int longest;
-    bb.col(2).maxCoeff(&longest);
-    c1.bb_ = bb;
-    c1.bb_(longest, 2) *= 0.5;
-    c1.bb_(longest, 1) -= c1.bb_(longest, 2);
-    c2.bb_ = bb;
-    c2.bb_(longest, 2) *= 0.5;
-    c2.bb_(longest, 0) += c2.bb_(longest, 2);
-    // now split the index vector
-    for (auto i = 0; i < indices.size(); ++i)
-      if ((P.col(indices[i]).array() <= c1.bb_.col(1).array()).all() &&
-          (P.col(indices[i]).array() >= c1.bb_.col(0).array()).all())
-        c1.indices_.push_back(indices[i]);
-      else
-        c2.indices_.push_back(indices[i]);
-  }
-};
-
-template <typename Derived> struct CoordinateCompare {
-  const typename Eigen::MatrixBase<Derived> &P_;
-  Eigen::Index cmp_;
-  CoordinateCompare(const Eigen::MatrixBase<Derived> &P, Eigen::Index cmp)
-      : P_(P), cmp_(cmp){};
-
-  bool operator()(unsigned int i, unsigned int &j) {
-    return P_(cmp_, i) < P_(cmp_, j);
-  }
-};
-
-template <typename T, unsigned int Dim> struct CardinalityBisection {
-  template <class ClusterTree>
-  void operator()(const Eigen::Matrix<T, Dim, Eigen::Dynamic> &P,
-                  const std::vector<unsigned int> &indices,
-                  const Eigen::Matrix<T, Dim, 3u> &bb, ClusterTree &c1,
-                  ClusterTree &c2) const {
-    std::vector<unsigned int> sorted_indices;
-    unsigned int longest;
-    // assign bounding boxes by longest edge division
-    bb.col(2).maxCoeff(&longest);
-    sorted_indices = indices;
-    // sort father index set with respect to the longest edge component
-    std::sort(
-        sorted_indices.begin(), sorted_indices.end(),
-        CoordinateCompare<Eigen::Matrix<T, Dim, Eigen::Dynamic>>(P, longest));
-    c1.indices_ = std::vector<unsigned int>(sorted_indices.begin(),
-                                            sorted_indices.begin() +
-                                                sorted_indices.size() / 2);
-    c2.indices_ = std::vector<unsigned int>(sorted_indices.begin() +
-                                                sorted_indices.size() / 2,
-                                            sorted_indices.end());
-    c1.bb_ = bb;
-    c1.bb_(longest, 1) = P(longest, c1.indices_.back());
-    c1.bb_(longest, 2) = c1.bb_(longest, 1) - c1.bb_(longest, 0);
-    c2.bb_ = bb;
-    c2.bb_(longest, 0) = P(longest, c2.indices_.front());
-    c2.bb_(longest, 2) = c2.bb_(longest, 1) - c2.bb_(longest, 0);
-  }
-};
-
-} // namespace ClusterSplitter
-
 struct ClusterTreeData {
-  double geometry_bb_;
-  unsigned int max_wlevel_;
+  double geometry_diam_;
 };
 
 /**
@@ -101,6 +30,8 @@ class ClusterTree {
   friend Splitter;
 
 public:
+  typedef T value_type;
+  enum { dimension = Dim };
   //////////////////////////////////////////////////////////////////////////////
   // constructors
   //////////////////////////////////////////////////////////////////////////////
@@ -113,7 +44,7 @@ public:
     // set up bounding box for root node
     initBoundingBox(P);
     tree_data_ = std::make_shared<ClusterTreeData>();
-    tree_data_->geometry_bb_ = bb_.col(2).norm();
+    tree_data_->geometry_diam_ = bb_.col(2).norm();
     level_ = 0;
     id_ = 0;
     indices_.resize(P.cols());
@@ -144,7 +75,21 @@ public:
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
-  const std::vector<unsigned int> &get_indices() { return indices_; }
+  // getter
+  //////////////////////////////////////////////////////////////////////////////
+  const ClusterTree *get_cluster() const { return this; }
+
+  const Eigen::Matrix<T, Dim, 3u> &get_bb() const { return bb_; }
+
+  const std::vector<unsigned int> &get_indices() const { return indices_; }
+
+  const std::vector<ClusterTree> &get_sons() const { return sons_; }
+
+  const ClusterTreeData &get_tree_data() const { return *tree_data_; }
+
+  unsigned int get_level() const { return level_; }
+
+  unsigned int get_id() const { return id_; }
   //////////////////////////////////////////////////////////////////////////////
   void exportTreeStructure(std::vector<std::vector<int>> &tree) {
     if (level_ >= tree.size())
@@ -161,8 +106,6 @@ public:
       for (auto i = 0; i < sons_.size(); ++i)
         sons_[i].getLeafIterator(leafs);
   }
-  //////////////////////////////////////////////////////////////////////////////
-  unsigned int get_max_wlevel() const { return tree_data_->max_wlevel_; }
   //////////////////////////////////////////////////////////////////////////////
 private:
   //////////////////////////////////////////////////////////////////////////////
@@ -249,8 +192,6 @@ private:
       }
     }
     bbmat.col(2) = bbmat.col(1) - bbmat.col(0);
-    int wlevel = -log(bbmat.col(2).norm() / tree_data_->geometry_bb_) / log(2);
-    wlevel_ = wlevel > 0 ? wlevel : 0;
     bb_ = bbmat;
     return;
   }
@@ -262,7 +203,6 @@ private:
   std::vector<ClusterTree> sons_;
   std::shared_ptr<ClusterTreeData> tree_data_;
   unsigned int level_;
-  unsigned int wlevel_;
   unsigned int id_;
 }; // namespace FMCA
 } // namespace FMCA
