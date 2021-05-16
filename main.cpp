@@ -7,10 +7,10 @@
 #include "FMCA/src/util/IO.h"
 #include "util/tictoc.hpp"
 
-#define NPTS 1e2
+#define NPTS 5e1
 #define DIM 3
 
-using ClusterT = FMCA::ClusterTree<double, DIM, 10>;
+using ClusterT = FMCA::ClusterTree<double, DIM, 8>;
 
 int main() {
 
@@ -23,9 +23,9 @@ int main() {
   tictoc T;
   T.tic();
   ClusterT CT(P);
-  FMCA::SampletTree<ClusterT> ST(P, CT, 2);
+  FMCA::SampletTree<ClusterT> ST(P, CT, 1);
   T.toc("set up ct: ");
-  std::vector<std::vector<int>> tree;
+  std::vector<std::vector<FMCA::IndexType>> tree;
   CT.exportTreeStructure(tree);
   for (auto i = 0; i < tree.size(); ++i) {
     int numInd = 0;

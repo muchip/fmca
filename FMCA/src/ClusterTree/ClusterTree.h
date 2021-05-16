@@ -14,8 +14,8 @@
 
 namespace FMCA {
 
-struct ClusterTreeData {
-  double geometry_diam_;
+template <typename ValueType> struct ClusterTreeData {
+  ValueType geometry_diam_;
 };
 
 /**
@@ -24,26 +24,29 @@ struct ClusterTreeData {
  *         arbitrary dimensions. We always use a binary tree which can
  *         afterwards always be recombined into an 2^n tree.
  */
-template <typename T, unsigned int Dim, unsigned int MinClusterSize,
-          typename Splitter = ClusterSplitter::CardinalityBisection<T, Dim>>
+template <typename ValueType, IndexType Dim, IndexType MinClusterSize,
+          typename Splitter =
+              ClusterSplitter::CardinalityBisection<ValueType, Dim>>
 class ClusterTree {
   friend Splitter;
 
 public:
-  typedef T value_type;
+  typedef ValueType value_type;
   enum { dimension = Dim };
   //////////////////////////////////////////////////////////////////////////////
   // constructors
   //////////////////////////////////////////////////////////////////////////////
   ClusterTree() {}
-  ClusterTree(const Eigen::Matrix<T, Dim, Eigen::Dynamic> &P) { init(P); }
+  ClusterTree(const Eigen::Matrix<ValueType, Dim, Eigen::Dynamic> &P) {
+    init(P);
+  }
   //////////////////////////////////////////////////////////////////////////////
   // init
   //////////////////////////////////////////////////////////////////////////////
-  void init(const Eigen::Matrix<T, Dim, Eigen::Dynamic> &P) {
+  void init(const Eigen::Matrix<ValueType, Dim, Eigen::Dynamic> &P) {
     // set up bounding box for root node
     initBoundingBox(P);
-    tree_data_ = std::make_shared<ClusterTreeData>();
+    tree_data_ = std::make_shared<ClusterTreeData<ValueType>>();
     tree_data_->geometry_diam_ = bb_.col(2).norm();
     level_ = 0;
     id_ = 0;
@@ -55,8 +58,8 @@ public:
   //////////////////////////////////////////////////////////////////////////////
   // get a vector with the bounding boxes on a certain level
   //////////////////////////////////////////////////////////////////////////////
-  void get_BboxVector(std::vector<Eigen::Matrix<T, Dim, 3u>> *bbvec,
-                      unsigned int level = 0) {
+  void get_BboxVector(std::vector<Eigen::Matrix<ValueType, Dim, 3u>> *bbvec,
+                      IndexType level = 0) {
     if (sons_.size() && level_ < level)
       for (auto i = 0; i < sons_.size(); ++i)
         sons_[i].get_BboxVector(bbvec, level);
@@ -66,7 +69,8 @@ public:
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
-  void get_BboxVectorLeafs(std::vector<Eigen::Matrix<T, Dim, 3u>> *bbvec) {
+  void
+  get_BboxVectorLeafs(std::vector<Eigen::Matrix<ValueType, Dim, 3u>> *bbvec) {
     if (sons_.size())
       for (auto i = 0; i < sons_.size(); ++i)
         sons_[i].get_BboxVectorLeafs(bbvec);
@@ -79,19 +83,21 @@ public:
   //////////////////////////////////////////////////////////////////////////////
   const ClusterTree *get_cluster() const { return this; }
 
-  const Eigen::Matrix<T, Dim, 3u> &get_bb() const { return bb_; }
+  const Eigen::Matrix<ValueType, Dim, 3u> &get_bb() const { return bb_; }
 
-  const std::vector<unsigned int> &get_indices() const { return indices_; }
+  const std::vector<IndexType> &get_indices() const { return indices_; }
 
   const std::vector<ClusterTree> &get_sons() const { return sons_; }
 
-  const ClusterTreeData &get_tree_data() const { return *tree_data_; }
+  const ClusterTreeData<ValueType> &get_tree_data() const {
+    return *tree_data_;
+  }
 
-  unsigned int get_level() const { return level_; }
+  IndexType get_level() const { return level_; }
 
-  unsigned int get_id() const { return id_; }
+  IndexType get_id() const { return id_; }
   //////////////////////////////////////////////////////////////////////////////
-  void exportTreeStructure(std::vector<std::vector<int>> &tree) {
+  void exportTreeStructure(std::vector<std::vector<IndexType>> &tree) {
     if (level_ >= tree.size())
       tree.resize(level_ + 1);
     tree[level_].push_back(indices_.size());
@@ -111,7 +117,7 @@ private:
   //////////////////////////////////////////////////////////////////////////////
   // private methods
   //////////////////////////////////////////////////////////////////////////////
-  void initBoundingBox(const Eigen::Matrix<T, Dim, Eigen::Dynamic> &P) {
+  void initBoundingBox(const Eigen::Matrix<ValueType, Dim, Eigen::Dynamic> &P) {
     for (auto i = 0; i < Dim; ++i) {
       bb_(i, 0) = P.row(i).minCoeff();
       bb_(i, 1) = P.row(i).maxCoeff();
@@ -126,7 +132,7 @@ private:
   }
 
   // recursively perform clustering on sons
-  void computeClusters(const Eigen::Matrix<T, Dim, Eigen::Dynamic> &P) {
+  void computeClusters(const Eigen::Matrix<ValueType, Dim, Eigen::Dynamic> &P) {
     Splitter split;
     if (indices_.size() > MinClusterSize) {
       sons_.resize(2);
@@ -149,8 +155,9 @@ private:
   //////////////////////////////////////////////////////////////////////////////
   // make bounding boxes tight
   //////////////////////////////////////////////////////////////////////////////
-  void shrinkToFit(const Eigen::Matrix<T, Dim, Eigen::Dynamic> &P) {
-    Eigen::Matrix<T, Dim, 3u> bbmat = Eigen::Matrix<T, Dim, 3u>::Zero();
+  void shrinkToFit(const Eigen::Matrix<ValueType, Dim, Eigen::Dynamic> &P) {
+    Eigen::Matrix<ValueType, Dim, 3u> bbmat =
+        Eigen::Matrix<ValueType, Dim, 3u>::Zero();
     if (sons_.size()) {
       // assert that all sons have fitted bb's
       for (auto i = 0; i < sons_.size(); ++i)
@@ -198,12 +205,12 @@ private:
   //////////////////////////////////////////////////////////////////////////////
   // private member variables
   //////////////////////////////////////////////////////////////////////////////
-  Eigen::Matrix<T, Dim, 3u> bb_;
-  std::vector<unsigned int> indices_;
+  Eigen::Matrix<ValueType, Dim, 3u> bb_;
+  std::vector<IndexType> indices_;
   std::vector<ClusterTree> sons_;
-  std::shared_ptr<ClusterTreeData> tree_data_;
-  unsigned int level_;
-  unsigned int id_;
+  std::shared_ptr<ClusterTreeData<ValueType>> tree_data_;
+  IndexType level_;
+  IndexType id_;
 }; // namespace FMCA
 } // namespace FMCA
 #endif

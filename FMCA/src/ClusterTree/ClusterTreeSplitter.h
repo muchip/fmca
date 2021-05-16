@@ -20,14 +20,14 @@ namespace FMCA {
  */
 namespace ClusterSplitter {
 
-template <typename T, unsigned int Dim> struct GeometricBisection {
+template <typename ValueType, IndexType Dim> struct GeometricBisection {
   template <class ClusterTree>
-  void operator()(const Eigen::Matrix<T, Dim, Eigen::Dynamic> &P,
-                  const std::vector<unsigned int> &indices,
-                  const Eigen::Matrix<T, Dim, 3u> &bb, ClusterTree &c1,
+  void operator()(const Eigen::Matrix<ValueType, Dim, Eigen::Dynamic> &P,
+                  const std::vector<IndexType> &indices,
+                  const Eigen::Matrix<ValueType, Dim, 3u> &bb, ClusterTree &c1,
                   ClusterTree &c2) const {
     // assign bounding boxes by longest edge bisection
-    unsigned int longest;
+    IndexType longest;
     bb.col(2).maxCoeff(&longest);
     c1.bb_ = bb;
     c1.bb_(longest, 2) *= 0.5;
@@ -51,32 +51,32 @@ template <typename Derived> struct CoordinateCompare {
   CoordinateCompare(const Eigen::MatrixBase<Derived> &P, Eigen::Index cmp)
       : P_(P), cmp_(cmp){};
 
-  bool operator()(unsigned int i, unsigned int &j) {
+  bool operator()(IndexType i, IndexType &j) {
     return P_(cmp_, i) < P_(cmp_, j);
   }
 };
 
-template <typename T, unsigned int Dim> struct CardinalityBisection {
+template <typename ValueType, IndexType Dim> struct CardinalityBisection {
   template <class ClusterTree>
-  void operator()(const Eigen::Matrix<T, Dim, Eigen::Dynamic> &P,
-                  const std::vector<unsigned int> &indices,
-                  const Eigen::Matrix<T, Dim, 3u> &bb, ClusterTree &c1,
+  void operator()(const Eigen::Matrix<ValueType, Dim, Eigen::Dynamic> &P,
+                  const std::vector<IndexType> &indices,
+                  const Eigen::Matrix<ValueType, Dim, 3u> &bb, ClusterTree &c1,
                   ClusterTree &c2) const {
-    std::vector<unsigned int> sorted_indices;
-    unsigned int longest;
+    std::vector<IndexType> sorted_indices;
+    IndexType longest;
     // assign bounding boxes by longest edge division
     bb.col(2).maxCoeff(&longest);
     sorted_indices = indices;
     // sort father index set with respect to the longest edge component
-    std::sort(
-        sorted_indices.begin(), sorted_indices.end(),
-        CoordinateCompare<Eigen::Matrix<T, Dim, Eigen::Dynamic>>(P, longest));
-    c1.indices_ = std::vector<unsigned int>(sorted_indices.begin(),
-                                            sorted_indices.begin() +
-                                                sorted_indices.size() / 2);
-    c2.indices_ = std::vector<unsigned int>(sorted_indices.begin() +
-                                                sorted_indices.size() / 2,
-                                            sorted_indices.end());
+    std::sort(sorted_indices.begin(), sorted_indices.end(),
+              CoordinateCompare<Eigen::Matrix<ValueType, Dim, Eigen::Dynamic>>(
+                  P, longest));
+    c1.indices_ = std::vector<IndexType>(sorted_indices.begin(),
+                                         sorted_indices.begin() +
+                                             sorted_indices.size() / 2);
+    c2.indices_ = std::vector<IndexType>(sorted_indices.begin() +
+                                             sorted_indices.size() / 2,
+                                         sorted_indices.end());
     c1.bb_ = bb;
     c1.bb_(longest, 1) = P(longest, c1.indices_.back());
     c1.bb_(longest, 2) = c1.bb_(longest, 1) - c1.bb_(longest, 0);
