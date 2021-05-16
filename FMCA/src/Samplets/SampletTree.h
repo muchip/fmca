@@ -91,27 +91,32 @@ private:
     wlevel_ = wlevel > 0 ? wlevel : 0;
     if (CT.get_sons().size()) {
       sons_.resize(CT.get_sons().size());
-
+      IndexType offset = 0;
       for (auto i = 0; i != CT.get_sons().size(); ++i) {
         sons_[i].tree_data_ = tree_data_;
         sons_[i].computeSamplets(P, CT.get_sons()[i], dtilde);
+        // the son now has a moment and filter coefficients, lets grep them...
+        mom_buffer_.conservativeResize(sons_[i].mom_buffer_.rows(),
+                                       offset + sons_[i].mom_buffer_.cols());
+        mom_buffer_.block(0, offset, sons_[i].mom_buffer_.rows(),
+                          sons_[i].mom_buffer_.cols()) = sons_[i].mom_buffer_;
+        offset += sons_[i].mom_buffer_.cols();
+        // clear moment buffer of the children
+        sons_[i].mom_buffer_.resize(0, 0);
       }
-
-      // here we should now compute the Cluster basis from the children's
-      // cluster bases
     } else {
       // compute cluster basis of the leaf
       mom_buffer_ = momentComputer<ClusterTree>(P, *cluster_, tree_data_->idcs);
-      eigen_assert(mom_buffer_.cols() >= mom_buffer_.rows() &&
-                   "no wavelets in cluster");
-      Eigen::HouseholderQR<eigenMatrix> qr(mom_buffer_.transpose());
-      Q_ = qr.householderQ();
-      mom_buffer_ =
-          qr.matrixQR()
-              .block(0, 0, tree_data_->m_dtilde_, tree_data_->m_dtilde_)
-              .template triangularView<Eigen::Upper>()
-              .transpose();
     }
+    eigen_assert(mom_buffer_.cols() >= mom_buffer_.rows() &&
+                 "no wavelets in cluster");
+    Eigen::HouseholderQR<eigenMatrix> qr(mom_buffer_.transpose());
+    Q_ = qr.householderQ();
+    // this is the moment for the dad cluster
+    mom_buffer_ = qr.matrixQR()
+                      .block(0, 0, tree_data_->m_dtilde_, tree_data_->m_dtilde_)
+                      .template triangularView<Eigen::Upper>()
+                      .transpose();
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
