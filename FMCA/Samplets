@@ -23,6 +23,7 @@
 #include "ClusterTree"
 
 #include "src/util/MultiIndexSet.h"
+#include "src/util/BinomialCoefficient.h"
 #include "src/Samplets/MomentComputer.h"
 #include "src/Samplets/SampletTree.h"
 

@@ -3,8 +3,8 @@
 
 #include "FMCA/BlockClusterTree"
 #include "FMCA/Samplets"
+#include "FMCA/src/util/BinomialCoefficient.h"
 #include "FMCA/src/util/IO.h"
-#include "FMCA/src/util/MultiIndexSet.h"
 #include "util/tictoc.hpp"
 
 #define NPTS 1e2
@@ -13,6 +13,7 @@
 using ClusterT = FMCA::ClusterTree<double, DIM, 10>;
 
 int main() {
+
   srand(0);
   Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, NPTS);
   // P.row(2) *= 0;

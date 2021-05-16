@@ -53,7 +53,7 @@ template <> struct IndexSetCriterion<TensorProduct> {
 /**
  *  \brief specialization for index sets with a general boolean criterion
  **/
-template <unsigned int Dim, IndexSetType T = TotalDegree> class MultiIndexSet {
+template <IndexType Dim, IndexSetType T = TotalDegree> class MultiIndexSet {
 public:
   MultiIndexSet(){};
   MultiIndexSet(IndexType max_degree) { init(max_degree); }

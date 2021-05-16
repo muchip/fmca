@@ -38,5 +38,35 @@ momentComputer(const Eigen::Matrix<typename ClusterTree::value_type,
   }
   return retval;
 }
+
+template <typename ClusterTree, typename Derived1, typename Derived2>
+Eigen::Matrix<typename ClusterTree::value_type, Eigen::Dynamic, Eigen::Dynamic>
+momentShifter(const Eigen::MatrixBase<Derived1> &Mom, const ClusterTree &CTdad,
+              const ClusterTree &CTson,
+              const MultiIndexSet<ClusterTree::dimension> &idcs,
+              const Eigen::MatrixBase<Derived2> &mult_coeffs) {
+  Eigen::Matrix<typename ClusterTree::value_type, Eigen::Dynamic,
+                Eigen::Dynamic>
+      retval(Mom.rows(), Mom.cols());
+  retval.setZero();
+  Eigen::VectorXd mp_dad =
+      0.5 * (CTdad.get_bb().col(0) + CTdad.get_bb().col(1));
+  Eigen::VectorXd mp_son =
+      0.5 * (CTson.get_bb().col(0) + CTson.get_bb().col(1));
+
+  unsigned int i = 0;
+  retval.setOnes();
+  for (auto j = 0; j < retval.rows(); ++j) {
+    i = 0;
+    for (auto it = idcs.get_MultiIndexSet().begin();
+         it != idcs.get_MultiIndexSet().end(); ++it) {
+      for (auto k = 0; k < ClusterTree::dimension; ++k)
+        retval(i, j) *= std::pow(P(k, CT.get_indices()[j]) - mp(k), (*it)[k]);
+      ++i;
+    }
+  }
+  return retval;
+}
+
 } // namespace FMCA
 #endif

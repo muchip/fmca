@@ -17,6 +17,7 @@ namespace FMCA {
 template <unsigned int Dim> struct SampletTreeData {
   unsigned int max_wlevel_ = 0;
   MultiIndexSet<Dim> idcs;
+  Eigen::MatrixXd multinomial_coefficients;
 };
 
 /**
@@ -56,6 +57,20 @@ public:
       std::cout << std::endl;
     }
     computeSamplets(P, CT, dtilde);
+    unsigned int i = 0;
+    unsigned int j = 0;
+    tree_data_->multinomial_coefficients.resize(set.size(), set.size());
+    for (auto alpha : set) {
+      for (auto beta : set) {
+        tree_data_->multinomial_coefficients(j, i) =
+            multinomialCoefficient<ClusterTree::dimension>(alpha, beta);
+        ++j;
+      }
+      ++i;
+      j = 0;
+    }
+    std::cout << tree_data_->multinomial_coefficients << std::endl;
+
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
@@ -98,6 +113,6 @@ private:
   std::shared_ptr<SampletTreeData<ClusterTree::dimension>> tree_data_;
   const ClusterTree *cluster_;
   unsigned int wlevel_;
-};
+}; // namespace FMCA
 } // namespace FMCA
 #endif
