@@ -16,6 +16,7 @@ namespace FMCA {
 
 template <typename ValueType, IndexType Dim> struct SampletTreeData {
   IndexType max_wlevel_ = 0;
+  IndexType m_dtilde_ = 0;
   MultiIndexSet<Dim> idcs;
   Eigen::Matrix<ValueType, Eigen::Dynamic, Eigen::Dynamic>
       multinomial_coefficients;
@@ -32,47 +33,44 @@ template <typename ValueType, IndexType Dim> struct SampletTreeData {
  *         pointers!
  */
 template <typename ClusterTree> class SampletTree {
-
 public:
+  typedef typename ClusterTree::value_type value_type;
+  enum { dimension = ClusterTree::dimension };
+  typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
+
   //////////////////////////////////////////////////////////////////////////////
   // constructors
   //////////////////////////////////////////////////////////////////////////////
   SampletTree() {}
-  SampletTree(const Eigen::Matrix<typename ClusterTree::value_type,
-                                  ClusterTree::dimension, Eigen::Dynamic> &P,
+  SampletTree(const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
               const ClusterTree &CT, IndexType dtilde = 1) {
     init(P, CT, dtilde);
   }
   //////////////////////////////////////////////////////////////////////////////
   // init
   //////////////////////////////////////////////////////////////////////////////
-  void init(const Eigen::Matrix<typename ClusterTree::value_type,
-                                ClusterTree::dimension, Eigen::Dynamic> &P,
+  void init(const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
             const ClusterTree &CT, IndexType dtilde = 1) {
-    tree_data_ =
-        std::make_shared<SampletTreeData<typename ClusterTree::value_type,
-                                         ClusterTree::dimension>>();
+    tree_data_ = std::make_shared<SampletTreeData<value_type, dimension>>();
     tree_data_->idcs.init(dtilde);
-    auto set = tree_data_->idcs.get_MultiIndexSet();
-    for (auto i : set) {
-      for (auto j : i)
-        std::cout << j << " ";
-      std::cout << std::endl;
-    }
-    IndexType i = 0;
-    IndexType j = 0;
-    tree_data_->multinomial_coefficients.resize(set.size(), set.size());
-    for (auto alpha : set) {
-      for (auto beta : set) {
-        tree_data_->multinomial_coefficients(j, i) =
-            multinomialCoefficient<ClusterTree::dimension>(alpha, beta);
-        ++j;
+    tree_data_->m_dtilde_ = tree_data_->idcs.get_MultiIndexSet().size();
+    {
+      // generate all possible multinomial coefficients from the set of
+      // multi indices
+      IndexType i = 0;
+      IndexType j = 0;
+      tree_data_->multinomial_coefficients.resize(tree_data_->m_dtilde_,
+                                                  tree_data_->m_dtilde_);
+      for (auto beta : tree_data_->idcs.get_MultiIndexSet()) {
+        for (auto alpha : tree_data_->idcs.get_MultiIndexSet()) {
+          tree_data_->multinomial_coefficients(j, i) =
+              multinomialCoefficient<ClusterTree::dimension>(alpha, beta);
+          ++j;
+        }
+        ++i;
+        j = 0;
       }
-      ++i;
-      j = 0;
     }
-    std::cout << tree_data_->multinomial_coefficients << std::endl;
-
     computeSamplets(P, CT, dtilde);
     return;
   }
@@ -83,10 +81,9 @@ private:
   //////////////////////////////////////////////////////////////////////////////
   // private methods
   //////////////////////////////////////////////////////////////////////////////
-  void computeSamplets(
-      const Eigen::Matrix<typename ClusterTree::value_type,
-                          ClusterTree::dimension, Eigen::Dynamic> &P,
-      const ClusterTree &CT, IndexType dtilde) {
+  void
+  computeSamplets(const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
+                  const ClusterTree &CT, IndexType dtilde) {
     cluster_ = &CT;
     int wlevel =
         -log(CT.get_bb().col(2).norm() / CT.get_tree_data().geometry_diam_) /
@@ -99,37 +96,21 @@ private:
         sons_[i].tree_data_ = tree_data_;
         sons_[i].computeSamplets(P, CT.get_sons()[i], dtilde);
       }
-      if (!sons_[0].sons_.size()) {
-        std::cout << "---------------------------\n";
-        Eigen::Matrix<typename ClusterTree::value_type, Eigen::Dynamic,
-                      Eigen::Dynamic>
-            Mom = momentComputer<ClusterTree>(P, *cluster_, tree_data_->idcs);
-        std::cout << 0.5 *
-                         (cluster_->get_bb().col(0) + cluster_->get_bb().col(1))
-                  << std::endl;
-        std::cout << Mom << std::endl << std::endl;
-        for (auto i = 0; i != CT.get_sons().size(); ++i) {
-          Mom = momentComputer<ClusterTree>(P, *(sons_[i].cluster_),
-                                            tree_data_->idcs);
-          momentShifter<ClusterTree>(
-              Mom,
-              0.5 * (cluster_->get_bb().col(0) + cluster_->get_bb().col(1)),
-              0.5 * (sons_[i].cluster_->get_bb().col(0) +
-                     sons_[i].cluster_->get_bb().col(1)),
-              tree_data_->idcs, tree_data_->multinomial_coefficients);
-          std::cout << 0.5 * (sons_[i].cluster_->get_bb().col(0) +
-                              sons_[i].cluster_->get_bb().col(1))
-                    << std::endl;
-          std::cout << Mom << std::endl << std::endl;
-        }
-      }
+
       // here we should now compute the Cluster basis from the children's
       // cluster bases
     } else {
       // compute cluster basis of the leaf
-      Eigen::Matrix<typename ClusterTree::value_type, Eigen::Dynamic,
-                    Eigen::Dynamic>
-          Mom = momentComputer<ClusterTree>(P, *cluster_, tree_data_->idcs);
+      mom_buffer_ = momentComputer<ClusterTree>(P, *cluster_, tree_data_->idcs);
+      eigen_assert(mom_buffer_.cols() >= mom_buffer_.rows() &&
+                   "no wavelets in cluster");
+      Eigen::HouseholderQR<eigenMatrix> qr(mom_buffer_.transpose());
+      Q_ = qr.householderQ();
+      mom_buffer_ =
+          qr.matrixQR()
+              .block(0, 0, tree_data_->m_dtilde_, tree_data_->m_dtilde_)
+              .template triangularView<Eigen::Upper>()
+              .transpose();
     }
     return;
   }
@@ -137,10 +118,10 @@ private:
   // private member variables
   //////////////////////////////////////////////////////////////////////////////
   std::vector<SampletTree> sons_;
-  std::shared_ptr<
-      SampletTreeData<typename ClusterTree::value_type, ClusterTree::dimension>>
-      tree_data_;
+  std::shared_ptr<SampletTreeData<value_type, dimension>> tree_data_;
   const ClusterTree *cluster_;
+  Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> mom_buffer_;
+  Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> Q_;
   IndexType wlevel_;
 };
 } // namespace FMCA

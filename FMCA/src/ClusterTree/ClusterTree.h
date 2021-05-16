@@ -149,6 +149,11 @@ private:
       // let recursion handle the rest
       for (auto i = 0; i < sons_.size(); ++i)
         sons_[i].computeClusters(P);
+      // make indices hierarchically
+      indices_.clear();
+      for (auto i = 0; i < sons_.size(); ++i)
+        indices_.insert(indices_.end(), sons_[i].indices_.begin(),
+                        sons_[i].indices_.end());
     }
     return;
   }

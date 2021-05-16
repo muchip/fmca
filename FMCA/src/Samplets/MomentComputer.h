@@ -13,7 +13,9 @@
 #define FMCA_SAMPLETS_MOMENTCOMPUTER_H_
 
 namespace FMCA {
-
+/**
+ *  \brief computes the moments for a given cluster
+ **/
 template <typename ClusterTree>
 Eigen::Matrix<typename ClusterTree::value_type, Eigen::Dynamic, Eigen::Dynamic>
 momentComputer(const Eigen::Matrix<typename ClusterTree::value_type,
@@ -29,68 +31,54 @@ momentComputer(const Eigen::Matrix<typename ClusterTree::value_type,
   retval.setOnes();
   for (auto j = 0; j < retval.cols(); ++j) {
     i = 0;
-    for (auto it = idcs.get_MultiIndexSet().begin();
-         it != idcs.get_MultiIndexSet().end(); ++it) {
+    for (auto it : idcs.get_MultiIndexSet()) {
       for (auto k = 0; k < ClusterTree::dimension; ++k)
-        retval(i, j) *= std::pow(P(k, CT.get_indices()[j]) - mp(k), (*it)[k]);
+        // make sure that 0^0 = 1
+        if (it[k])
+          retval(i, j) *= std::pow(P(k, CT.get_indices()[j]) - mp(k), it[k]);
       ++i;
     }
   }
   return retval;
 }
 
-template <typename ClusterTree, typename Derived1, typename Derived2>
+/**
+ *  \brief computes the transformation matrix from the son cluster moments
+ *         to the dad cluster moments.
+ **/
+template <typename ClusterTree>
 Eigen::Matrix<typename ClusterTree::value_type, Eigen::Dynamic, Eigen::Dynamic>
-momentShifter(const Eigen::MatrixBase<Derived1> &Mom,
-              const Eigen::Matrix<typename ClusterTree::value_type,
-                                  ClusterTree::dimension, 1> &mp_dad,
-              const Eigen::Matrix<typename ClusterTree::value_type,
-                                  ClusterTree::dimension, 1> &mp_son,
-              const MultiIndexSet<ClusterTree::dimension> &idcs,
-              const Eigen::MatrixBase<Derived2> &mult_coeffs) {
+momentShifter(
+    const Eigen::Matrix<typename ClusterTree::value_type,
+                        ClusterTree::dimension, 1> &shift,
+    const MultiIndexSet<ClusterTree::dimension> &idcs,
+    const Eigen::Matrix<typename ClusterTree::value_type, Eigen::Dynamic,
+                        Eigen::Dynamic> &mult_coeffs) {
   Eigen::Matrix<typename ClusterTree::value_type, Eigen::Dynamic,
                 Eigen::Dynamic>
-      retval(Mom.rows(), Mom.cols());
-  retval.setZero();
-  Eigen::Matrix<typename ClusterTree::value_type, ClusterTree::dimension, 1>
-      mp_shift = mp_son - mp_dad;
-  if (mp_shift.norm() < FMCA_ZERO_TOLERANCE) {
-    retval = Mom;
+      retval = mult_coeffs;
+  if (shift.norm() < FMCA_ZERO_TOLERANCE) {
     return retval;
   }
   IndexType i = 0;
   IndexType j = 0;
   typename ClusterTree::value_type weight;
-  typename ClusterTree::value_type exponent;
-  typename ClusterTree::value_type base;
-  retval.setZero();
   for (auto it1 : idcs.get_MultiIndexSet()) {
     j = 0;
     for (auto it2 : idcs.get_MultiIndexSet()) {
       // check if the multinomial coefficient is non-zero
-      if (mult_coeffs(j, i)) {
-        weight = mult_coeffs(j, i);
-        for (auto k = 0; k < mp_shift.size(); ++k) {
-          base = mp_shift(k);
-          exponent = it1[k] - it2[k];
-          if (abs(base) < FMCA_ZERO_TOLERANCE) {
-            if (abs(exponent) > FMCA_ZERO_TOLERANCE) {
-              weight = 0;
-              break;
-            }
-          } else
-            weight *= std::pow(base, exponent);
-        }
-        retval.row(i) += weight * Mom.row(j);
+      if (retval(j, i)) {
+        for (auto k = 0; k < shift.size(); ++k)
+          // make sure that 0^0 = 1
+          if (it2[k] - it1[k])
+            retval(j, i) *= std::pow(shift(k), it2[k] - it1[k]);
       }
       ++j;
-      if (j > i)
-        break;
     }
     ++i;
   }
   return retval;
-} // namespace FMCA
+}
 
 } // namespace FMCA
 #endif
