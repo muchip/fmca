@@ -1,5 +1,6 @@
 #include <Eigen/Dense>
 #include <fstream>
+#include <functional>
 
 #include "FMCA/BlockClusterTree"
 #include "FMCA/Samplets"
@@ -7,10 +8,10 @@
 #include "FMCA/src/util/IO.h"
 #include "util/tictoc.hpp"
 
-#define NPTS 2e1
+#define NPTS 1e6
 #define DIM 3
 
-using ClusterT = FMCA::ClusterTree<double, DIM, 4>;
+using ClusterT = FMCA::ClusterTree<double, DIM, 10>;
 
 int main() {
 
@@ -44,10 +45,13 @@ int main() {
     CT.get_BboxVector(&bbvec, level);
     FMCA::IO::plotBoxes("boxes" + std::to_string(level) + ".vtk", bbvec);
   }
+  std::function<double(const Eigen::VectorXd &)> fun =
+      [](const Eigen::VectorXd &x) { return x(0) * x(0) + x(1) * x(2); };
+  auto fdata = FMCA::functionEvaluator<ClusterT>(P, CT, fun);
   std::vector<Eigen::Matrix3d> bbvec;
   CT.get_BboxVectorLeafs(&bbvec);
   FMCA::IO::plotBoxes("boxesLeafs.vtk", bbvec);
-  FMCA::IO::plotPoints("points.vtk", P);
+  FMCA::IO::plotPoints<ClusterT>("points.vtk", CT, P, fdata);
 
   return 0;
 }

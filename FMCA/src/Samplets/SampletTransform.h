@@ -11,7 +11,21 @@
 //
 #ifndef FMCA_SAMPLETS_SAMPLETTRANSFORM_H_
 #define FMCA_SAMPLETS_SAMPLETTRANSFORM_H_
-
+namespace FMCA {
+template <typename ClusterTree, typename fhandle>
+Eigen::Matrix<typename ClusterTree::value_type, Eigen::Dynamic, 1>
+functionEvaluator(
+    const Eigen::Matrix<typename ClusterTree::value_type,
+                        ClusterTree::dimension, Eigen::Dynamic> &P,
+    const ClusterTree &CT, const fhandle &fun) {
+  Eigen::Matrix<typename ClusterTree::value_type, Eigen::Dynamic, 1> retval;
+  auto idcs = CT.get_indices();
+  retval.resize(idcs.size());
+  for (auto i = 0; i < idcs.size(); ++i)
+    retval(i) = fun(P.col(idcs[i]));
+  return retval;
+}
+#if 0
 template <typename SampletTree, typename fhandle>
 Eigen::Matrix<typename SampletTree::value_type, Eigen::Dynamic, 1>
 sampletTransform(const Eigen::Matrix<typename SampletTree::value_type,
@@ -20,5 +34,6 @@ sampletTransform(const Eigen::Matrix<typename SampletTree::value_type,
   Eigen::Matrix<typename SampletTree::value_type, Eigen::Dynamic, 1> retval(
       P.cols());
 }
-
+#endif
+} // namespace FMCA
 #endif

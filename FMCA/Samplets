@@ -27,5 +27,6 @@
 #include "src/util/BinomialCoefficient.h"
 #include "src/Samplets/MomentComputer.h"
 #include "src/Samplets/SampletTree.h"
+#include "src/Samplets/SampletTransform.h"
 
 #endif

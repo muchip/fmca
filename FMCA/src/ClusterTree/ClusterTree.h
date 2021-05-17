@@ -15,7 +15,8 @@
 namespace FMCA {
 
 template <typename ValueType> struct ClusterTreeData {
-  ValueType geometry_diam_;
+  ValueType geometry_diam_ = 0;
+  IndexType max_id_ = 0;
 };
 
 /**
@@ -47,13 +48,13 @@ public:
     // set up bounding box for root node
     initBoundingBox(P);
     tree_data_ = std::make_shared<ClusterTreeData<ValueType>>();
-    tree_data_->geometry_diam_ = bb_.col(2).norm();
     level_ = 0;
     id_ = 0;
     indices_.resize(P.cols());
     std::iota(std::begin(indices_), std::end(indices_), 0u);
     computeClusters(P);
     shrinkToFit(P);
+    tree_data_->geometry_diam_ = bb_.col(2).norm();
   }
   //////////////////////////////////////////////////////////////////////////////
   // get a vector with the bounding boxes on a certain level
@@ -140,7 +141,10 @@ private:
       // fashion)
       for (auto i = 0; i < 2; ++i) {
         sons_[i].level_ = level_ + 1;
-        sons_[i].id_ = 2 * id_ + i;
+        sons_[i].id_ = (1 << (level_ + 1)) + 2 * id_ + i;
+        tree_data_->max_id_ = tree_data_->max_id_ < sons_[i].id_
+                                  ? sons_[i].id_
+                                  : tree_data_->max_id_;
         sons_[i].bb_ = bb_;
         sons_[i].tree_data_ = tree_data_;
       }

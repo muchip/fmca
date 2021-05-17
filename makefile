@@ -8,7 +8,7 @@
 #
 PROG= a.out
 CPP = clang++ -fPIC -std=c++11
-CPPFLAGS = -g
+CPPFLAGS = -O3
 INCLUDE = /usr/include/eigen3
 LDFLAGS = -lm
 OBJECTS = main.o
