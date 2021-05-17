@@ -37,7 +37,7 @@ public:
   typedef typename ClusterTree::value_type value_type;
   enum { dimension = ClusterTree::dimension };
   typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
-
+  typedef Eigen::Matrix<value_type, Eigen::Dynamic, 1> eigenVector;
   //////////////////////////////////////////////////////////////////////////////
   // constructors
   //////////////////////////////////////////////////////////////////////////////
@@ -89,17 +89,26 @@ private:
         -log(CT.get_bb().col(2).norm() / CT.get_tree_data().geometry_diam_) /
         log(2);
     wlevel_ = wlevel > 0 ? wlevel : 0;
+    if (tree_data_->max_wlevel_ < wlevel_)
+      tree_data_->max_wlevel_ = wlevel_;
     if (CT.get_sons().size()) {
       sons_.resize(CT.get_sons().size());
       IndexType offset = 0;
       for (auto i = 0; i != CT.get_sons().size(); ++i) {
         sons_[i].tree_data_ = tree_data_;
         sons_[i].computeSamplets(P, CT.get_sons()[i], dtilde);
-        // the son now has a moment and filter coefficients, lets grep them...
+        // the son now has moments, lets grep them...
+        eigenVector shift =
+            0.5 *
+            (sons_[i].cluster_->get_bb().col(0) - cluster_->get_bb().col(0) +
+             sons_[i].cluster_->get_bb().col(1) - cluster_->get_bb().col(1));
+        eigenMatrix T = momentShifter<ClusterTree>(
+            shift, tree_data_->idcs, tree_data_->multinomial_coefficients);
         mom_buffer_.conservativeResize(sons_[i].mom_buffer_.rows(),
                                        offset + sons_[i].mom_buffer_.cols());
         mom_buffer_.block(0, offset, sons_[i].mom_buffer_.rows(),
-                          sons_[i].mom_buffer_.cols()) = sons_[i].mom_buffer_;
+                          sons_[i].mom_buffer_.cols()) =
+            T * sons_[i].mom_buffer_;
         offset += sons_[i].mom_buffer_.cols();
         // clear moment buffer of the children
         sons_[i].mom_buffer_.resize(0, 0);
@@ -108,15 +117,19 @@ private:
       // compute cluster basis of the leaf
       mom_buffer_ = momentComputer<ClusterTree>(P, *cluster_, tree_data_->idcs);
     }
-    eigen_assert(mom_buffer_.cols() >= mom_buffer_.rows() &&
-                 "no wavelets in cluster");
-    Eigen::HouseholderQR<eigenMatrix> qr(mom_buffer_.transpose());
-    Q_ = qr.householderQ();
-    // this is the moment for the dad cluster
-    mom_buffer_ = qr.matrixQR()
-                      .block(0, 0, tree_data_->m_dtilde_, tree_data_->m_dtilde_)
-                      .template triangularView<Eigen::Upper>()
-                      .transpose();
+    // are there wavelets?
+    if (mom_buffer_.rows() < mom_buffer_.cols()) {
+      Eigen::HouseholderQR<eigenMatrix> qr(mom_buffer_.transpose());
+      Q_ = qr.householderQ();
+      // this is the moment for the dad cluster
+      mom_buffer_ =
+          qr.matrixQR()
+              .block(0, 0, tree_data_->m_dtilde_, tree_data_->m_dtilde_)
+              .template triangularView<Eigen::Upper>()
+              .transpose();
+    } else {
+      Q_.resize(0, 0);
+    }
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
