@@ -1,17 +1,18 @@
 #include <Eigen/Dense>
 #include <fstream>
 #include <functional>
+#include <iomanip>
 
 #include "FMCA/BlockClusterTree"
 #include "FMCA/Samplets"
 #include "FMCA/src/util/BinomialCoefficient.h"
 #include "FMCA/src/util/IO.h"
+#include "print2file.hpp"
 #include "util/tictoc.hpp"
-
 #define NPTS 1e6
 #define DIM 3
 
-using ClusterT = FMCA::ClusterTree<double, DIM, 10>;
+using ClusterT = FMCA::ClusterTree<double, DIM, 100>;
 
 int main() {
 
@@ -19,12 +20,12 @@ int main() {
   Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, NPTS);
   // P.row(2) *= 0;
   Eigen::VectorXd nrms = P.colwise().norm();
-  for (auto i = 0; i < P.cols(); ++i)
-    P.col(i) *= 1 / nrms(i);
+  // for (auto i = 0; i < P.cols(); ++i)
+  //  P.col(i) *= 1 / nrms(i);
   tictoc T;
   T.tic();
   ClusterT CT(P);
-  FMCA::SampletTree<ClusterT> ST(P, CT, 1);
+  FMCA::SampletTree<ClusterT> ST(P, CT, 5);
   T.toc("set up ct: ");
   std::vector<std::vector<FMCA::IndexType>> tree;
   CT.exportTreeStructure(tree);
@@ -46,8 +47,9 @@ int main() {
     FMCA::IO::plotBoxes("boxes" + std::to_string(level) + ".vtk", bbvec);
   }
   std::function<double(const Eigen::VectorXd &)> fun =
-      [](const Eigen::VectorXd &x) { return x(0) * x(0) + x(1) * x(2); };
+      [](const Eigen::VectorXd &x) { return exp(-10 * x.squaredNorm()); };
   auto fdata = FMCA::functionEvaluator<ClusterT>(P, CT, fun);
+  Bembel::IO::print2m("comp.m", "fwt", ST.sampletTransform(fdata), "w");
   std::vector<Eigen::Matrix3d> bbvec;
   CT.get_BboxVectorLeafs(&bbvec);
   FMCA::IO::plotBoxes("boxesLeafs.vtk", bbvec);

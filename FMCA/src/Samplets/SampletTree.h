@@ -79,12 +79,47 @@ public:
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
-  unsigned int get_max_wlevel() const { return tree_data_->max_wlevel_; }
-  //////////////////////////////////////////////////////////////////////////////
+  eigenVector sampletTransform(const eigenVector &data) {
+    assert(!cluster_->get_id() &&
+           "sampletTransform needs to be called from the root cluster");
+    eigenVector retval(data.size());
+    retval.setZero();
+    sampletTransformRecursion(data, 0, &retval);
+    return retval;
+  }
+
 private:
   //////////////////////////////////////////////////////////////////////////////
   // private methods
   //////////////////////////////////////////////////////////////////////////////
+  eigenVector sampletTransformRecursion(const eigenVector &data,
+                                        IndexType offset, eigenVector *svec) {
+    eigenVector retval(0);
+    IndexType scalf_shift = 0;
+    if (!wlevel_)
+      scalf_shift = Q_S_.cols();
+    if (sons_.size()) {
+      for (auto i = 0; i < sons_.size(); ++i) {
+        auto scalf = sons_[i].sampletTransformRecursion(data, offset, svec);
+        retval.conservativeResize(retval.size() + scalf.size());
+        retval.tail(scalf.size()) = scalf;
+        offset += sons_[i].cluster_->get_indices().size();
+      }
+    } else {
+      retval = data.segment(offset, cluster_->get_indices().size());
+      // there are wavelets
+    }
+    if (Q_W_.size()) {
+      svec->segment(tree_data_->samplet_mapper[cluster_->get_id()] +
+                        scalf_shift,
+                    Q_W_.cols()) = Q_W_.transpose() * retval;
+      retval = Q_S_.transpose() * retval;
+    }
+    if (!wlevel_)
+      svec->segment(tree_data_->samplet_mapper[cluster_->get_id()],
+                    Q_W_.cols()) = retval;
+    return retval;
+  }
   void
   computeSamplets(const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
                   const ClusterTree &CT, IndexType dtilde) {
@@ -124,7 +159,10 @@ private:
     // are there wavelets?
     if (mom_buffer_.rows() < mom_buffer_.cols()) {
       Eigen::HouseholderQR<eigenMatrix> qr(mom_buffer_.transpose());
-      Q_ = qr.householderQ();
+      Q_S_ = qr.householderQ();
+      Q_W_ = Q_S_.block(0, tree_data_->m_dtilde_, Q_S_.rows(),
+                        Q_S_.cols() - tree_data_->m_dtilde_);
+      Q_S_.conservativeResize(Q_S_.cols(), tree_data_->m_dtilde_);
       // this is the moment for the dad cluster
       mom_buffer_ =
           qr.matrixQR()
@@ -132,7 +170,8 @@ private:
               .template triangularView<Eigen::Upper>()
               .transpose();
     } else {
-      Q_.resize(0, 0);
+      Q_S_.resize(0, 0);
+      Q_W_.resize(0, 0);
     }
     return;
   }
@@ -166,10 +205,11 @@ private:
     for (auto i = 0; i < mapper.size(); ++i)
       for (auto j = 0; j < mapper[i].size(); ++j) {
         tree_data_->samplet_mapper[mapper[i][j]->cluster_->get_id()] = sum;
-        if (mapper[i][j]->Q_.cols()) {
-          sum += mapper[i][j]->Q_.cols() - tree_data_->m_dtilde_;
-        }
+        sum += mapper[i][j]->Q_W_.cols();
+        if (mapper[i][j]->wlevel_ == 0)
+          sum += mapper[i][j]->Q_S_.cols();
       }
+    std::cout << sum << "///" << n_pts << std::endl;
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
@@ -179,7 +219,8 @@ private:
   std::shared_ptr<SampletTreeData<value_type, dimension>> tree_data_;
   const ClusterTree *cluster_;
   Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> mom_buffer_;
-  Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> Q_;
+  Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> Q_W_;
+  Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> Q_S_;
   IndexType wlevel_;
 }; // namespace FMCA
 } // namespace FMCA

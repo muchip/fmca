@@ -25,15 +25,6 @@ functionEvaluator(
     retval(i) = fun(P.col(idcs[i]));
   return retval;
 }
-#if 0
-template <typename SampletTree, typename fhandle>
-Eigen::Matrix<typename SampletTree::value_type, Eigen::Dynamic, 1>
-sampletTransform(const Eigen::Matrix<typename SampletTree::value_type,
-                                     SampletTree::dimension, Eigen::Dynamic> &P,
-                 const SampletTree &ST, const fhandle &fun) {
-  Eigen::Matrix<typename SampletTree::value_type, Eigen::Dynamic, 1> retval(
-      P.cols());
-}
-#endif
+
 } // namespace FMCA
 #endif
