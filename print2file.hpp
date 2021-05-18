@@ -34,6 +34,27 @@ int print2ascii(const std::string &fileName,
   return 0;
 }
 
+template <typename Scalar>
+int print2spascii(const std::string &fileName,
+                  const Eigen::SparseMatrix<Scalar> &var,
+                  const std::string &writeMode) {
+  std::ofstream myfile;
+  if (writeMode == "w")
+    myfile.open(fileName);
+  else if (writeMode == "a")
+    myfile.open(fileName, std::ios_base::app);
+  else
+    return 1;
+  for (auto i = 0; i < var.outerSize(); i++)
+    for (typename Eigen::SparseMatrix<Scalar>::InnerIterator it(var, i); it;
+         ++it) {
+      myfile << it.row() + 1 << " " << it.col() + 1 << " "
+             << std::setprecision(30) << it.value() << std::endl;
+    }
+  myfile.close();
+  return 0;
+}
+
 /**
  *  \brief write Eigen::Matrix into a Matlab .m file.
  **/
@@ -64,6 +85,38 @@ int print2m(const std::string &fileName, const std::string &varName,
   }
   myfile << "];" << std::endl;
 
+  myfile.close();
+
+  return 0;
+}
+
+template <typename Scalar>
+int print2m(const std::string &fileName, const std::string &varName,
+            const Eigen::SparseMatrix<Scalar> &var,
+            const std::string &writeMode) {
+  Eigen::VectorXd rowInd(var.nonZeros());
+  Eigen::VectorXd colInd(var.nonZeros());
+  Eigen::VectorXd value(var.nonZeros());
+  unsigned int j = 0;
+  for (auto i = 0; i < var.outerSize(); i++)
+    for (typename Eigen::SparseMatrix<Scalar>::InnerIterator it(var, i); it;
+         ++it) {
+      rowInd(j) = it.row() + 1;
+      colInd(j) = it.col() + 1;
+      value(j) = it.value();
+      ++j;
+    }
+  print2m(fileName, "rows_" + varName, rowInd, writeMode);
+  print2m(fileName, "cols_" + varName, colInd, "a");
+  print2m(fileName, "values_" + varName, value, "a");
+  std::ofstream myfile;
+  // if flag is set to w, a new file is created, otherwise the new matrix
+  // is just appended
+  myfile.open(fileName, std::ios_base::app);
+  myfile << varName << " = sparse("
+         << "rows_" + varName << ","
+         << "cols_" + varName << ","
+         << "values_" + varName << ");\n";
   myfile.close();
 
   return 0;
