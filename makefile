@@ -11,7 +11,7 @@ CPP = clang++ -fPIC -std=c++11
 CPPFLAGS = -O3
 INCLUDE = /usr/include/eigen3
 LDFLAGS = -lm
-OBJECTS = main.o
+OBJECTS = mainImage.o
 
 all: $(OBJECTS)
 	$(CPP) $(OBJECTS) -o$(PROG) $(LDFLAGS)  

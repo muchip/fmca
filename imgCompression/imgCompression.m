@@ -1,0 +1,10 @@
+clear all;
+close all;
+Img = imread('NCC1701D.jpg');
+imagesc(Img);
+Rchan = double(Img(:,:,1)); 
+Gchan = double(Img(:,:,2));
+Bchan = double(Img(:,:,3)); 
+save ('Rchan.txt', 'Rchan', '-ascii');
+save ('Gchan.txt', 'Gchan', '-ascii');
+save ('Bchan.txt', 'Bchan', '-ascii');
