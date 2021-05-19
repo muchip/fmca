@@ -13,7 +13,7 @@
 #include "util/tictoc.hpp"
 #define DIM 3
 
-using ClusterT = FMCA::ClusterTree<double, DIM, 3>;
+using ClusterT = FMCA::ClusterTree<double, DIM, 2>;
 
 int main() {
   Eigen::MatrixXd Rchan = readMatrix("imgCompression/Rchan.txt");
@@ -21,7 +21,7 @@ int main() {
   Eigen::MatrixXd Bchan = readMatrix("imgCompression/Bchan.txt");
   std::cout << "img data: " << Rchan.rows() << "x" << Rchan.cols() << std::endl;
   Eigen::MatrixXd P;
-  P.resize(3, Rchan.rows() * Rchan.cols());
+  P.resize(2, Rchan.rows() * Rchan.cols());
   auto k = 0;
   for (auto i = 0; i < Rchan.cols(); ++i)
     for (auto j = 0; j < Rchan.rows(); ++j) {
@@ -31,7 +31,7 @@ int main() {
       ++k;
     }
   ClusterT CT(P);
-  FMCA::SampletTree<ClusterT> ST(P, CT, 0);
+  FMCA::SampletTree<ClusterT> ST(P, CT, 10);
   auto indices = CT.get_indices();
 
   Eigen::VectorXd rfdata(indices.size());
@@ -77,9 +77,9 @@ int main() {
   }
 
   std::cout << "get here\n";
-  FMCA::IO::plotPoints<ClusterT>("rComp.vtk", CT, P, rcompf);
-  FMCA::IO::plotPoints<ClusterT>("gComp.vtk", CT, P, gcompf);
-  FMCA::IO::plotPoints<ClusterT>("bComp.vtk", CT, P, bcompf);
+  //  FMCA::IO::plotPoints<ClusterT>("rComp.vtk", CT, P, rcompf);
+  // FMCA::IO::plotPoints<ClusterT>("gComp.vtk", CT, P, gcompf);
+  // FMCA::IO::plotPoints<ClusterT>("bComp.vtk", CT, P, bcompf);
 
   std::cout << "get here\n";
   Eigen::Map<Eigen::MatrixXd> rmap(rfdata.data(), Rchan.rows(), Rchan.cols());

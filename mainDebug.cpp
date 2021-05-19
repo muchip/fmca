@@ -14,7 +14,7 @@
 #define NPTS 1e3
 #define DIM 3
 
-using ClusterT = FMCA::ClusterTree<double, DIM, 3>;
+using ClusterT = FMCA::ClusterTree<double, DIM, 1>;
 
 int main() {
 
@@ -33,11 +33,9 @@ int main() {
       numInd += tree[i][j];
     std::cout << i << ") " << tree[i].size() << " " << numInd << "\n";
   }
-  std::function<double(const Eigen::VectorXd &)> fun =
-      [](const Eigen::VectorXd &x) { return exp(-10 * x.squaredNorm()); };
-  auto fdata = FMCA::functionEvaluator<ClusterT>(P, CT, fun);
-  Eigen::MatrixXd Tmat(P.cols(), P.cols());
+  std::cout << "------------------------\n";
 
+  Eigen::MatrixXd Tmat(P.cols(), P.cols());
   Eigen::VectorXd unit(P.cols());
   auto idcs = CT.get_indices();
   double inv_err = 0;
@@ -55,7 +53,9 @@ int main() {
                    sqrt(Tmat.rows())
             << " " << sqrt(inv_err / Tmat.cols()) << std::endl;
 #if 0
-  Eigen::MatrixXd Kmat, TWmat1, TWmat2;
+    std::function<double(const Eigen::VectorXd &)> fun =
+      [](const Eigen::VectorXd &x) { return exp(-10 * x.squaredNorm()); };
+  auto fdata = FMCA::functionEvaluator<ClusterT>(P, CT, fun);
   Kmat.resize(P.cols(), P.cols());
   TWmat1.resize(P.cols(), P.cols());
   TWmat2.resize(P.cols(), P.cols());

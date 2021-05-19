@@ -105,6 +105,7 @@ private:
                                         IndexType offset, eigenVector *svec) {
     eigenVector retval(0);
     IndexType scalf_shift = 0;
+    const IndexType target_pos = tree_data_->samplet_mapper[cluster_->get_id()];
     if (!wlevel_)
       scalf_shift = Q_S_.cols();
     if (sons_.size()) {
@@ -116,17 +117,14 @@ private:
       }
     } else {
       retval = data.segment(offset, cluster_->get_indices().size());
-      // there are wavelets
     }
     if (Q_W_.size()) {
-      svec->segment(tree_data_->samplet_mapper[cluster_->get_id()] +
-                        scalf_shift,
-                    Q_W_.cols()) = Q_W_.transpose() * retval;
+      svec->segment(target_pos + scalf_shift, Q_W_.cols()) =
+          Q_W_.transpose() * retval;
       retval = Q_S_.transpose() * retval;
     }
     if (!wlevel_)
-      svec->segment(tree_data_->samplet_mapper[cluster_->get_id()],
-                    Q_S_.cols()) = retval;
+      svec->segment(target_pos, Q_S_.cols()) = retval;
     return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
@@ -162,10 +160,20 @@ private:
   computeSamplets(const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
                   const ClusterTree &CT, IndexType dtilde) {
     cluster_ = &CT;
-    int wlevel = ceil(
-        -log(CT.get_bb().col(2).norm() / CT.get_tree_data().geometry_diam_) /
-        log(2));
-    wlevel_ = wlevel > 0 ? wlevel : 0;
+    // the computation of the samplet level is a bit cumbersome as we have to
+    // account for empty clusters and clusters with a single point here.
+    if (CT.get_indices().size()) {
+      if (CT.get_indices().size() == 1)
+        wlevel_ = CT.get_tree_data().max_level_;
+      else {
+        int wlevel = ceil(-log(CT.get_bb().col(2).norm() /
+                               CT.get_tree_data().geometry_diam_) /
+                          log(2));
+        wlevel_ = wlevel > 0 ? wlevel : 0;
+      }
+    } else
+      wlevel_ = CT.get_tree_data().max_level_ + 1;
+
     if (tree_data_->max_wlevel_ < wlevel_)
       tree_data_->max_wlevel_ = wlevel_;
     if (CT.get_sons().size()) {

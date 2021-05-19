@@ -17,6 +17,7 @@ namespace FMCA {
 template <typename ValueType> struct ClusterTreeData {
   ValueType geometry_diam_ = 0;
   IndexType max_id_ = 0;
+  IndexType max_level_ = 0;
 };
 
 /**
@@ -141,6 +142,9 @@ private:
       // fashion)
       for (auto i = 0; i < 2; ++i) {
         sons_[i].level_ = level_ + 1;
+        tree_data_->max_level_ = (tree_data_->max_level_ < level_ + 1)
+                                     ? (level_ + 1)
+                                     : tree_data_->max_level_;
         sons_[i].id_ = (1 << (level_ + 1)) + 2 * id_ + i;
         tree_data_->max_id_ = tree_data_->max_id_ < sons_[i].id_
                                   ? sons_[i].id_

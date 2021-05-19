@@ -3,12 +3,12 @@ close all;
 Img = imread('NCC1701D.jpg');
 figure(1)
 imagesc(Img);
-%Rchan = double(Img(:,:,1)); 
-%Gchan = double(Img(:,:,2));
-%Bchan = double(Img(:,:,3)); 
-%save ('Rchan.txt', 'Rchan', '-ascii');
-%save ('Gchan.txt', 'Gchan', '-ascii');
-%save ('Bchan.txt', 'Bchan', '-ascii');
+Rchan = double(Img(:,:,1)); 
+Gchan = double(Img(:,:,2));
+Bchan = double(Img(:,:,3)); 
+save ('Rchan.txt', 'Rchan', '-ascii');
+save ('Gchan.txt', 'Gchan', '-ascii');
+save ('Bchan.txt', 'Bchan', '-ascii');
 Rchannel;
 Gchannel;
 Bchannel;
