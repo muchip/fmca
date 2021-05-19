@@ -87,6 +87,15 @@ public:
     sampletTransformRecursion(data, 0, &retval);
     return retval;
   }
+  //////////////////////////////////////////////////////////////////////////////
+  eigenVector inverseSampletTransform(const eigenVector &data) {
+    assert(!cluster_->get_id() &&
+           "sampletTransform needs to be called from the root cluster");
+    eigenVector retval(data.size());
+    retval.setZero();
+    inverseSampletTransformRecursion(data, 0, &retval, nullptr);
+    return retval;
+  }
 
 private:
   //////////////////////////////////////////////////////////////////////////////
@@ -117,9 +126,38 @@ private:
     }
     if (!wlevel_)
       svec->segment(tree_data_->samplet_mapper[cluster_->get_id()],
-                    Q_W_.cols()) = retval;
+                    Q_S_.cols()) = retval;
     return retval;
   }
+  //////////////////////////////////////////////////////////////////////////////
+  void inverseSampletTransformRecursion(const eigenVector &data,
+                                        IndexType offset, eigenVector *fvec,
+                                        eigenVector *ddata,
+                                        IndexType ddata_offset = 0) {
+    eigenVector retval;
+    const IndexType data_pos = tree_data_->samplet_mapper[cluster_->get_id()];
+    if (!wlevel_) {
+      retval = Q_S_ * data.segment(data_pos, Q_S_.cols()) +
+               Q_W_ * data.segment(data_pos + Q_S_.cols(), Q_W_.cols());
+    } else {
+      retval = Q_S_ * ddata->segment(ddata_offset, Q_S_.cols());
+      if (Q_W_.size())
+        retval += Q_W_ * data.segment(data_pos, Q_W_.cols());
+    }
+    if (sons_.size()) {
+      ddata_offset = 0;
+      for (auto i = 0; i < sons_.size(); ++i) {
+        sons_[i].inverseSampletTransformRecursion(data, offset, fvec, &retval,
+                                                  ddata_offset);
+        offset += sons_[i].cluster_->get_indices().size();
+        ddata_offset += sons_[i].Q_S_.cols();
+      }
+    } else {
+      fvec->segment(offset, retval.size()) = retval;
+    }
+    return;
+  }
+  //////////////////////////////////////////////////////////////////////////////
   void
   computeSamplets(const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
                   const ClusterTree &CT, IndexType dtilde) {
@@ -170,7 +208,8 @@ private:
               .template triangularView<Eigen::Upper>()
               .transpose();
     } else {
-      Q_S_.resize(0, 0);
+      Q_S_ = eigenMatrix::Identity(cluster_->get_indices().size(),
+                                   cluster_->get_indices().size());
       Q_W_.resize(0, 0);
     }
     return;
@@ -209,7 +248,6 @@ private:
         if (mapper[i][j]->wlevel_ == 0)
           sum += mapper[i][j]->Q_S_.cols();
       }
-    std::cout << sum << "///" << n_pts << std::endl;
     return;
   }
   //////////////////////////////////////////////////////////////////////////////

@@ -33,101 +33,61 @@ int main() {
   ClusterT CT(P);
   FMCA::SampletTree<ClusterT> ST(P, CT, 0);
   auto indices = CT.get_indices();
-  Eigen::MatrixXd Tmat;
-  Tmat.resize(P.cols(), P.cols());
-  Eigen::VectorXd unit(P.cols());
-  // generate transformation matrix
-  for (auto i = 0; i < P.cols(); ++i) {
-    unit.setZero();
-    unit(indices[i]) = 1;
-    Tmat.col(i) = ST.sampletTransform(unit);
-  }
-  Eigen::Map<Eigen::VectorXd> bla(Rchan.data(), Rchan.rows() * Rchan.cols());
-  Eigen::VectorXd fdata(indices.size());
+
+  Eigen::VectorXd rfdata(indices.size());
+  Eigen::VectorXd gfdata(indices.size());
+  Eigen::VectorXd bfdata(indices.size());
   for (auto i = 0; i < indices.size(); ++i) {
-    fdata(i) = bla(indices[i]);
+    rfdata(i) = Rchan(indices[i]);
+    gfdata(i) = Gchan(indices[i]);
+    bfdata(i) = Bchan(indices[i]);
   }
-  Eigen::VectorXd compf = Tmat * fdata;
-  for (auto i = 0; i < compf.size(); ++i)
-    compf(i) = abs(compf(i)) > 1e-4 ? compf(i) : 0;
-  compf = Tmat.transpose() * compf;
+  Eigen::VectorXd rcompf = ST.sampletTransform(rfdata);
+  Eigen::VectorXd gcompf = ST.sampletTransform(gfdata);
+  Eigen::VectorXd bcompf = ST.sampletTransform(bfdata);
+
+  std::cout << "transform done!\n";
+  Eigen::VectorXd inv_compf = ST.inverseSampletTransform(rcompf);
+  std::cout << "???????????? " << (inv_compf - rfdata).norm() / rfdata.norm()
+            << std::endl;
+
+  double rnorm = rcompf.norm();
+  double gnorm = gcompf.norm();
+  double bnorm = bcompf.norm();
+  std::cout << rnorm << " " << gnorm << " " << bnorm << std::endl;
+  for (auto i = 0; i < rcompf.size(); ++i) {
+    rcompf(i) = abs(rcompf(i)) > 1e-3 * rnorm ? rcompf(i) : 0;
+    gcompf(i) = abs(gcompf(i)) > 1e-3 * gnorm ? gcompf(i) : 0;
+    bcompf(i) = abs(bcompf(i)) > 1e-3 * bnorm ? bcompf(i) : 0;
+  }
+  rcompf = ST.inverseSampletTransform(rcompf);
+  gcompf = ST.inverseSampletTransform(gcompf);
+  bcompf = ST.inverseSampletTransform(bcompf);
+
   std::vector<FMCA::IndexType> rev_indices;
-  std::cout << indices.size() << std::endl;
-  std::cout << P.rows() << " " << P.cols() << std::endl;
   rev_indices.resize(indices.size());
   for (auto i = 0; i < indices.size(); ++i)
     rev_indices[indices[i]] = i;
-  FMCA::IO::plotPoints<ClusterT>("points.vtk", CT, P, fdata);
-  FMCA::IO::plotPoints<ClusterT>("pointsComp.vtk", CT, P, compf);
-#if 0
-  Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, NPTS);
-  // P.row(2) *= 0;
-  Eigen::VectorXd nrms = P.colwise().norm();
-  // for (auto i = 0; i < P.cols(); ++i)
-  //  P.col(i) *= 1 / nrms(i);
-  tictoc T;
-  T.tic();
-  ClusterT CT(P);
-  FMCA::SampletTree<ClusterT> ST(P, CT, 0);
-  T.toc("set up ct: ");
-  std::vector<std::vector<FMCA::IndexType>> tree;
-  CT.exportTreeStructure(tree);
-  for (auto i = 0; i < tree.size(); ++i) {
-    int numInd = 0;
-    for (auto j = 0; j < tree[i].size(); ++j)
-      numInd += tree[i][j];
-    std::cout << i << ") " << tree[i].size() << " " << numInd << "\n";
+
+  std::cout << "get here\n";
+  for (auto i = 0; i < indices.size(); ++i) {
+    rfdata(i) = rcompf(rev_indices[i]);
+    gfdata(i) = gcompf(rev_indices[i]);
+    bfdata(i) = bcompf(rev_indices[i]);
   }
-#if 0
-  std::vector<ClusterT *> leafs;
-  CT.getLeafIterator(leafs);
-  int numInd = 0;
-  for (auto i = 0; i < leafs.size(); ++i)
-    numInd += (leafs[i])->get_indices().size();
-  std::cout << leafs.size() << " " << numInd << "\n";
-  for (auto level = 0; level < 14; ++level) {
-    std::vector<Eigen::Matrix3d> bbvec;
-    CT.get_BboxVector(&bbvec, level);
-    FMCA::IO::plotBoxes("boxes" + std::to_string(level) + ".vtk", bbvec);
-  }
-#endif
-  std::function<double(const Eigen::VectorXd &)> fun =
-      [](const Eigen::VectorXd &x) { return exp(-10 * x.squaredNorm()); };
-  auto fdata = FMCA::functionEvaluator<ClusterT>(P, CT, fun);
 
-  Eigen::MatrixXd Tmat, Kmat, TWmat1, TWmat2;
-  Tmat.resize(P.cols(), P.cols());
-  Kmat.resize(P.cols(), P.cols());
-  TWmat1.resize(P.cols(), P.cols());
-  TWmat2.resize(P.cols(), P.cols());
-  Eigen::VectorXd unit(P.cols());
-  auto idcs = CT.get_indices();
-  // generate transformation matrix
-  for (auto i = 0; i < P.cols(); ++i) {
-    unit.setZero();
-    unit(idcs[i]) = 1;
-    Tmat.col(i) = ST.sampletTransform(unit);
-    for (auto j = 0; j < P.cols(); ++j)
-      Kmat(j, i) = exp(-10 * (P.col(idcs[j]) - P.col(idcs[i])).norm());
-    TWmat1.col(i) = ST.sampletTransform(Kmat.col(i));
-  }
-  for (auto i = 0; i < P.cols(); ++i)
-    TWmat2.col(i) = ST.sampletTransform(TWmat1.transpose().col(i));
+  std::cout << "get here\n";
+  FMCA::IO::plotPoints<ClusterT>("rComp.vtk", CT, P, rcompf);
+  FMCA::IO::plotPoints<ClusterT>("gComp.vtk", CT, P, gcompf);
+  FMCA::IO::plotPoints<ClusterT>("bComp.vtk", CT, P, bcompf);
 
-  for (auto i = 0; i < P.cols(); ++i)
-    for (auto j = 0; j < P.cols(); ++j)
-      TWmat2(j, i) = abs(TWmat2(j, i)) > 1e-4 ? TWmat2(j, i) : 0;
+  std::cout << "get here\n";
+  Eigen::Map<Eigen::MatrixXd> rmap(rfdata.data(), Rchan.rows(), Rchan.cols());
+  Eigen::Map<Eigen::MatrixXd> gmap(gfdata.data(), Gchan.rows(), Gchan.cols());
+  Eigen::Map<Eigen::MatrixXd> bmap(bfdata.data(), Bchan.rows(), Bchan.cols());
+  Bembel::IO::print2m("Rchannel.m", "R", rmap, "w");
+  Bembel::IO::print2m("Gchannel.m", "G", gmap, "w");
+  Bembel::IO::print2m("Bchannel.m", "B", bmap, "w");
 
-  Eigen::SparseMatrix<double> TWs = TWmat2.sparseView();
-
-  // Bembel::IO::print2m("Tmat.m", "T", Tmat, "w");
-  // Bembel::IO::print2m("Kmat.m", "K", Kmat, "w");
-  Bembel::IO::print2spascii("KWmat.txt", TWs, "w");
-  Bembel::IO::print2m("comp.m", "fwt", ST.sampletTransform(fdata), "w");
-  std::vector<Eigen::Matrix3d> bbvec;
-  // CT.get_BboxVectorLeafs(&bbvec);
-  // FMCA::IO::plotBoxes("boxesLeafs.vtk", bbvec);
-  // FMCA::IO::plotPoints<ClusterT>("points.vtk", CT, P, fdata);
-#endif
   return 0;
 }
