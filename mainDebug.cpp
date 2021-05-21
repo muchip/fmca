@@ -11,10 +11,10 @@
 #include "print2file.hpp"
 #include "util/tictoc.hpp"
 
-#define NPTS 1024
+#define NPTS 8192
 #define DIM 3
 
-using ClusterT = FMCA::ClusterTree<double, DIM, 1>;
+using ClusterT = FMCA::ClusterTree<double, DIM, 23>;
 
 int main() {
   srand(0);
@@ -22,14 +22,15 @@ int main() {
   tictoc T;
   T.tic();
   ClusterT CT(P);
-  FMCA::SampletTree<ClusterT> ST(P, CT, 0);
+  FMCA::SampletTree<ClusterT> ST(P, CT, 3);
   T.toc("set up ct: ");
   ST.basisInfo();
   std::vector<std::vector<FMCA::IndexType>> tree;
   CT.exportTreeStructure(tree);
   for (auto i = 0; i < tree.size(); ++i) {
     int numInd = 0;
-    for (auto j = 0; j < tree[i].size(); ++j) numInd += tree[i][j];
+    for (auto j = 0; j < tree[i].size(); ++j)
+      numInd += tree[i][j];
     std::cout << i << ") " << tree[i].size() << " " << numInd << "\n";
   }
   std::cout << "------------------------\n";

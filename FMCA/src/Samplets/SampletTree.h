@@ -13,14 +13,15 @@
 #define FMCA_SAMPLETS_SAMPLETTREE_H_
 
 namespace FMCA {
+template <typename ClusterTree> class SampletTree;
 
-template <typename ValueType, IndexType Dim>
-struct SampletTreeData {
+template <typename ClusterTree> struct SampletTreeData {
   IndexType max_wlevel_ = 0;
   IndexType m_dtilde_ = 0;
-  MultiIndexSet<Dim> idcs;
-  std::vector<IndexType> samplet_mapper;
-  Eigen::Matrix<ValueType, Eigen::Dynamic, Eigen::Dynamic>
+  MultiIndexSet<ClusterTree::dimension> idcs;
+  std::vector<SampletTree<ClusterTree> *> samplet_list;
+  Eigen::Matrix<typename ClusterTree::value_type, Eigen::Dynamic,
+                Eigen::Dynamic>
       multinomial_coefficients;
 };
 
@@ -34,9 +35,8 @@ struct SampletTreeData {
  *         if the cluster tree is mutated or goes out of scope, we get dangeling
  *         pointers!
  */
-template <typename ClusterTree>
-class SampletTree {
- public:
+template <typename ClusterTree> class SampletTree {
+public:
   typedef typename ClusterTree::value_type value_type;
   enum { dimension = ClusterTree::dimension };
   typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
@@ -54,7 +54,7 @@ class SampletTree {
   //////////////////////////////////////////////////////////////////////////////
   void init(const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
             const ClusterTree &CT, IndexType dtilde = 1) {
-    tree_data_ = std::make_shared<SampletTreeData<value_type, dimension>>();
+    tree_data_ = std::make_shared<SampletTreeData<ClusterTree>>();
     tree_data_->idcs.init(dtilde);
     tree_data_->m_dtilde_ = tree_data_->idcs.get_MultiIndexSet().size();
     {
@@ -64,8 +64,8 @@ class SampletTree {
       IndexType j = 0;
       tree_data_->multinomial_coefficients.resize(tree_data_->m_dtilde_,
                                                   tree_data_->m_dtilde_);
-      for (auto beta : tree_data_->idcs.get_MultiIndexSet()) {
-        for (auto alpha : tree_data_->idcs.get_MultiIndexSet()) {
+      for (auto &beta : tree_data_->idcs.get_MultiIndexSet()) {
+        for (auto &alpha : tree_data_->idcs.get_MultiIndexSet()) {
           tree_data_->multinomial_coefficients(j, i) =
               multinomialCoefficient<ClusterTree::dimension>(alpha, beta);
           ++j;
@@ -98,26 +98,33 @@ class SampletTree {
     inverseSampletTransformRecursion(data, 0, &retval, nullptr);
     return retval;
   }
+  //////////////////////////////////////////////////////////////////////////////
   void basisInfo() {
-    if (!wlevel_) {
-      std::cout << "ID:" << cluster_->get_id()
-                << "\tnumber of scaling functions: " << Q_S_.cols()
-                << " support size: " << Q_S_.rows()
-                << " cluster size: " << cluster_->get_indices().size()
-                << std::endl;
+    IndexType cur_level = 0;
+    IndexType max_id = 0;
+    IndexType min_id = IndexType(1e10);
+
+    for (auto it : tree_data_->samplet_list) {
+      if (cur_level != it->wlevel_) {
+        cur_level = it->wlevel_;
+        std::cout << "min/max ID: " << min_id << " / " << max_id << std::endl;
+        max_id = it->cluster_->get_id();
+        min_id = it->cluster_->get_id();
+      }
+      if (min_id > it->cluster_->get_id())
+        min_id = it->cluster_->get_id();
+      if (max_id < it->cluster_->get_id())
+        max_id = it->cluster_->get_id();
+      std::cout << it->wlevel_ << ")\t"
+                << "id: " << it->cluster_->get_id() << std::endl;
     }
-    if (Q_W_.size())
-      std::cout << "ID:" << cluster_->get_id()
-                << "\tnumber of samplets: " << Q_W_.cols()
-                << " support size: " << Q_W_.rows()
-                << " cluster size: " << cluster_->get_indices().size()
-                << std::endl;
-    if (sons_.size())
-      for (auto i = 0; i < sons_.size(); ++i) sons_[i].basisInfo();
+    std::cout << "min/max ID: " << min_id << " / " << max_id << std::endl;
+    std::cout << "wavelet blocks: " << tree_data_->samplet_list.size()
+              << std::endl;
     return;
   }
-
- private:
+  //////////////////////////////////////////////////////////////////////////////
+private:
   //////////////////////////////////////////////////////////////////////////////
   // private methods
   //////////////////////////////////////////////////////////////////////////////
@@ -125,8 +132,8 @@ class SampletTree {
                                         IndexType offset, eigenVector *svec) {
     eigenVector retval(0);
     IndexType scalf_shift = 0;
-    const IndexType target_pos = tree_data_->samplet_mapper[cluster_->get_id()];
-    if (!wlevel_) scalf_shift = Q_S_.cols();
+    if (!wlevel_)
+      scalf_shift = Q_S_.cols();
     if (sons_.size()) {
       for (auto i = 0; i < sons_.size(); ++i) {
         auto scalf = sons_[i].sampletTransformRecursion(data, offset, svec);
@@ -138,11 +145,12 @@ class SampletTree {
       retval = data.segment(offset, cluster_->get_indices().size());
     }
     if (Q_W_.size()) {
-      svec->segment(target_pos + scalf_shift, Q_W_.cols()) =
+      svec->segment(start_index_ + scalf_shift, Q_W_.cols()) =
           Q_W_.transpose() * retval;
       retval = Q_S_.transpose() * retval;
     }
-    if (!wlevel_) svec->segment(target_pos, Q_S_.cols()) = retval;
+    if (!wlevel_)
+      svec->segment(start_index_, Q_S_.cols()) = retval;
     return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
@@ -151,13 +159,13 @@ class SampletTree {
                                         eigenVector *ddata,
                                         IndexType ddata_offset = 0) {
     eigenVector retval;
-    const IndexType data_pos = tree_data_->samplet_mapper[cluster_->get_id()];
     if (!wlevel_) {
-      retval = Q_S_ * data.segment(data_pos, Q_S_.cols()) +
-               Q_W_ * data.segment(data_pos + Q_S_.cols(), Q_W_.cols());
+      retval = Q_S_ * data.segment(start_index_, Q_S_.cols()) +
+               Q_W_ * data.segment(start_index_ + Q_S_.cols(), Q_W_.cols());
     } else {
       retval = Q_S_ * ddata->segment(ddata_offset, Q_S_.cols());
-      if (Q_W_.size()) retval += Q_W_ * data.segment(data_pos, Q_W_.cols());
+      if (Q_W_.size())
+        retval += Q_W_ * data.segment(start_index_, Q_W_.cols());
     }
     if (sons_.size()) {
       ddata_offset = 0;
@@ -173,9 +181,9 @@ class SampletTree {
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
-  void computeSamplets(
-      const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
-      const ClusterTree &CT, IndexType dtilde) {
+  void
+  computeSamplets(const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
+                  const ClusterTree &CT, IndexType dtilde) {
     cluster_ = &CT;
     // the computation of the samplet level is a bit cumbersome as we have to
     // account for empty clusters and clusters with a single point here.
@@ -191,7 +199,8 @@ class SampletTree {
     } else
       wlevel_ = CT.get_tree_data().max_level_ + 1;
 
-    if (tree_data_->max_wlevel_ < wlevel_) tree_data_->max_wlevel_ = wlevel_;
+    if (tree_data_->max_wlevel_ < wlevel_)
+      tree_data_->max_wlevel_ = wlevel_;
     if (CT.get_sons().size()) {
       sons_.resize(CT.get_sons().size());
       IndexType offset = 0;
@@ -241,7 +250,10 @@ class SampletTree {
   //////////////////////////////////////////////////////////////////////////////
   void sampletMapperRecursion(SampletTree *ST,
                               std::vector<std::vector<SampletTree *>> &mapper) {
-    mapper[ST->wlevel_].push_back(ST);
+    // we always add the root. However, every other cluster is only added if
+    // there are indeed wavelets.
+    if (!ST->wlevel_ || ST->Q_W_.size())
+      mapper[ST->wlevel_].push_back(ST);
     if (ST->sons_.size())
       for (auto i = 0; i < ST->sons_.size(); ++i)
         sampletMapperRecursion(&(ST->sons_[i]), mapper);
@@ -254,35 +266,37 @@ class SampletTree {
     IndexType n_pts = cluster_->get_indices().size();
     IndexType max_wlevel = tree_data_->max_wlevel_;
     IndexType max_cluster_id = cluster_->get_tree_data().max_id_;
-    std::vector<std::vector<SampletTree *>> mapper;
-    mapper.resize(max_wlevel + 1);
-    // this method traverses the samplet tree and stores them in a rowwise
-    // ordering
-    sampletMapperRecursion(this, mapper);
-    // next, we serialize the the samplet tree by storing coefficents
-    // according to [l_0|l_1|l_2|...]
+    {
+      // this method traverses the samplet tree and stores them in a levelwise
+      // ordering  [l_0|l_1|l_2|...]
+      std::vector<std::vector<SampletTree *>> mapper(max_wlevel + 1);
+      sampletMapperRecursion(this, mapper);
+      tree_data_->samplet_list.clear();
+      for (auto it : mapper)
+        tree_data_->samplet_list.insert(tree_data_->samplet_list.end(),
+                                        it.begin(), it.end());
+    }
     IndexType sum = 0;
-    tree_data_->samplet_mapper.resize(max_cluster_id + 1);
-    std::fill(tree_data_->samplet_mapper.begin(),
-              tree_data_->samplet_mapper.end(), n_pts);
-    for (auto i = 0; i < mapper.size(); ++i)
-      for (auto j = 0; j < mapper[i].size(); ++j) {
-        tree_data_->samplet_mapper[mapper[i][j]->cluster_->get_id()] = sum;
-        sum += mapper[i][j]->Q_W_.cols();
-        if (mapper[i][j]->wlevel_ == 0) sum += mapper[i][j]->Q_S_.cols();
-      }
+    // assign vector start_index to each wavelet cluster
+    for (auto it : tree_data_->samplet_list) {
+      it->start_index_ = sum;
+      sum += it->Q_W_.cols();
+      if (it->wlevel_ == 0)
+        sum += it->Q_S_.cols();
+    }
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
   // private member variables
   //////////////////////////////////////////////////////////////////////////////
   std::vector<SampletTree> sons_;
-  std::shared_ptr<SampletTreeData<value_type, dimension>> tree_data_;
+  std::shared_ptr<SampletTreeData<ClusterTree>> tree_data_;
   const ClusterTree *cluster_;
   Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> mom_buffer_;
   Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> Q_W_;
   Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> Q_S_;
   IndexType wlevel_;
-};  // namespace FMCA
-}  // namespace FMCA
+  IndexType start_index_;
+}; // namespace FMCA
+} // namespace FMCA
 #endif
