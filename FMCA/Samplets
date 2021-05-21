@@ -26,7 +26,7 @@
 #include "src/util/MultiIndexSet.h"
 #include "src/util/BinomialCoefficient.h"
 #include "src/Samplets/MomentComputer.h"
+#include "src/Samplets/BivariateCompressor.h"
 #include "src/Samplets/SampletTree.h"
-#include "src/Samplets/SampletTransform.h"
 
 #endif

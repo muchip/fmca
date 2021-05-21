@@ -17,7 +17,9 @@ template <typename ClusterTree> class SampletTree;
 
 template <typename ClusterTree> struct SampletTreeData {
   IndexType max_wlevel_ = 0;
+  IndexType dtilde_ = 0;
   IndexType m_dtilde_ = 0;
+
   MultiIndexSet<ClusterTree::dimension> idcs;
   std::vector<SampletTree<ClusterTree> *> samplet_list;
   Eigen::Matrix<typename ClusterTree::value_type, Eigen::Dynamic,
@@ -36,6 +38,8 @@ template <typename ClusterTree> struct SampletTreeData {
  *         pointers!
  */
 template <typename ClusterTree> class SampletTree {
+  friend class BivariateCompressor<SampletTree>;
+
 public:
   typedef typename ClusterTree::value_type value_type;
   enum { dimension = ClusterTree::dimension };
@@ -56,6 +60,7 @@ public:
             const ClusterTree &CT, IndexType dtilde = 1) {
     tree_data_ = std::make_shared<SampletTreeData<ClusterTree>>();
     tree_data_->idcs.init(dtilde);
+    tree_data_->dtilde_ = dtilde;
     tree_data_->m_dtilde_ = tree_data_->idcs.get_MultiIndexSet().size();
     {
       // generate all possible multinomial coefficients from the set of
