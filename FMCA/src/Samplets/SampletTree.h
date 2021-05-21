@@ -14,7 +14,8 @@
 
 namespace FMCA {
 
-template <typename ValueType, IndexType Dim> struct SampletTreeData {
+template <typename ValueType, IndexType Dim>
+struct SampletTreeData {
   IndexType max_wlevel_ = 0;
   IndexType m_dtilde_ = 0;
   MultiIndexSet<Dim> idcs;
@@ -33,8 +34,9 @@ template <typename ValueType, IndexType Dim> struct SampletTreeData {
  *         if the cluster tree is mutated or goes out of scope, we get dangeling
  *         pointers!
  */
-template <typename ClusterTree> class SampletTree {
-public:
+template <typename ClusterTree>
+class SampletTree {
+ public:
   typedef typename ClusterTree::value_type value_type;
   enum { dimension = ClusterTree::dimension };
   typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
@@ -96,8 +98,26 @@ public:
     inverseSampletTransformRecursion(data, 0, &retval, nullptr);
     return retval;
   }
+  void basisInfo() {
+    if (!wlevel_) {
+      std::cout << "ID:" << cluster_->get_id()
+                << "\tnumber of scaling functions: " << Q_S_.cols()
+                << " support size: " << Q_S_.rows()
+                << " cluster size: " << cluster_->get_indices().size()
+                << std::endl;
+    }
+    if (Q_W_.size())
+      std::cout << "ID:" << cluster_->get_id()
+                << "\tnumber of samplets: " << Q_W_.cols()
+                << " support size: " << Q_W_.rows()
+                << " cluster size: " << cluster_->get_indices().size()
+                << std::endl;
+    if (sons_.size())
+      for (auto i = 0; i < sons_.size(); ++i) sons_[i].basisInfo();
+    return;
+  }
 
-private:
+ private:
   //////////////////////////////////////////////////////////////////////////////
   // private methods
   //////////////////////////////////////////////////////////////////////////////
@@ -106,8 +126,7 @@ private:
     eigenVector retval(0);
     IndexType scalf_shift = 0;
     const IndexType target_pos = tree_data_->samplet_mapper[cluster_->get_id()];
-    if (!wlevel_)
-      scalf_shift = Q_S_.cols();
+    if (!wlevel_) scalf_shift = Q_S_.cols();
     if (sons_.size()) {
       for (auto i = 0; i < sons_.size(); ++i) {
         auto scalf = sons_[i].sampletTransformRecursion(data, offset, svec);
@@ -123,8 +142,7 @@ private:
           Q_W_.transpose() * retval;
       retval = Q_S_.transpose() * retval;
     }
-    if (!wlevel_)
-      svec->segment(target_pos, Q_S_.cols()) = retval;
+    if (!wlevel_) svec->segment(target_pos, Q_S_.cols()) = retval;
     return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
@@ -139,8 +157,7 @@ private:
                Q_W_ * data.segment(data_pos + Q_S_.cols(), Q_W_.cols());
     } else {
       retval = Q_S_ * ddata->segment(ddata_offset, Q_S_.cols());
-      if (Q_W_.size())
-        retval += Q_W_ * data.segment(data_pos, Q_W_.cols());
+      if (Q_W_.size()) retval += Q_W_ * data.segment(data_pos, Q_W_.cols());
     }
     if (sons_.size()) {
       ddata_offset = 0;
@@ -156,9 +173,9 @@ private:
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
-  void
-  computeSamplets(const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
-                  const ClusterTree &CT, IndexType dtilde) {
+  void computeSamplets(
+      const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
+      const ClusterTree &CT, IndexType dtilde) {
     cluster_ = &CT;
     // the computation of the samplet level is a bit cumbersome as we have to
     // account for empty clusters and clusters with a single point here.
@@ -174,8 +191,7 @@ private:
     } else
       wlevel_ = CT.get_tree_data().max_level_ + 1;
 
-    if (tree_data_->max_wlevel_ < wlevel_)
-      tree_data_->max_wlevel_ = wlevel_;
+    if (tree_data_->max_wlevel_ < wlevel_) tree_data_->max_wlevel_ = wlevel_;
     if (CT.get_sons().size()) {
       sons_.resize(CT.get_sons().size());
       IndexType offset = 0;
@@ -253,8 +269,7 @@ private:
       for (auto j = 0; j < mapper[i].size(); ++j) {
         tree_data_->samplet_mapper[mapper[i][j]->cluster_->get_id()] = sum;
         sum += mapper[i][j]->Q_W_.cols();
-        if (mapper[i][j]->wlevel_ == 0)
-          sum += mapper[i][j]->Q_S_.cols();
+        if (mapper[i][j]->wlevel_ == 0) sum += mapper[i][j]->Q_S_.cols();
       }
     return;
   }
@@ -268,6 +283,6 @@ private:
   Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> Q_W_;
   Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> Q_S_;
   IndexType wlevel_;
-}; // namespace FMCA
-} // namespace FMCA
+};  // namespace FMCA
+}  // namespace FMCA
 #endif
