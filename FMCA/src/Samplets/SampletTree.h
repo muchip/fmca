@@ -59,7 +59,7 @@ public:
   void init(const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
             const ClusterTree &CT, IndexType dtilde = 1) {
     tree_data_ = std::make_shared<SampletTreeData<ClusterTree>>();
-    tree_data_->idcs.init(dtilde);
+    tree_data_->idcs.init(dtilde - 1);
     tree_data_->dtilde_ = dtilde;
     tree_data_->m_dtilde_ = tree_data_->idcs.get_MultiIndexSet().size();
     {
@@ -80,7 +80,7 @@ public:
       }
     }
     // compute the samplet basis
-    computeSamplets(P, CT, dtilde);
+    computeSamplets(P, CT);
     // now map it
     sampletMapper();
     return;
@@ -188,7 +188,7 @@ private:
   //////////////////////////////////////////////////////////////////////////////
   void
   computeSamplets(const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
-                  const ClusterTree &CT, IndexType dtilde) {
+                  const ClusterTree &CT) {
     cluster_ = &CT;
     // the computation of the samplet level is a bit cumbersome as we have to
     // account for empty clusters and clusters with a single point here.
@@ -211,7 +211,7 @@ private:
       IndexType offset = 0;
       for (auto i = 0; i != CT.get_sons().size(); ++i) {
         sons_[i].tree_data_ = tree_data_;
-        sons_[i].computeSamplets(P, CT.get_sons()[i], dtilde);
+        sons_[i].computeSamplets(P, CT.get_sons()[i]);
         // the son now has moments, lets grep them...
         eigenVector shift =
             0.5 *
@@ -283,11 +283,12 @@ private:
     }
     IndexType sum = 0;
     // assign vector start_index to each wavelet cluster
-    for (auto it : tree_data_->samplet_list) {
-      it->start_index_ = sum;
-      sum += it->Q_W_.cols();
-      if (it->wlevel_ == 0)
-        sum += it->Q_S_.cols();
+    for (auto i = 0; i < tree_data_->samplet_list.size(); ++i) {
+      tree_data_->samplet_list[i]->start_index_ = sum;
+      tree_data_->samplet_list[i]->block_id_ = i;
+      sum += tree_data_->samplet_list[i]->Q_W_.cols();
+      if (tree_data_->samplet_list[i]->wlevel_ == 0)
+        sum += tree_data_->samplet_list[i]->Q_S_.cols();
     }
     return;
   }
@@ -302,6 +303,7 @@ private:
   Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> Q_S_;
   IndexType wlevel_;
   IndexType start_index_;
+  IndexType block_id_;
 }; // namespace FMCA
 } // namespace FMCA
 #endif

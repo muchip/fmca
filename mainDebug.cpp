@@ -11,10 +11,13 @@
 #include "print2file.hpp"
 #include "util/tictoc.hpp"
 
-#define NPTS 8192
-#define DIM 3
+#define NPTS 16384
+//#define NPTS 8192
+//#define NPTS 2048
+#define DIM 10
 
-using ClusterT = FMCA::ClusterTree<double, DIM, 23>;
+struct emptyFun {};
+using ClusterT = FMCA::ClusterTree<double, DIM, 2>;
 
 int main() {
   srand(0);
@@ -22,7 +25,7 @@ int main() {
   tictoc T;
   T.tic();
   ClusterT CT(P);
-  FMCA::SampletTree<ClusterT> ST(P, CT, 3);
+  FMCA::SampletTree<ClusterT> ST(P, CT, 1);
   T.toc("set up ct: ");
   ST.basisInfo();
   std::vector<std::vector<FMCA::IndexType>> tree;
@@ -34,7 +37,13 @@ int main() {
     std::cout << i << ") " << tree[i].size() << " " << numInd << "\n";
   }
   std::cout << "------------------------\n";
-
+  T.tic();
+  FMCA::BivariateCompressor<FMCA::SampletTree<ClusterT>> BC(ST, emptyFun(),
+                                                            0.01, 1, 0);
+  T.toc("set up compression pattern: ");
+  auto Pattern = BC.get_Pattern();
+  Bembel::IO::print2spascii("Pattern.txt", Pattern, "w");
+#if 0
   Eigen::MatrixXd Tmat(P.cols(), P.cols());
   Eigen::VectorXd unit(P.cols());
   auto idcs = CT.get_indices();
@@ -52,6 +61,7 @@ int main() {
                        .norm() /
                    sqrt(Tmat.rows())
             << " " << sqrt(inv_err / Tmat.cols()) << std::endl;
+#endif
 #if 0
     std::function<double(const Eigen::VectorXd &)> fun =
       [](const Eigen::VectorXd &x) { return exp(-10 * x.squaredNorm()); };
