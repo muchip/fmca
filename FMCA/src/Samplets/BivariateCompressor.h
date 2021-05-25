@@ -20,15 +20,14 @@ public:
   BivariateCompressor(){};
   template <typename Functor>
   BivariateCompressor(const SampletTree &ST, const Functor &fun,
-                      value_type a_param = 0.25, value_type dprime = 1,
-                      value_type operator_order = 0) {
+                      value_type a_param = 2., value_type dprime = 1.,
+                      value_type operator_order = 0.) {
     init(ST, fun, a_param, dprime, operator_order);
   }
 
   template <typename Functor>
-  void init(const SampletTree &ST, const Functor &fun,
-            value_type a_param = 0.25, value_type dprime = 1,
-            value_type op = 0) {
+  void init(const SampletTree &ST, const Functor &fun, value_type a_param = 2.,
+            value_type dprime = 1., value_type op = 0.) {
     a_param_ = a_param;
     dprime_ = dprime;
     op_ = op;
@@ -36,11 +35,9 @@ public:
     dtilde_ = ST.tree_data_->dtilde_;
     cut_const1_ = J_param_ * (dprime_ - op_) / (dtilde_ + op_);
     cut_const2_ = 0.5 * (dprime_ + dtilde_) / (dtilde_ + op_);
-    std::vector<Eigen::Triplet<value_type>> triplet_list;
+    triplet_list_.clear();
     for (auto i = 0; i < ST.tree_data_->samplet_list.size(); ++i)
-      assemblePattern(*(ST.tree_data_->samplet_list[i]), ST, triplet_list);
-    Pat_.resize(ST.tree_data_->samplet_list.size(),
-                ST.tree_data_->samplet_list.size());
+      assemblePattern(*(ST.tree_data_->samplet_list[i]), ST, triplet_list_);
 
     std::cout << "a:   " << a_param_ << std::endl;
     std::cout << "dp:  " << dprime_ << std::endl;
@@ -49,9 +46,10 @@ public:
     std::cout << "J:   " << J_param_ << std::endl;
     std::cout << "cc1: " << cut_const1_ << std::endl;
     std::cout << "cc2: " << cut_const2_ << std::endl;
-    Pat_.setFromTriplets(triplet_list.begin(), triplet_list.end());
   }
-  const Eigen::SparseMatrix<value_type> &get_Pattern() const { return Pat_; }
+  const std::vector<Eigen::Triplet<value_type>> &get_Pattern_triplets() const {
+    return triplet_list_;
+  }
   //////////////////////////////////////////////////////////////////////////////
   /// cutOff criterion
   //////////////////////////////////////////////////////////////////////////////
@@ -59,7 +57,7 @@ public:
     const value_type first = j < jp ? 1. / (1 << j) : 1. / (1 << jp);
     const value_type second =
         std::pow(2., cut_const1_ - (j + jp) * cut_const2_);
-    return a_param_ * (first > second ? first : second);
+    return a_param_ * first; // (first > second ? first : second);
   }
   //////////////////////////////////////////////////////////////////////////////
   bool cutOff(IndexType j, IndexType jp, value_type dist) {
@@ -90,8 +88,8 @@ private:
     // add matrix entry if there is something to add
     if ((!rowTree.wlevel_ || rowTree.Q_W_.size()) &&
         (!colTree.wlevel_ || colTree.Q_W_.size())) {
-      triplet_list.push_back(
-          Eigen::Triplet<value_type>(rowTree.block_id_, colTree.block_id_, 1));
+      triplet_list.push_back(Eigen::Triplet<value_type>(
+          rowTree.block_id_, colTree.block_id_, dist));
     }
     // check children
     for (auto j = 0; j < colTree.sons_.size(); ++j) {
@@ -102,7 +100,7 @@ private:
   //////////////////////////////////////////////////////////////////////////////
   /// member variables
   //////////////////////////////////////////////////////////////////////////////
-  Eigen::SparseMatrix<value_type> Pat_;
+  std::vector<Eigen::Triplet<value_type>> triplet_list_;
   value_type a_param_;
   value_type dprime_;
   value_type dtilde_;

@@ -13,7 +13,11 @@
 #define FMCA_UTIL_MACROS_H_
 
 namespace FMCA {
-
+#ifndef M_PI
+#define FMCA_PI 3.14159265358979323846264338327950288
+#else
+#define FMCA_PI M_PI
+#endif
 #define FMCA_BBOX_THREASHOLD 5e-2
 #define FMCA_ZERO_TOLERANCE 1e-14
 

@@ -5,21 +5,26 @@
 #include <iomanip>
 
 #include "FMCA/BlockClusterTree"
+#include "FMCA/H2Matrix"
 #include "FMCA/Samplets"
 #include "FMCA/src/util/BinomialCoefficient.h"
 #include "FMCA/src/util/IO.h"
 #include "print2file.hpp"
 #include "util/tictoc.hpp"
 
-#define NPTS 16384
+//#define NPTS 16384
+#define NPTS 163840
 //#define NPTS 8192
 //#define NPTS 2048
-#define DIM 10
+#define DIM 5
 
 struct emptyFun {};
 using ClusterT = FMCA::ClusterTree<double, DIM, 2>;
 
 int main() {
+  // std::cout << FMCA::ChebyshevNodes<double>(9) << std::endl << std::endl;
+  // std::cout << FMCA::ChebyshevWeights<double>(9) << std::endl;
+  // return 0;
   srand(0);
   Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, NPTS);
   tictoc T;
@@ -27,7 +32,7 @@ int main() {
   ClusterT CT(P);
   FMCA::SampletTree<ClusterT> ST(P, CT, 1);
   T.toc("set up ct: ");
-  ST.basisInfo();
+  //ST.basisInfo();
   std::vector<std::vector<FMCA::IndexType>> tree;
   CT.exportTreeStructure(tree);
   for (auto i = 0; i < tree.size(); ++i) {
@@ -38,8 +43,7 @@ int main() {
   }
   std::cout << "------------------------\n";
   T.tic();
-  FMCA::BivariateCompressor<FMCA::SampletTree<ClusterT>> BC(ST, emptyFun(),
-                                                            0.01, 1, 0);
+  FMCA::BivariateCompressor<FMCA::SampletTree<ClusterT>> BC(ST, emptyFun());
   T.toc("set up compression pattern: ");
   auto Pattern = BC.get_Pattern();
   Bembel::IO::print2spascii("Pattern.txt", Pattern, "w");
