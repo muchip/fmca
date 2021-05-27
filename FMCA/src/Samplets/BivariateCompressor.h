@@ -14,8 +14,9 @@
 
 namespace FMCA {
 
-template <typename SampletTree> class BivariateCompressor {
-public:
+template <typename SampletTree>
+class BivariateCompressor {
+ public:
   typedef typename SampletTree::value_type value_type;
   BivariateCompressor(){};
   template <typename Functor>
@@ -57,43 +58,68 @@ public:
     const value_type first = j < jp ? 1. / (1 << j) : 1. / (1 << jp);
     const value_type second =
         std::pow(2., cut_const1_ - (j + jp) * cut_const2_);
-    return a_param_ * first; // (first > second ? first : second);
+    return a_param_ * first;  // (first > second ? first : second);
   }
   //////////////////////////////////////////////////////////////////////////////
   bool cutOff(IndexType j, IndexType jp, value_type dist) {
     return dist > cutOffParameter(j, jp);
   }
 
-private:
-  void assemblePattern(const SampletTree &rowTree, const SampletTree &colTree,
+ private:
+  //////////////////////////////////////////////////////////////////////////////
+  value_type computeDistance(const SampletTree &TR, const SampletTree &TC) {
+    const value_type row_radius =
+        0.5 *
+        (TR.cluster_->get_bb().col(0) - TR.cluster_->get_bb().col(1)).norm();
+    const value_type col_radius =
+        0.5 *
+        (TC.cluster_->get_bb().col(0) - TC.cluster_->get_bb().col(1)).norm();
+    const value_type dist =
+        0.5 * (TR.cluster_->get_bb().col(0) - TC.cluster_->get_bb().col(0) +
+               TR.cluster_->get_bb().col(1) - TC.cluster_->get_bb().col(1))
+                  .norm() -
+        row_radius - col_radius;
+    return dist > 0 ? dist : 0;
+  }
+  //////////////////////////////////////////////////////////////////////////////
+  template <typename Functor>
+  Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> setupRow(
+      const SampletTree &TR, const SampletTree &TC, const Functor &fun) {
+    if (TR.sons_.size()) {
+      // handle leaf
+    } else {
+      // handle non leaf
+    }
+  }
+
+  template <typename Functor>
+  Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> setupColumn(
+      const SampletTree &TR, const SampletTree &TC, const Functor &fun) {
+    Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> retval;
+
+    if (TC.sons_.size())
+      for (auto i = 0; i < TC.sons_.size(); ++i)
+        setupColumn(TR, TC.sons_[i], fun);
+    retval = setupRow(TR, TC, fun);
+    return retval;
+  }
+  //////////////////////////////////////////////////////////////////////////////
+  void assemblePattern(const SampletTree &TR, const SampletTree &TC,
                        std::vector<Eigen::Triplet<value_type>> &triplet_list) {
-    // set distance to the distance of the midpoints
-    const value_type row_radius = 0.5 * (rowTree.cluster_->get_bb().col(0) -
-                                         rowTree.cluster_->get_bb().col(1))
-                                            .norm();
-    const value_type col_radius = 0.5 * (colTree.cluster_->get_bb().col(0) -
-                                         colTree.cluster_->get_bb().col(1))
-                                            .norm();
-    const value_type dist = 0.5 * (rowTree.cluster_->get_bb().col(0) -
-                                   colTree.cluster_->get_bb().col(0) +
-                                   rowTree.cluster_->get_bb().col(1) -
-                                   colTree.cluster_->get_bb().col(1))
-                                      .norm() -
-                            row_radius - col_radius;
+    const value_type dist = computeDistance(TR, TC);
     // if either cluster is empty or the cutoff is satisfied, return
-    if (!rowTree.cluster_->get_indices().size() ||
-        !colTree.cluster_->get_indices().size() ||
-        cutOff(rowTree.wlevel_, colTree.wlevel_, dist))
+    if (!TR.cluster_->get_indices().size() ||
+        !TC.cluster_->get_indices().size() ||
+        cutOff(TR.wlevel_, TC.wlevel_, dist))
       return;
     // add matrix entry if there is something to add
-    if ((!rowTree.wlevel_ || rowTree.Q_W_.size()) &&
-        (!colTree.wlevel_ || colTree.Q_W_.size())) {
-      triplet_list.push_back(Eigen::Triplet<value_type>(
-          rowTree.block_id_, colTree.block_id_, dist));
+    if ((!TR.wlevel_ || TR.Q_W_.size()) && (!TC.wlevel_ || TC.Q_W_.size())) {
+      triplet_list.push_back(
+          Eigen::Triplet<value_type>(TR.block_id_, TC.block_id_, dist));
     }
     // check children
-    for (auto j = 0; j < colTree.sons_.size(); ++j) {
-      assemblePattern(rowTree, colTree.sons_[j], triplet_list);
+    for (auto j = 0; j < TC.sons_.size(); ++j) {
+      assemblePattern(TR, TC.sons_[j], triplet_list);
     }
     return;
   }
@@ -109,6 +135,6 @@ private:
   IndexType max_wlevel_;
   value_type cut_const1_;
   value_type cut_const2_;
-}; // namespace FMCA
-} // namespace FMCA
+};  // namespace FMCA
+}  // namespace FMCA
 #endif

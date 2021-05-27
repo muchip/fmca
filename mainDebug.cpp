@@ -45,8 +45,6 @@ int main() {
   T.tic();
   FMCA::BivariateCompressor<FMCA::SampletTree<ClusterT>> BC(ST, emptyFun());
   T.toc("set up compression pattern: ");
-  auto Pattern = BC.get_Pattern();
-  Bembel::IO::print2spascii("Pattern.txt", Pattern, "w");
 #if 0
   Eigen::MatrixXd Tmat(P.cols(), P.cols());
   Eigen::VectorXd unit(P.cols());

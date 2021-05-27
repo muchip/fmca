@@ -9,17 +9,16 @@
 #include "FMCA/Samplets"
 #include "FMCA/src/util/BinomialCoefficient.h"
 #include "FMCA/src/util/IO.h"
-#include "print2file.hpp"
-#include "util/tictoc.hpp"
-
 #include "matrix.h"
 #include "mex.h"
+#include "print2file.hpp"
+#include "util/tictoc.hpp"
 
 //#define NPTS 16384
 //#define NPTS 1638400
 //#define NPTS 81920
 //#define NPTS 8192
-#define NPTS 512
+#define NPTS 2048
 #define DIM 3
 
 struct emptyFun {};
@@ -41,8 +40,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, NPTS);
   P.row(2).setZero();
   Eigen::VectorXd nrms = P.colwise().norm();
-  for (auto i = 0; i < P.cols(); ++i)
-    P.col(i) *= 1 / nrms(i);
+  for (auto i = 0; i < P.cols(); ++i) P.col(i) *= 1 / nrms(i);
   tictoc T;
   T.tic();
   ClusterT CT(P);
@@ -59,13 +57,16 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     CT.get_BboxVector(&bbvec, level);
     FMCA::IO::plotBoxes("boxes" + std::to_string(level) + ".vtk", bbvec);
   }
-  // ST.basisInfo();
+  std::vector<Eigen::Matrix3d> bbvec;
+  CT.get_BboxVectorLeafs(&bbvec);
+  FMCA::IO::plotBoxes("boxesLeafs.vtk", bbvec);
+  FMCA::IO::plotPoints("points.vtk", P);
+
   std::vector<std::vector<FMCA::IndexType>> tree;
   CT.exportTreeStructure(tree);
   for (auto i = 0; i < tree.size(); ++i) {
     int numInd = 0;
-    for (auto j = 0; j < tree[i].size(); ++j)
-      numInd += tree[i][j];
+    for (auto j = 0; j < tree[i].size(); ++j) numInd += tree[i][j];
     std::cout << i << ") " << tree[i].size() << " " << numInd << "\n";
   }
   std::cout << "------------------------\n";
