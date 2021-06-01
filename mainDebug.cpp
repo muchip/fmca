@@ -11,7 +11,7 @@
 #include "FMCA/src/util/IO.h"
 #include "FMCA/src/util/print2file.hpp"
 #include "FMCA/src/util/tictoc.hpp"
-
+#include "imgCompression/matrixReader.h"
 //#define NPTS 16384
 //#define 0
 //#define NPTS 8192
@@ -19,14 +19,16 @@
 #define DIM 3
 
 struct emptyFun {};
-using ClusterT = FMCA::ClusterTree<double, DIM, 2>;
+using ClusterT = FMCA::ClusterTree<double, DIM, 1>;
 
 int main() {
-  // std::cout << FMCA::ChebyshevNodes<double>(9) << std::endl << std::endl;
-  // std::cout << FMCA::ChebyshevWeights<double>(9) << std::endl;
-  // return 0;
+  Eigen::MatrixXd B = readMatrix("bunny.txt");
+  std::cout << B.rows() << " " << B.cols() << std::endl;
   srand(0);
-  Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, NPTS);
+  Eigen::MatrixXd P = B.transpose(); // Eigen::MatrixXd::Random(DIM, NPTS);
+  // Eigen::VectorXd nrms = P.colwise().norm();
+  // for (auto i = 0; i < P.cols(); ++i)
+  //  P.col(i) *= 1 / nrms(i);
   tictoc T;
   T.tic();
   ClusterT CT(P);
@@ -37,7 +39,8 @@ int main() {
   CT.exportTreeStructure(tree);
   for (auto i = 0; i < tree.size(); ++i) {
     int numInd = 0;
-    for (auto j = 0; j < tree[i].size(); ++j) numInd += tree[i][j];
+    for (auto j = 0; j < tree[i].size(); ++j)
+      numInd += tree[i][j];
     std::cout << i << ") " << tree[i].size() << " " << numInd << "\n";
   }
   std::cout << "------------------------\n";
