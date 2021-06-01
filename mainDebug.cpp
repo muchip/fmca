@@ -9,14 +9,14 @@
 #include "FMCA/Samplets"
 #include "FMCA/src/util/BinomialCoefficient.h"
 #include "FMCA/src/util/IO.h"
-#include "print2file.hpp"
-#include "util/tictoc.hpp"
+#include "FMCA/src/util/print2file.hpp"
+#include "FMCA/src/util/tictoc.hpp"
 
 //#define NPTS 16384
-#define NPTS 163840
+//#define 0
 //#define NPTS 8192
-//#define NPTS 2048
-#define DIM 5
+#define NPTS 2048
+#define DIM 3
 
 struct emptyFun {};
 using ClusterT = FMCA::ClusterTree<double, DIM, 2>;
@@ -32,20 +32,34 @@ int main() {
   ClusterT CT(P);
   FMCA::SampletTree<ClusterT> ST(P, CT, 1);
   T.toc("set up ct: ");
-  //ST.basisInfo();
+  // ST.basisInfo();
   std::vector<std::vector<FMCA::IndexType>> tree;
   CT.exportTreeStructure(tree);
   for (auto i = 0; i < tree.size(); ++i) {
     int numInd = 0;
-    for (auto j = 0; j < tree[i].size(); ++j)
-      numInd += tree[i][j];
+    for (auto j = 0; j < tree[i].size(); ++j) numInd += tree[i][j];
     std::cout << i << ") " << tree[i].size() << " " << numInd << "\n";
   }
   std::cout << "------------------------\n";
   T.tic();
-  FMCA::BivariateCompressor<FMCA::SampletTree<ClusterT>> BC(ST, emptyFun());
+  // FMCA::BivariateCompressor<FMCA::SampletTree<ClusterT>> BC(ST, P,
+  // emptyFun());
   T.toc("set up compression pattern: ");
-#if 0
+  std::vector<ClusterT *> leafs;
+  CT.getLeafIterator(leafs);
+  int numInd = 0;
+  for (auto i = 0; i < leafs.size(); ++i)
+    numInd += (leafs[i])->get_indices().size();
+  for (auto level = 0; level < 14; ++level) {
+    std::vector<Eigen::Matrix3d> bbvec;
+    CT.get_BboxVector(&bbvec, level);
+    FMCA::IO::plotBoxes("boxes" + std::to_string(level) + ".vtk", bbvec);
+  }
+  std::vector<Eigen::Matrix<double, DIM, 3u>> bbvec;
+  CT.get_BboxVectorLeafs(&bbvec);
+  FMCA::IO::plotBoxes("boxesLeafs.vtk", bbvec);
+  FMCA::IO::plotPoints("points.vtk", P);
+#if 1
   Eigen::MatrixXd Tmat(P.cols(), P.cols());
   Eigen::VectorXd unit(P.cols());
   auto idcs = CT.get_indices();
