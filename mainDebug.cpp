@@ -17,36 +17,40 @@
 //#define NPTS 8192
 //#define NPTS 2048
 //#define NPTS 1024
+#define NPTS 512
 #define DIM 3
 #define TEST_SAMPLET_TRANSFORM_
 
 struct Gaussian {
   double operator()(const Eigen::Matrix<double, DIM, 1> &x,
                     const Eigen::Matrix<double, DIM, 1> &y) const {
-    return exp(-(x - y).squaredNorm());
+    return exp(-20 * (x - y).norm());
   }
 };
 
-using ClusterT = FMCA::ClusterTree<double, DIM, 1>;
+using ClusterT = FMCA::ClusterTree<double, DIM, 2>;
 
 int main() {
+#if 0
   std::cout << "loading data: ";
   Eigen::MatrixXd B = readMatrix("bunny.txt");
   std::cout << "data size: ";
   std::cout << B.rows() << " " << B.cols() << std::endl;
   std::cout << "----------------------------------------------------\n";
   Eigen::MatrixXd P = B.transpose();
-  // srand(0);
-  // Eigen::Matrix P = Eigen::MatrixXd::Random(DIM, NPTS);
-  // Eigen::VectorXd nrms = P.colwise().norm();
-  // for (auto i = 0; i < P.cols(); ++i)
-  //  P.col(i) *= 1 / nrms(i);
+#else
+  srand(0);
+  Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, NPTS);
+//  Eigen::VectorXd nrms = P.colwise().norm();
+//  for (auto i = 0; i < P.cols(); ++i)
+//    P.col(i) *= 1 / nrms(i);
+#endif
   tictoc T;
   T.tic();
   ClusterT CT(P);
   T.toc("set up cluster tree: ");
   T.tic();
-  FMCA::SampletTree<ClusterT> ST(CT, 2);
+  FMCA::SampletTree<ClusterT> ST(CT, 1);
   T.toc("set up samplet tree: ");
   std::cout << "----------------------------------------------------\n";
   //////////////////////////////////////////////////////////////////////////////
@@ -82,10 +86,12 @@ int main() {
   FMCA::BivariateCompressor<FMCA::SampletTree<ClusterT>> BC(ST, Gaussian());
   T.toc("set up compression pattern: ");
   T.tic();
+  Eigen::MatrixXd S(P.cols(), P.cols());
+  S.setZero();
   Eigen::MatrixXd C =
-      BC.recursivelyComputeBlock(ST, ST, Gaussian(), true, true);
+      BC.recursivelyComputeBlock(&S, ST, ST, Gaussian(), true, true);
   T.toc("wavelet transform: ");
-
+  Bembel::IO::print2m("Smatrix.m", "S", S, "w");
   std::cout << "----------------------------------------------------\n";
 //////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_SAMPLET_TRANSFORM_
@@ -117,7 +123,8 @@ int main() {
   Eigen::MatrixXd SK = Tmat.transpose() * K * Tmat;
   std::cout << C.rows() << " " << C.cols() << std::endl;
   std::cout << SK.rows() << " " << SK.cols() << std::endl;
-  //std::cout << (C - SK).norm() / SK.norm() << std::endl;
+  Bembel::IO::print2m("S2matrix.m", "S2", SK, "w");
+  // std::cout << (C - SK).norm() / SK.norm() << std::endl;
 #endif
 #if 0
     std::function<double(const Eigen::VectorXd &)> fun =

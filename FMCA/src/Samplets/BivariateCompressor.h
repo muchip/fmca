@@ -67,7 +67,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
   template <typename Functor>
-  eigenMatrix recursivelyComputeBlock(const SampletTree &TR,
+  eigenMatrix recursivelyComputeBlock(eigenMatrix *S, const SampletTree &TR,
                                       const SampletTree &TC, const Functor &fun,
                                       bool Gamma, bool Gammap) {
     eigenMatrix mat(0, 0);
@@ -89,30 +89,45 @@ public:
       else if (not Gamma && Gammap)
         return TR.Q_.leftCols(TR.nscalfs_).transpose() * mat *
                TC.Q_.rightCols(TC.nsamplets_);
-      else
-        return TR.Q_.rightCols(TR.nsamplets_).transpose() * mat *
-               TC.Q_.rightCols(TC.nsamplets_);
+      else {
+        // we have a wavelet block, write it to S
+        S->block(TR.start_index_, TC.start_index_, TR.nsamplets_,
+                 TC.nsamplets_) = TR.Q_.rightCols(TR.nsamplets_).transpose() *
+                                  mat * TC.Q_.rightCols(TC.nsamplets_);
+        return S->block(TR.start_index_, TC.start_index_, TR.nsamplets_,
+                        TC.nsamplets_);
+      }
     } else if (!TR.sons_.size() && TC.sons_.size()) {
       // the row cluster is a leaf cluster: recursion on the col cluster
       for (auto j = 0; j < TC.sons_.size(); ++j) {
-        auto ret = recursivelyComputeBlock(TR, TC.sons_[j], fun, Gamma, false);
+        auto ret =
+            recursivelyComputeBlock(S, TR, TC.sons_[j], fun, Gamma, false);
         if (ret.size()) {
           mat.conservativeResize(ret.rows(), mat.cols() + ret.cols());
           mat.rightCols(ret.cols()) = ret;
         }
       }
       if (mat.size()) {
-        if (not Gammap)
+        if (not Gammap) {
           return mat * TC.Q_.leftCols(TC.nscalfs_);
-        else
-          return mat * TC.Q_.rightCols(TC.nsamplets_);
+        } else {
+          if (Gamma) {
+            // we have a wavelet block, write it to S
+            S->block(TR.start_index_, TC.start_index_, TR.nsamplets_,
+                     TC.nsamplets_) = mat * TC.Q_.rightCols(TC.nsamplets_);
+            return S->block(TR.start_index_, TC.start_index_, TR.nsamplets_,
+                            TC.nsamplets_);
+          } else
+            return mat * TC.Q_.rightCols(TC.nsamplets_);
+        }
       } else
         return eigenMatrix(0, 0);
 
     } else if (TR.sons_.size() && !TC.sons_.size()) {
       // the col cluster is a leaf cluster: recursion on the row cluster
       for (auto i = 0; i < TR.sons_.size(); ++i) {
-        auto ret = recursivelyComputeBlock(TR.sons_[i], TC, fun, false, Gammap);
+        auto ret =
+            recursivelyComputeBlock(S, TR.sons_[i], TC, fun, false, Gammap);
         if (ret.size()) {
           mat.conservativeResize(ret.cols(), mat.cols() + ret.rows());
           mat.rightCols(ret.rows()) = ret.transpose();
@@ -121,8 +136,17 @@ public:
       if (mat.size()) {
         if (not Gamma)
           return (mat * TR.Q_.leftCols(TR.nscalfs_)).transpose();
-        else
-          return (mat * TR.Q_.rightCols(TR.nsamplets_)).transpose();
+        else {
+          if (Gammap) {
+            // we have a wavelet block, write it to S
+            S->block(TR.start_index_, TC.start_index_, TR.nsamplets_,
+                     TC.nsamplets_) =
+                (mat * TR.Q_.rightCols(TR.nsamplets_)).transpose();
+            return S->block(TR.start_index_, TC.start_index_, TR.nsamplets_,
+                            TC.nsamplets_);
+          } else
+            return (mat * TR.Q_.rightCols(TR.nsamplets_)).transpose();
+        }
       } else
         return eigenMatrix(0, 0);
     } else {
@@ -130,7 +154,7 @@ public:
       for (auto i = 0; i < TR.sons_.size(); ++i) {
         eigenMatrix ret1(0, 0);
         for (auto j = 0; j < TC.sons_.size(); ++j) {
-          auto ret2 = recursivelyComputeBlock(TR.sons_[i], TC.sons_[j], fun,
+          auto ret2 = recursivelyComputeBlock(S, TR.sons_[i], TC.sons_[j], fun,
                                               false, false);
           if (ret2.size()) {
             ret1.conservativeResize(ret2.rows(), ret1.cols() + ret2.cols());
@@ -149,8 +173,17 @@ public:
       if (mat.size()) {
         if (not Gamma)
           return (mat * TR.Q_.leftCols(TR.nscalfs_)).transpose();
-        else
-          return (mat * TR.Q_.rightCols(TR.nsamplets_)).transpose();
+        else {
+          if (Gammap) {
+            // we have a wavelet block, write it to S
+            S->block(TR.start_index_, TC.start_index_, TR.nsamplets_,
+                     TC.nsamplets_) =
+                (mat * TR.Q_.rightCols(TR.nsamplets_)).transpose();
+            return S->block(TR.start_index_, TC.start_index_, TR.nsamplets_,
+                            TC.nsamplets_);
+          } else
+            return (mat * TR.Q_.rightCols(TR.nsamplets_)).transpose();
+        }
       } else
         return eigenMatrix(0, 0);
     }
