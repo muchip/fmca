@@ -49,15 +49,11 @@ public:
   // constructors
   //////////////////////////////////////////////////////////////////////////////
   SampletTree() {}
-  SampletTree(const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
-              const ClusterTree &CT, IndexType dtilde = 1) {
-    init(P, CT, dtilde);
-  }
+  SampletTree(const ClusterTree &CT, IndexType dtilde = 1) { init(CT, dtilde); }
   //////////////////////////////////////////////////////////////////////////////
   // init
   //////////////////////////////////////////////////////////////////////////////
-  void init(const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
-            const ClusterTree &CT, IndexType dtilde = 1) {
+  void init(const ClusterTree &CT, IndexType dtilde = 1) {
     tree_data_ = std::make_shared<SampletTreeData<ClusterTree>>();
     tree_data_->idcs.init(dtilde - 1);
     tree_data_->dtilde_ = dtilde;
@@ -80,7 +76,7 @@ public:
       }
     }
     // compute the samplet basis
-    computeSamplets(P, CT);
+    computeSamplets(CT);
     // now map it
     sampletMapper();
     return;
@@ -138,7 +134,7 @@ private:
     eigenVector retval(0);
     IndexType scalf_shift = 0;
     if (!wlevel_)
-      scalf_shift = Q_S_.cols();
+      scalf_shift = Q_.cols() - nsamplets_;
     if (sons_.size()) {
       for (auto i = 0; i < sons_.size(); ++i) {
         auto scalf = sons_[i].sampletTransformRecursion(data, offset, svec);
@@ -149,13 +145,13 @@ private:
     } else {
       retval = data.segment(offset, cluster_->get_indices().size());
     }
-    if (Q_W_.size()) {
-      svec->segment(start_index_ + scalf_shift, Q_W_.cols()) =
-          Q_W_.transpose() * retval;
-      retval = Q_S_.transpose() * retval;
+    if (nsamplets_) {
+      svec->segment(start_index_ + scalf_shift, nsamplets_) =
+          Q_.rightCols(nsamplets_).transpose() * retval;
+      retval = Q_.leftCols(nscalfs_).transpose() * retval;
     }
     if (!wlevel_)
-      svec->segment(start_index_, Q_S_.cols()) = retval;
+      svec->segment(start_index_, nscalfs_) = retval;
     return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
@@ -165,43 +161,43 @@ private:
                                         IndexType ddata_offset = 0) {
     eigenVector retval;
     if (!wlevel_) {
-      retval = Q_S_ * data.segment(start_index_, Q_S_.cols()) +
-               Q_W_ * data.segment(start_index_ + Q_S_.cols(), Q_W_.cols());
+      retval = Q_.leftCols(nscalfs_) * data.segment(start_index_, nscalfs_) +
+               Q_.rightCols(nsamplets_) *
+                   data.segment(start_index_ + nscalfs_, nsamplets_);
     } else {
 #if 0
       std::cout << "-----------\n";
       std::cout << "os: " << ddata_offset << " ds: " << ddata->size()
                 << std::endl;
       std::cout << "id: " << block_id_ << " wlvl: " << wlevel_
-                << " Qw: " << Q_W_.size()
+                << " nsf: " << nscalfs_ << " ns: " << nsamplets_
                 << " cs: " << cluster_->get_indices().size()
                 << " sns: " << sons_.size() << std::endl;
       std::cout << "Q:\n";
-      std::cout << Q_S_ << std::endl;
-      eigenVector vec = ddata->segment(ddata_offset, Q_S_.cols());
+      std::cout << Q_ << std::endl;
+      eigenVector vec = ddata->segment(ddata_offset, nscalfs_);
       std::cout << "vec:\n";
       std::cout << vec << std::endl;
 #endif
-      retval = Q_S_ * ddata->segment(ddata_offset, Q_S_.cols());
-      if (Q_W_.size())
-        retval += Q_W_ * data.segment(start_index_, Q_W_.cols());
+      retval = Q_.leftCols(nscalfs_) * ddata->segment(ddata_offset, nscalfs_);
+      if (nsamplets_)
+        retval +=
+            Q_.rightCols(nsamplets_) * data.segment(start_index_, nsamplets_);
     }
     if (sons_.size()) {
       ddata_offset = 0;
       for (auto i = 0; i < sons_.size(); ++i) {
 #if 0
         std::cout << " sid: " << i << " cs: " << cluster_->get_indices().size()
-                  << " Qw: " << Q_W_.rows() << "/" << Q_W_.cols()
-                  << " Qs: " << Q_S_.rows() << "/" << Q_S_.cols() << std::endl
-                  << std::endl;
+                  << " Q: " << Q_.rows() << "/" << Q_.cols() << std::endl;
         std::cout << retval << std::endl;
-        std::cout << "s0: " << sons_[0].Q_S_.cols()
-                  << " s1: " << sons_[1].Q_S_.cols() << std::endl;
+        std::cout << "s0: " << sons_[0].nscalfs_ << " s1: " << sons_[1].nscalfs_
+                  << std::endl;
 #endif
         sons_[i].inverseSampletTransformRecursion(data, offset, fvec, &retval,
                                                   ddata_offset);
         offset += sons_[i].cluster_->get_indices().size();
-        ddata_offset += sons_[i].Q_S_.cols();
+        ddata_offset += sons_[i].nscalfs_;
       }
     } else {
       fvec->segment(offset, retval.size()) = retval;
@@ -209,9 +205,7 @@ private:
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
-  void
-  computeSamplets(const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
-                  const ClusterTree &CT) {
+  void computeSamplets(const ClusterTree &CT) {
     cluster_ = &CT;
     // the computation of the samplet level is a bit cumbersome as we have to
     // account for empty clusters and clusters with a single point here.
@@ -234,7 +228,7 @@ private:
       IndexType offset = 0;
       for (auto i = 0; i != CT.get_sons().size(); ++i) {
         sons_[i].tree_data_ = tree_data_;
-        sons_[i].computeSamplets(P, CT.get_sons()[i]);
+        sons_[i].computeSamplets(CT.get_sons()[i]);
         // the son now has moments, lets grep them...
         eigenVector shift =
             0.5 *
@@ -253,15 +247,14 @@ private:
       }
     } else {
       // compute cluster basis of the leaf
-      mom_buffer_ = momentComputer<ClusterTree>(P, *cluster_, tree_data_->idcs);
+      mom_buffer_ = momentComputer<ClusterTree>(*cluster_, tree_data_->idcs);
     }
     // are there wavelets?
     if (mom_buffer_.rows() < mom_buffer_.cols()) {
       Eigen::HouseholderQR<eigenMatrix> qr(mom_buffer_.transpose());
-      Q_S_ = qr.householderQ();
-      Q_W_ = Q_S_.block(0, tree_data_->m_dtilde_, Q_S_.rows(),
-                        Q_S_.cols() - tree_data_->m_dtilde_);
-      Q_S_.conservativeResize(Q_S_.cols(), tree_data_->m_dtilde_);
+      Q_ = qr.householderQ();
+      nscalfs_ = tree_data_->m_dtilde_;
+      nsamplets_ = Q_.cols() - nscalfs_;
       // this is the moment for the dad cluster
       mom_buffer_ =
           qr.matrixQR()
@@ -269,8 +262,9 @@ private:
               .template triangularView<Eigen::Upper>()
               .transpose();
     } else {
-      Q_S_ = eigenMatrix::Identity(mom_buffer_.cols(), mom_buffer_.cols());
-      Q_W_.resize(0, 0);
+      Q_ = eigenMatrix::Identity(mom_buffer_.cols(), mom_buffer_.cols());
+      nscalfs_ = mom_buffer_.cols();
+      nsamplets_ = 0;
     }
     return;
   }
@@ -279,7 +273,7 @@ private:
                               std::vector<std::vector<SampletTree *>> &mapper) {
     // we always add the root. However, every other cluster is only added if
     // there are indeed wavelets.
-    if (!ST->wlevel_ || ST->Q_W_.size())
+    if (!ST->wlevel_ || ST->nsamplets_)
       mapper[ST->wlevel_].push_back(ST);
     if (ST->sons_.size())
       for (auto i = 0; i < ST->sons_.size(); ++i)
@@ -308,9 +302,10 @@ private:
     for (auto i = 0; i < tree_data_->samplet_list.size(); ++i) {
       tree_data_->samplet_list[i]->start_index_ = sum;
       tree_data_->samplet_list[i]->block_id_ = i;
-      sum += tree_data_->samplet_list[i]->Q_W_.cols();
+      sum += tree_data_->samplet_list[i]->nsamplets_;
       if (tree_data_->samplet_list[i]->wlevel_ == 0)
-        sum += tree_data_->samplet_list[i]->Q_S_.cols();
+        sum += tree_data_->samplet_list[i]->Q_.cols() -
+               tree_data_->samplet_list[i]->nsamplets_;
     }
     return;
   }
@@ -321,8 +316,9 @@ private:
   std::shared_ptr<SampletTreeData<ClusterTree>> tree_data_;
   const ClusterTree *cluster_;
   Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> mom_buffer_;
-  Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> Q_W_;
-  Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> Q_S_;
+  Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> Q_;
+  IndexType nscalfs_;
+  IndexType nsamplets_;
   IndexType wlevel_;
   IndexType start_index_;
   IndexType block_id_;

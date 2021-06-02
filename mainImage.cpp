@@ -8,10 +8,10 @@
 #include "FMCA/Samplets"
 #include "FMCA/src/util/BinomialCoefficient.h"
 #include "FMCA/src/util/IO.h"
+#include "FMCA/src/util/print2file.hpp"
+#include "FMCA/src/util/tictoc.hpp"
 #include "imgCompression/matrixReader.h"
-#include "print2file.hpp"
-#include "util/tictoc.hpp"
-#define DIM 3
+#define DIM 2
 
 using ClusterT = FMCA::ClusterTree<double, DIM, 2>;
 
@@ -27,11 +27,11 @@ int main() {
     for (auto j = 0; j < Rchan.rows(); ++j) {
       P(0, k) = i;
       P(1, k) = j;
-      P(2, k) = 0;
+      //  P(2, k) = 0;
       ++k;
     }
   ClusterT CT(P);
-  FMCA::SampletTree<ClusterT> ST(P, CT, 10);
+  FMCA::SampletTree<ClusterT> ST(CT, 1);
   auto indices = CT.get_indices();
 
   Eigen::VectorXd rfdata(indices.size());

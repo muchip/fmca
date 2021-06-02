@@ -14,7 +14,8 @@
 
 namespace FMCA {
 
-template <typename ValueType> struct ClusterTreeData {
+template <typename ValueType, IndexType Dim> struct ClusterTreeData {
+  Eigen::Matrix<ValueType, Dim, Eigen::Dynamic> const *P_;
   ValueType geometry_diam_ = 0;
   IndexType max_id_ = 0;
   IndexType max_level_ = 0;
@@ -25,10 +26,14 @@ template <typename ValueType> struct ClusterTreeData {
  *  \brief The ClusterTree class manages cluster trees for point sets in
  *         arbitrary dimensions. We always use a binary tree which can
  *         afterwards always be recombined into an 2^n tree.
+ *
+ *  Note: tree data stores a pointer to the point list. This becomes
+ *  problematic if the point list goes out of scope while the cluster tree
+ *  still exists.
  */
 template <typename ValueType, IndexType Dim, IndexType MinClusterSize,
           typename Splitter =
-              ClusterSplitter::CardinalityBisection<ValueType, Dim>>
+              ClusterSplitter::GeometricBisection<ValueType, Dim>>
 class ClusterTree {
   friend Splitter;
 
@@ -47,8 +52,9 @@ public:
   //////////////////////////////////////////////////////////////////////////////
   void init(const Eigen::Matrix<ValueType, Dim, Eigen::Dynamic> &P) {
     // set up bounding box for root node
+    tree_data_ = std::make_shared<ClusterTreeData<ValueType, Dim>>();
+    tree_data_->P_ = &P;
     initBoundingBox(P);
-    tree_data_ = std::make_shared<ClusterTreeData<ValueType>>();
     level_ = 0;
     id_ = 0;
     indices_.resize(P.cols());
@@ -91,7 +97,7 @@ public:
 
   const std::vector<ClusterTree> &get_sons() const { return sons_; }
 
-  const ClusterTreeData<ValueType> &get_tree_data() const {
+  const ClusterTreeData<ValueType, Dim> &get_tree_data() const {
     return *tree_data_;
   }
 
@@ -221,7 +227,7 @@ private:
   Eigen::Matrix<ValueType, Dim, 3u> bb_;
   std::vector<IndexType> indices_;
   std::vector<ClusterTree> sons_;
-  std::shared_ptr<ClusterTreeData<ValueType>> tree_data_;
+  std::shared_ptr<ClusterTreeData<ValueType, Dim>> tree_data_;
   IndexType level_;
   IndexType id_;
 }; // namespace FMCA

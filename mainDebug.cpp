@@ -12,42 +12,57 @@
 #include "FMCA/src/util/print2file.hpp"
 #include "FMCA/src/util/tictoc.hpp"
 #include "imgCompression/matrixReader.h"
-//#define NPTS 16384
-//#define 0
-//#define NPTS 8192
-#define NPTS 2048
-#define DIM 3
 
-struct emptyFun {};
+//#define NPTS 16384
+//#define NPTS 8192
+//#define NPTS 2048
+//#define NPTS 1024
+#define DIM 3
+#define TEST_SAMPLET_TRANSFORM_
+
+struct Gaussian {
+  double operator()(const Eigen::Matrix<double, DIM, 1> &x,
+                    const Eigen::Matrix<double, DIM, 1> &y) const {
+    return exp(-(x - y).squaredNorm());
+  }
+};
+
 using ClusterT = FMCA::ClusterTree<double, DIM, 1>;
 
 int main() {
+  std::cout << "loading data: ";
   Eigen::MatrixXd B = readMatrix("bunny.txt");
+  std::cout << "data size: ";
   std::cout << B.rows() << " " << B.cols() << std::endl;
-  srand(0);
-  Eigen::MatrixXd P = B.transpose(); // Eigen::MatrixXd::Random(DIM, NPTS);
+  std::cout << "----------------------------------------------------\n";
+  Eigen::MatrixXd P = B.transpose();
+  // srand(0);
+  // Eigen::Matrix P = Eigen::MatrixXd::Random(DIM, NPTS);
   // Eigen::VectorXd nrms = P.colwise().norm();
   // for (auto i = 0; i < P.cols(); ++i)
   //  P.col(i) *= 1 / nrms(i);
   tictoc T;
   T.tic();
   ClusterT CT(P);
-  FMCA::SampletTree<ClusterT> ST(P, CT, 1);
-  T.toc("set up ct: ");
-  // ST.basisInfo();
+  T.toc("set up cluster tree: ");
+  T.tic();
+  FMCA::SampletTree<ClusterT> ST(CT, 2);
+  T.toc("set up samplet tree: ");
+  std::cout << "----------------------------------------------------\n";
+  //////////////////////////////////////////////////////////////////////////////
   std::vector<std::vector<FMCA::IndexType>> tree;
   CT.exportTreeStructure(tree);
+  std::cout << "cluster structure: " << std::endl;
+  std::cout << "l)\t#pts\ttotal#pts" << std::endl;
   for (auto i = 0; i < tree.size(); ++i) {
     int numInd = 0;
     for (auto j = 0; j < tree[i].size(); ++j)
       numInd += tree[i][j];
-    std::cout << i << ") " << tree[i].size() << " " << numInd << "\n";
+    std::cout << i << ")\t" << tree[i].size() << "\t" << numInd << "\n";
   }
-  std::cout << "------------------------\n";
-  T.tic();
-  // FMCA::BivariateCompressor<FMCA::SampletTree<ClusterT>> BC(ST, P,
-  // emptyFun());
-  T.toc("set up compression pattern: ");
+  std::cout << "----------------------------------------------------\n";
+  //////////////////////////////////////////////////////////////////////////////
+#ifdef PLOT_BOXES_
   std::vector<ClusterT *> leafs;
   CT.getLeafIterator(leafs);
   int numInd = 0;
@@ -62,7 +77,19 @@ int main() {
   CT.get_BboxVectorLeafs(&bbvec);
   FMCA::IO::plotBoxes("boxesLeafs.vtk", bbvec);
   FMCA::IO::plotPoints("points.vtk", P);
-#if 1
+#endif
+  T.tic();
+  FMCA::BivariateCompressor<FMCA::SampletTree<ClusterT>> BC(ST, Gaussian());
+  T.toc("set up compression pattern: ");
+  T.tic();
+  Eigen::MatrixXd C =
+      BC.recursivelyComputeBlock(ST, ST, Gaussian(), true, true);
+  T.toc("wavelet transform: ");
+
+  std::cout << "----------------------------------------------------\n";
+//////////////////////////////////////////////////////////////////////////////
+#ifdef TEST_SAMPLET_TRANSFORM_
+  T.tic();
   Eigen::MatrixXd Tmat(P.cols(), P.cols());
   Eigen::VectorXd unit(P.cols());
   auto idcs = CT.get_indices();
@@ -80,6 +107,17 @@ int main() {
                        .norm() /
                    sqrt(Tmat.rows())
             << " " << sqrt(inv_err / Tmat.cols()) << std::endl;
+  T.toc("time samplet transform test: ");
+  std::cout << "----------------------------------------------------\n";
+  Eigen::MatrixXd K(CT.get_indices().size(), CT.get_indices().size());
+  auto fun = Gaussian();
+  for (auto j = 0; j < CT.get_indices().size(); ++j)
+    for (auto i = 0; i < CT.get_indices().size(); ++i)
+      K(i, j) = fun(P.col(CT.get_indices()[i]), P.col(CT.get_indices()[j]));
+  Eigen::MatrixXd SK = Tmat.transpose() * K * Tmat;
+  std::cout << C.rows() << " " << C.cols() << std::endl;
+  std::cout << SK.rows() << " " << SK.cols() << std::endl;
+  //std::cout << (C - SK).norm() / SK.norm() << std::endl;
 #endif
 #if 0
     std::function<double(const Eigen::VectorXd &)> fun =

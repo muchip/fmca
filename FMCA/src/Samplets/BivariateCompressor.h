@@ -14,10 +14,10 @@
 
 namespace FMCA {
 
-template <typename SampletTree>
-class BivariateCompressor {
- public:
+template <typename SampletTree> class BivariateCompressor {
+public:
   typedef typename SampletTree::value_type value_type;
+  typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
   BivariateCompressor(){};
   template <typename Functor>
   BivariateCompressor(const SampletTree &ST, const Functor &fun,
@@ -58,14 +58,105 @@ class BivariateCompressor {
     const value_type first = j < jp ? 1. / (1 << j) : 1. / (1 << jp);
     const value_type second =
         std::pow(2., cut_const1_ - (j + jp) * cut_const2_);
-    return a_param_ * first;  // (first > second ? first : second);
+    return a_param_ * first; // (first > second ? first : second);
   }
   //////////////////////////////////////////////////////////////////////////////
   bool cutOff(IndexType j, IndexType jp, value_type dist) {
     return dist > cutOffParameter(j, jp);
   }
 
- private:
+  //////////////////////////////////////////////////////////////////////////////
+  template <typename Functor>
+  eigenMatrix recursivelyComputeBlock(const SampletTree &TR,
+                                      const SampletTree &TC, const Functor &fun,
+                                      bool Gamma, bool Gammap) {
+    eigenMatrix mat(0, 0);
+    if (!TR.sons_.size() && !TC.sons_.size()) {
+      // both are leafs: compute the block and return
+      auto P = TR.cluster_->get_tree_data().P_;
+      mat.resize(TR.cluster_->get_indices().size(),
+                 TC.cluster_->get_indices().size());
+      for (auto j = 0; j < TC.cluster_->get_indices().size(); ++j)
+        for (auto i = 0; i < TR.cluster_->get_indices().size(); ++i)
+          mat(i, j) = fun(P->col(TR.cluster_->get_indices()[i]),
+                          P->col(TR.cluster_->get_indices()[i]));
+      if (not Gamma && not Gammap)
+        return TR.Q_.leftCols(TR.nscalfs_).transpose() * mat *
+               TC.Q_.leftCols(TC.nscalfs_);
+      else if (Gamma && not Gammap)
+        return TR.Q_.rightCols(TR.nsamplets_).transpose() * mat *
+               TC.Q_.leftCols(TC.nscalfs_);
+      else if (not Gamma && Gammap)
+        return TR.Q_.leftCols(TR.nscalfs_).transpose() * mat *
+               TC.Q_.rightCols(TC.nsamplets_);
+      else
+        return TR.Q_.rightCols(TR.nsamplets_).transpose() * mat *
+               TC.Q_.rightCols(TC.nsamplets_);
+    } else if (!TR.sons_.size() && TC.sons_.size()) {
+      // the row cluster is a leaf cluster: recursion on the col cluster
+      for (auto j = 0; j < TC.sons_.size(); ++j) {
+        auto ret = recursivelyComputeBlock(TR, TC.sons_[j], fun, Gamma, false);
+        if (ret.size()) {
+          mat.conservativeResize(ret.rows(), mat.cols() + ret.cols());
+          mat.rightCols(ret.cols()) = ret;
+        }
+      }
+      if (mat.size()) {
+        if (not Gammap)
+          return mat * TC.Q_.leftCols(TC.nscalfs_);
+        else
+          return mat * TC.Q_.rightCols(TC.nsamplets_);
+      } else
+        return eigenMatrix(0, 0);
+
+    } else if (TR.sons_.size() && !TC.sons_.size()) {
+      // the col cluster is a leaf cluster: recursion on the row cluster
+      for (auto i = 0; i < TR.sons_.size(); ++i) {
+        auto ret = recursivelyComputeBlock(TR.sons_[i], TC, fun, false, Gammap);
+        if (ret.size()) {
+          mat.conservativeResize(ret.cols(), mat.cols() + ret.rows());
+          mat.rightCols(ret.rows()) = ret.transpose();
+        }
+      }
+      if (mat.size()) {
+        if (not Gamma)
+          return (mat * TR.Q_.leftCols(TR.nscalfs_)).transpose();
+        else
+          return (mat * TR.Q_.rightCols(TR.nsamplets_)).transpose();
+      } else
+        return eigenMatrix(0, 0);
+    } else {
+      // neither is a leaf, let recursion handle this
+      for (auto i = 0; i < TR.sons_.size(); ++i) {
+        eigenMatrix ret1(0, 0);
+        for (auto j = 0; j < TC.sons_.size(); ++j) {
+          auto ret2 = recursivelyComputeBlock(TR.sons_[i], TC.sons_[j], fun,
+                                              false, false);
+          if (ret2.size()) {
+            ret1.conservativeResize(ret2.rows(), ret1.cols() + ret2.cols());
+            ret1.rightCols(ret2.cols()) = ret2;
+          }
+        }
+        if (ret1.size()) {
+          if (not Gammap) {
+            ret1 = ret1 * TC.Q_.leftCols(TC.nscalfs_);
+          } else
+            ret1 = ret1 * TC.Q_.rightCols(TC.nsamplets_);
+          mat.conservativeResize(ret1.cols(), mat.cols() + ret1.rows());
+          mat.rightCols(ret1.rows()) = ret1.transpose();
+        }
+      }
+      if (mat.size()) {
+        if (not Gamma)
+          return (mat * TR.Q_.leftCols(TR.nscalfs_)).transpose();
+        else
+          return (mat * TR.Q_.rightCols(TR.nsamplets_)).transpose();
+      } else
+        return eigenMatrix(0, 0);
+    }
+  }
+
+private:
   //////////////////////////////////////////////////////////////////////////////
   value_type computeDistance(const SampletTree &TR, const SampletTree &TC) {
     const value_type row_radius =
@@ -80,21 +171,21 @@ class BivariateCompressor {
                   .norm() -
         row_radius - col_radius;
     return dist > 0 ? dist : 0;
-  }
-  //////////////////////////////////////////////////////////////////////////////
+  } //////////////////////////////////////////////////////////////////////////////
   template <typename Functor>
-  Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> setupRow(
-      const SampletTree &TR, const SampletTree &TC, const Functor &fun) {
+  eigenMatrix setupRow(const SampletTree &TR, const SampletTree &TC,
+                       const Functor &fun) {
     if (TR.sons_.size()) {
-      // handle leaf
-    } else {
       // handle non leaf
+    } else {
+      // handle leaf
     }
   }
 
+  //////////////////////////////////////////////////////////////////////////////
   template <typename Functor>
-  Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> setupColumn(
-      const SampletTree &TR, const SampletTree &TC, const Functor &fun) {
+  eigenMatrix setupColumn(const SampletTree &TR, const SampletTree &TC,
+                          const Functor &fun) {
     Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> retval;
 
     if (TC.sons_.size())
@@ -113,7 +204,7 @@ class BivariateCompressor {
         cutOff(TR.wlevel_, TC.wlevel_, dist))
       return;
     // add matrix entry if there is something to add
-    if ((!TR.wlevel_ || TR.Q_W_.size()) && (!TC.wlevel_ || TC.Q_W_.size())) {
+    if ((!TR.wlevel_ || TR.nsamplets_) && (!TC.wlevel_ || TC.nsamplets_)) {
       triplet_list.push_back(
           Eigen::Triplet<value_type>(TR.block_id_, TC.block_id_, dist));
     }
@@ -135,6 +226,6 @@ class BivariateCompressor {
   IndexType max_wlevel_;
   value_type cut_const1_;
   value_type cut_const2_;
-};  // namespace FMCA
-}  // namespace FMCA
+}; // namespace FMCA
+} // namespace FMCA
 #endif
