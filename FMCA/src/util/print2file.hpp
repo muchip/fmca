@@ -49,7 +49,7 @@ int print2spascii(const std::string &fileName,
     for (typename Eigen::SparseMatrix<Scalar>::InnerIterator it(var, i); it;
          ++it) {
       myfile << it.row() + 1 << " " << it.col() + 1 << " "
-             << std::setprecision(30) << it.value() << std::endl;
+             << std::setprecision(10) << it.value() << std::endl;
     }
   myfile.close();
   return 0;
@@ -80,7 +80,7 @@ int print2m(const std::string &fileName, const std::string &varName,
 
   for (int i = 0; i < (int)tmp.rows(); ++i) {
     for (int j = 0; j < (int)tmp.cols(); ++j)
-      myfile << std::setprecision(30) << tmp(i, j) << " \t ";
+      myfile << std::setprecision(10) << tmp(i, j) << " \t ";
     myfile << std::endl;
   }
   myfile << "];" << std::endl;

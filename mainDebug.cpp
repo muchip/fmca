@@ -15,11 +15,12 @@
 
 //#define NPTS 16384
 //#define NPTS 8192
-//#define NPTS 2048
-#define NPTS 1024
+#define NPTS 1800
+//#define NPTS 1024
 //#define NPTS 512
-#define DIM 3
+#define DIM 10
 #define TEST_SAMPLET_TRANSFORM_
+#define TEST_COMPRESSOR_
 
 struct Gaussian {
   double operator()(const Eigen::Matrix<double, DIM, 1> &x,
@@ -28,7 +29,7 @@ struct Gaussian {
   }
 };
 
-using ClusterT = FMCA::ClusterTree<double, DIM, 2>;
+using ClusterT = FMCA::ClusterTree<double, DIM, 1>;
 
 int main() {
 #if 0
@@ -39,7 +40,7 @@ int main() {
   std::cout << "----------------------------------------------------\n";
   Eigen::MatrixXd P = B.transpose();
 #else
-  srand(0);
+  srand(time(0));
   Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, NPTS);
 //  Eigen::VectorXd nrms = P.colwise().norm();
 //  for (auto i = 0; i < P.cols(); ++i)
@@ -82,48 +83,60 @@ int main() {
   FMCA::IO::plotBoxes("boxesLeafs.vtk", bbvec);
   FMCA::IO::plotPoints("points.vtk", P);
 #endif
-  T.tic();
-  FMCA::BivariateCompressor<FMCA::SampletTree<ClusterT>> BC(ST, Gaussian());
-  T.toc("set up compression pattern: ");
-  T.tic();
-  Eigen::MatrixXd S(P.cols(), P.cols());
-  S.setZero();
-  Eigen::MatrixXd C = BC.recursivelyComputeBlock(&S, ST, ST, Gaussian());
-  T.toc("wavelet transform: ");
-  Bembel::IO::print2m("Smatrix.m", "S", S, "w");
-  std::cout << "----------------------------------------------------\n";
+#ifdef TEST_COMPRESSOR_
+  {
+    T.tic();
+    FMCA::BivariateCompressor<FMCA::SampletTree<ClusterT>> BC(ST, Gaussian());
+    T.toc("set up compression pattern: ");
+    T.tic();
+    Eigen::MatrixXd S(P.cols(), P.cols());
+    S.setZero();
+    Eigen::MatrixXd C = BC.recursivelyComputeBlock(&S, ST, ST, Gaussian());
+    T.toc("wavelet transform: ");
+    Bembel::IO::print2m("Smatrix.m", "S", S, "w");
+    std::cout << "----------------------------------------------------\n";
+    Eigen::MatrixXd K(P.cols(), P.cols());
+    auto fun = Gaussian();
+    for (auto j = 0; j < P.cols(); ++j)
+      for (auto i = 0; i < P.cols(); ++i)
+        K(i, j) = fun(P.col(CT.get_indices()[i]), P.col(CT.get_indices()[j]));
+    Eigen::SparseMatrix<double> Tmat = ST.get_transformationMatrix();
+    Eigen::MatrixXd SK = Tmat * K * Tmat.transpose();
+    Bembel::IO::print2m("S2matrix.m", "S2", SK, "w");
+  }
+#endif
 //////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_SAMPLET_TRANSFORM_
-  T.tic();
-  Eigen::MatrixXd Tmat(P.cols(), P.cols());
-  Eigen::VectorXd unit(P.cols());
-  auto idcs = CT.get_indices();
-  double inv_err = 0;
-  for (auto i = 0; i < P.cols(); ++i) {
-    unit.setZero();
-    unit(idcs[i]) = 1;
-    Tmat.col(i) = ST.sampletTransform(unit);
-    Eigen::VectorXd bt_unit = ST.inverseSampletTransform(Tmat.col(i));
-    inv_err += (bt_unit - unit).squaredNorm();
+  {
+    eigen_assert(P.cols() <= 2e4 &&
+                 "Test samplet transform only for small matrices");
+    T.tic();
+    Eigen::SparseMatrix<double> Tmat = ST.get_transformationMatrix();
+    T.toc("time samplet transform test: ");
+    std::cout << "error: "
+              << (Tmat.transpose() * Tmat -
+                  Eigen::MatrixXd::Identity(Tmat.rows(), Tmat.cols()))
+                         .norm() /
+                     sqrt(Tmat.rows())
+              << std::endl;
+    std::cout << "----------------------------------------------------\n";
+    Eigen::MatrixXd K(P.cols(), P.cols());
+    auto fun = Gaussian();
+    for (auto j = 0; j < P.cols(); ++j)
+      for (auto i = 0; i < P.cols(); ++i)
+        K(i, j) = fun(P.col(CT.get_indices()[i]), P.col(CT.get_indices()[j]));
+    Eigen::MatrixXd K2 = K;
+    Eigen::MatrixXd SK = Tmat * K * Tmat.transpose();
+    T.tic();
+    ST.sampletTransformMatrix(K);
+    T.toc("time samplet transform matrix: ");
+    std::cout << "error: " << (K - SK).norm() / SK.norm() << std::endl;
+    T.tic();
+    ST.inverseSampletTransformMatrix(K);
+    T.toc("time inverse samplet transform matrix: ");
+    std::cout << "error: " << (K - K2).norm() / K2.norm() << std::endl;
+    std::cout << "----------------------------------------------------\n";
   }
-  std::cout << "transform correct? error: "
-            << (Tmat.transpose() * Tmat -
-                Eigen::MatrixXd::Identity(Tmat.rows(), Tmat.cols()))
-                       .norm() /
-                   sqrt(Tmat.rows())
-            << " " << sqrt(inv_err / Tmat.cols()) << std::endl;
-  T.toc("time samplet transform test: ");
-  std::cout << "----------------------------------------------------\n";
-  Eigen::MatrixXd K(CT.get_indices().size(), CT.get_indices().size());
-  auto fun = Gaussian();
-  for (auto j = 0; j < CT.get_indices().size(); ++j)
-    for (auto i = 0; i < CT.get_indices().size(); ++i)
-      K(i, j) = fun(P.col(CT.get_indices()[i]), P.col(CT.get_indices()[j]));
-  Eigen::MatrixXd SK = Tmat.transpose() * K * Tmat;
-  std::cout << C.rows() << " " << C.cols() << std::endl;
-  std::cout << SK.rows() << " " << SK.cols() << std::endl;
-  Bembel::IO::print2m("S2matrix.m", "S2", SK, "w");
-  // std::cout << (C - SK).norm() / SK.norm() << std::endl;
 #endif
 
   return 0;

@@ -28,7 +28,7 @@ template <typename ClusterTree> struct SampletTreeData {
 };
 
 /**
- *  \ingroup SampletTree
+ *  \ingroup Samplets
  *  \brief The SampletTree class manages the samplets for a given ClusterTree.
  *
  *         The tree structure from the ClusterTree is replicated here. This
@@ -82,7 +82,21 @@ public:
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
-  eigenVector sampletTransform(const eigenVector &data) {
+  void sampletTransformMatrix(eigenMatrix &M) {
+    for (auto j = 0; j < M.cols(); ++j)
+      M.col(j) = sampletTransform(M.col(j));
+    for (auto i = 0; i < M.rows(); ++i)
+      M.row(i) = sampletTransform(M.row(i));
+  }
+  //////////////////////////////////////////////////////////////////////////////
+  void inverseSampletTransformMatrix(eigenMatrix &M) {
+    for (auto j = 0; j < M.cols(); ++j)
+      M.col(j) = inverseSampletTransform(M.col(j));
+    for (auto i = 0; i < M.rows(); ++i)
+      M.row(i) = inverseSampletTransform(M.row(i));
+  }
+  //////////////////////////////////////////////////////////////////////////////
+  eigenVector sampletTransform(const eigenVector &data) const {
     assert(!cluster_->get_id() &&
            "sampletTransform needs to be called from the root cluster");
     eigenVector retval(data.size());
@@ -91,7 +105,7 @@ public:
     return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
-  eigenVector inverseSampletTransform(const eigenVector &data) {
+  eigenVector inverseSampletTransform(const eigenVector &data) const {
     assert(!cluster_->get_id() &&
            "sampletTransform needs to be called from the root cluster");
     eigenVector retval(data.size());
@@ -124,13 +138,32 @@ public:
               << std::endl;
     return;
   }
+  Eigen::SparseMatrix<value_type> get_transformationMatrix() const {
+    const IndexType n = cluster_->get_indices().size();
+    Eigen::SparseMatrix<value_type> Tmat(n, n);
+    eigenVector buffer(n);
+    std::vector<Eigen::Triplet<value_type>> triplet_list;
+    for (auto j = 0; j < n; ++j) {
+      buffer.setZero();
+      buffer = sampletTransform(
+          Eigen::Matrix<value_type, Eigen::Dynamic, 1>::Unit(n, j));
+      for (auto i = 0; i < buffer.size(); ++i)
+        if (abs(buffer(i)) > 1e-14)
+          triplet_list.emplace_back(
+              Eigen::Triplet<value_type>(i, j, buffer(i)));
+    }
+    Tmat.setFromTriplets(triplet_list.begin(), triplet_list.end());
+    return Tmat;
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 private:
   //////////////////////////////////////////////////////////////////////////////
   // private methods
   //////////////////////////////////////////////////////////////////////////////
   eigenVector sampletTransformRecursion(const eigenVector &data,
-                                        IndexType offset, eigenVector *svec) {
+                                        IndexType offset,
+                                        eigenVector *svec) const {
     eigenVector retval(0);
     IndexType scalf_shift = 0;
     if (!wlevel_)
@@ -158,7 +191,7 @@ private:
   void inverseSampletTransformRecursion(const eigenVector &data,
                                         IndexType offset, eigenVector *fvec,
                                         eigenVector *ddata,
-                                        IndexType ddata_offset = 0) {
+                                        IndexType ddata_offset = 0) const {
     eigenVector retval;
     if (!wlevel_) {
       retval = Q_.leftCols(nscalfs_) * data.segment(start_index_, nscalfs_) +
