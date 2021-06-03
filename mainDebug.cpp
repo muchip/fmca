@@ -16,8 +16,8 @@
 //#define NPTS 16384
 //#define NPTS 8192
 //#define NPTS 2048
-//#define NPTS 1024
-#define NPTS 512
+#define NPTS 1024
+//#define NPTS 512
 #define DIM 3
 #define TEST_SAMPLET_TRANSFORM_
 
@@ -88,8 +88,7 @@ int main() {
   T.tic();
   Eigen::MatrixXd S(P.cols(), P.cols());
   S.setZero();
-  Eigen::MatrixXd C =
-      BC.recursivelyComputeBlock(&S, ST, ST, Gaussian(), true, true);
+  Eigen::MatrixXd C = BC.recursivelyComputeBlock(&S, ST, ST, Gaussian());
   T.toc("wavelet transform: ");
   Bembel::IO::print2m("Smatrix.m", "S", S, "w");
   std::cout << "----------------------------------------------------\n";
@@ -126,46 +125,6 @@ int main() {
   Bembel::IO::print2m("S2matrix.m", "S2", SK, "w");
   // std::cout << (C - SK).norm() / SK.norm() << std::endl;
 #endif
-#if 0
-    std::function<double(const Eigen::VectorXd &)> fun =
-      [](const Eigen::VectorXd &x) { return exp(-10 * x.squaredNorm()); };
-  auto fdata = FMCA::functionEvaluator<ClusterT>(P, CT, fun);
-  Kmat.resize(P.cols(), P.cols());
-  TWmat1.resize(P.cols(), P.cols());
-  TWmat2.resize(P.cols(), P.cols());
-  // generate transformation matrix
-  for (auto i = 0; i < P.cols(); ++i) {
-    unit.setZero();
-    unit(idcs[i]) = 1;
-    Tmat.col(i) = ST.sampletTransform(unit);
-    for (auto j = 0; j < P.cols(); ++j)
-      Kmat(j, i) = exp(-10 * (P.col(idcs[j]) - P.col(idcs[i])).norm());
-    TWmat1.col(i) = ST.sampletTransform(Kmat.col(i));
-  }
 
-  std::cout << "transform correct? "
-            << (Tmat.transpose() * Tmat -
-                Eigen::MatrixXd::Identity(Tmat.rows(), Tmat.cols()))
-                       .norm() /
-                   sqrt(Tmat.rows())
-            << std::endl;
-  for (auto i = 0; i < P.cols(); ++i)
-    TWmat2.col(i) = ST.sampletTransform(TWmat1.transpose().col(i));
-
-  for (auto i = 0; i < P.cols(); ++i)
-    for (auto j = 0; j < P.cols(); ++j)
-      TWmat2(j, i) = abs(TWmat2(j, i)) > 1e-4 ? TWmat2(j, i) : 0;
-
-  Eigen::SparseMatrix<double> TWs = TWmat2.sparseView();
-
-  // Bembel::IO::print2m("Tmat.m", "T", Tmat, "w");
-  // Bembel::IO::print2m("Kmat.m", "K", Kmat, "w");
-  Bembel::IO::print2spascii("KWmat.txt", TWs, "w");
-  Bembel::IO::print2m("comp.m", "fwt", ST.sampletTransform(fdata), "w");
-  std::vector<Eigen::Matrix3d> bbvec;
-  // CT.get_BboxVectorLeafs(&bbvec);
-  // FMCA::IO::plotBoxes("boxesLeafs.vtk", bbvec);
-  // FMCA::IO::plotPoints<ClusterT>("points.vtk", CT, P, fdata);
-#endif
   return 0;
 }
