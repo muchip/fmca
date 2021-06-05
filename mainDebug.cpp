@@ -16,20 +16,20 @@
 //#define NPTS 16384
 //#define NPTS 8192
 //#define NPTS 1800
-#define NPTS 256
+#define NPTS 1000
 //#define NPTS 512
-#define DIM 1
+#define DIM 2
 #define TEST_SAMPLET_TRANSFORM_
 #define TEST_COMPRESSOR_
 
 struct Gaussian {
   double operator()(const Eigen::Matrix<double, DIM, 1> &x,
                     const Eigen::Matrix<double, DIM, 1> &y) const {
-    return exp(-20 * (x - y).norm());
+    return exp(-10 * (x - y).norm());
   }
 };
 
-using ClusterT = FMCA::ClusterTree<double, DIM, 10>;
+using ClusterT = FMCA::ClusterTree<double, DIM, 20>;
 
 int main() {
 #if 0
@@ -51,7 +51,7 @@ int main() {
   ClusterT CT(P);
   T.toc("set up cluster tree: ");
   T.tic();
-  FMCA::SampletTree<ClusterT> ST(CT, 1);
+  FMCA::SampletTree<ClusterT> ST(P, CT, 5);
   T.toc("set up samplet tree: ");
   std::cout << "----------------------------------------------------\n";
   //////////////////////////////////////////////////////////////////////////////
@@ -86,14 +86,10 @@ int main() {
 #ifdef TEST_COMPRESSOR_
   {
     T.tic();
-    FMCA::BivariateCompressor<FMCA::SampletTree<ClusterT>> BC(ST, Gaussian());
+    FMCA::BivariateCompressor<FMCA::SampletTree<ClusterT>> BC(P, ST,
+                                                              Gaussian());
     T.toc("set up compression pattern: ");
-    T.tic();
-    Eigen::MatrixXd S(P.cols(), P.cols());
-    S.setZero();
-    Eigen::MatrixXd C = BC.recursivelyComputeBlock(&S, ST, ST, Gaussian());
-    T.toc("wavelet transform: ");
-    Bembel::IO::print2m("Smatrix.m", "S", S, "w");
+
     std::cout << "----------------------------------------------------\n";
     Eigen::MatrixXd K(P.cols(), P.cols());
     auto fun = Gaussian();
@@ -102,6 +98,12 @@ int main() {
         K(i, j) = fun(P.col(CT.get_indices()[i]), P.col(CT.get_indices()[j]));
     Eigen::SparseMatrix<double> Tmat = ST.get_transformationMatrix();
     Eigen::MatrixXd SK = Tmat * K * Tmat.transpose();
+    T.tic();
+    Eigen::MatrixXd S(P.cols(), P.cols());
+    S.setZero();
+    Eigen::MatrixXd C = BC.recursivelyComputeBlock(P, &SK, ST, ST, fun);
+    T.toc("wavelet transform: ");
+    Bembel::IO::print2m("Smatrix.m", "S", S, "w");
     Bembel::IO::print2m("S2matrix.m", "S2", SK, "w");
   }
 #endif

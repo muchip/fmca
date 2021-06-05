@@ -15,7 +15,6 @@
 namespace FMCA {
 
 template <typename ValueType, IndexType Dim> struct ClusterTreeData {
-  Eigen::Matrix<ValueType, Dim, Eigen::Dynamic> const *P_;
   ValueType geometry_diam_ = 0;
   IndexType max_id_ = 0;
   IndexType max_level_ = 0;
@@ -53,10 +52,10 @@ public:
   void init(const Eigen::Matrix<ValueType, Dim, Eigen::Dynamic> &P) {
     // set up bounding box for root node
     tree_data_ = std::make_shared<ClusterTreeData<ValueType, Dim>>();
-    tree_data_->P_ = &P;
     initBoundingBox(P);
     level_ = 0;
     id_ = 0;
+    indices_begin_ = 0;
     indices_.resize(P.cols());
     std::iota(std::begin(indices_), std::end(indices_), 0u);
     computeClusters(P);
@@ -104,6 +103,8 @@ public:
   IndexType get_level() const { return level_; }
 
   IndexType get_id() const { return id_; }
+
+  IndexType get_indices_begin() const { return indices_begin_; }
   //////////////////////////////////////////////////////////////////////////////
   void exportTreeStructure(std::vector<std::vector<IndexType>> &tree) {
     if (level_ >= tree.size())
@@ -157,6 +158,7 @@ private:
                                   : tree_data_->max_id_;
         sons_[i].bb_ = bb_;
         sons_[i].tree_data_ = tree_data_;
+        sons_[i].indices_begin_ = indices_begin_;
       }
       // split index set and set sons bounding boxes
       split(P, indices_, bb_, sons_[0], sons_[1]);
@@ -229,6 +231,7 @@ private:
   std::vector<ClusterTree> sons_;
   std::shared_ptr<ClusterTreeData<ValueType, Dim>> tree_data_;
   IndexType level_;
+  IndexType indices_begin_;
   IndexType id_;
 }; // namespace FMCA
 } // namespace FMCA

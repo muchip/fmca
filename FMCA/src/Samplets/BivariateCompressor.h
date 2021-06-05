@@ -20,14 +20,18 @@ public:
   typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
   BivariateCompressor(){};
   template <typename Functor>
-  BivariateCompressor(const SampletTree &ST, const Functor &fun,
+  BivariateCompressor(const Eigen::Matrix<value_type, SampletTree::dimension,
+                                          Eigen::Dynamic> &P,
+                      const SampletTree &ST, const Functor &fun,
                       value_type a_param = 2., value_type dprime = 1.,
                       value_type operator_order = 0.) {
-    init(ST, fun, a_param, dprime, operator_order);
+    init(P, ST, fun, a_param, dprime, operator_order);
   }
 
   template <typename Functor>
-  void init(const SampletTree &ST, const Functor &fun, value_type a_param = 2.,
+  void init(const Eigen::Matrix<value_type, SampletTree::dimension,
+                                Eigen::Dynamic> &P,
+            const SampletTree &ST, const Functor &fun, value_type a_param = 2.,
             value_type dprime = 1., value_type op = 0.) {
     a_param_ = a_param;
     dprime_ = dprime;
@@ -39,7 +43,6 @@ public:
     triplet_list_.clear();
     for (auto i = 0; i < ST.tree_data_->samplet_list.size(); ++i)
       assemblePattern(*(ST.tree_data_->samplet_list[i]), ST, triplet_list_);
-
     std::cout << "a:   " << a_param_ << std::endl;
     std::cout << "dp:  " << dprime_ << std::endl;
     std::cout << "dt:  " << dtilde_ << std::endl;
@@ -71,29 +74,26 @@ public:
    *         the four blocks [A^PhiPhi, A^PhiPsi; A^PsiPhi, A^PsiPsi]
    **/
   template <typename Functor>
-  eigenMatrix recursivelyComputeBlock(eigenMatrix *S, const SampletTree &TR,
-                                      const SampletTree &TC,
-                                      const Functor &fun) {
+  eigenMatrix recursivelyComputeBlock(
+      const Eigen::Matrix<value_type, SampletTree::dimension, Eigen::Dynamic>
+          &P,
+      eigenMatrix *S, const SampletTree &TR, const SampletTree &TC,
+      const Functor &fun) {
     eigenMatrix buf(0, 0);
     eigenMatrix retval(0, 0);
     if (!TR.sons_.size() && !TC.sons_.size()) {
       // both are leafs: compute the block and return
-      auto P = TR.cluster_->get_tree_data().P_;
       buf.resize(TR.cluster_->get_indices().size(),
                  TC.cluster_->get_indices().size());
       for (auto j = 0; j < TC.cluster_->get_indices().size(); ++j)
         for (auto i = 0; i < TR.cluster_->get_indices().size(); ++i)
-          buf(i, j) = fun(P->col(TR.cluster_->get_indices()[i]),
-                          P->col(TC.cluster_->get_indices()[j]));
+          buf(i, j) = fun(P.col(TR.cluster_->get_indices()[i]),
+                          P.col(TC.cluster_->get_indices()[j]));
       retval = TR.Q_.transpose() * buf * TC.Q_;
-      if (TR.nsamplets_ && TC.nsamplets_)
-        S->block(TR.start_index_, TC.start_index_, TR.nsamplets_,
-                 TC.nsamplets_) = retval.block(TR.nscalfs_, TC.nscalfs_,
-                                               TR.nsamplets_, TC.nsamplets_);
     } else if (!TR.sons_.size() && TC.sons_.size()) {
       // the row cluster is a leaf cluster: recursion on the col cluster
       for (auto j = 0; j < TC.sons_.size(); ++j) {
-        eigenMatrix ret = recursivelyComputeBlock(S, TR, TC.sons_[j], fun);
+        eigenMatrix ret = recursivelyComputeBlock(P, S, TR, TC.sons_[j], fun);
         buf.conservativeResize(ret.rows(), buf.cols() + TC.sons_[j].nscalfs_);
         buf.rightCols(TC.sons_[j].nscalfs_) =
             ret.leftCols(TC.sons_[j].nscalfs_);
@@ -102,7 +102,7 @@ public:
     } else if (TR.sons_.size() && !TC.sons_.size()) {
       // the col cluster is a leaf cluster: recursion on the row cluster
       for (auto i = 0; i < TR.sons_.size(); ++i) {
-        eigenMatrix ret = recursivelyComputeBlock(S, TR.sons_[i], TC, fun);
+        eigenMatrix ret = recursivelyComputeBlock(P, S, TR.sons_[i], TC, fun);
         buf.conservativeResize(ret.cols(), buf.cols() + TR.sons_[i].nscalfs_);
         buf.rightCols(TR.sons_[i].nscalfs_) =
             ret.transpose().leftCols(TR.sons_[i].nscalfs_);
@@ -114,7 +114,7 @@ public:
         eigenMatrix ret1(0, 0);
         for (auto j = 0; j < TC.sons_.size(); ++j) {
           eigenMatrix ret2 =
-              recursivelyComputeBlock(S, TR.sons_[i], TC.sons_[j], fun);
+              recursivelyComputeBlock(P, S, TR.sons_[i], TC.sons_[j], fun);
           ret1.conservativeResize(ret2.rows(),
                                   ret1.cols() + TC.sons_[j].nscalfs_);
           ret1.rightCols(TC.sons_[j].nscalfs_) =
@@ -127,7 +127,24 @@ public:
       }
       retval = (buf * TR.Q_).transpose();
     }
-
+    if (TR.nsamplets_ && TC.nsamplets_) {
+      IndexType offset = 0;
+      if (!TC.wlevel_ && !TR.wlevel_)
+        offset = TR.nscalfs_;
+      if ((S->block(TR.start_index_ + offset, TC.start_index_ + offset,
+                    TR.nsamplets_, TC.nsamplets_) -
+           retval.block(TR.nscalfs_, TC.nscalfs_, TR.nsamplets_, TC.nsamplets_))
+              .norm() > 1e-13) {
+        std::cout << TR.block_id_ << " " << TC.block_id_ << " <--\n";
+        std::cout << S->block(TR.start_index_ + offset,
+                              TC.start_index_ + offset, TR.nsamplets_,
+                              TC.nsamplets_)
+                  << "\n---------\n";
+        std::cout << retval.block(TR.nscalfs_, TC.nscalfs_, TR.nsamplets_,
+                                  TC.nsamplets_)
+                  << "\n******************\n";
+      }
+    }
     return retval;
   }
 

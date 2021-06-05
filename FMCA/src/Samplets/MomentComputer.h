@@ -18,7 +18,9 @@ namespace FMCA {
  **/
 template <typename ClusterTree>
 Eigen::Matrix<typename ClusterTree::value_type, Eigen::Dynamic, Eigen::Dynamic>
-momentComputer(const ClusterTree &CT,
+momentComputer(const Eigen::Matrix<typename ClusterTree::value_type,
+                                   ClusterTree::dimension, Eigen::Dynamic> &P,
+               const ClusterTree &CT,
                const MultiIndexSet<ClusterTree::dimension> &idcs) {
   Eigen::Matrix<typename ClusterTree::value_type, Eigen::Dynamic,
                 Eigen::Dynamic>
@@ -33,9 +35,7 @@ momentComputer(const ClusterTree &CT,
       for (auto k = 0; k < ClusterTree::dimension; ++k)
         // make sure that 0^0 = 1
         if (it[k])
-          retval(i, j) *= std::pow(
-              (*(CT.get_tree_data().P_))(k, CT.get_indices()[j]) - mp(k),
-              it[k]);
+          retval(i, j) *= std::pow(P(k, CT.get_indices()[j]) - mp(k), it[k]);
       ++i;
     }
   }

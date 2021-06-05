@@ -49,11 +49,15 @@ public:
   // constructors
   //////////////////////////////////////////////////////////////////////////////
   SampletTree() {}
-  SampletTree(const ClusterTree &CT, IndexType dtilde = 1) { init(CT, dtilde); }
+  SampletTree(const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
+              const ClusterTree &CT, IndexType dtilde = 1) {
+    init(P, CT, dtilde);
+  }
   //////////////////////////////////////////////////////////////////////////////
   // init
   //////////////////////////////////////////////////////////////////////////////
-  void init(const ClusterTree &CT, IndexType dtilde = 1) {
+  void init(const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
+            const ClusterTree &CT, IndexType dtilde = 1) {
     tree_data_ = std::make_shared<SampletTreeData<ClusterTree>>();
     tree_data_->idcs.init(dtilde - 1);
     tree_data_->dtilde_ = dtilde;
@@ -76,7 +80,7 @@ public:
       }
     }
     // compute the samplet basis
-    computeSamplets(CT);
+    computeSamplets(P, CT);
     // now map it
     sampletMapper();
     return;
@@ -101,7 +105,7 @@ public:
            "sampletTransform needs to be called from the root cluster");
     eigenVector retval(data.size());
     retval.setZero();
-    sampletTransformRecursion(data, 0, &retval);
+    sampletTransformRecursion(data, &retval);
     return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
@@ -110,7 +114,7 @@ public:
            "sampletTransform needs to be called from the root cluster");
     eigenVector retval(data.size());
     retval.setZero();
-    inverseSampletTransformRecursion(data, 0, &retval, nullptr);
+    inverseSampletTransformRecursion(data, &retval, nullptr);
     return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
@@ -138,6 +142,7 @@ public:
               << std::endl;
     return;
   }
+  //////////////////////////////////////////////////////////////////////////////
   Eigen::SparseMatrix<value_type> get_transformationMatrix() const {
     const IndexType n = cluster_->get_indices().size();
     Eigen::SparseMatrix<value_type> Tmat(n, n);
@@ -162,7 +167,6 @@ private:
   // private methods
   //////////////////////////////////////////////////////////////////////////////
   eigenVector sampletTransformRecursion(const eigenVector &data,
-                                        IndexType offset,
                                         eigenVector *svec) const {
     eigenVector retval(0);
     IndexType scalf_shift = 0;
@@ -170,13 +174,13 @@ private:
       scalf_shift = Q_.cols() - nsamplets_;
     if (sons_.size()) {
       for (auto i = 0; i < sons_.size(); ++i) {
-        auto scalf = sons_[i].sampletTransformRecursion(data, offset, svec);
+        auto scalf = sons_[i].sampletTransformRecursion(data, svec);
         retval.conservativeResize(retval.size() + scalf.size());
         retval.tail(scalf.size()) = scalf;
-        offset += sons_[i].cluster_->get_indices().size();
       }
     } else {
-      retval = data.segment(offset, cluster_->get_indices().size());
+      retval = data.segment(cluster_->get_indices_begin(),
+                            cluster_->get_indices().size());
     }
     if (nsamplets_) {
       svec->segment(start_index_ + scalf_shift, nsamplets_) =
@@ -189,8 +193,7 @@ private:
   }
   //////////////////////////////////////////////////////////////////////////////
   void inverseSampletTransformRecursion(const eigenVector &data,
-                                        IndexType offset, eigenVector *fvec,
-                                        eigenVector *ddata,
+                                        eigenVector *fvec, eigenVector *ddata,
                                         IndexType ddata_offset = 0) const {
     eigenVector retval;
     if (!wlevel_) {
@@ -227,18 +230,19 @@ private:
         std::cout << "s0: " << sons_[0].nscalfs_ << " s1: " << sons_[1].nscalfs_
                   << std::endl;
 #endif
-        sons_[i].inverseSampletTransformRecursion(data, offset, fvec, &retval,
+        sons_[i].inverseSampletTransformRecursion(data, fvec, &retval,
                                                   ddata_offset);
-        offset += sons_[i].cluster_->get_indices().size();
         ddata_offset += sons_[i].nscalfs_;
       }
     } else {
-      fvec->segment(offset, retval.size()) = retval;
+      fvec->segment(cluster_->get_indices_begin(), retval.size()) = retval;
     }
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
-  void computeSamplets(const ClusterTree &CT) {
+  void
+  computeSamplets(const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
+                  const ClusterTree &CT) {
     cluster_ = &CT;
     // the computation of the samplet level is a bit cumbersome as we have to
     // account for empty clusters and clusters with a single point here.
@@ -261,7 +265,7 @@ private:
       IndexType offset = 0;
       for (auto i = 0; i != CT.get_sons().size(); ++i) {
         sons_[i].tree_data_ = tree_data_;
-        sons_[i].computeSamplets(CT.get_sons()[i]);
+        sons_[i].computeSamplets(P, CT.get_sons()[i]);
         // the son now has moments, lets grep them...
         eigenVector shift =
             0.5 *
@@ -280,7 +284,7 @@ private:
       }
     } else {
       // compute cluster basis of the leaf
-      mom_buffer_ = momentComputer<ClusterTree>(*cluster_, tree_data_->idcs);
+      mom_buffer_ = momentComputer<ClusterTree>(P, *cluster_, tree_data_->idcs);
     }
     // are there wavelets?
     if (mom_buffer_.rows() < mom_buffer_.cols()) {

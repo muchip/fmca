@@ -42,6 +42,7 @@ template <typename ValueType, IndexType Dim> struct GeometricBisection {
         c1.indices_.push_back(indices[i]);
       else
         c2.indices_.push_back(indices[i]);
+    c2.indices_begin_ += c1.indices_.size();
   }
 };
 
@@ -77,6 +78,7 @@ template <typename ValueType, IndexType Dim> struct CardinalityBisection {
     c2.indices_ = std::vector<IndexType>(sorted_indices.begin() +
                                              sorted_indices.size() / 2,
                                          sorted_indices.end());
+    c2.indices_begin_ += c1.indices_.size();
     c1.bb_ = bb;
     c1.bb_(longest, 1) = P(longest, c1.indices_.back());
     c1.bb_(longest, 2) = c1.bb_(longest, 1) - c1.bb_(longest, 0);
