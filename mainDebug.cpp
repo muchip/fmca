@@ -15,10 +15,10 @@
 
 //#define NPTS 16384
 //#define NPTS 8192
-#define NPTS 1800
-//#define NPTS 1024
+//#define NPTS 1800
+#define NPTS 256
 //#define NPTS 512
-#define DIM 10
+#define DIM 1
 #define TEST_SAMPLET_TRANSFORM_
 #define TEST_COMPRESSOR_
 
@@ -29,7 +29,7 @@ struct Gaussian {
   }
 };
 
-using ClusterT = FMCA::ClusterTree<double, DIM, 1>;
+using ClusterT = FMCA::ClusterTree<double, DIM, 10>;
 
 int main() {
 #if 0
@@ -40,7 +40,7 @@ int main() {
   std::cout << "----------------------------------------------------\n";
   Eigen::MatrixXd P = B.transpose();
 #else
-  srand(time(0));
+  srand(0);
   Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, NPTS);
 //  Eigen::VectorXd nrms = P.colwise().norm();
 //  for (auto i = 0; i < P.cols(); ++i)

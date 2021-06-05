@@ -86,6 +86,10 @@ public:
           buf(i, j) = fun(P->col(TR.cluster_->get_indices()[i]),
                           P->col(TC.cluster_->get_indices()[j]));
       retval = TR.Q_.transpose() * buf * TC.Q_;
+      if (TR.nsamplets_ && TC.nsamplets_)
+        S->block(TR.start_index_, TC.start_index_, TR.nsamplets_,
+                 TC.nsamplets_) = retval.block(TR.nscalfs_, TC.nscalfs_,
+                                               TR.nsamplets_, TC.nsamplets_);
     } else if (!TR.sons_.size() && TC.sons_.size()) {
       // the row cluster is a leaf cluster: recursion on the col cluster
       for (auto j = 0; j < TC.sons_.size(); ++j) {
@@ -123,9 +127,7 @@ public:
       }
       retval = (buf * TR.Q_).transpose();
     }
-    if (TR.nsamplets_ && TC.nsamplets_)
-      S->block(TR.start_index_, TC.start_index_, TR.nsamplets_, TC.nsamplets_) =
-          retval.block(TR.nscalfs_, TC.nscalfs_, TR.nsamplets_, TC.nsamplets_);
+
     return retval;
   }
 
