@@ -14,20 +14,22 @@
 
 #include <algorithm>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <numeric>
 #include <vector>
 
 #include <Eigen/Dense>
-#include <Eigen/Sparse>
 #include <Eigen/QR>
+#include <Eigen/Sparse>
 
 #include "ClusterTree"
 
-#include "src/util/MultiIndexSet.h"
 #include "src/util/BinomialCoefficient.h"
-#include "src/Samplets/MomentComputer.h"
+#include "src/util/MultiIndexSet.h"
 #include "src/Samplets/BivariateCompressor.h"
+#include "src/Samplets/MomentComputer.h"
 #include "src/Samplets/SampletTree.h"
+
 
 #endif

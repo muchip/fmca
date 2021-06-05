@@ -310,8 +310,7 @@ private:
                               std::vector<std::vector<SampletTree *>> &mapper) {
     // we always add the root. However, every other cluster is only added if
     // there are indeed wavelets.
-    if (!ST->wlevel_ || ST->nsamplets_)
-      mapper[ST->wlevel_].push_back(ST);
+    mapper[ST->wlevel_].push_back(ST);
     if (ST->sons_.size())
       for (auto i = 0; i < ST->sons_.size(); ++i)
         sampletMapperRecursion(&(ST->sons_[i]), mapper);
