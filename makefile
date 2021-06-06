@@ -7,7 +7,7 @@
 ########################################################################
 PROG= a.out
 CPP = clang++ -std=c++11
-CPPFLAGS = -g -fPIC 
+CPPFLAGS = -O3 -fPIC 
 INCLUDE = -I/usr/include/eigen3
 LDFLAGS = -lm
 OBJECTS = mainDebug.o

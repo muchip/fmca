@@ -88,7 +88,7 @@ public:
     const value_type first = j < jp ? 1. / (1 << j) : 1. / (1 << jp);
     const value_type second =
         std::pow(2., cut_const1_ - (j + jp) * cut_const2_);
-    return a_param_ * (first > second ? first : second);
+    return a_param_ * first; //(first > second ? first : second);
   }
   //////////////////////////////////////////////////////////////////////////////
   bool cutOff(IndexType j, IndexType jp, value_type dist) {
