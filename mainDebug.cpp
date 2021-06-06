@@ -16,9 +16,9 @@
 //#define NPTS 16384
 //#define NPTS 8192
 //#define NPTS 1800
-#define NPTS 100
+#define NPTS 1000
 //#define NPTS 512
-#define DIM 1
+#define DIM 2
 #define TEST_SAMPLET_TRANSFORM_
 #define TEST_COMPRESSOR_
 
@@ -51,7 +51,7 @@ int main() {
   ClusterT CT(P);
   T.toc("set up cluster tree: ");
   T.tic();
-  FMCA::SampletTree<ClusterT> ST(P, CT, 3);
+  FMCA::SampletTree<ClusterT> ST(P, CT, 2);
   T.toc("set up samplet tree: ");
   std::cout << "----------------------------------------------------\n";
   //////////////////////////////////////////////////////////////////////////////
@@ -98,7 +98,7 @@ int main() {
         K(i, j) = fun(P.col(CT.get_indices()[i]), P.col(CT.get_indices()[j]));
     Eigen::SparseMatrix<double> Tmat = ST.get_transformationMatrix();
     Eigen::MatrixXd SK = Tmat * K * Tmat.transpose();
-    Bembel::IO::print2m("Smatrix.m", "S", BC.get_S(), "w");
+    Bembel::IO::print2m("Smatrix.m", "S", BC.get_S(P.cols()), "w");
     Bembel::IO::print2m("S2matrix.m", "S2", SK, "w");
   }
 #endif

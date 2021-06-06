@@ -41,14 +41,26 @@ public:
     cut_const1_ = J_param_ * (dprime_ - op_) / (dtilde_ + op_);
     cut_const2_ = 0.5 * (dprime_ + dtilde_) / (dtilde_ + op_);
     triplet_list_.clear();
-
-    S_.resize(P.cols(), P.cols());
-    S_.setZero();
     buffer_.clear();
     buffer_.resize(ST.tree_data_->samplet_list.size());
     setupColumn(P, ST, ST, fun);
-    for (auto i = 0; i < buffer_.size(); ++i)
-      std::cout << i << ") " << buffer_[i].size() << std::endl;
+    // set up remainder of the first column
+    for (auto i = 1; i < ST.tree_data_->samplet_list.size(); ++i) {
+      const IndexType block_id = ST.tree_data_->samplet_list[i]->block_id_;
+      const IndexType start_index =
+          ST.tree_data_->samplet_list[i]->start_index_;
+      const IndexType nsamplets = ST.tree_data_->samplet_list[i]->nsamplets_;
+      const IndexType nscalfs = ST.tree_data_->samplet_list[i]->nscalfs_;
+      auto it = buffer_[block_id].find(ST.block_id_);
+      eigen_assert(it != buffer_[block_id].end() &&
+                   "there is a missing root block!");
+      for (auto k = 0; k < ST.Q_.cols(); ++k)
+        for (auto j = 0; j < nsamplets; ++j)
+          triplet_list_.push_back(
+              Eigen::Triplet<value_type>(start_index + j, ST.start_index_ + k,
+                                         (it->second)(nscalfs + j, k)));
+      buffer_[block_id].erase(it);
+    }
     // for (auto i = 0; i < ST.tree_data_->samplet_list.size(); ++i)
     //  assemblePattern(*(ST.tree_data_->samplet_list[i]), ST, triplet_list_);
     std::cout << "a:   " << a_param_ << std::endl;
@@ -64,7 +76,11 @@ public:
     return triplet_list_;
   }
 
-  const eigenMatrix &get_S() const { return S_; }
+  eigenMatrix get_S(IndexType dim) const {
+    Eigen::SparseMatrix<value_type> S(dim, dim);
+    S.setFromTriplets(triplet_list_.begin(), triplet_list_.end());
+    return eigenMatrix(S);
+  }
   //////////////////////////////////////////////////////////////////////////////
   /// cutOff criterion
   //////////////////////////////////////////////////////////////////////////////
@@ -184,8 +200,9 @@ private:
                 const Functor &fun) {
     eigenMatrix block(0, 0);
     eigenMatrix buf(0, 0);
+    ////////////////////////////////////////////////////////////////////////////
+    // if there are children of the row cluster, we proceed recursively
     if (TR.sons_.size()) {
-      // handle non leaf
       for (auto i = 0; i < TR.sons_.size(); ++i) {
         const value_type dist = computeDistance(TR.sons_[i], TC);
         if (!cutOff(TR.sons_[i].wlevel_, TC.wlevel_, dist)) {
@@ -197,6 +214,8 @@ private:
                                  buf.cols() + TR.sons_[i].nscalfs_);
           buf.rightCols(TR.sons_[i].nscalfs_) =
               (it->second).transpose().leftCols(TR.sons_[i].nscalfs_);
+          if (it->first != 0)
+            buffer_[TR.sons_[i].block_id_].erase(it);
         } else {
           eigenMatrix ret =
               recursivelyComputeBlock(P, nullptr, TR.sons_[i], TC, fun);
@@ -206,10 +225,13 @@ private:
         }
       }
       block = (buf * TR.Q_).transpose();
+      ////////////////////////////////////////////////////////////////////////////
+      // if we are at a leaf of the row cluster tree, we compute the entire row
     } else {
-      // handle leaf
+      // if TR and TC are both leafs, we compute the corresponding matrix block
       if (!TC.sons_.size())
         block = recursivelyComputeBlock(P, nullptr, TR, TC, fun);
+      // if TC is not a leaf, we proceed by assembling the remainder of the row
       else {
         for (auto j = 0; j < TC.sons_.size(); ++j) {
           auto it = buffer_[TR.block_id_].find(TC.sons_[j].block_id_);
@@ -233,9 +255,11 @@ private:
         buffer_[TR.block_id_].erase(TC.sons_[j].block_id_);
     }
     if (TR.nsamplets_ && TC.nsamplets_ && TC.wlevel_ && TR.wlevel_) {
-      IndexType offset = 0;
-      S_.block(TR.start_index_, TC.start_index_, TR.nsamplets_, TC.nsamplets_) =
-          block.block(TR.nscalfs_, TC.nscalfs_, TR.nsamplets_, TC.nsamplets_);
+      for (auto k = 0; k < TC.nsamplets_; ++k)
+        for (auto j = 0; j < TR.nsamplets_; ++j)
+          triplet_list_.push_back(Eigen::Triplet<value_type>(
+              TR.start_index_ + j, TC.start_index_ + k,
+              block(TR.nscalfs_ + j, TC.nscalfs_ + k)));
     }
     buffer_[TR.block_id_].emplace(std::make_pair(TC.block_id_, block));
     return;
@@ -257,11 +281,16 @@ private:
     eigen_assert(it != buffer_[TR.block_id_].end() &&
                  "there is a missing root block!");
     if (!TC.wlevel_)
-      S_.block(TR.start_index_, TC.start_index_, TR.Q_.cols(), TC.Q_.cols()) =
-          (it->second).block(0, 0, TR.Q_.cols(), TC.Q_.cols());
+      for (auto k = 0; k < TC.Q_.cols(); ++k)
+        for (auto j = 0; j < TR.Q_.cols(); ++j)
+          triplet_list_.push_back(Eigen::Triplet<value_type>(
+              TR.start_index_ + j, TC.start_index_ + k, (it->second)(j, k)));
     else if (TC.nsamplets_)
-      S_.block(TR.start_index_, TC.start_index_, TR.Q_.cols(), TC.nsamplets_) =
-          (it->second).block(0, TC.nscalfs_, TR.Q_.cols(), TC.nsamplets_);
+      for (auto k = 0; k < TC.nsamplets_; ++k)
+        for (auto j = 0; j < TR.Q_.cols(); ++j)
+          triplet_list_.push_back(Eigen::Triplet<value_type>(
+              TR.start_index_ + j, TC.start_index_ + k,
+              (it->second)(j, TC.nscalfs_ + k)));
     buffer_[TR.block_id_].erase(it);
     return;
   }
@@ -290,15 +319,15 @@ private:
   //////////////////////////////////////////////////////////////////////////////
   std::vector<Eigen::Triplet<value_type>> triplet_list_;
   std::vector<std::map<IndexType, eigenMatrix>> buffer_;
-  eigenMatrix S_;
   value_type a_param_;
   value_type dprime_;
   value_type dtilde_;
   value_type J_param_;
   value_type op_;
-  IndexType max_wlevel_;
   value_type cut_const1_;
   value_type cut_const2_;
+  IndexType max_wlevel_;
+  IndexType fun_calls_;
 }; // namespace FMCA
 } // namespace FMCA
 #endif
