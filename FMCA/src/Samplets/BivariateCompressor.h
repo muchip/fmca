@@ -40,6 +40,7 @@ public:
     dtilde_ = ST.tree_data_->dtilde_;
     cut_const1_ = J_param_ * (dprime_ - op_) / (dtilde_ + op_);
     cut_const2_ = 0.5 * (dprime_ + dtilde_) / (dtilde_ + op_);
+    geo_diam_ = ST.cluster_->get_tree_data().geometry_diam_;
     triplet_list_.clear();
     buffer_.clear();
     buffer_.resize(ST.tree_data_->samplet_list.size());
@@ -70,6 +71,7 @@ public:
     std::cout << "J:   " << J_param_ << std::endl;
     std::cout << "cc1: " << cut_const1_ << std::endl;
     std::cout << "cc2: " << cut_const2_ << std::endl;
+    std::cout << "diam:" << geo_diam_ << std::endl;
   }
 
   const std::vector<Eigen::Triplet<value_type>> &get_Pattern_triplets() const {
@@ -88,7 +90,7 @@ public:
     const value_type first = j < jp ? 1. / (1 << j) : 1. / (1 << jp);
     const value_type second =
         std::pow(2., cut_const1_ - (j + jp) * cut_const2_);
-    return a_param_ * first; //(first > second ? first : second);
+    return a_param_ * first * geo_diam_; //(first > second ? first : second);
   }
   //////////////////////////////////////////////////////////////////////////////
   bool cutOff(IndexType j, IndexType jp, value_type dist) {
@@ -326,6 +328,7 @@ private:
   value_type op_;
   value_type cut_const1_;
   value_type cut_const2_;
+  value_type geo_diam_;
   IndexType max_wlevel_;
   IndexType fun_calls_;
 }; // namespace FMCA

@@ -10,16 +10,11 @@
 #include "FMCA/src/util/BinomialCoefficient.h"
 #include "FMCA/src/util/IO.h"
 #include "FMCA/src/util/tictoc.hpp"
+#include "imgCompression/matrixReader.h"
 #include "matrix.h"
 #include "mex.h"
-#define NPTS 16384
-//#define NPTS 8192
-//#define NPTS 1800
-//#define NPTS 1000
-//#define NPTS 512
+
 #define DIM 3
-#define TEST_SAMPLET_TRANSFORM_
-#define TEST_COMPRESSOR_
 
 struct Gaussian {
   double operator()(const Eigen::Matrix<double, DIM, 1> &x,
@@ -39,17 +34,38 @@ using ClusterT = FMCA::ClusterTree<double, DIM, 10>;
  *        produce undesired side effects.
  */
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
-  if (nrhs != 1) {
-    mexErrMsgIdAndTxt("MATLAB:MXmain:nargin", "MXmain zero. Check help.");
+  if (nrhs != 2) {
+    mexErrMsgIdAndTxt("MATLAB:MXmain:nargin",
+                      "MXmain requires two arguments. Check help.");
   }
-  FMCA::IndexType npts = std::round(*(mxGetPr(prhs[0])));
-  srand(0);
-  Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, npts);
+  FMCA::IndexType dtilde = std::round(*(mxGetPr(prhs[1])));
+  std::string filename(mxArrayToString(prhs[0]));
+  std::cout << "loading data: ";
+  Eigen::MatrixXd B = readMatrix(filename);
+  std::cout << "data size: ";
+  std::cout << B.rows() << " " << B.cols() << std::endl;
+  std::cout << "----------------------------------------------------\n";
+  Eigen::MatrixXd P = B.transpose();
+
   tictoc T;
   T.tic();
   ClusterT CT(P);
-  FMCA::SampletTree<ClusterT> ST(P, CT, 1);
+  FMCA::SampletTree<ClusterT> ST(P, CT, dtilde);
   T.toc("set up ct: ");
+  std::vector<ClusterT *> leafs;
+  CT.getLeafIterator(leafs);
+  int numInd = 0;
+  for (auto i = 0; i < leafs.size(); ++i)
+    numInd += (leafs[i])->get_indices().size();
+  for (auto level = 0; level < 14; ++level) {
+    std::vector<Eigen::Matrix3d> bbvec;
+    CT.get_BboxVector(&bbvec, level);
+    FMCA::IO::plotBoxes("boxes" + std::to_string(level) + ".vtk", bbvec);
+  }
+  std::vector<Eigen::Matrix<double, DIM, 3u>> bbvec;
+  CT.get_BboxVectorLeafs(&bbvec);
+  FMCA::IO::plotBoxes("boxesLeafs.vtk", bbvec);
+  FMCA::IO::plotPoints("points.vtk", P);
   T.tic();
   FMCA::BivariateCompressor<FMCA::SampletTree<ClusterT>> BC(P, ST, Gaussian());
   T.toc("set up compression pattern: ");
