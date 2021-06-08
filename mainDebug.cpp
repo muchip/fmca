@@ -13,10 +13,10 @@
 #include "FMCA/src/util/tictoc.hpp"
 #include "imgCompression/matrixReader.h"
 
-#define NPTS 131072
+//#define NPTS 131072
 //#define NPTS 65536
 //#define NPTS 32768
-//#define NPTS 16384
+#define NPTS 16384
 //#define NPTS 8192
 //#define NPTS 1800
 //#define NPTS 1000
@@ -31,7 +31,7 @@ struct Gaussian {
   }
 };
 
-using ClusterT = FMCA::ClusterTree<double, DIM, 100>;
+using ClusterT = FMCA::ClusterTree<double, DIM, 20>;
 
 int main() {
 #if 0
@@ -101,10 +101,13 @@ int main() {
     ST.sampletTransformMatrix(K);
     T.toc("set up full transformed matrix: ");
     auto trips = BC.get_Pattern_triplets();
-    std::cout << "nz per row: " << trips.size() / K.rows() <<std::endl;
-    std::cout << "storage sparse: " << sizeof(double) * trips.size() * 3. / 1e9 << "GB\n";
-    std::cout << "storage full: " << sizeof(double) * K.rows() * K.cols() / double(1e9) * 8.
-    << "GB" << std::endl;
+    std::cout << "nz per row: " << trips.size() / K.rows() << std::endl;
+    std::cout << "storage sparse: "
+              << double(sizeof(double) * trips.size() * 3) / double(1e9)
+              << "GB\n";
+    std::cout << "storage full: "
+              << double(sizeof(double) * K.rows() * K.cols()) / double(1e9)
+              << "GB" << std::endl;
     Eigen::SparseMatrix<double> S(K.rows(), K.cols());
     S.setFromTriplets(trips.begin(), trips.end());
     std::cout << "compression error: " << (S - K).norm() / K.norm()
