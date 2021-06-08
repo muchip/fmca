@@ -13,23 +13,25 @@
 #include "FMCA/src/util/tictoc.hpp"
 #include "imgCompression/matrixReader.h"
 
+#define NPTS 131072
+//#define NPTS 65536
+//#define NPTS 32768
 //#define NPTS 16384
 //#define NPTS 8192
 //#define NPTS 1800
-#define NPTS 1000
+//#define NPTS 1000
 //#define NPTS 512
-#define DIM 2
-#define TEST_SAMPLET_TRANSFORM_
+#define DIM 3
 #define TEST_COMPRESSOR_
 
 struct Gaussian {
   double operator()(const Eigen::Matrix<double, DIM, 1> &x,
                     const Eigen::Matrix<double, DIM, 1> &y) const {
-    return exp(-10 * (x - y).norm());
+    return exp(-4 * (x - y).norm());
   }
 };
 
-using ClusterT = FMCA::ClusterTree<double, DIM, 1>;
+using ClusterT = FMCA::ClusterTree<double, DIM, 100>;
 
 int main() {
 #if 0
@@ -61,8 +63,7 @@ int main() {
   std::cout << "l)\t#pts\ttotal#pts" << std::endl;
   for (auto i = 0; i < tree.size(); ++i) {
     int numInd = 0;
-    for (auto j = 0; j < tree[i].size(); ++j)
-      numInd += tree[i][j];
+    for (auto j = 0; j < tree[i].size(); ++j) numInd += tree[i][j];
     std::cout << i << ")\t" << tree[i].size() << "\t" << numInd << "\n";
   }
   std::cout << "----------------------------------------------------\n";
@@ -88,18 +89,26 @@ int main() {
     T.tic();
     FMCA::BivariateCompressor<FMCA::SampletTree<ClusterT>> BC(P, ST,
                                                               Gaussian());
-    T.toc("set up compression pattern: ");
+    T.toc("set up compressed matrix: ");
 
     std::cout << "----------------------------------------------------\n";
     Eigen::MatrixXd K(P.cols(), P.cols());
     auto fun = Gaussian();
+    T.tic();
     for (auto j = 0; j < P.cols(); ++j)
       for (auto i = 0; i < P.cols(); ++i)
         K(i, j) = fun(P.col(CT.get_indices()[i]), P.col(CT.get_indices()[j]));
-    Eigen::SparseMatrix<double> Tmat = ST.get_transformationMatrix();
-    Eigen::MatrixXd SK = Tmat * K * Tmat.transpose();
-    Bembel::IO::print2m("Smatrix.m", "S", BC.get_S(P.cols()), "w");
-    Bembel::IO::print2m("S2matrix.m", "S2", SK, "w");
+    ST.sampletTransformMatrix(K);
+    T.toc("set up full transformed matrix: ");
+    auto trips = BC.get_Pattern_triplets();
+    std::cout << "nz per row: " << trips.size() / K.rows() <<std::endl;
+    std::cout << "storage sparse: " << sizeof(double) * trips.size() * 3. / 1e9 << "GB\n";
+    std::cout << "storage full: " << sizeof(double) * K.rows() * K.cols() / double(1e9) * 8.
+    << "GB" << std::endl;
+    Eigen::SparseMatrix<double> S(K.rows(), K.cols());
+    S.setFromTriplets(trips.begin(), trips.end());
+    std::cout << "compression error: " << (S - K).norm() / K.norm()
+              << std::endl;
   }
 #endif
 //////////////////////////////////////////////////////////////////////////////
