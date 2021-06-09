@@ -12,17 +12,24 @@
 #include "FMCA/src/util/print2file.hpp"
 #include "FMCA/src/util/tictoc.hpp"
 #include "imgCompression/matrixReader.h"
-
+////////////////////////////////////////////////////////////////////////////////
 //#define NPTS 131072
 //#define NPTS 65536
 //#define NPTS 32768
-#define NPTS 16384
+//#define NPTS 16384
 //#define NPTS 8192
-//#define NPTS 1800
-//#define NPTS 1000
+#define NPTS 4096
+//#define NPTS 2048
+//#define NPTS 1024
 //#define NPTS 512
-#define DIM 3
+//#define NPTS 512
+#define DIM 1
+#define DTILDE 4
+#define LEAFSIZE 4
+
 #define TEST_COMPRESSOR_
+#define TEST_SAMPLET_TRANSFORM_
+#define TEST_SAMPLET_BASIS_
 
 struct Gaussian {
   double operator()(const Eigen::Matrix<double, DIM, 1> &x,
@@ -31,7 +38,7 @@ struct Gaussian {
   }
 };
 
-using ClusterT = FMCA::ClusterTree<double, DIM, 20>;
+using ClusterT = FMCA::ClusterTree<double, DIM, LEAFSIZE>;
 
 int main() {
 #if 0
@@ -53,7 +60,7 @@ int main() {
   ClusterT CT(P);
   T.toc("set up cluster tree: ");
   T.tic();
-  FMCA::SampletTree<ClusterT> ST(P, CT, 2);
+  FMCA::SampletTree<ClusterT> ST(P, CT, DTILDE);
   T.toc("set up samplet tree: ");
   std::cout << "----------------------------------------------------\n";
   //////////////////////////////////////////////////////////////////////////////
@@ -63,11 +70,29 @@ int main() {
   std::cout << "l)\t#pts\ttotal#pts" << std::endl;
   for (auto i = 0; i < tree.size(); ++i) {
     int numInd = 0;
-    for (auto j = 0; j < tree[i].size(); ++j) numInd += tree[i][j];
+    for (auto j = 0; j < tree[i].size(); ++j)
+      numInd += tree[i][j];
     std::cout << i << ")\t" << tree[i].size() << "\t" << numInd << "\n";
   }
   std::cout << "----------------------------------------------------\n";
   //////////////////////////////////////////////////////////////////////////////
+#ifdef TEST_SAMPLET_BASIS_
+  {
+    std::cout << "testing vanishing moments:\n";
+    // compute the multi indices for the monomials used for vanishing moments
+    FMCA::MultiIndexSet<DIM> idcs(DTILDE - 1);
+    // evaluate all these monomials at the points
+    Eigen::MatrixXd Pol = FMCA::momentComputer(P, CT, idcs);
+    double err = 0;
+    for (auto i = 0; i < Pol.rows(); ++i) {
+      Pol.row(i) = ST.sampletTransform(Pol.row(i));
+      err += Pol.row(i).tail(Pol.cols() - ST.get_nscalfs()).norm();
+    }
+    std::cout << "orthogonality error: " << err / Pol.rows() << std::endl;
+    std::cout << "----------------------------------------------------\n";
+  }
+#endif
+
 #ifdef PLOT_BOXES_
   std::vector<ClusterT *> leafs;
   CT.getLeafIterator(leafs);
@@ -145,6 +170,12 @@ int main() {
     T.toc("time inverse samplet transform matrix: ");
     std::cout << "error: " << (K - K2).norm() / K2.norm() << std::endl;
     std::cout << "----------------------------------------------------\n";
+    Bembel::IO::print2m("SampletBasis.m", "T", Tmat, "w");
+    Bembel::IO::print2m("Points.m", "P", P, "w");
+    Eigen::VectorXi idx(P.cols());
+    for (auto i = 0; i < idx.size(); ++i)
+      idx(i) = CT.get_indices()[i];
+    Bembel::IO::print2m("Indices.m", "Idcs", idx, "w");
   }
 #endif
 

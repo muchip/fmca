@@ -15,11 +15,19 @@
 namespace FMCA {
 template <typename ClusterTree> class SampletTree;
 
+/**
+ *  \ingroup Samplets
+ *  \brief The SampletTreeData struct keeps all information that should be
+ *         available to each node of the samplet tree and is accessed by a
+ *         shared pointer to avoid unnecessary data overhead.
+ *
+ *         In particular, we hace here a levelwise serialisation of the
+ *         samplet tree stored in the std::vector samplet_list
+ */
 template <typename ClusterTree> struct SampletTreeData {
   IndexType max_wlevel_ = 0;
   IndexType dtilde_ = 0;
   IndexType m_dtilde_ = 0;
-
   MultiIndexSet<ClusterTree::dimension> idcs;
   std::vector<SampletTree<ClusterTree> *> samplet_list;
   Eigen::Matrix<typename ClusterTree::value_type, Eigen::Dynamic,
@@ -142,6 +150,7 @@ public:
               << std::endl;
     return;
   }
+  IndexType get_nscalfs() const { return nscalfs_; }
   //////////////////////////////////////////////////////////////////////////////
   Eigen::SparseMatrix<value_type> get_transformationMatrix() const {
     const IndexType n = cluster_->get_indices().size();
@@ -160,7 +169,6 @@ public:
     Tmat.setFromTriplets(triplet_list.begin(), triplet_list.end());
     return Tmat;
   }
-
   //////////////////////////////////////////////////////////////////////////////
 private:
   //////////////////////////////////////////////////////////////////////////////
@@ -171,7 +179,7 @@ private:
     eigenVector retval(0);
     IndexType scalf_shift = 0;
     if (!wlevel_)
-      scalf_shift = Q_.cols() - nsamplets_;
+      scalf_shift = nscalfs_;
     if (sons_.size()) {
       for (auto i = 0; i < sons_.size(); ++i) {
         auto scalf = sons_[i].sampletTransformRecursion(data, svec);
@@ -201,20 +209,6 @@ private:
                Q_.rightCols(nsamplets_) *
                    data.segment(start_index_ + nscalfs_, nsamplets_);
     } else {
-#if 0
-      std::cout << "-----------\n";
-      std::cout << "os: " << ddata_offset << " ds: " << ddata->size()
-                << std::endl;
-      std::cout << "id: " << block_id_ << " wlvl: " << wlevel_
-                << " nsf: " << nscalfs_ << " ns: " << nsamplets_
-                << " cs: " << cluster_->get_indices().size()
-                << " sns: " << sons_.size() << std::endl;
-      std::cout << "Q:\n";
-      std::cout << Q_ << std::endl;
-      eigenVector vec = ddata->segment(ddata_offset, nscalfs_);
-      std::cout << "vec:\n";
-      std::cout << vec << std::endl;
-#endif
       retval = Q_.leftCols(nscalfs_) * ddata->segment(ddata_offset, nscalfs_);
       if (nsamplets_)
         retval +=
@@ -223,13 +217,6 @@ private:
     if (sons_.size()) {
       ddata_offset = 0;
       for (auto i = 0; i < sons_.size(); ++i) {
-#if 0
-        std::cout << " sid: " << i << " cs: " << cluster_->get_indices().size()
-                  << " Q: " << Q_.rows() << "/" << Q_.cols() << std::endl;
-        std::cout << retval << std::endl;
-        std::cout << "s0: " << sons_[0].nscalfs_ << " s1: " << sons_[1].nscalfs_
-                  << std::endl;
-#endif
         sons_[i].inverseSampletTransformRecursion(data, fvec, &retval,
                                                   ddata_offset);
         ddata_offset += sons_[i].nscalfs_;
@@ -358,6 +345,6 @@ private:
   IndexType wlevel_;
   IndexType start_index_;
   IndexType block_id_;
-}; // namespace FMCA
+};
 } // namespace FMCA
 #endif

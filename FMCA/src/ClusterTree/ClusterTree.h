@@ -32,7 +32,7 @@ template <typename ValueType, IndexType Dim> struct ClusterTreeData {
  */
 template <typename ValueType, IndexType Dim, IndexType MinClusterSize,
           typename Splitter =
-              ClusterSplitter::GeometricBisection<ValueType, Dim>>
+              ClusterSplitter::CardinalityBisection<ValueType, Dim>>
 class ClusterTree {
   friend Splitter;
 
