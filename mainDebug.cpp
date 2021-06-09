@@ -4,9 +4,9 @@
 #include <functional>
 #include <iomanip>
 
-#include "FMCA/BlockClusterTree"
 #include "FMCA/H2Matrix"
 #include "FMCA/Samplets"
+#include "FMCA/src/H2Matrix/ChebyshevInterpolation.h"
 #include "FMCA/src/util/BinomialCoefficient.h"
 #include "FMCA/src/util/IO.h"
 #include "FMCA/src/util/print2file.hpp"
@@ -23,7 +23,7 @@
 //#define NPTS 1024
 //#define NPTS 512
 //#define NPTS 512
-#define DIM 1
+#define DIM 2
 #define DTILDE 4
 #define LEAFSIZE 4
 
@@ -39,8 +39,10 @@ struct Gaussian {
 };
 
 using ClusterT = FMCA::ClusterTree<double, DIM, LEAFSIZE>;
+using H2ClusterT = FMCA::H2ClusterTree<double, DIM, LEAFSIZE>;
 
 int main() {
+
 #if 0
   std::cout << "loading data: ";
   Eigen::MatrixXd B = readMatrix("bunny.txt");
@@ -59,6 +61,9 @@ int main() {
   T.tic();
   ClusterT CT(P);
   T.toc("set up cluster tree: ");
+  T.tic();
+  H2ClusterT H2CT(P);
+  T.toc("set up H2-cluster tree: ");
   T.tic();
   FMCA::SampletTree<ClusterT> ST(P, CT, DTILDE);
   T.toc("set up samplet tree: ");

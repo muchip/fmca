@@ -9,7 +9,7 @@ PROG= a.out
 CPP = g++ -std=c++11
 CPPFLAGS = -O3 -fPIC
 INCLUDE = -I/usr/include/eigen3
-LDFLAGS = -lm
+LDFLAGS = -g
 OBJECTS = mainDebug.o
 all: $(OBJECTS)
 	$(CPP) $(OBJECTS) -o$(PROG) $(LDFLAGS)  

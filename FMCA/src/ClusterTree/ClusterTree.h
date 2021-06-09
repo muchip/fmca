@@ -25,10 +25,6 @@ template <typename ValueType, IndexType Dim> struct ClusterTreeData {
  *  \brief The ClusterTree class manages cluster trees for point sets in
  *         arbitrary dimensions. We always use a binary tree which can
  *         afterwards always be recombined into an 2^n tree.
- *
- *  Note: tree data stores a pointer to the point list. This becomes
- *  problematic if the point list goes out of scope while the cluster tree
- *  still exists.
  */
 template <typename ValueType, IndexType Dim, IndexType MinClusterSize,
           typename Splitter =
