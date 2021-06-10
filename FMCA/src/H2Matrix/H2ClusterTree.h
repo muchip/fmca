@@ -16,53 +16,67 @@ namespace FMCA {
 
 /**
  *  \ingroup H2Matrix
- *  \brief The H2ClusterTree class manages cluster trees for H2Matrices in
- *         arbitrary dimension. It is derived from the ClusterTree class
+ *  \brief The H2ClusterTree class manages the cluster bases for a given
+ *         ClusterTree.
+ *
+ *         The tree structure from the ClusterTree is replicated here. This
+ *         was a design decision as a cluster tree per se is not related to
+ *         cluster bases. Also note that we just use pointers to clusters here.
+ *         Thus, if the cluster tree is mutated or goes out of scope, we get
+ *         dangeling pointers!
  */
-template <typename ValueType, IndexType Dim, IndexType MinClusterSize,
-          IndexType Deg = 3,
-          typename Splitter =
-              ClusterSplitter::CardinalityBisection<ValueType, Dim>>
-class H2ClusterTree
-    : public ClusterTree<ValueType, Dim, MinClusterSize, Splitter> {
-  friend Splitter;
-  using CT = ClusterTree<ValueType, Dim, MinClusterSize, Splitter>;
-
+template <typename ClusterTree, IndexType Deg> class H2ClusterTree {
 public:
+  typedef typename ClusterTree::value_type value_type;
+  enum { dimension = ClusterTree::dimension };
   //////////////////////////////////////////////////////////////////////////////
   // constructors
   //////////////////////////////////////////////////////////////////////////////
   H2ClusterTree() {}
-  H2ClusterTree(const Eigen::Matrix<ValueType, Dim, Eigen::Dynamic> &P) {
-    init(P);
+  H2ClusterTree(const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
+                const ClusterTree &CT) {
+    init(P, CT);
   }
 
-  void init(const Eigen::Matrix<ValueType, Dim, Eigen::Dynamic> &P) {
-    // init underlying tree structure
-    CT::init(P);
+  void init(const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
+            const ClusterTree &CT) {
     // set up the tensor product interpolator
-    TP_interp_ =
-        std::make_shared<TensorProductInterpolator<ValueType, Dim, Deg>>();
+    TP_interp_ = std::make_shared<
+        TensorProductInterpolator<value_type, dimension, Deg>>();
     TP_interp_->init();
     // now compute the H2 cluster bases
-    computeClusterBases(P);
+    computeClusterBases(P, CT);
   }
 
-  void
-  computeClusterBases(const Eigen::Matrix<ValueType, Dim, Eigen::Dynamic> &P) {
-    if (CT::sons_.size()) {
-      for (auto i = 0; i < CT::sons_.size(); ++i)
-        CT::sons_[i].computeClusterBases(P);
+  void computeClusterBases(
+      const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
+      const ClusterTree &CT) {
+    cluster_ = &CT;
+    if (CT.get_sons().size()) {
+      sons_.resize(CT.get_sons().size());
+      for (auto i = 0; i < CT.get_sons().size(); ++i) {
+        sons_[i].TP_interp_ = TP_interp_;
+        sons_[i].computeClusterBases(P, CT.get_sons()[i]);
+      }
       // compute transfer matrices
     } else {
-      V_.resize(TP_interp_->get_Xi().cols(), CT::get_indices().size());
+      V_.resize(TP_interp_->get_Xi().cols(), CT.get_indices().size());
+      for (auto i = 0; i < CT.get_indices().size(); ++i) {
+        V_.col(i) = TP_interp_->evalLagrangePolynomials(
+            ((P.col(CT.get_indices()[i]) - CT.get_bb().col(0)).array() /
+             CT.get_bb().col(2).array())
+                .matrix());
+      }
     }
   }
   //////////////////////////////////////////////////////////////////////////////
 private:
-  std::shared_ptr<TensorProductInterpolator<ValueType, Dim, Deg>> TP_interp_;
-  std::vector<Eigen::Matrix<ValueType, Eigen::Dynamic, Eigen::Dynamic>> E_;
-  Eigen::Matrix<ValueType, Eigen::Dynamic, Eigen::Dynamic> V_;
+  std::vector<H2ClusterTree> sons_;
+  const ClusterTree *cluster_;
+  std::shared_ptr<TensorProductInterpolator<value_type, dimension, Deg>>
+      TP_interp_;
+  std::vector<Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic>> E_;
+  Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> V_;
 };
 
 } // namespace FMCA

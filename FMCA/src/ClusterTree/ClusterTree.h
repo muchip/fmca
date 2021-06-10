@@ -229,6 +229,6 @@ private:
   IndexType level_;
   IndexType indices_begin_;
   IndexType id_;
-}; // namespace FMCA
+};
 } // namespace FMCA
 #endif

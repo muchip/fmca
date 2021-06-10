@@ -39,7 +39,6 @@ struct Gaussian {
 };
 
 using ClusterT = FMCA::ClusterTree<double, DIM, LEAFSIZE>;
-using H2ClusterT = FMCA::H2ClusterTree<double, DIM, LEAFSIZE>;
 
 int main() {
 
@@ -62,7 +61,7 @@ int main() {
   ClusterT CT(P);
   T.toc("set up cluster tree: ");
   T.tic();
-  H2ClusterT H2CT(P);
+  FMCA::H2ClusterTree<ClusterT, 3> H2CT(P, CT);
   T.toc("set up H2-cluster tree: ");
   T.tic();
   FMCA::SampletTree<ClusterT> ST(P, CT, DTILDE);

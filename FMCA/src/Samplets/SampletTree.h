@@ -250,7 +250,7 @@ private:
     if (CT.get_sons().size()) {
       sons_.resize(CT.get_sons().size());
       IndexType offset = 0;
-      for (auto i = 0; i != CT.get_sons().size(); ++i) {
+      for (auto i = 0; i < CT.get_sons().size(); ++i) {
         sons_[i].tree_data_ = tree_data_;
         sons_[i].computeSamplets(P, CT.get_sons()[i]);
         // the son now has moments, lets grep them...
