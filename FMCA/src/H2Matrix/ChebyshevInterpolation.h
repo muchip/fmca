@@ -19,7 +19,7 @@ namespace FMCA {
  **/
 template <typename ValueType, IndexType Dim, IndexType Deg>
 class TensorProductInterpolator {
-public:
+ public:
   typedef Eigen::Matrix<ValueType, Eigen::Dynamic, 1> eigenVector;
   typedef Eigen::Matrix<ValueType, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
   /**
@@ -37,8 +37,7 @@ public:
     // univariate barycentric weights
     w_ = (weight * (eigenVector::LinSpaced(Deg + 1, 0, Deg).array() + 0.5))
              .sin();
-    for (auto i = 1; i < w_.size(); i += 2)
-      w_(i) *= -1.;
+    for (auto i = 1; i < w_.size(); i += 2) w_(i) *= -1.;
     idcs_.init(Deg);
     TP_xi_.resize(Dim, idcs_.get_MultiIndexSet().size());
     // determine tensor product interpolation points
@@ -58,27 +57,29 @@ public:
   template <typename Derived>
   eigenVector evalLagrangePolynomials(const Eigen::MatrixBase<Derived> &pt) {
     eigenVector retval(idcs_.get_MultiIndexSet().size());
+    eigenVector weight(Dim);
     retval.setOnes();
-    ValueType weight = 1.;
+    IndexType inf_counter = 0;
     for (auto i = 0; i < Dim; ++i)
-      weight *= (w_.array() / (pt(i) - xi_.array())).sum();
+      weight(i) = (w_.array() / (pt(i) - xi_.array())).sum();
     IndexType k = 0;
     for (const auto &it : idcs_.get_MultiIndexSet()) {
       for (auto i = 0; i < Dim; ++i)
-        retval(k) *= w_(it[i]) / (pt(i) - xi_(it[i]));
+        if (abs(pt(i) - xi_(it[i])) > FMCA_ZERO_TOLERANCE)
+          retval(k) *= w_(it[i]) / (pt(i) - xi_(it[i])) / weight(i);
       ++k;
     }
-    return (1. / weight) * retval;
+    return retval;
   }
 
   //////////////////////////////////////////////////////////////////////////////
   const eigenMatrix &get_Xi() const { return TP_xi_; }
 
-private:
+ private:
   MultiIndexSet<Dim, TensorProduct> idcs_;
   eigenMatrix TP_xi_;
   eigenVector xi_;
   eigenVector w_;
 };
-} // namespace FMCA
+}  // namespace FMCA
 #endif
