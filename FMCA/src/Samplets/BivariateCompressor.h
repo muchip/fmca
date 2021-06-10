@@ -14,9 +14,8 @@
 
 namespace FMCA {
 
-template <typename SampletTree>
-class BivariateCompressor {
- public:
+template <typename SampletTree> class BivariateCompressor {
+public:
   typedef typename SampletTree::value_type value_type;
   typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
   BivariateCompressor(){};
@@ -77,7 +76,8 @@ class BivariateCompressor {
     }
     std::cout << "max buffer size: " << max_buff_size_ << std::endl;
     max_buff_size_ = 0;
-    for (const auto &it : buffer_) max_buff_size_ += it.size();
+    for (const auto &it : buffer_)
+      max_buff_size_ += it.size();
     std::cout << "final buffer size: " << max_buff_size_ << std::endl;
   }
 
@@ -97,7 +97,7 @@ class BivariateCompressor {
     const value_type first = j < jp ? 1. / (1 << j) : 1. / (1 << jp);
     const value_type second =
         std::pow(2., cut_const1_ - (j + jp) * cut_const2_);
-    return a_param_ * first * geo_diam_;  //(first > second ? first : second);
+    return a_param_ * first * geo_diam_; //(first > second ? first : second);
   }
   //////////////////////////////////////////////////////////////////////////////
   bool cutOff(IndexType j, IndexType jp, value_type dist) {
@@ -165,22 +165,18 @@ class BivariateCompressor {
     return retval;
   }
 
- private:
+private:
   //////////////////////////////////////////////////////////////////////////////
   value_type computeDistance(const SampletTree &TR, const SampletTree &TC) {
-    const value_type row_radius =
-        0.5 *
-        (TR.cluster_->get_bb().col(0) - TR.cluster_->get_bb().col(1)).norm();
-    const value_type col_radius =
-        0.5 *
-        (TC.cluster_->get_bb().col(0) - TC.cluster_->get_bb().col(1)).norm();
+    const value_type row_radius = 0.5 * TR.cluster_->get_bb().col(2).norm();
+    const value_type col_radius = 0.5 * TC.cluster_->get_bb().col(2).norm();
     const value_type dist =
         0.5 * (TR.cluster_->get_bb().col(0) - TC.cluster_->get_bb().col(0) +
                TR.cluster_->get_bb().col(1) - TC.cluster_->get_bb().col(1))
                   .norm() -
         row_radius - col_radius;
     return dist > 0 ? dist : 0;
-  }  //////////////////////////////////////////////////////////////////////////////
+  } //////////////////////////////////////////////////////////////////////////////
   template <typename Functor>
   void setupRow(const Eigen::Matrix<value_type, SampletTree::dimension,
                                     Eigen::Dynamic> &P,
@@ -202,7 +198,8 @@ class BivariateCompressor {
                                  buf.cols() + TR.sons_[i].nscalfs_);
           buf.rightCols(TR.sons_[i].nscalfs_) =
               (it->second).transpose().leftCols(TR.sons_[i].nscalfs_);
-          if (it->first != 0) buffer_[TR.sons_[i].block_id_].erase(it);
+          if (it->first != 0)
+            buffer_[TR.sons_[i].block_id_].erase(it);
         } else {
           eigenMatrix ret =
               recursivelyComputeBlock(P, nullptr, TR.sons_[i], TC, fun);
@@ -246,7 +243,8 @@ class BivariateCompressor {
                  block.bottomRightCorner(TR.nsamplets_, TC.nsamplets_));
     buffer_[TR.block_id_].emplace(std::make_pair(TC.block_id_, block));
     IndexType buff_size = 0;
-    for (const auto &it : buffer_) buff_size += it.size();
+    for (const auto &it : buffer_)
+      buff_size += it.size();
     max_buff_size_ = max_buff_size_ < buff_size ? buff_size : max_buff_size_;
     return;
   }
@@ -324,6 +322,6 @@ class BivariateCompressor {
   IndexType max_wlevel_;
   IndexType fun_calls_;
   IndexType max_buff_size_;
-};  // namespace FMCA
-}  // namespace FMCA
+}; // namespace FMCA
+} // namespace FMCA
 #endif

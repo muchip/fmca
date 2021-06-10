@@ -19,7 +19,7 @@ namespace FMCA {
  **/
 template <typename ValueType, IndexType Dim, IndexType Deg>
 class TensorProductInterpolator {
- public:
+public:
   typedef Eigen::Matrix<ValueType, Eigen::Dynamic, 1> eigenVector;
   typedef Eigen::Matrix<ValueType, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
   /**
@@ -37,7 +37,8 @@ class TensorProductInterpolator {
     // univariate barycentric weights
     w_ = (weight * (eigenVector::LinSpaced(Deg + 1, 0, Deg).array() + 0.5))
              .sin();
-    for (auto i = 1; i < w_.size(); i += 2) w_(i) *= -1.;
+    for (auto i = 1; i < w_.size(); i += 2)
+      w_(i) *= -1.;
     idcs_.init(Deg);
     TP_xi_.resize(Dim, idcs_.get_MultiIndexSet().size());
     // determine tensor product interpolation points
@@ -48,8 +49,6 @@ class TensorProductInterpolator {
       }
       ++k;
     }
-    std::cout << w_ << std::endl;
-    std::cout << xi_.transpose() << std::endl;
     return;
   }
 
@@ -75,11 +74,11 @@ class TensorProductInterpolator {
   //////////////////////////////////////////////////////////////////////////////
   const eigenMatrix &get_Xi() const { return TP_xi_; }
 
- private:
+private:
   MultiIndexSet<Dim, TensorProduct> idcs_;
   eigenMatrix TP_xi_;
   eigenVector xi_;
   eigenVector w_;
 };
-}  // namespace FMCA
+} // namespace FMCA
 #endif

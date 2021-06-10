@@ -12,8 +12,10 @@
 #ifndef FMCA_H2MATRIX_H2CLUSTERTREE_H_
 #define FMCA_H2MATRIX_H2CLUSTERTREE_H_
 
+//#define CHECK_TRANSFER_MATRICES_
 namespace FMCA {
 
+template <typename CT> class H2Matrix;
 /**
  *  \ingroup H2Matrix
  *  \brief The H2ClusterTree class manages the cluster bases for a given
@@ -25,9 +27,10 @@ namespace FMCA {
  *         Thus, if the cluster tree is mutated or goes out of scope, we get
  *         dangeling pointers!
  */
-template <typename ClusterTree, IndexType Deg>
-class H2ClusterTree {
- public:
+template <typename ClusterTree, IndexType Deg> class H2ClusterTree {
+  friend H2Matrix<H2ClusterTree>;
+
+public:
   typedef typename ClusterTree::value_type value_type;
   enum { dimension = ClusterTree::dimension };
   typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
@@ -54,7 +57,21 @@ class H2ClusterTree {
       const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
       const ClusterTree &CT) {
     cluster_ = &CT;
+    bool refine = true;
+    V_.resize(0, 0);
+    E_.clear();
     if (CT.get_sons().size()) {
+      // check if all sons have more indices than the number of
+      // interpolation points. if not, create a leaf;
+      for (auto i = 0; i < CT.get_sons().size(); ++i) {
+        if (CT.get_sons()[i].get_indices().size() <
+            TP_interp_->get_Xi().cols()) {
+          refine = false;
+          break;
+        }
+      }
+    }
+    if (refine) {
       sons_.resize(CT.get_sons().size());
       for (auto i = 0; i < CT.get_sons().size(); ++i) {
         sons_[i].TP_interp_ = TP_interp_;
@@ -74,46 +91,38 @@ class H2ClusterTree {
                   .matrix());
         E_.emplace_back(std::move(E));
       }
+    } else {
+      // compute leaf
+      V_.resize(TP_interp_->get_Xi().cols(), CT.get_indices().size());
+      for (auto i = 0; i < CT.get_indices().size(); ++i)
+        V_.col(i) = TP_interp_->evalLagrangePolynomials(
+            ((P.col(CT.get_indices()[i]) - CT.get_bb().col(0)).array() /
+             CT.get_bb().col(2).array())
+                .matrix());
     }
-    V_.resize(TP_interp_->get_Xi().cols(), CT.get_indices().size());
-    for (auto i = 0; i < CT.get_indices().size(); ++i) {
-      V_.col(i) = TP_interp_->evalLagrangePolynomials(
-          ((P.col(CT.get_indices()[i]) - CT.get_bb().col(0)).array() /
-           CT.get_bb().col(2).array())
-              .matrix());
-    }
-    // lets have fun checking the transfer matrices...
-    eigenMatrix V;
-    for (auto i = 0; i < sons_.size(); ++i) {
-      V.conservativeResize(sons_[i].V_.rows(), V.cols() + sons_[i].V_.cols());
-      V.rightCols(sons_[i].V_.cols()) = E_[i] * sons_[i].V_;
-    }
-    if (sons_.size()) {
+#ifdef CHECK_TRANSFER_MATRICES_
+    if (E_.size()) {
+      eigenMatrix V;
+      V_.resize(TP_interp_->get_Xi().cols(), CT.get_indices().size());
+      for (auto i = 0; i < CT.get_indices().size(); ++i)
+        V_.col(i) = TP_interp_->evalLagrangePolynomials(
+            ((P.col(CT.get_indices()[i]) - CT.get_bb().col(0)).array() /
+             CT.get_bb().col(2).array())
+                .matrix());
+
+      for (auto i = 0; i < sons_.size(); ++i) {
+        V.conservativeResize(sons_[i].V_.rows(), V.cols() + sons_[i].V_.cols());
+        V.rightCols(sons_[i].V_.cols()) = E_[i] * sons_[i].V_;
+      }
       double nrm = (V - V_).norm() / V_.norm();
-      if (nrm > 1e-10)
-        std::cout << V_ << std::endl
-                  << "-----\n"
-                  << V << std::endl
-                  << "-----\n"
-                  << E_[0] << std::endl
-                  << "-----\n"
-                  << E_[1] << std::endl
-                  << "-----\n"
-                  << cluster_->get_bb() << std::endl
-                  << "-----\n"
-
-                  << sons_[0].cluster_->get_bb() << std::endl
-                  << "-----\n"
-                  << sons_[1].cluster_->get_bb() << std::endl
-                  << "*************************\n";
-
       std::cout << nrm << std::endl;
+      eigen_assert(nrm < 1e-14);
     }
-
+#endif
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
- private:
+private:
   std::vector<H2ClusterTree> sons_;
   const ClusterTree *cluster_;
   std::shared_ptr<TensorProductInterpolator<value_type, dimension, Deg>>
@@ -122,5 +131,5 @@ class H2ClusterTree {
   eigenMatrix V_;
 };
 
-}  // namespace FMCA
+} // namespace FMCA
 #endif

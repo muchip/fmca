@@ -28,7 +28,7 @@ template <typename ValueType, IndexType Dim> struct ClusterTreeData {
  */
 template <typename ValueType, IndexType Dim, IndexType MinClusterSize,
           typename Splitter =
-              ClusterSplitter::GeometricBisection<ValueType, Dim>>
+              ClusterSplitter::CardinalityBisection<ValueType, Dim>>
 class ClusterTree {
   friend Splitter;
 
@@ -209,6 +209,8 @@ private:
             bbmat(j, 1) = bbmat(j, 1) >= P(j, indices_[i]) ? bbmat(j, 1)
                                                            : P(j, indices_[i]);
           }
+        bbmat.col(0).array() -= 10 * FMCA_ZERO_TOLERANCE;
+        bbmat.col(1).array() += 10 * FMCA_ZERO_TOLERANCE;
       } else {
         // collapse empty box to its midpoint
         bbmat.col(0) = 0.5 * (bb_.col(0) + bb_.col(1));

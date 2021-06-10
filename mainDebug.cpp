@@ -13,6 +13,7 @@
 #include "FMCA/src/util/tictoc.hpp"
 #include "imgCompression/matrixReader.h"
 ////////////////////////////////////////////////////////////////////////////////
+#define NPTS 500000
 //#define NPTS 131072
 //#define NPTS 65536
 //#define NPTS 32768
@@ -20,7 +21,7 @@
 //#define NPTS 8192
 //#define NPTS 4096
 //#define NPTS 2048
-#define NPTS 1024
+//#define NPTS 1024
 //#define NPTS 512
 //#define NPTS 64
 #define DIM 2
@@ -64,6 +65,9 @@ int main() {
   FMCA::H2ClusterTree<ClusterT, 3> H2CT(P, CT);
   T.toc("set up H2-cluster tree: ");
   T.tic();
+  FMCA::H2Matrix<FMCA::H2ClusterTree<ClusterT, 3>> H2mat(P, H2CT, Gaussian());
+  T.toc("set up H2-matrix: ");
+  T.tic();
   FMCA::SampletTree<ClusterT> ST(P, CT, DTILDE);
   T.toc("set up samplet tree: ");
   std::cout << "----------------------------------------------------\n";
@@ -79,6 +83,7 @@ int main() {
     std::cout << i << ")\t" << tree[i].size() << "\t" << numInd << "\n";
   }
   std::cout << "----------------------------------------------------\n";
+  return 0;
   //////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_SAMPLET_BASIS_
   {
