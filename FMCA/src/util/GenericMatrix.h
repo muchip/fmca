@@ -12,8 +12,9 @@
 #include <vector>
 
 namespace FMCA {
-template <typename T> class GenericMatrix {
-public:
+template <typename T>
+class GenericMatrix {
+ public:
   typedef typename std::vector<std::vector<T>>::size_type colIndex;
   typedef typename std::vector<T>::size_type rowIndex;
   //////////////////////////////////////////////////////////////////////////////
@@ -39,8 +40,7 @@ public:
   //////////////////////////////////////////////////////////////////////////////
   void resize(rowIndex rows, colIndex cols) {
     m_data_.resize(cols);
-    for (auto it = m_data_.begin(); it != m_data_.end(); ++it)
-      it->resize(rows);
+    for (auto it = m_data_.begin(); it != m_data_.end(); ++it) it->resize(rows);
     rows_ = rows;
     cols_ = cols;
     return;
@@ -49,6 +49,8 @@ public:
   colIndex cols() const { return cols_; }
 
   rowIndex rows() const { return rows_; }
+
+  rowIndex size() const { return rows_ * cols_; }
   //////////////////////////////////////////////////////////////////////////////
   //  operators
   //////////////////////////////////////////////////////////////////////////////
@@ -67,10 +69,10 @@ public:
   //////////////////////////////////////////////////////////////////////////////
   //  private members
   //////////////////////////////////////////////////////////////////////////////
-private:
+ private:
   std::vector<std::vector<T>> m_data_;
   colIndex cols_;
   rowIndex rows_;
 };
-} // namespace FMCA
+}  // namespace FMCA
 #endif

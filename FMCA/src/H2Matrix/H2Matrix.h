@@ -20,19 +20,21 @@ namespace FMCA {
  *         H2ClusterTree.
 
  */
-template <typename H2ClusterTree> class H2Matrix {
-public:
+template <typename H2ClusterTree>
+class H2Matrix {
+ public:
   typedef typename H2ClusterTree::value_type value_type;
   typedef typename H2ClusterTree::eigenMatrix eigenMatrix;
   enum Admissibility { Refine = 0, LowRank = 1, Dense = 2 };
   //////////////////////////////////////////////////////////////////////////////
   // constructors
   //////////////////////////////////////////////////////////////////////////////
-  H2Matrix() {}
+  H2Matrix() : is_low_rank_(false) {}
   template <typename Functor>
   H2Matrix(const Eigen::Matrix<value_type, H2ClusterTree::dimension,
                                Eigen::Dynamic> &P,
-           const H2ClusterTree &CT, const Functor &fun, value_type eta = 0.8) {
+           const H2ClusterTree &CT, const Functor &fun, value_type eta = 0.8)
+      : is_low_rank_(false) {
     init(P, CT, fun, eta);
   }
 
@@ -43,18 +45,70 @@ public:
     computeH2Matrix(P, CT, CT, fun, eta);
     return;
   }
+
+  eigenMatrix full() const {
+    eigen_assert(!row_cluster_->cluster_->get_id() &&
+                 !col_cluster_->cluster_->get_id() &&
+                 "method needs to be called from the root");
+    eigenMatrix retval(row_cluster_->cluster_->get_indices().size(),
+                       row_cluster_->cluster_->get_indices().size());
+    eigenMatrix rowV;
+    eigenMatrix colV;
+    computeFullMatrixRecursion(*row_cluster_, *row_cluster_, &rowV, &colV,
+                               &retval);
+    return retval;
+  }
   //////////////////////////////////////////////////////////////////////////////
-private:
+ private:
   //////////////////////////////////////////////////////////////////////////////
+  eigenMatrix computeFullMatrixRecursion(const H2ClusterTree &CR,
+                                         const H2ClusterTree &CS,
+                                         eigenMatrix *rowV;
+                                         eigenMatrix * colV;
+                                         eigenMatrix * target) {
+    eigenMatrix retval;
+    if (sons_.size()) {
+      for (auto i = 0; i < sons_.rows(); ++i) {
+        eigenMatrix buf;
+        for (auto j = 0; j < sons_.cols(); ++j) {
+          buf = sons_(i, j).computeFullMatrixRecursion(
+              *(sons_(i, j).row_cluster_), *(sons_(i, j).col_cluster_), target);
+          if (0 == i) {
+          }
+        }
+        auto csize = sons_(i, 0).row_cluster_->cluster_->get_indices().size();
+        rowV.conservativeResize(CR.E_[i].rows(), rowV.cols() + csize);
+        rowV.rightCols(csize) = CR.E_[i] * buf.leftCols(csize);
+      }
+    } else {
+      if (is_low_rank_)
+        target->block(row_cluster_->cluster_->get_indices_begin(),
+                      col_cluster_->cluster_->get_indices_begin(),
+                      row_cluster_->cluster_->get_indices().size(),
+                      col_cluster_->cluster_->get_indices().size()) =
+            row_cluster_->cluster_->V_.transpose() * S_ *
+            col_cluster_->cluster_->V_;
+      else
+        target->block(row_cluster_->cluster_->get_indices_begin(),
+                      col_cluster_->cluster_->get_indices_begin(),
+                      row_cluster_->cluster_->get_indices().size(),
+                      col_cluster_->cluster_->get_indices().size()) = S_;
+    }
+    return retval;
+  }
+
   template <typename Functor>
   void computeH2Matrix(const Eigen::Matrix<value_type, H2ClusterTree::dimension,
                                            Eigen::Dynamic> &P,
                        const H2ClusterTree &CT1, const H2ClusterTree &CT2,
                        const Functor &fun, value_type eta) {
+    row_cluster_ = &CT1;
+    col_cluster_ = &CT2;
     Admissibility adm = compareCluster(CT1, CT2, eta);
     if (adm == LowRank) {
       const eigenMatrix &Xi = CT1.TP_interp_->get_Xi();
       S_.resize(Xi.cols(), Xi.cols());
+      is_low_rank_ = true;
       for (auto j = 0; j < S_.cols(); ++j)
         for (auto i = 0; i < S_.rows(); ++i)
           S_(i, j) =
@@ -123,5 +177,5 @@ private:
   eigenMatrix S_;
 };
 
-} // namespace FMCA
+}  // namespace FMCA
 #endif

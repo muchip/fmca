@@ -13,7 +13,7 @@
 #include "FMCA/src/util/tictoc.hpp"
 #include "imgCompression/matrixReader.h"
 ////////////////////////////////////////////////////////////////////////////////
-#define NPTS 500000
+#define NPTS 5000
 //#define NPTS 131072
 //#define NPTS 65536
 //#define NPTS 32768
