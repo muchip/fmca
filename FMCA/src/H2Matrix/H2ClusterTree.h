@@ -12,7 +12,7 @@
 #ifndef FMCA_H2MATRIX_H2CLUSTERTREE_H_
 #define FMCA_H2MATRIX_H2CLUSTERTREE_H_
 
-//#define CHECK_TRANSFER_MATRICES_
+#define CHECK_TRANSFER_MATRICES_
 namespace FMCA {
 
 template <typename CT> class H2Matrix;

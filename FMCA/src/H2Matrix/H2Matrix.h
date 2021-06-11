@@ -20,9 +20,8 @@ namespace FMCA {
  *         H2ClusterTree.
 
  */
-template <typename H2ClusterTree>
-class H2Matrix {
- public:
+template <typename H2ClusterTree> class H2Matrix {
+public:
   typedef typename H2ClusterTree::value_type value_type;
   typedef typename H2ClusterTree::eigenMatrix eigenMatrix;
   enum Admissibility { Refine = 0, LowRank = 1, Dense = 2 };
@@ -52,49 +51,34 @@ class H2Matrix {
                  "method needs to be called from the root");
     eigenMatrix retval(row_cluster_->cluster_->get_indices().size(),
                        row_cluster_->cluster_->get_indices().size());
-    eigenMatrix rowV;
-    eigenMatrix colV;
-    computeFullMatrixRecursion(*row_cluster_, *row_cluster_, &rowV, &colV,
-                               &retval);
+    computeFullMatrixRecursion(*row_cluster_, *row_cluster_, &retval);
     return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
- private:
+private:
   //////////////////////////////////////////////////////////////////////////////
-  eigenMatrix computeFullMatrixRecursion(const H2ClusterTree &CR,
-                                         const H2ClusterTree &CS,
-                                         eigenMatrix *rowV;
-                                         eigenMatrix * colV;
-                                         eigenMatrix * target) {
-    eigenMatrix retval;
+  void computeFullMatrixRecursion(const H2ClusterTree &CR,
+                                  const H2ClusterTree &CS,
+                                  eigenMatrix *target) const {
     if (sons_.size()) {
-      for (auto i = 0; i < sons_.rows(); ++i) {
-        eigenMatrix buf;
-        for (auto j = 0; j < sons_.cols(); ++j) {
-          buf = sons_(i, j).computeFullMatrixRecursion(
+      for (auto i = 0; i < sons_.rows(); ++i)
+        for (auto j = 0; j < sons_.cols(); ++j)
+          sons_(i, j).computeFullMatrixRecursion(
               *(sons_(i, j).row_cluster_), *(sons_(i, j).col_cluster_), target);
-          if (0 == i) {
-          }
-        }
-        auto csize = sons_(i, 0).row_cluster_->cluster_->get_indices().size();
-        rowV.conservativeResize(CR.E_[i].rows(), rowV.cols() + csize);
-        rowV.rightCols(csize) = CR.E_[i] * buf.leftCols(csize);
-      }
     } else {
       if (is_low_rank_)
         target->block(row_cluster_->cluster_->get_indices_begin(),
                       col_cluster_->cluster_->get_indices_begin(),
                       row_cluster_->cluster_->get_indices().size(),
                       col_cluster_->cluster_->get_indices().size()) =
-            row_cluster_->cluster_->V_.transpose() * S_ *
-            col_cluster_->cluster_->V_;
+            row_cluster_->V_.transpose() * S_ * col_cluster_->V_;
       else
         target->block(row_cluster_->cluster_->get_indices_begin(),
                       col_cluster_->cluster_->get_indices_begin(),
                       row_cluster_->cluster_->get_indices().size(),
                       col_cluster_->cluster_->get_indices().size()) = S_;
     }
-    return retval;
+    return;
   }
 
   template <typename Functor>
@@ -175,7 +159,7 @@ class H2Matrix {
   const H2ClusterTree *col_cluster_;
   bool is_low_rank_;
   eigenMatrix S_;
-};
+}; // namespace FMCA
 
-}  // namespace FMCA
+} // namespace FMCA
 #endif

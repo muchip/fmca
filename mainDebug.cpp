@@ -13,11 +13,11 @@
 #include "FMCA/src/util/tictoc.hpp"
 #include "imgCompression/matrixReader.h"
 ////////////////////////////////////////////////////////////////////////////////
-#define NPTS 5000
+//#define NPTS 5000
 //#define NPTS 131072
 //#define NPTS 65536
 //#define NPTS 32768
-//#define NPTS 16384
+#define NPTS 16384
 //#define NPTS 8192
 //#define NPTS 4096
 //#define NPTS 2048
@@ -25,6 +25,7 @@
 //#define NPTS 512
 //#define NPTS 64
 #define DIM 2
+#define MPOLE_DEG 8
 #define DTILDE 4
 #define LEAFSIZE 4
 
@@ -62,11 +63,21 @@ int main() {
   ClusterT CT(P);
   T.toc("set up cluster tree: ");
   T.tic();
-  FMCA::H2ClusterTree<ClusterT, 3> H2CT(P, CT);
+  FMCA::H2ClusterTree<ClusterT, MPOLE_DEG> H2CT(P, CT);
   T.toc("set up H2-cluster tree: ");
   T.tic();
-  FMCA::H2Matrix<FMCA::H2ClusterTree<ClusterT, 3>> H2mat(P, H2CT, Gaussian());
+  FMCA::H2Matrix<FMCA::H2ClusterTree<ClusterT, MPOLE_DEG>> H2mat(
+      P, H2CT, Gaussian(), 0.2);
   T.toc("set up H2-matrix: ");
+  Eigen::MatrixXd K(P.cols(), P.cols());
+  auto fun = Gaussian();
+  T.tic();
+  for (auto j = 0; j < P.cols(); ++j)
+    for (auto i = 0; i < P.cols(); ++i)
+      K(i, j) = fun(P.col(CT.get_indices()[i]), P.col(CT.get_indices()[j]));
+  T.toc("set up full matrix: ");
+  std::cout << "H2-matrix compression error: "
+            << (K - H2mat.full()).norm() / K.norm() << std::endl;
   T.tic();
   FMCA::SampletTree<ClusterT> ST(P, CT, DTILDE);
   T.toc("set up samplet tree: ");
