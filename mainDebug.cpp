@@ -25,7 +25,7 @@
 //#define NPTS 512
 //#define NPTS 64
 #define DIM 2
-#define MPOLE_DEG 8
+#define MPOLE_DEG 14
 #define DTILDE 4
 #define LEAFSIZE 4
 
@@ -36,7 +36,7 @@
 struct Gaussian {
   double operator()(const Eigen::Matrix<double, DIM, 1> &x,
                     const Eigen::Matrix<double, DIM, 1> &y) const {
-    return exp(-4 * (x - y).norm());
+    return exp(-4 * (x - y).norm()) + x(0);
   }
 };
 
@@ -66,8 +66,8 @@ int main() {
   FMCA::H2ClusterTree<ClusterT, MPOLE_DEG> H2CT(P, CT);
   T.toc("set up H2-cluster tree: ");
   T.tic();
-  FMCA::H2Matrix<FMCA::H2ClusterTree<ClusterT, MPOLE_DEG>> H2mat(
-      P, H2CT, Gaussian(), 0.2);
+  FMCA::H2Matrix<FMCA::H2ClusterTree<ClusterT, MPOLE_DEG>> H2mat(P, H2CT,
+                                                                 Gaussian());
   T.toc("set up H2-matrix: ");
   Eigen::MatrixXd K(P.cols(), P.cols());
   auto fun = Gaussian();
@@ -94,7 +94,6 @@ int main() {
     std::cout << i << ")\t" << tree[i].size() << "\t" << numInd << "\n";
   }
   std::cout << "----------------------------------------------------\n";
-  return 0;
   //////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_SAMPLET_BASIS_
   {

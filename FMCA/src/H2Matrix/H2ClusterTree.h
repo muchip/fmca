@@ -115,8 +115,7 @@ public:
         V.rightCols(sons_[i].V_.cols()) = E_[i] * sons_[i].V_;
       }
       double nrm = (V - V_).norm() / V_.norm();
-      std::cout << nrm << std::endl;
-      eigen_assert(nrm < 1e-14);
+      eigen_assert(nrm < 1e-14 && "the H2 cluster basis is faulty");
     }
 #endif
     return;

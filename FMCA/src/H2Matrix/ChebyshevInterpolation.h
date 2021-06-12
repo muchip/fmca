@@ -57,15 +57,16 @@ public:
   eigenVector evalLagrangePolynomials(const Eigen::MatrixBase<Derived> &pt) {
     eigenVector retval(idcs_.get_MultiIndexSet().size());
     eigenVector weight(Dim);
+    eigenVector my_pt = pt.col(0);
     retval.setOnes();
     IndexType inf_counter = 0;
     for (auto i = 0; i < Dim; ++i)
-      weight(i) = (w_.array() / (pt(i) - xi_.array())).sum();
+      weight(i) = (w_.array() / (my_pt(i) - xi_.array())).sum();
     IndexType k = 0;
     for (const auto &it : idcs_.get_MultiIndexSet()) {
       for (auto i = 0; i < Dim; ++i)
-        if (abs(pt(i) - xi_(it[i])) > FMCA_ZERO_TOLERANCE)
-          retval(k) *= w_(it[i]) / (pt(i) - xi_(it[i])) / weight(i);
+        if (abs(my_pt(i) - xi_(it[i])) > FMCA_ZERO_TOLERANCE)
+          retval(k) *= w_(it[i]) / (my_pt(i) - xi_(it[i])) / weight(i);
       ++k;
     }
     return retval;
