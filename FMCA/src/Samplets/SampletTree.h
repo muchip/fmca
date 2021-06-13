@@ -151,6 +151,9 @@ public:
     return;
   }
   IndexType get_nscalfs() const { return nscalfs_; }
+  const eigenMatrix &get_Q() const { return Q_; }
+  const std::vector<SampletTree> &get_sons() const { return sons_; }
+  const ClusterTree *get_cluster() const { return cluster_; }
   //////////////////////////////////////////////////////////////////////////////
   Eigen::SparseMatrix<value_type> get_transformationMatrix() const {
     const IndexType n = cluster_->get_indices().size();
@@ -335,11 +338,12 @@ private:
   //////////////////////////////////////////////////////////////////////////////
   // private member variables
   //////////////////////////////////////////////////////////////////////////////
+public:
   std::vector<SampletTree> sons_;
   std::shared_ptr<SampletTreeData<ClusterTree>> tree_data_;
   const ClusterTree *cluster_;
-  Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> mom_buffer_;
-  Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> Q_;
+  eigenMatrix mom_buffer_;
+  eigenMatrix Q_;
   IndexType nscalfs_;
   IndexType nsamplets_;
   IndexType wlevel_;

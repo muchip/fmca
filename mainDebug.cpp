@@ -108,6 +108,9 @@ int main() {
   T.tic();
   FMCA::SampletTree<ClusterT> ST(P, CT, DTILDE);
   T.toc("set up samplet tree: ");
+  T.tic();
+  H2CT.computeMultiscaleClusterBases(ST);
+  T.toc("set up time multiscale cluster bases");
   std::cout << "----------------------------------------------------\n";
 #ifdef TEST_SAMPLET_BASIS_
   {
@@ -145,8 +148,9 @@ int main() {
 #ifdef TEST_COMPRESSOR_
   {
     T.tic();
-    FMCA::BivariateCompressor<FMCA::SampletTree<ClusterT>> BC(P, ST,
-                                                              Gaussian());
+    FMCA::BivariateCompressorH2<FMCA::SampletTree<ClusterT>,
+                                FMCA::H2ClusterTree<ClusterT, MPOLE_DEG>>
+        BC(P, ST, H2CT, Gaussian());
     T.toc("set up compressed matrix: ");
 
     std::cout << "----------------------------------------------------\n";

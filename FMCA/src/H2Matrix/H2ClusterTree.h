@@ -53,6 +53,27 @@ public:
     computeClusterBases(P, CT);
   }
 
+  template <typename SampletTree>
+  void computeMultiscaleClusterBases(const SampletTree &ST) {
+    if (!sons_.size()) {
+      assert(ST.get_cluster() == cluster_);
+      V_ *= ST.get_Q();
+    } else {
+      // compute multiscale cluster bases of sons and update own
+      for (auto i = 0; i < sons_.size(); ++i)
+        sons_[i].computeMultiscaleClusterBases(ST.get_sons()[i]);
+      V_.resize(0, 0);
+      for (auto i = 0; i < sons_.size(); ++i) {
+        V_.resize(sons_[i].V_.rows(),
+                  V_.cols() + (ST.get_sons()[i]).get_nscalfs());
+        V_.rightCols((ST.get_sons()[i]).get_nscalfs()) =
+            E_[i] * sons_[i].V_.leftCols((ST.get_sons()[i]).get_nscalfs());
+      }
+      V_ *= ST.get_Q();
+    }
+    return;
+  }
+
   void computeClusterBases(
       const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
       ClusterTree &CT) {
@@ -123,8 +144,9 @@ public:
 #endif
     return;
   }
+  const std::vector<H2ClusterTree> &get_sons() const { return sons_; }
   //////////////////////////////////////////////////////////////////////////////
-private:
+public:
   std::vector<H2ClusterTree> sons_;
   ClusterTree *cluster_;
   std::shared_ptr<TensorProductInterpolator<value_type, dimension, Deg>>
