@@ -39,12 +39,12 @@ public:
   //////////////////////////////////////////////////////////////////////////////
   H2ClusterTree() {}
   H2ClusterTree(const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
-                const ClusterTree &CT) {
+                ClusterTree &CT) {
     init(P, CT);
   }
 
   void init(const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
-            const ClusterTree &CT) {
+            ClusterTree &CT) {
     // set up the tensor product interpolator
     TP_interp_ = std::make_shared<
         TensorProductInterpolator<value_type, dimension, Deg>>();
@@ -55,7 +55,7 @@ public:
 
   void computeClusterBases(
       const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
-      const ClusterTree &CT) {
+      ClusterTree &CT) {
     cluster_ = &CT;
     bool refine = true;
     V_.resize(0, 0);
@@ -72,10 +72,10 @@ public:
       }
     }
     if (refine) {
-      sons_.resize(CT.get_sons().size());
-      for (auto i = 0; i < CT.get_sons().size(); ++i) {
+      sons_.resize(CT.sons_.size());
+      for (auto i = 0; i < CT.sons_.size(); ++i) {
         sons_[i].TP_interp_ = TP_interp_;
-        sons_[i].computeClusterBases(P, CT.get_sons()[i]);
+        sons_[i].computeClusterBases(P, CT.sons_[i]);
       }
       // compute transfer matrices
       const eigenMatrix &Xi = TP_interp_->get_Xi();
@@ -99,6 +99,9 @@ public:
             ((P.col(CT.get_indices()[i]) - CT.get_bb().col(0)).array() /
              CT.get_bb().col(2).array())
                 .matrix());
+      // delete children of the cluster tree, as we do not need them for the
+      // moment!!!
+      cluster_->sons_.clear();
     }
 #ifdef CHECK_TRANSFER_MATRICES_
     if (E_.size()) {
@@ -123,7 +126,7 @@ public:
   //////////////////////////////////////////////////////////////////////////////
 private:
   std::vector<H2ClusterTree> sons_;
-  const ClusterTree *cluster_;
+  ClusterTree *cluster_;
   std::shared_ptr<TensorProductInterpolator<value_type, dimension, Deg>>
       TP_interp_;
   std::vector<eigenMatrix> E_;

@@ -25,7 +25,7 @@
 //#define NPTS 512
 //#define NPTS 64
 #define DIM 2
-#define MPOLE_DEG 14
+#define MPOLE_DEG 3
 #define DTILDE 4
 #define LEAFSIZE 4
 
@@ -40,7 +40,7 @@ struct Gaussian {
   }
 };
 
-using ClusterT = FMCA::ClusterTree<double, DIM, LEAFSIZE>;
+using ClusterT = FMCA::ClusterTree<double, DIM, LEAFSIZE, MPOLE_DEG>;
 
 int main() {
 
@@ -62,13 +62,40 @@ int main() {
   T.tic();
   ClusterT CT(P);
   T.toc("set up cluster tree: ");
+  {
+    std::vector<std::vector<FMCA::IndexType>> tree;
+    CT.exportTreeStructure(tree);
+    std::cout << "cluster structure: " << std::endl;
+    std::cout << "l)\t#pts\ttotal#pts" << std::endl;
+    for (auto i = 0; i < tree.size(); ++i) {
+      int numInd = 0;
+      for (auto j = 0; j < tree[i].size(); ++j)
+        numInd += tree[i][j];
+      std::cout << i << ")\t" << tree[i].size() << "\t" << numInd << "\n";
+    }
+    std::cout << "----------------------------------------------------\n";
+  }
   T.tic();
   FMCA::H2ClusterTree<ClusterT, MPOLE_DEG> H2CT(P, CT);
   T.toc("set up H2-cluster tree: ");
+  {
+    std::vector<std::vector<FMCA::IndexType>> tree;
+    CT.exportTreeStructure(tree);
+    std::cout << "cluster structure: " << std::endl;
+    std::cout << "l)\t#pts\ttotal#pts" << std::endl;
+    for (auto i = 0; i < tree.size(); ++i) {
+      int numInd = 0;
+      for (auto j = 0; j < tree[i].size(); ++j)
+        numInd += tree[i][j];
+      std::cout << i << ")\t" << tree[i].size() << "\t" << numInd << "\n";
+    }
+    std::cout << "----------------------------------------------------\n";
+  }
   T.tic();
   FMCA::H2Matrix<FMCA::H2ClusterTree<ClusterT, MPOLE_DEG>> H2mat(P, H2CT,
                                                                  Gaussian());
   T.toc("set up H2-matrix: ");
+  H2mat.get_statistics();
   Eigen::MatrixXd K(P.cols(), P.cols());
   auto fun = Gaussian();
   T.tic();
@@ -82,19 +109,6 @@ int main() {
   FMCA::SampletTree<ClusterT> ST(P, CT, DTILDE);
   T.toc("set up samplet tree: ");
   std::cout << "----------------------------------------------------\n";
-  //////////////////////////////////////////////////////////////////////////////
-  std::vector<std::vector<FMCA::IndexType>> tree;
-  CT.exportTreeStructure(tree);
-  std::cout << "cluster structure: " << std::endl;
-  std::cout << "l)\t#pts\ttotal#pts" << std::endl;
-  for (auto i = 0; i < tree.size(); ++i) {
-    int numInd = 0;
-    for (auto j = 0; j < tree[i].size(); ++j)
-      numInd += tree[i][j];
-    std::cout << i << ")\t" << tree[i].size() << "\t" << numInd << "\n";
-  }
-  std::cout << "----------------------------------------------------\n";
-  //////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_SAMPLET_BASIS_
   {
     std::cout << "testing vanishing moments:\n";

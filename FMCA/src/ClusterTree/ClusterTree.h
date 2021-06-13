@@ -14,6 +14,8 @@
 
 namespace FMCA {
 
+template <typename ClusterTree, IndexType Deg> class H2ClusterTree;
+
 template <typename ValueType, IndexType Dim> struct ClusterTreeData {
   ValueType geometry_diam_ = 0;
   IndexType max_id_ = 0;
@@ -27,10 +29,12 @@ template <typename ValueType, IndexType Dim> struct ClusterTreeData {
  *         afterwards always be recombined into an 2^n tree.
  */
 template <typename ValueType, IndexType Dim, IndexType MinClusterSize,
+          IndexType Deg = 3,
           typename Splitter =
               ClusterSplitter::GeometricBisection<ValueType, Dim>>
 class ClusterTree {
   friend Splitter;
+  friend H2ClusterTree<ClusterTree, Deg>;
 
 public:
   typedef ValueType value_type;

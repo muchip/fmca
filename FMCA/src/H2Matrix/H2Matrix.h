@@ -45,6 +45,20 @@ public:
     return;
   }
 
+  void get_statistics() const {
+    IndexType low_rank_blocks = 0;
+    IndexType full_blocks = 0;
+    IndexType memory = 0;
+    getStatisticsRecursion(&low_rank_blocks, &full_blocks, &memory);
+    std::cout << "matrix size: " << row_cluster_->cluster_->get_indices().size()
+              << " x " << col_cluster_->cluster_->get_indices().size()
+              << std::endl;
+    std::cout << "number of low rank blocks: " << low_rank_blocks << std::endl;
+    std::cout << "number of full blocks: " << full_blocks << std::endl;
+    std::cout << "storage size: " << double(memory * sizeof(value_type)) / 1e9
+              << "GB" << std::endl;
+  }
+
   eigenMatrix full() const {
     eigen_assert(!row_cluster_->cluster_->get_id() &&
                  !col_cluster_->cluster_->get_id() &&
@@ -57,6 +71,23 @@ public:
   //////////////////////////////////////////////////////////////////////////////
 private:
   //////////////////////////////////////////////////////////////////////////////
+  void getStatisticsRecursion(IndexType *low_rank_blocks,
+                              IndexType *full_blocks, IndexType *memory) const {
+    if (sons_.size()) {
+      for (auto i = 0; i < sons_.rows(); ++i)
+        for (auto j = 0; j < sons_.cols(); ++j)
+          sons_(i, j).getStatisticsRecursion(low_rank_blocks, full_blocks,
+                                             memory);
+    } else {
+      if (is_low_rank_)
+        ++(*low_rank_blocks);
+      else
+        ++(*full_blocks);
+      (*memory) += S_.size();
+    }
+    return;
+  }
+
   void computeFullMatrixRecursion(const H2ClusterTree &CR,
                                   const H2ClusterTree &CS,
                                   eigenMatrix *target) const {
