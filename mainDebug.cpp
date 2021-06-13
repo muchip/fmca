@@ -17,10 +17,10 @@
 //#define NPTS 131072
 //#define NPTS 65536
 //#define NPTS 32768
-#define NPTS 16384
+//#define NPTS 16384
 //#define NPTS 8192
 //#define NPTS 4096
-//#define NPTS 2048
+#define NPTS 2048
 //#define NPTS 1024
 //#define NPTS 512
 //#define NPTS 64

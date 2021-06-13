@@ -156,22 +156,7 @@ public:
       const Functor &fun) {
     eigenMatrix buf(0, 0);
     eigenMatrix retval(0, 0);
-    // check admissibility
-    if (compareCluster(H2TR, H2TC, 0.8) == LowRank) {
-      // if we have low rank, directly truncate and return
-      const eigenMatrix &Xi = H2TR.TP_interp_->get_Xi();
-      buf.resize(Xi.cols(), Xi.cols());
-      for (auto j = 0; j < buf.cols(); ++j)
-        for (auto i = 0; i < buf.rows(); ++i)
-          buf(i, j) =
-              fun((H2TR.cluster_->get_bb().col(2).array() * Xi.col(i).array() +
-                   H2TR.cluster_->get_bb().col(0).array())
-                      .matrix(),
-                  (H2TR.cluster_->get_bb().col(2).array() * Xi.col(j).array() +
-                   H2TR.cluster_->get_bb().col(0).array())
-                      .matrix());
-      return H2TR.V_.transpose() * buf * H2TC.V_;
-    }
+
     if (!TR.sons_.size() && !TC.sons_.size()) {
       // both are leafs: compute the block and return
       buf.resize(TR.cluster_->get_indices().size(),
@@ -221,6 +206,27 @@ public:
       }
       retval = (buf * TR.Q_).transpose();
     }
+    // check admissibility
+    if (compareCluster(H2TR, H2TC, 0.8) == LowRank) {
+      // if we have low rank, directly truncate and return
+      const eigenMatrix &Xi = H2TR.TP_interp_->get_Xi();
+      buf.resize(Xi.cols(), Xi.cols());
+      for (auto j = 0; j < buf.cols(); ++j)
+        for (auto i = 0; i < buf.rows(); ++i)
+          buf(i, j) =
+              fun((H2TR.cluster_->get_bb().col(2).array() * Xi.col(i).array() +
+                   H2TR.cluster_->get_bb().col(0).array())
+                      .matrix(),
+                  (H2TC.cluster_->get_bb().col(2).array() * Xi.col(j).array() +
+                   H2TC.cluster_->get_bb().col(0).array())
+                      .matrix());
+      buf = H2TR.V_.transpose() * buf * H2TC.V_;
+
+      double err = (buf - retval).norm() / retval.norm();
+      if (err > 1e-6)
+        std::cout << err << std::endl;
+      retval = buf;
+    }
     return retval;
   }
 
@@ -247,28 +253,34 @@ private:
     ////////////////////////////////////////////////////////////////////////////
     // if there are children of the row cluster, we proceed recursively
     if (TR.sons_.size()) {
-      for (auto i = 0; i < TR.sons_.size(); ++i) {
-        const value_type dist = computeDistance(TR.sons_[i], TC);
-        if (!cutOff(TR.sons_[i].wlevel_, TC.wlevel_, dist)) {
-          setupRow(P, TR.sons_[i], TC, H2TR.get_sons()[i], H2TC, fun);
-          auto it = buffer_[TR.sons_[i].block_id_].find(TC.block_id_);
-          eigen_assert(it != buffer_[TR.sons_[i].block_id_].end() &&
-                       "entry should exist row");
-          buf.conservativeResize((it->second).cols(),
-                                 buf.cols() + TR.sons_[i].nscalfs_);
-          buf.rightCols(TR.sons_[i].nscalfs_) =
-              (it->second).transpose().leftCols(TR.sons_[i].nscalfs_);
-          if (it->first != 0)
-            buffer_[TR.sons_[i].block_id_].erase(it);
-        } else {
-          eigenMatrix ret = recursivelyComputeBlock(
-              P, nullptr, TR.sons_[i], TC, H2TR.get_sons()[i], H2TC, fun);
-          buf.conservativeResize(ret.cols(), buf.cols() + TR.sons_[i].nscalfs_);
-          buf.rightCols(TR.sons_[i].nscalfs_) =
-              ret.transpose().leftCols(TR.sons_[i].nscalfs_);
+      if (compareCluster(H2TR, H2TC, 0.8) == LowRank) {
+        block = recursivelyComputeBlock(P, nullptr, TR, TC, H2TR, H2TC, fun);
+      } else {
+
+        for (auto i = 0; i < TR.sons_.size(); ++i) {
+          const value_type dist = computeDistance(TR.sons_[i], TC);
+          if (!cutOff(TR.sons_[i].wlevel_, TC.wlevel_, dist)) {
+            setupRow(P, TR.sons_[i], TC, H2TR.get_sons()[i], H2TC, fun);
+            auto it = buffer_[TR.sons_[i].block_id_].find(TC.block_id_);
+            eigen_assert(it != buffer_[TR.sons_[i].block_id_].end() &&
+                         "entry should exist row");
+            buf.conservativeResize((it->second).cols(),
+                                   buf.cols() + TR.sons_[i].nscalfs_);
+            buf.rightCols(TR.sons_[i].nscalfs_) =
+                (it->second).transpose().leftCols(TR.sons_[i].nscalfs_);
+            if (it->first != 0)
+              buffer_[TR.sons_[i].block_id_].erase(it);
+          } else {
+            eigenMatrix ret = recursivelyComputeBlock(
+                P, nullptr, TR.sons_[i], TC, H2TR.get_sons()[i], H2TC, fun);
+            buf.conservativeResize(ret.cols(),
+                                   buf.cols() + TR.sons_[i].nscalfs_);
+            buf.rightCols(TR.sons_[i].nscalfs_) =
+                ret.transpose().leftCols(TR.sons_[i].nscalfs_);
+          }
         }
+        block = (buf * TR.Q_).transpose();
       }
-      block = (buf * TR.Q_).transpose();
       ////////////////////////////////////////////////////////////////////////////
       // if we are at a leaf of the row cluster tree, we compute the entire row
     } else {
