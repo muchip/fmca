@@ -14,7 +14,7 @@
 #include "imgCompression/matrixReader.h"
 ////////////////////////////////////////////////////////////////////////////////
 //#define NPTS 5000
-#define NPTS 131072
+//#define NPTS 131072
 //#define NPTS 65536
 //#define NPTS 32768
 //#define NPTS 16384
@@ -24,14 +24,15 @@
 //#define NPTS 1024
 //#define NPTS 512
 //#define NPTS 64
-#define DIM 2
+#define DIM 3
 #define MPOLE_DEG 3
 #define DTILDE 4
 #define LEAFSIZE 4
 
-//#define TEST_COMPRESSOR_
-//#define TEST_SAMPLET_TRANSFORM_
-//#define TEST_SAMPLET_BASIS_
+#define TEST_H2MATRIX_
+#define TEST_COMPRESSOR_
+#define TEST_SAMPLET_TRANSFORM_
+#define TEST_SAMPLET_BASIS_
 
 struct Gaussian {
   double operator()(const Eigen::Matrix<double, DIM, 1> &x,
@@ -43,9 +44,9 @@ struct Gaussian {
 using ClusterT = FMCA::ClusterTree<double, DIM, LEAFSIZE, MPOLE_DEG>;
 
 int main() {
-#if 0
+#if 1
   std::cout << "loading data: ";
-  Eigen::MatrixXd B = readMatrix("bunny.txt");
+  Eigen::MatrixXd B = readMatrix("defiant.txt");
   std::cout << "data size: ";
   std::cout << B.rows() << " " << B.cols() << std::endl;
   std::cout << "----------------------------------------------------\n";
