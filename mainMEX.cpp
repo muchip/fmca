@@ -73,8 +73,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   ST.computeMultiscaleClusterBases(H2CT);
   T.toc("set up time multiscale cluster bases");
   T.tic();
-  FMCA::BivariateCompressorH2<FMCA::SampletTree<ClusterT>> BC(P, ST, Gaussian());
-  T.toc("set up compressed matrixx: ");
+  FMCA::BivariateCompressorH2<FMCA::SampletTree<ClusterT>> BC;
+  BC.set_eta(0.8);
+  BC.set_threshold(1e-6);
+  BC.init(P, ST, Gaussian());
+  T.toc("set up Samplet compressed matrix: ");
   auto pattern_triplets = BC.get_Pattern_triplets();
   plhs[0] = mxCreateDoubleMatrix(pattern_triplets.size(), 3, mxREAL);
   Eigen::Map<Eigen::MatrixXd> retU(mxGetPr(plhs[0]), pattern_triplets.size(),

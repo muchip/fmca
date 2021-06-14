@@ -15,9 +15,9 @@
 ////////////////////////////////////////////////////////////////////////////////
 //#define NPTS 5000
 //#define NPTS 131072
-//#define NPTS 65536
+#define NPTS 65536
 //#define NPTS 32768
-#define NPTS 16384
+//#define NPTS 16384
 //#define NPTS 8192
 //#define NPTS 4096
 //#define NPTS 2048
@@ -25,14 +25,15 @@
 //#define NPTS 512
 //#define NPTS 64
 #define DIM 3
-#define MPOLE_DEG 3
-#define DTILDE 3
+#define MPOLE_DEG 4
+#define DTILDE 4
 #define LEAFSIZE 4
 
-#define TEST_H2MATRIX_
-#define TEST_COMPRESSOR_
-#define TEST_SAMPLET_TRANSFORM_
-#define TEST_SAMPLET_BASIS_
+#define PLOT_BOXES_
+//#define TEST_H2MATRIX_
+//#define TEST_COMPRESSOR_
+//#define TEST_SAMPLET_TRANSFORM_
+//#define TEST_SAMPLET_BASIS_
 
 struct Gaussian {
   double operator()(const Eigen::Matrix<double, DIM, 1> &x,
@@ -44,7 +45,7 @@ struct Gaussian {
 using ClusterT = FMCA::ClusterTree<double, DIM, LEAFSIZE, MPOLE_DEG>;
 
 int main() {
-#if 1
+#if 0
   std::cout << "loading data: ";
   Eigen::MatrixXd B = readMatrix("defiant.txt");
   std::cout << "data size: ";
@@ -53,7 +54,16 @@ int main() {
   Eigen::MatrixXd P = B.transpose();
 #else
   srand(0);
+  Eigen::Matrix3d rot;
+  rot << 0.8047379, -0.3106172, 0.5058793, 0.5058793, 0.8047379, -0.3106172,
+      -0.3106172, 0.5058793, 0.8047379;
+  Eigen::MatrixXd P1 =
+      2 * FMCA_PI * (Eigen::MatrixXd::Random(1, NPTS).array() + 1);
   Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, NPTS);
+  P.row(0).array() = P1.array().cos();
+  P.row(1).array() = P1.array().sin();
+  P.row(2) = 0.5 * P1;
+  P = rot * P;
 //  Eigen::VectorXd nrms = P.colwise().norm();
 //  for (auto i = 0; i < P.cols(); ++i)
 //    P.col(i) *= 1 / nrms(i);
@@ -69,7 +79,8 @@ int main() {
     std::cout << "l)\t#pts\ttotal#pts" << std::endl;
     for (auto i = 0; i < tree.size(); ++i) {
       int numInd = 0;
-      for (auto j = 0; j < tree[i].size(); ++j) numInd += tree[i][j];
+      for (auto j = 0; j < tree[i].size(); ++j)
+        numInd += tree[i][j];
       std::cout << i << ")\t" << tree[i].size() << "\t" << numInd << "\n";
     }
     std::cout << "----------------------------------------------------\n";
@@ -84,7 +95,8 @@ int main() {
     std::cout << "l)\t#pts\ttotal#pts" << std::endl;
     for (auto i = 0; i < tree.size(); ++i) {
       int numInd = 0;
-      for (auto j = 0; j < tree[i].size(); ++j) numInd += tree[i][j];
+      for (auto j = 0; j < tree[i].size(); ++j)
+        numInd += tree[i][j];
       std::cout << i << ")\t" << tree[i].size() << "\t" << numInd << "\n";
     }
     std::cout << "----------------------------------------------------\n";
@@ -117,10 +129,17 @@ int main() {
   T.tic();
   FMCA::BivariateCompressorH2<FMCA::SampletTree<ClusterT>> BC;
   BC.set_eta(0.8);
-  BC.set_threshold(1e-6);
+  BC.set_threshold(0);
   BC.init(P, ST, Gaussian());
   T.toc("set up Samplet compressed matrix: ");
-
+  auto trips = BC.get_Pattern_triplets();
+  std::cout << "nz per row: " << trips.size() / P.cols() << std::endl;
+  std::cout << "storage sparse: "
+            << double(sizeof(double) * trips.size() * 3) / double(1e9)
+            << "GB\n";
+  std::cout << "storage full: "
+            << double(sizeof(double) * P.cols() * P.cols()) / double(1e9)
+            << "GB" << std::endl;
   std::cout << "----------------------------------------------------\n";
 
 #ifdef TEST_SAMPLET_BASIS_

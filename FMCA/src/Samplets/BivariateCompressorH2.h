@@ -14,9 +14,8 @@
 
 namespace FMCA {
 
-template <typename SampletTree>
-class BivariateCompressorH2 {
- public:
+template <typename SampletTree> class BivariateCompressorH2 {
+public:
   enum Admissibility { Refine = 0, LowRank = 1, Dense = 2 };
   typedef typename SampletTree::value_type value_type;
   typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
@@ -61,6 +60,7 @@ class BivariateCompressorH2 {
     std::cout << "diam:   " << geo_diam_ << std::endl;
     ////////////////////////////////////////////////////////////////////////////
     // set up the compressed system matrix
+    PB_.reset(ST.tree_data_->samplet_list.size());
     setupColumn(P, ST, ST, fun);
     // set up remainder of the first column
     for (auto i = 1; i < ST.tree_data_->samplet_list.size(); ++i) {
@@ -72,13 +72,18 @@ class BivariateCompressorH2 {
       auto it = buffer_[block_id].find(ST.block_id_);
       eigen_assert(it != buffer_[block_id].end() &&
                    "there is a missing root block!");
+      storeBlock(start_index, ST.start_index_, nsamplets, ST.Q_.cols(),
+                 (it->second).bottomRows(nsamplets));
+#if 0
       for (auto k = 0; k < ST.Q_.cols(); ++k)
         for (auto j = 0; j < nsamplets; ++j)
           triplet_list_.push_back(
               Eigen::Triplet<value_type>(start_index + j, ST.start_index_ + k,
                                          (it->second)(nscalfs + j, k)));
+#endif
       buffer_[block_id].erase(it);
     }
+    std::cout << std::endl;
 #if 0
     std::cout << "max buffer size: " << max_buff_size_ << std::endl;
     max_buff_size_ = 0;
@@ -104,7 +109,7 @@ class BivariateCompressorH2 {
     const value_type first = j < jp ? 1. / (1 << j) : 1. / (1 << jp);
     const value_type second =
         std::pow(2., cut_const1_ - (j + jp) * cut_const2_);
-    return a_param_ * first * geo_diam_;  //(first > second ? first : second);
+    return a_param_ * first * geo_diam_; //(first > second ? first : second);
   }
   //////////////////////////////////////////////////////////////////////////////
   bool cutOff(IndexType j, IndexType jp, value_type dist) {
@@ -218,7 +223,7 @@ class BivariateCompressorH2 {
     return;
   }
 
- private:
+private:
   //////////////////////////////////////////////////////////////////////////////
   value_type computeDistance(const SampletTree &TR, const SampletTree &TC) {
     const value_type row_radius = 0.5 * TR.cluster_->get_bb().col(2).norm();
@@ -253,7 +258,8 @@ class BivariateCompressorH2 {
                                  buf.cols() + TR.sons_[i].nscalfs_);
           buf.rightCols(TR.sons_[i].nscalfs_) =
               (it->second).transpose().leftCols(TR.sons_[i].nscalfs_);
-          if (it->first != 0) buffer_[TR.sons_[i].block_id_].erase(it);
+          if (it->first != 0)
+            buffer_[TR.sons_[i].block_id_].erase(it);
         } else {
           eigenMatrix ret =
               recursivelyComputeBlock(P, nullptr, TR.sons_[i], TC, fun);
@@ -329,6 +335,7 @@ class BivariateCompressorH2 {
       storeBlock(TR.start_index_, TC.start_index_, TR.Q_.cols(), TC.nsamplets_,
                  (it->second).rightCols(TC.nsamplets_));
     buffer_[TR.block_id_].erase(it);
+    PB_.next();
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
@@ -366,6 +373,7 @@ class BivariateCompressorH2 {
   //////////////////////////////////////////////////////////////////////////////
   std::vector<Eigen::Triplet<value_type>> triplet_list_;
   std::vector<std::map<IndexType, eigenMatrix>> buffer_;
+  ProgressBar PB_;
   value_type a_param_;
   value_type dprime_;
   value_type dtilde_;
@@ -379,8 +387,8 @@ class BivariateCompressorH2 {
   IndexType max_wlevel_;
   IndexType fun_calls_;
   IndexType max_buff_size_;
-};  // namespace FMCA
-}  // namespace FMCA
+}; // namespace FMCA
+} // namespace FMCA
 #endif
 
 #if 0
