@@ -12,6 +12,7 @@
 #ifndef FMCA_SAMPLETS_SAMPLETTREE_H_
 #define FMCA_SAMPLETS_SAMPLETTREE_H_
 
+#define USE_QR_CONSTRUCTION_
 namespace FMCA {
 template <typename ClusterTree>
 class SampletTree;
@@ -303,6 +304,7 @@ class SampletTree {
       // compute cluster basis of the leaf
       mom_buffer_ = momentComputer<ClusterTree>(P, *cluster_, tree_data_->idcs);
     }
+#ifdef USE_QR_CONSTRUCTION_
     // are there wavelets?
     if (mom_buffer_.rows() < mom_buffer_.cols()) {
       Eigen::HouseholderQR<eigenMatrix> qr(mom_buffer_.transpose());
@@ -320,6 +322,8 @@ class SampletTree {
       nscalfs_ = mom_buffer_.cols();
       nsamplets_ = 0;
     }
+#else
+#endif
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
