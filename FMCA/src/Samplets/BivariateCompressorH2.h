@@ -243,7 +243,8 @@ class BivariateCompressorH2 {
     if (TR.sons_.size()) {
       for (auto i = 0; i < TR.sons_.size(); ++i) {
         const value_type dist = computeDistance(TR.sons_[i], TC);
-        if (!cutOff(TR.sons_[i].wlevel_, TC.wlevel_, dist)) {
+        if (compareCluster(TR.sons_[i], TC, eta_) == LowRank) {
+          // if (!cutOff(TR.sons_[i].wlevel_, TC.wlevel_, dist)) {
           setupRow(P, TR.sons_[i], TC, fun);
           auto it = buffer_[TR.sons_[i].block_id_].find(TC.block_id_);
           eigen_assert(it != buffer_[TR.sons_[i].block_id_].end() &&

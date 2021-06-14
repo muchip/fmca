@@ -26,7 +26,7 @@
 //#define NPTS 64
 #define DIM 3
 #define MPOLE_DEG 3
-#define DTILDE 4
+#define DTILDE 3
 #define LEAFSIZE 4
 
 #define TEST_H2MATRIX_
@@ -46,7 +46,7 @@ using ClusterT = FMCA::ClusterTree<double, DIM, LEAFSIZE, MPOLE_DEG>;
 int main() {
 #if 1
   std::cout << "loading data: ";
-  Eigen::MatrixXd B = readMatrix("enterpriseDsmall.txt");
+  Eigen::MatrixXd B = readMatrix("defiant.txt");
   std::cout << "data size: ";
   std::cout << B.rows() << " " << B.cols() << std::endl;
   std::cout << "----------------------------------------------------\n";
