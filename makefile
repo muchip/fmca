@@ -8,8 +8,8 @@
 PROG= a.out
 CPP = g++ -std=c++11
 CPPFLAGS = -O3 -fPIC
-#INCLUDE = -I/usr/local/include/eigen3
-INCLUDE = -I/usr/include/eigen3
+INCLUDE = -I/usr/local/include/eigen3
+#INCLUDE = -I/usr/include/eigen3
 LDFLAGS = -lm
 OBJECTS = mainDebug.o
 all: $(OBJECTS)

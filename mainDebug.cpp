@@ -17,7 +17,7 @@
 //#define NPTS 131072
 //#define NPTS 65536
 //#define NPTS 32768
-//#define NPTS 16384
+#define NPTS 16384
 //#define NPTS 8192
 //#define NPTS 4096
 //#define NPTS 2048
@@ -37,7 +37,7 @@
 struct Gaussian {
   double operator()(const Eigen::Matrix<double, DIM, 1> &x,
                     const Eigen::Matrix<double, DIM, 1> &y) const {
-    return exp(-4 * (x - y).norm()) + x(0);
+    return exp(-4 * (x - y).norm());
   }
 };
 
@@ -46,7 +46,7 @@ using ClusterT = FMCA::ClusterTree<double, DIM, LEAFSIZE, MPOLE_DEG>;
 int main() {
 #if 1
   std::cout << "loading data: ";
-  Eigen::MatrixXd B = readMatrix("defiant.txt");
+  Eigen::MatrixXd B = readMatrix("enterpriseDsmall.txt");
   std::cout << "data size: ";
   std::cout << B.rows() << " " << B.cols() << std::endl;
   std::cout << "----------------------------------------------------\n";
@@ -94,7 +94,7 @@ int main() {
                                                                  Gaussian());
   T.toc("set up H2-matrix: ");
   H2mat.get_statistics();
-#if TEST_H2MATRIX_
+#ifdef TEST_H2MATRIX_
   {
     Eigen::MatrixXd K(P.cols(), P.cols());
     auto fun = Gaussian();
@@ -115,8 +115,10 @@ int main() {
   T.toc("set up time multiscale cluster bases");
   std::cout << "----------------------------------------------------\n";
   T.tic();
-  FMCA::BivariateCompressorH2<FMCA::SampletTree<ClusterT>> BC(P, ST,
-                                                              Gaussian());
+  FMCA::BivariateCompressorH2<FMCA::SampletTree<ClusterT>> BC;
+  BC.set_eta(0.8);
+  BC.set_threshold(1e-6);
+  BC.init(P, ST, Gaussian());
   T.toc("set up Samplet compressed matrix: ");
 
   std::cout << "----------------------------------------------------\n";
@@ -209,11 +211,13 @@ int main() {
     T.toc("time inverse samplet transform matrix: ");
     std::cout << "error: " << (K - K2).norm() / K2.norm() << std::endl;
     std::cout << "----------------------------------------------------\n";
+#if 0
     Bembel::IO::print2m("SampletBasis.m", "T", Tmat, "w");
     Bembel::IO::print2m("Points.m", "P", P, "w");
     Eigen::VectorXi idx(P.cols());
     for (auto i = 0; i < idx.size(); ++i) idx(i) = CT.get_indices()[i];
     Bembel::IO::print2m("Indices.m", "Idcs", idx, "w");
+#endif
   }
 #endif
 

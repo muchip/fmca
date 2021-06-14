@@ -20,13 +20,14 @@ class BivariateCompressorH2 {
   enum Admissibility { Refine = 0, LowRank = 1, Dense = 2 };
   typedef typename SampletTree::value_type value_type;
   typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
-  BivariateCompressorH2(){};
+  BivariateCompressorH2() : eta_(0.8), threshold_(1e-9){};
   template <typename Functor>
   BivariateCompressorH2(const Eigen::Matrix<value_type, SampletTree::dimension,
                                             Eigen::Dynamic> &P,
                         const SampletTree &ST, const Functor &fun,
                         value_type a_param = 2., value_type dprime = 1.,
-                        value_type operator_order = 0., value_type eta = 0.8) {
+                        value_type operator_order = 0.)
+      : eta_(0.8), threshold_(1e-9) {
     init(P, ST, fun, a_param, dprime, operator_order);
   }
 
@@ -34,7 +35,7 @@ class BivariateCompressorH2 {
   void init(const Eigen::Matrix<value_type, SampletTree::dimension,
                                 Eigen::Dynamic> &P,
             const SampletTree &ST, const Functor &fun, value_type a_param = 2.,
-            value_type dprime = 1., value_type op = 0., value_type eta = 0.8) {
+            value_type dprime = 1., value_type op = 0.) {
     a_param_ = a_param;
     dprime_ = dprime;
     op_ = op;
@@ -42,21 +43,22 @@ class BivariateCompressorH2 {
     dtilde_ = ST.tree_data_->dtilde_;
     cut_const1_ = J_param_ * (dprime_ - op_) / (dtilde_ + op_);
     cut_const2_ = 0.5 * (dprime_ + dtilde_) / (dtilde_ + op_);
-    eta_ = eta;
     geo_diam_ = ST.cluster_->get_tree_data().geometry_diam_;
     triplet_list_.clear();
     buffer_.clear();
     buffer_.resize(ST.tree_data_->samplet_list.size());
     max_buff_size_ = 0;
 
-    std::cout << "a:   " << a_param_ << std::endl;
-    std::cout << "dp:  " << dprime_ << std::endl;
-    std::cout << "dt:  " << dtilde_ << std::endl;
-    std::cout << "op:  " << op_ << std::endl;
-    std::cout << "J:   " << J_param_ << std::endl;
-    std::cout << "cc1: " << cut_const1_ << std::endl;
-    std::cout << "cc2: " << cut_const2_ << std::endl;
-    std::cout << "diam:" << geo_diam_ << std::endl;
+    std::cout << "a:      " << a_param_ << std::endl;
+    std::cout << "dp:     " << dprime_ << std::endl;
+    std::cout << "dt:     " << dtilde_ << std::endl;
+    std::cout << "op:     " << op_ << std::endl;
+    std::cout << "J:      " << J_param_ << std::endl;
+    std::cout << "cc1:    " << cut_const1_ << std::endl;
+    std::cout << "cc2:    " << cut_const2_ << std::endl;
+    std::cout << "eta:    " << eta_ << std::endl;
+    std::cout << "thrshd: " << threshold_ << std::endl;
+    std::cout << "diam:   " << geo_diam_ << std::endl;
     ////////////////////////////////////////////////////////////////////////////
     // set up the compressed system matrix
     setupColumn(P, ST, ST, fun);
@@ -77,10 +79,12 @@ class BivariateCompressorH2 {
                                          (it->second)(nscalfs + j, k)));
       buffer_[block_id].erase(it);
     }
+#if 0
     std::cout << "max buffer size: " << max_buff_size_ << std::endl;
     max_buff_size_ = 0;
     for (const auto &it : buffer_) max_buff_size_ += it.size();
     std::cout << "final buffer size: " << max_buff_size_ << std::endl;
+#endif
   }
 
   const std::vector<Eigen::Triplet<value_type>> &get_Pattern_triplets() const {
@@ -205,6 +209,14 @@ class BivariateCompressorH2 {
     }
     return retval;
   }
+  void set_eta(value_type eta) {
+    eta_ = eta;
+    return;
+  }
+  void set_threshold(value_type threshold) {
+    threshold_ = threshold;
+    return;
+  }
 
  private:
   //////////////////////////////////////////////////////////////////////////////
@@ -283,10 +295,12 @@ class BivariateCompressorH2 {
       storeBlock(TR.start_index_, TC.start_index_, TR.nsamplets_, TC.nsamplets_,
                  block.bottomRightCorner(TR.nsamplets_, TC.nsamplets_));
     buffer_[TR.block_id_].emplace(std::make_pair(TC.block_id_, block));
+#if 0
     IndexType buff_size = 0;
     for (const auto &it : buffer_) buff_size += it.size();
     max_buff_size_ = max_buff_size_ < buff_size ? buff_size : max_buff_size_;
     return;
+#endif
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -342,7 +356,7 @@ class BivariateCompressorH2 {
                   IndexType ncols, const Eigen::MatrixBase<Derived> &block) {
     for (auto k = 0; k < ncols; ++k)
       for (auto j = 0; j < nrows; ++j)
-        if (abs(block(j, k)) > 1e-10)
+        if (abs(block(j, k)) > threshold_)
           triplet_list_.push_back(
               Eigen::Triplet<value_type>(srow + j, scol + k, block(j, k)));
   }
@@ -359,6 +373,7 @@ class BivariateCompressorH2 {
   value_type cut_const1_;
   value_type cut_const2_;
   value_type eta_;
+  value_type threshold_;
   value_type geo_diam_;
   IndexType max_wlevel_;
   IndexType fun_calls_;
