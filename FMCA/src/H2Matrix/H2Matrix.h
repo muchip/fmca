@@ -20,8 +20,9 @@ namespace FMCA {
  *         H2ClusterTree.
 
  */
-template <typename H2ClusterTree> class H2Matrix {
-public:
+template <typename H2ClusterTree>
+class H2Matrix {
+ public:
   typedef typename H2ClusterTree::value_type value_type;
   typedef typename H2ClusterTree::eigenMatrix eigenMatrix;
   enum Admissibility { Refine = 0, LowRank = 1, Dense = 2 };
@@ -36,7 +37,9 @@ public:
       : is_low_rank_(false) {
     init(P, CT, fun, eta);
   }
-
+  //////////////////////////////////////////////////////////////////////////////
+  // init
+  //////////////////////////////////////////////////////////////////////////////
   template <typename Functor>
   void init(const Eigen::Matrix<value_type, H2ClusterTree::dimension,
                                 Eigen::Dynamic> &P,
@@ -45,6 +48,7 @@ public:
     return;
   }
 
+  //////////////////////////////////////////////////////////////////////////////
   void get_statistics() const {
     IndexType low_rank_blocks = 0;
     IndexType full_blocks = 0;
@@ -55,10 +59,15 @@ public:
               << std::endl;
     std::cout << "number of low rank blocks: " << low_rank_blocks << std::endl;
     std::cout << "number of full blocks: " << full_blocks << std::endl;
+    std::cout << "nz per row: "
+              << round(double(memory) /
+                       col_cluster_->cluster_->get_indices().size())
+              << std::endl;
     std::cout << "storage size: " << double(memory * sizeof(value_type)) / 1e9
               << "GB" << std::endl;
   }
 
+  //////////////////////////////////////////////////////////////////////////////
   eigenMatrix full() const {
     eigen_assert(!row_cluster_->cluster_->get_id() &&
                  !col_cluster_->cluster_->get_id() &&
@@ -69,7 +78,44 @@ public:
     return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
-private:
+  static value_type computeDistance(const H2ClusterTree &cluster1,
+                                    const H2ClusterTree &cluster2) {
+    const value_type row_radius =
+        0.5 * cluster1.cluster_->get_bb().col(2).norm();
+    const value_type col_radius =
+        0.5 * cluster2.cluster_->get_bb().col(2).norm();
+    const value_type dist = 0.5 * (cluster1.cluster_->get_bb().col(0) -
+                                   cluster2.cluster_->get_bb().col(0) +
+                                   cluster1.cluster_->get_bb().col(1) -
+                                   cluster2.cluster_->get_bb().col(1))
+                                      .norm() -
+                            row_radius - col_radius;
+    return dist > 0 ? dist : 0;
+  }
+  //////////////////////////////////////////////////////////////////////////////
+  static Admissibility compareCluster(const H2ClusterTree &cluster1,
+                                      const H2ClusterTree &cluster2,
+                                      value_type eta) {
+    Admissibility retval;
+    const value_type dist = computeDistance(cluster1, cluster2);
+    const value_type row_radius =
+        0.5 * cluster1.cluster_->get_bb().col(2).norm();
+    const value_type col_radius =
+        0.5 * cluster2.cluster_->get_bb().col(2).norm();
+    const value_type radius = row_radius > col_radius ? row_radius : col_radius;
+
+    if (radius > eta * dist) {
+      // check if either cluster is a leaf in that case,
+      // compute the full matrix block
+      if (!cluster1.sons_.size() || !cluster2.sons_.size())
+        return Dense;
+      else
+        return Refine;
+    } else
+      return LowRank;
+  }
+  //////////////////////////////////////////////////////////////////////////////
+ private:
   //////////////////////////////////////////////////////////////////////////////
   void getStatisticsRecursion(IndexType *low_rank_blocks,
                               IndexType *full_blocks, IndexType *memory) const {
@@ -148,49 +194,14 @@ private:
     }
     return;
   }
-  //////////////////////////////////////////////////////////////////////////////
-  value_type computeDistance(const H2ClusterTree &cluster1,
-                             const H2ClusterTree &cluster2) {
-    const value_type row_radius =
-        0.5 * cluster1.cluster_->get_bb().col(2).norm();
-    const value_type col_radius =
-        0.5 * cluster2.cluster_->get_bb().col(2).norm();
-    const value_type dist = 0.5 * (cluster1.cluster_->get_bb().col(0) -
-                                   cluster2.cluster_->get_bb().col(0) +
-                                   cluster1.cluster_->get_bb().col(1) -
-                                   cluster2.cluster_->get_bb().col(1))
-                                      .norm() -
-                            row_radius - col_radius;
-    return dist > 0 ? dist : 0;
-  }
-  //////////////////////////////////////////////////////////////////////////////
-  Admissibility compareCluster(const H2ClusterTree &cluster1,
-                               const H2ClusterTree &cluster2, value_type eta) {
-    Admissibility retval;
-    const value_type dist = computeDistance(cluster1, cluster2);
-    const value_type row_radius =
-        0.5 * cluster1.cluster_->get_bb().col(2).norm();
-    const value_type col_radius =
-        0.5 * cluster2.cluster_->get_bb().col(2).norm();
-    const value_type radius = row_radius > col_radius ? row_radius : col_radius;
 
-    if (radius > eta * dist) {
-      // check if either cluster is a leaf in that case,
-      // compute the full matrix block
-      if (!cluster1.sons_.size() || !cluster2.sons_.size())
-        return Dense;
-      else
-        return Refine;
-    } else
-      return LowRank;
-  }
   //////////////////////////////////////////////////////////////////////////////
   GenericMatrix<H2Matrix> sons_;
   const H2ClusterTree *row_cluster_;
   const H2ClusterTree *col_cluster_;
   bool is_low_rank_;
   eigenMatrix S_;
-}; // namespace FMCA
+};  // namespace FMCA
 
-} // namespace FMCA
+}  // namespace FMCA
 #endif

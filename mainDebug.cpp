@@ -14,13 +14,13 @@
 #include "imgCompression/matrixReader.h"
 ////////////////////////////////////////////////////////////////////////////////
 //#define NPTS 5000
-//#define NPTS 131072
+#define NPTS 131072
 //#define NPTS 65536
 //#define NPTS 32768
 //#define NPTS 16384
 //#define NPTS 8192
 //#define NPTS 4096
-#define NPTS 2048
+//#define NPTS 2048
 //#define NPTS 1024
 //#define NPTS 512
 //#define NPTS 64
@@ -29,9 +29,9 @@
 #define DTILDE 4
 #define LEAFSIZE 4
 
-#define TEST_COMPRESSOR_
-#define TEST_SAMPLET_TRANSFORM_
-#define TEST_SAMPLET_BASIS_
+//#define TEST_COMPRESSOR_
+//#define TEST_SAMPLET_TRANSFORM_
+//#define TEST_SAMPLET_BASIS_
 
 struct Gaussian {
   double operator()(const Eigen::Matrix<double, DIM, 1> &x,
@@ -43,7 +43,6 @@ struct Gaussian {
 using ClusterT = FMCA::ClusterTree<double, DIM, LEAFSIZE, MPOLE_DEG>;
 
 int main() {
-
 #if 0
   std::cout << "loading data: ";
   Eigen::MatrixXd B = readMatrix("bunny.txt");
@@ -69,8 +68,7 @@ int main() {
     std::cout << "l)\t#pts\ttotal#pts" << std::endl;
     for (auto i = 0; i < tree.size(); ++i) {
       int numInd = 0;
-      for (auto j = 0; j < tree[i].size(); ++j)
-        numInd += tree[i][j];
+      for (auto j = 0; j < tree[i].size(); ++j) numInd += tree[i][j];
       std::cout << i << ")\t" << tree[i].size() << "\t" << numInd << "\n";
     }
     std::cout << "----------------------------------------------------\n";
@@ -85,8 +83,7 @@ int main() {
     std::cout << "l)\t#pts\ttotal#pts" << std::endl;
     for (auto i = 0; i < tree.size(); ++i) {
       int numInd = 0;
-      for (auto j = 0; j < tree[i].size(); ++j)
-        numInd += tree[i][j];
+      for (auto j = 0; j < tree[i].size(); ++j) numInd += tree[i][j];
       std::cout << i << ")\t" << tree[i].size() << "\t" << numInd << "\n";
     }
     std::cout << "----------------------------------------------------\n";
@@ -96,22 +93,33 @@ int main() {
                                                                  Gaussian());
   T.toc("set up H2-matrix: ");
   H2mat.get_statistics();
-  Eigen::MatrixXd K(P.cols(), P.cols());
-  auto fun = Gaussian();
-  T.tic();
-  for (auto j = 0; j < P.cols(); ++j)
-    for (auto i = 0; i < P.cols(); ++i)
-      K(i, j) = fun(P.col(CT.get_indices()[i]), P.col(CT.get_indices()[j]));
-  T.toc("set up full matrix: ");
-  std::cout << "H2-matrix compression error: "
-            << (K - H2mat.full()).norm() / K.norm() << std::endl;
+#if TEST_H2MATRIX_
+  {
+    Eigen::MatrixXd K(P.cols(), P.cols());
+    auto fun = Gaussian();
+    T.tic();
+    for (auto j = 0; j < P.cols(); ++j)
+      for (auto i = 0; i < P.cols(); ++i)
+        K(i, j) = fun(P.col(CT.get_indices()[i]), P.col(CT.get_indices()[j]));
+    T.toc("set up full matrix: ");
+    std::cout << "H2-matrix compression error: "
+              << (K - H2mat.full()).norm() / K.norm() << std::endl;
+  }
+#endif
   T.tic();
   FMCA::SampletTree<ClusterT> ST(P, CT, DTILDE);
   T.toc("set up samplet tree: ");
   T.tic();
-  H2CT.computeMultiscaleClusterBases(ST);
+  ST.computeMultiscaleClusterBases(H2CT);
   T.toc("set up time multiscale cluster bases");
   std::cout << "----------------------------------------------------\n";
+  T.tic();
+  FMCA::BivariateCompressorH2<FMCA::SampletTree<ClusterT>> BC(P, ST,
+                                                              Gaussian());
+  T.toc("set up Samplet compressed matrix: ");
+
+  std::cout << "----------------------------------------------------\n";
+
 #ifdef TEST_SAMPLET_BASIS_
   {
     std::cout << "testing vanishing moments:\n";
@@ -147,13 +155,6 @@ int main() {
 #endif
 #ifdef TEST_COMPRESSOR_
   {
-    T.tic();
-    FMCA::BivariateCompressorH2<FMCA::SampletTree<ClusterT>,
-                                FMCA::H2ClusterTree<ClusterT, MPOLE_DEG>>
-        BC(P, ST, H2CT, Gaussian());
-    T.toc("set up compressed matrix: ");
-
-    std::cout << "----------------------------------------------------\n";
     Eigen::MatrixXd K(P.cols(), P.cols());
     auto fun = Gaussian();
     T.tic();
@@ -210,8 +211,7 @@ int main() {
     Bembel::IO::print2m("SampletBasis.m", "T", Tmat, "w");
     Bembel::IO::print2m("Points.m", "P", P, "w");
     Eigen::VectorXi idx(P.cols());
-    for (auto i = 0; i < idx.size(); ++i)
-      idx(i) = CT.get_indices()[i];
+    for (auto i = 0; i < idx.size(); ++i) idx(i) = CT.get_indices()[i];
     Bembel::IO::print2m("Indices.m", "Idcs", idx, "w");
   }
 #endif

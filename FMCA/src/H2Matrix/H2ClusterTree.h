@@ -15,7 +15,8 @@
 #define CHECK_TRANSFER_MATRICES_
 namespace FMCA {
 
-template <typename CT> class H2Matrix;
+template <typename CT>
+class H2Matrix;
 /**
  *  \ingroup H2Matrix
  *  \brief The H2ClusterTree class manages the cluster bases for a given
@@ -27,10 +28,11 @@ template <typename CT> class H2Matrix;
  *         Thus, if the cluster tree is mutated or goes out of scope, we get
  *         dangeling pointers!
  */
-template <typename ClusterTree, IndexType Deg> class H2ClusterTree {
+template <typename ClusterTree, IndexType Deg>
+class H2ClusterTree {
   friend H2Matrix<H2ClusterTree>;
 
-public:
+ public:
   typedef typename ClusterTree::value_type value_type;
   enum { dimension = ClusterTree::dimension };
   typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
@@ -53,27 +55,6 @@ public:
     computeClusterBases(P, CT);
   }
 
-  template <typename SampletTree>
-  void computeMultiscaleClusterBases(const SampletTree &ST) {
-    if (!sons_.size()) {
-      assert(ST.get_cluster() == cluster_);
-      V_ *= ST.get_Q();
-    } else {
-      // compute multiscale cluster bases of sons and update own
-      for (auto i = 0; i < sons_.size(); ++i)
-        sons_[i].computeMultiscaleClusterBases(ST.get_sons()[i]);
-      V_.resize(0, 0);
-      for (auto i = 0; i < sons_.size(); ++i) {
-        V_.resize(sons_[i].V_.rows(),
-                  V_.cols() + (ST.get_sons()[i]).get_nscalfs());
-        V_.rightCols((ST.get_sons()[i]).get_nscalfs()) =
-            E_[i] * sons_[i].V_.leftCols((ST.get_sons()[i]).get_nscalfs());
-      }
-      V_ *= ST.get_Q();
-    }
-    return;
-  }
-
   void computeClusterBases(
       const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
       ClusterTree &CT) {
@@ -92,7 +73,7 @@ public:
         }
       }
     }
-    if (refine) {
+    if (CT.get_sons().size() && refine) {
       sons_.resize(CT.sons_.size());
       for (auto i = 0; i < CT.sons_.size(); ++i) {
         sons_[i].TP_interp_ = TP_interp_;
@@ -144,9 +125,18 @@ public:
 #endif
     return;
   }
+
   const std::vector<H2ClusterTree> &get_sons() const { return sons_; }
+
+  const eigenMatrix &get_V() const { return V_; }
+
+  const std::vector<eigenMatrix> &get_E() const { return E_; }
+
+  const ClusterTree &get_cluster() const { return *cluster_; }
+
+  const eigenMatrix &get_Xi() const { return TP_interp_->get_Xi(); }
   //////////////////////////////////////////////////////////////////////////////
-public:
+ public:
   std::vector<H2ClusterTree> sons_;
   ClusterTree *cluster_;
   std::shared_ptr<TensorProductInterpolator<value_type, dimension, Deg>>
@@ -155,5 +145,5 @@ public:
   eigenMatrix V_;
 };
 
-} // namespace FMCA
+}  // namespace FMCA
 #endif

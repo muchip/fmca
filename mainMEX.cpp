@@ -4,7 +4,6 @@
 #include <functional>
 #include <iomanip>
 
-#include "FMCA/BlockClusterTree"
 #include "FMCA/H2Matrix"
 #include "FMCA/Samplets"
 #include "FMCA/src/util/BinomialCoefficient.h"
@@ -15,6 +14,7 @@
 #include "mex.h"
 
 #define DIM 3
+#define MPOLE_DEG 3
 
 struct Gaussian {
   double operator()(const Eigen::Matrix<double, DIM, 1> &x,
@@ -50,6 +50,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   tictoc T;
   T.tic();
   ClusterT CT(P);
+  T.tic();
+  FMCA::H2ClusterTree<ClusterT, MPOLE_DEG> H2CT(P, CT);
+  T.toc("set up H2-cluster tree: ");
   FMCA::SampletTree<ClusterT> ST(P, CT, dtilde);
   T.toc("set up ct: ");
   std::vector<ClusterT *> leafs;
@@ -67,8 +70,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   FMCA::IO::plotBoxes("boxesLeafs.vtk", bbvec);
   FMCA::IO::plotPoints("points.vtk", P);
   T.tic();
-  FMCA::BivariateCompressor<FMCA::SampletTree<ClusterT>> BC(P, ST, Gaussian());
-  T.toc("set up compression pattern: ");
+  ST.computeMultiscaleClusterBases(H2CT);
+  T.toc("set up time multiscale cluster bases");
+  T.tic();
+  FMCA::BivariateCompressorH2<FMCA::SampletTree<ClusterT>> BC(P, ST, Gaussian());
+  T.toc("set up compressed matrixx: ");
   auto pattern_triplets = BC.get_Pattern_triplets();
   plhs[0] = mxCreateDoubleMatrix(pattern_triplets.size(), 3, mxREAL);
   Eigen::Map<Eigen::MatrixXd> retU(mxGetPr(plhs[0]), pattern_triplets.size(),
