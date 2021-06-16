@@ -45,7 +45,7 @@ public:
     buffer_.clear();
     buffer_.resize(ST.tree_data_->samplet_list.size());
     max_buff_size_ = 0;
-
+    storage_size_ = 0;
     std::cout << "a:   " << a_param_ << std::endl;
     std::cout << "dp:  " << dprime_ << std::endl;
     std::cout << "dt:  " << dtilde_ << std::endl;
@@ -90,6 +90,7 @@ public:
     S.setFromTriplets(triplet_list_.begin(), triplet_list_.end());
     return eigenMatrix(S);
   }
+  IndexType get_storage_size() const { return storage_size_; }
   //////////////////////////////////////////////////////////////////////////////
   /// cutOff criterion
   //////////////////////////////////////////////////////////////////////////////
@@ -300,6 +301,7 @@ private:
   template <typename Derived>
   void storeBlock(IndexType srow, IndexType scol, IndexType nrows,
                   IndexType ncols, const Eigen::MatrixBase<Derived> &block) {
+    storage_size_ += ncols * nrows;
     for (auto k = 0; k < ncols; ++k)
       for (auto j = 0; j < nrows; ++j)
         if (abs(block(j, k)) > 1e-10)
@@ -322,6 +324,7 @@ private:
   IndexType max_wlevel_;
   IndexType fun_calls_;
   IndexType max_buff_size_;
+  IndexType storage_size_;
 }; // namespace FMCA
 } // namespace FMCA
 #endif

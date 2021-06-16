@@ -47,14 +47,14 @@ public:
     buffer_.clear();
     buffer_.resize(ST.tree_data_->samplet_list.size());
     max_buff_size_ = 0;
-
-    std::cout << "a:      " << a_param_ << std::endl;
-    std::cout << "dp:     " << dprime_ << std::endl;
-    std::cout << "dt:     " << dtilde_ << std::endl;
-    std::cout << "op:     " << op_ << std::endl;
+    storage_size_ = 0;
+    // std::cout << "a:      " << a_param_ << std::endl;
+    // std::cout << "dp:     " << dprime_ << std::endl;
+    // std::cout << "dt:     " << dtilde_ << std::endl;
+    // std::cout << "op:     " << op_ << std::endl;
     std::cout << "J:      " << J_param_ << std::endl;
-    std::cout << "cc1:    " << cut_const1_ << std::endl;
-    std::cout << "cc2:    " << cut_const2_ << std::endl;
+    // std::cout << "cc1:    " << cut_const1_ << std::endl;
+    // std::cout << "cc2:    " << cut_const2_ << std::endl;
     std::cout << "eta:    " << eta_ << std::endl;
     std::cout << "thrshd: " << threshold_ << std::endl;
     std::cout << "diam:   " << geo_diam_ << std::endl;
@@ -222,6 +222,7 @@ public:
     threshold_ = threshold;
     return;
   }
+  IndexType get_storage_size() const { return storage_size_; }
 
 private:
   //////////////////////////////////////////////////////////////////////////////
@@ -362,6 +363,7 @@ private:
   template <typename Derived>
   void storeBlock(IndexType srow, IndexType scol, IndexType nrows,
                   IndexType ncols, const Eigen::MatrixBase<Derived> &block) {
+    storage_size_ += ncols * nrows;
     for (auto k = 0; k < ncols; ++k)
       for (auto j = 0; j < nrows; ++j)
         if (abs(block(j, k)) > threshold_)
@@ -387,7 +389,8 @@ private:
   IndexType max_wlevel_;
   IndexType fun_calls_;
   IndexType max_buff_size_;
-}; // namespace FMCA
+  IndexType storage_size_;
+};
 } // namespace FMCA
 #endif
 
