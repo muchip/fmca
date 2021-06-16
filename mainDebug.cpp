@@ -15,25 +15,25 @@
 ////////////////////////////////////////////////////////////////////////////////
 //#define NPTS 5000
 //#define NPTS 131072
-#define NPTS 65536
+//#define NPTS 65536
 //#define NPTS 32768
 //#define NPTS 16384
-//#define NPTS 8192
+#define NPTS 8192
 //#define NPTS 4096
 //#define NPTS 2048
 //#define NPTS 1024
 //#define NPTS 512
 //#define NPTS 64
-#define DIM 3
-#define MPOLE_DEG 4
+#define DIM 1
+#define MPOLE_DEG 8
 #define DTILDE 4
 #define LEAFSIZE 4
 
-#define PLOT_BOXES_
+//#define PLOT_BOXES_
 //#define TEST_H2MATRIX_
 //#define TEST_COMPRESSOR_
-//#define TEST_SAMPLET_TRANSFORM_
-//#define TEST_SAMPLET_BASIS_
+#define TEST_SAMPLET_TRANSFORM_
+#define TEST_SAMPLET_BASIS_
 
 struct Gaussian {
   double operator()(const Eigen::Matrix<double, DIM, 1> &x,
@@ -53,6 +53,7 @@ int main() {
   std::cout << "----------------------------------------------------\n";
   Eigen::MatrixXd P = B.transpose();
 #else
+#if 0
   srand(0);
   Eigen::Matrix3d rot;
   rot << 0.8047379, -0.3106172, 0.5058793, 0.5058793, 0.8047379, -0.3106172,
@@ -64,6 +65,8 @@ int main() {
   P.row(1).array() = P1.array().sin();
   P.row(2) = 0.5 * P1;
   P = rot * P;
+#endif
+    Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, NPTS);
 //  Eigen::VectorXd nrms = P.colwise().norm();
 //  for (auto i = 0; i < P.cols(); ++i)
 //    P.col(i) *= 1 / nrms(i);
@@ -230,7 +233,7 @@ int main() {
     T.toc("time inverse samplet transform matrix: ");
     std::cout << "error: " << (K - K2).norm() / K2.norm() << std::endl;
     std::cout << "----------------------------------------------------\n";
-#if 0
+#if 1
     Bembel::IO::print2m("SampletBasis.m", "T", Tmat, "w");
     Bembel::IO::print2m("Points.m", "P", P, "w");
     Eigen::VectorXi idx(P.cols());
