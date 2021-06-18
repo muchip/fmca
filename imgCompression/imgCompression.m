@@ -1,12 +1,12 @@
 clear all;
 close all;
 %Img = imread('NCC1701D.jpg');
-Img = imread('motorcycle.png');
+Img = imread('11.png');
 Igray = rgb2gray(Img);
 figure(1)
 imshow(Igray);
 M = double(Igray)
-save ('GrayMot.txt', 'M', '-ascii');
+save ('GrayBicycle.txt', 'M', '-ascii');
 Rchan = double(Img(:,:,1)); 
 Gchan = double(Img(:,:,2));
 Bchan = double(Img(:,:,3)); 

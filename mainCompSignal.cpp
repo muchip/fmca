@@ -29,7 +29,7 @@ struct exponentialKernel {
 using ClusterT = FMCA::ClusterTree<double, DIM, LEAFSIZE, MPOLE_DEG>;
 
 int main() {
-  Eigen::MatrixXd Grayscale = readMatrix("imgCompression/GrayMot.txt");
+  Eigen::MatrixXd Grayscale = readMatrix("imgCompression/GrayBicycle.txt");
   std::cout << "img data: " << Grayscale.rows() << "x" << Grayscale.cols()
             << std::endl;
   Eigen::MatrixXd P;
@@ -90,7 +90,7 @@ int main() {
   Eigen::VectorXd Tdata = ST.sampletTransform(data);
 #endif
   ST.visualizeCoefficients(rcompf, "coeff.vtk",
-                           1e-2 * rcompf.cwiseAbs().maxCoeff());
+                           1e-3 * rcompf.cwiseAbs().maxCoeff());
   FMCA::IO::plotPoints("points.vtk", CT, P, graydata);
   return 0;
 }
