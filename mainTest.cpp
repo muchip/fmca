@@ -11,10 +11,10 @@
 #include "FMCA/src/util/IO.h"
 #include "FMCA/src/util/print2file.hpp"
 #include "FMCA/src/util/tictoc.hpp"
-
-#define DIM 2
-#define MPOLE_DEG 4
-#define DTILDE 3
+#include "imgCompression/matrixReader.h"
+#define DIM 4
+#define MPOLE_DEG 3
+#define DTILDE 2
 #define LEAFSIZE 4
 
 struct exponentialKernel {
@@ -59,7 +59,14 @@ int main(int argc, char *argv[]) {
       newfile.close();
     }
   }
-  for (int npts : {1, 10, 100, 1000, 10000, 100000, 1000000}) {
+  for (int npts : {1}) {
+    std::cout << "loading data: ";
+    Eigen::MatrixXd B = readMatrix("./Points/bunnySurface4D.txt");
+    std::cout << "data size: ";
+    std::cout << B.rows() << " " << B.cols() << std::endl;
+    npts = B.rows();
+    std::cout << "----------------------------------------------------\n";
+    Eigen::MatrixXd P = B.transpose();
     std::cout << std::string(60, '-') << std::endl;
     std::cout << "dim:       " << DIM << std::endl;
     std::cout << "leaf size: " << LEAFSIZE << std::endl;
@@ -68,9 +75,8 @@ int main(int argc, char *argv[]) {
     std::cout << "npts:      " << npts << std::endl;
     std::cout << std::string(60, '-') << std::endl;
     srand(0);
-    Eigen::MatrixXd P = Eigen::MatrixXd::Random(
-        DIM,
-        npts); //////////////////////////////////////////////////////////////////////////////
+    // Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM,npts);
+    //////////////////////////////////////////////////////////////////////////////
     // set up cluster tree
     T.tic();
     ClusterT CT(P);
