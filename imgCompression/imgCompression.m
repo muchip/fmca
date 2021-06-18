@@ -1,27 +1,31 @@
 clear all;
 close all;
-Img = imread('NCC1701D.jpg');
+%Img = imread('NCC1701D.jpg');
+Img = imread('motorcycle.png');
+Igray = rgb2gray(Img);
 figure(1)
-imagesc(Img);
+imshow(Igray);
+M = double(Igray)
+save ('GrayMot.txt', 'M', '-ascii');
 Rchan = double(Img(:,:,1)); 
 Gchan = double(Img(:,:,2));
 Bchan = double(Img(:,:,3)); 
 %save ('Rchan.txt', 'Rchan', '-ascii');
 %save ('Gchan.txt', 'Gchan', '-ascii');
 %save ('Bchan.txt', 'Bchan', '-ascii');
-Rchannel;
-Gchannel;
-Bchannel;
-Img2 = Img;
-Img2(:,:,1) = R;
-Img2(:,:,2) = G;
-Img2(:,:,3) = B;
+%Rchannel;
+%Gchannel;
+%Bchannel;
+%Img2 = Img;
+%Img2(:,:,1) = R;
+%Img2(:,:,2) = G;
+%Img2(:,:,3) = B;
 
-figure(2)
+%figure(2)
 
-imagesc(Img2)
+%imagesc(Img2)
 
-figure(3)
-surf(Img2(:,:,1)-Img(:,:,1))
-shading interp
-view(0,90)
+%figure(3)
+%surf(Img2(:,:,1)-Img(:,:,1))
+%shading interp
+%Rview(0,90)
