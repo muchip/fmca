@@ -24,7 +24,7 @@
 //#define NPTS 1024
 //#define NPTS 512
 //#define NPTS 64
-#define DIM 1
+#define DIM 3
 #define MPOLE_DEG 8
 #define DTILDE 4
 #define LEAFSIZE 4

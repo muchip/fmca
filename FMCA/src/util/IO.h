@@ -71,6 +71,68 @@ void plotBoxes(const std::string &fileName,
   return;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+/**
+ *  \brief exports a sequence of 3D boxes stored in a std::vector in vtk
+ **/
+template <typename Scalar>
+void plotBoxes(const std::string &fileName,
+               const std::vector<Eigen::Matrix3d> &bb,
+               const std::vector<Scalar> &cvec) {
+  std::ofstream myfile;
+  myfile.open(fileName);
+  myfile << "# vtk DataFile Version 3.1\n";
+  myfile << "this file hopefully represents my surface now\n";
+  myfile << "ASCII\n";
+  myfile << "DATASET UNSTRUCTURED_GRID\n";
+  // print point list
+  myfile << "POINTS " << 8 * bb.size() << " FLOAT\n";
+  for (auto it = bb.begin(); it != bb.end(); ++it) {
+    auto min = it->col(0);
+    auto max = it->col(1);
+    // lower plane
+    myfile << float(min(0)) << " " << float(min(1)) << " " << float(min(2))
+           << "\n";
+    myfile << float(max(0)) << " " << float(min(1)) << " " << float(min(2))
+           << "\n";
+    myfile << float(min(0)) << " " << float(max(1)) << " " << float(min(2))
+           << "\n";
+    myfile << float(max(0)) << " " << float(max(1)) << " " << float(min(2))
+           << "\n";
+    // upper plane
+    myfile << float(min(0)) << " " << float(min(1)) << " " << float(max(2))
+           << "\n";
+    myfile << float(max(0)) << " " << float(min(1)) << " " << float(max(2))
+           << "\n";
+    myfile << float(min(0)) << " " << float(max(1)) << " " << float(max(2))
+           << "\n";
+    myfile << float(max(0)) << " " << float(max(1)) << " " << float(max(2))
+           << "\n";
+  }
+  myfile << "\n";
+
+  // print element list
+  myfile << "CELLS " << bb.size() << " " << 9 * bb.size() << "\n";
+  for (auto i = 0; i < bb.size(); ++i) {
+    myfile << 8;
+    for (auto j = 0; j < 8; ++j)
+      myfile << " " << int(8 * i + j);
+    myfile << "\n";
+  }
+  myfile << "\n";
+
+  myfile << "CELL_TYPES " << bb.size() << "\n";
+  for (auto i = 0; i < bb.size(); ++i)
+    myfile << int(11) << "\n";
+  myfile << "\n";
+  myfile << "CELL_DATA " << cvec.size() << "\n";
+  myfile << "SCALARS coefficients FLOAT\n";
+  myfile << "LOOKUP_TABLE default\n";
+  for (auto i = 0; i < cvec.size(); ++i)
+    myfile << cvec[i] << "\n";
+  myfile.close();
+  return;
+}
 /**
  *  \brief exports a list of points in vtk
  **/
