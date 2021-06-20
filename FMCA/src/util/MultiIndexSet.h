@@ -51,6 +51,26 @@ template <> struct IndexSetCriterion<TensorProduct> {
 };
 
 /**
+ *  \brief in order to obtain hierarchies in the index set, we employ
+ *  a normwise ordering combined with the lexicographical one
+ **/
+template <typename Array> struct FMCA_Compare {
+  bool operator()(const Array &a, const Array &b) const {
+    typename Array::value_type nrma = 0;
+    typename Array::value_type nrmb = 0;
+    for (auto i = 0; i < a.size(); ++i)
+      nrma += std::abs(double(a[i]));
+    for (auto i = 0; i < b.size(); ++i)
+      nrmb += std::abs(double(b[i]));
+    if (nrma != nrmb)
+      return nrma < nrmb;
+    else
+      return std::lexicographical_compare(a.cbegin(), a.cend(), b.cbegin(),
+                                          b.cend());
+  }
+};
+
+/**
  *  \brief specialization for index sets with a general boolean criterion
  **/
 template <IndexType Dim, IndexSetType T = TotalDegree> class MultiIndexSet {
@@ -75,7 +95,9 @@ public:
   //////////////////////////////////////////////////////////////////////////////
   IndexType max_degree() const { return max_degree; }
 
-  const std::set<std::array<IndexType, Dim>> &get_MultiIndexSet() const {
+  const std::set<std::array<IndexType, Dim>,
+                 FMCA_Compare<std::array<IndexType, Dim>>> &
+  get_MultiIndexSet() const {
     return multi_index_set_;
   }
   //////////////////////////////////////////////////////////////////////////////
@@ -94,7 +116,8 @@ private:
     }
     return;
   }
-  std::set<std::array<IndexType, Dim>> multi_index_set_;
+  std::set<std::array<IndexType, Dim>, FMCA_Compare<std::array<IndexType, Dim>>>
+      multi_index_set_;
   IndexSetCriterion<T> is_element_;
   IndexType max_degree_;
 };

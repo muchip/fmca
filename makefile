@@ -11,7 +11,7 @@ CPPFLAGS = -O3 -fPIC
 #INCLUDE = -I/usr/local/include/eigen3
 INCLUDE = -I/usr/include/eigen3
 LDFLAGS = -lm
-OBJECTS = mainTest.o
+OBJECTS = mainDebug.o
 all: $(OBJECTS)
 	$(CPP) $(OBJECTS) -o$(PROG) $(LDFLAGS)  
 #

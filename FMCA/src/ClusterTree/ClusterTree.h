@@ -114,7 +114,7 @@ public:
       sons_[i].exportTreeStructure(tree);
   }
   //////////////////////////////////////////////////////////////////////////////
-  void getLeafIterator(std::vector<ClusterTree *> &leafs) {
+  void getLeafIterator(std::vector<const ClusterTree *> &leafs) const {
     if (sons_.size() == 0)
       leafs.push_back(this);
     else

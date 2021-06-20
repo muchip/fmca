@@ -29,6 +29,16 @@ struct exponentialKernel {
 using ClusterT = FMCA::ClusterTree<double, DIM, LEAFSIZE, MPOLE_DEG>;
 
 int main() {
+  FMCA::MultiIndexSet<DIM> idcs;
+  idcs.init(5);
+  auto idset = idcs.get_MultiIndexSet();
+  std::cout << "   : " << idset.size() << std::endl;
+  for (const auto &it : idset) {
+    for (const auto &it2 : it)
+      std::cout << it2 << " ";
+    std::cout << std::endl;
+  }
+  return 0;
   Eigen::MatrixXd Grayscale = readMatrix("imgCompression/GrayBicycle.txt");
   std::cout << "img data: " << Grayscale.rows() << "x" << Grayscale.cols()
             << std::endl;

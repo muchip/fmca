@@ -25,13 +25,13 @@
 //#define NPTS 512
 //#define NPTS 64
 #define DIM 3
-#define MPOLE_DEG 8
-#define DTILDE 4
+#define MPOLE_DEG 4
+#define DTILDE 3
 #define LEAFSIZE 4
 
 //#define PLOT_BOXES_
-//#define TEST_H2MATRIX_
-//#define TEST_COMPRESSOR_
+#define TEST_H2MATRIX_
+#define TEST_COMPRESSOR_
 #define TEST_SAMPLET_TRANSFORM_
 #define TEST_SAMPLET_BASIS_
 
@@ -233,7 +233,7 @@ int main() {
     T.toc("time inverse samplet transform matrix: ");
     std::cout << "error: " << (K - K2).norm() / K2.norm() << std::endl;
     std::cout << "----------------------------------------------------\n";
-#if 1
+#if 0
     Bembel::IO::print2m("SampletBasis.m", "T", Tmat, "w");
     Bembel::IO::print2m("Points.m", "P", P, "w");
     Eigen::VectorXi idx(P.cols());

@@ -72,6 +72,21 @@ public:
             const ClusterTree &CT, IndexType dtilde,
             value_type orth_thresh = 1e-6) {
     tree_data_ = std::make_shared<SampletTreeData<ClusterTree>>();
+    IndexType d2tlde = 0;
+    {
+      std::vector<const ClusterTree *> leafs;
+      CT.getLeafIterator(leafs);
+      IndexType max_cluster_size = 0;
+      for (const auto &it : leafs)
+        if (max_cluster_size < it->get_indices().size())
+          max_cluster_size = it->get_indices().size();
+      IndexType mtlde = 0;
+      while (mtlde < max_cluster_size) {
+        mtlde += binomialCoefficient(dimension + d2tlde - 1, dimension - 1);
+        ++d2tlde;
+      }
+    }
+    std::cout << "d2tlde: " << d2tlde << " dtlde: " << dtilde << std::endl;
     tree_data_->idcs.init(dtilde - 1);
     tree_data_->dtilde_ = dtilde;
     tree_data_->m_dtilde_ = tree_data_->idcs.get_MultiIndexSet().size();
