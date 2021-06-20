@@ -28,7 +28,9 @@ template <typename ClusterTree> class SampletTree;
 template <typename ClusterTree> struct SampletTreeData {
   IndexType max_wlevel_ = 0;
   IndexType dtilde_ = 0;
+  IndexType d2tilde_ = 0;
   IndexType m_dtilde_ = 0;
+  IndexType m_d2tilde_ = 0;
   typename ClusterTree::value_type orthogonality_threshold_ = 0;
   MultiIndexSet<ClusterTree::dimension> idcs;
   std::vector<SampletTree<ClusterTree> *> samplet_list;
@@ -72,32 +74,55 @@ public:
             const ClusterTree &CT, IndexType dtilde,
             value_type orth_thresh = 1e-6) {
     tree_data_ = std::make_shared<SampletTreeData<ClusterTree>>();
-    IndexType d2tlde = 0;
+#ifdef USE_QR_CONSTRUCTION_
     {
+      IndexType d2tlde = 0;
       std::vector<const ClusterTree *> leafs;
       CT.getLeafIterator(leafs);
       IndexType max_cluster_size = 0;
-      for (const auto &it : leafs)
+      IndexType min_cluster_size = IndexType(1e10);
+      for (const auto &it : leafs) {
         if (max_cluster_size < it->get_indices().size())
           max_cluster_size = it->get_indices().size();
+        if (min_cluster_size > it->get_indices().size())
+          min_cluster_size = it->get_indices().size();
+      }
+      std::cout << "min leafsize: " << min_cluster_size
+                << " max leafsize: " << max_cluster_size << std::endl;
       IndexType mtlde = 0;
-      while (mtlde < max_cluster_size) {
+      while (mtlde < min_cluster_size) {
         mtlde += binomialCoefficient(dimension + d2tlde - 1, dimension - 1);
         ++d2tlde;
       }
+      std::cout << "internal dtlde: " << d2tlde << " desired dtlde: " << dtilde
+                << std::endl;
+      tree_data_->dtilde_ = dtilde;
+      tree_data_->d2tilde_ = d2tlde > dtilde ? d2tlde : dtilde;
+      tree_data_->m_dtilde_ = 0;
+      for (auto i = 0; i < dtilde; ++i) {
+        tree_data_->m_dtilde_ +=
+            binomialCoefficient(dimension + i - 1, dimension - 1);
+      }
+      tree_data_->idcs.init(tree_data_->d2tilde_ - 1);
+      tree_data_->m_d2tilde_ = tree_data_->idcs.get_MultiIndexSet().size();
     }
-    std::cout << "d2tlde: " << d2tlde << " dtlde: " << dtilde << std::endl;
-    tree_data_->idcs.init(dtilde - 1);
-    tree_data_->dtilde_ = dtilde;
-    tree_data_->m_dtilde_ = tree_data_->idcs.get_MultiIndexSet().size();
+#else
+    {
+      tree_data_->dtilde_ = dtilde;
+      tree_data_->d2tilde_ = dtilde;
+      tree_data_->idcs.init(tree_data_->d2tilde_ - 1);
+      tree_data_->m_dtilde_ = tree_data_->idcs.get_MultiIndexSet().size();
+      tree_data_->m_d2tilde_ = tree_data_->m_dtilde_;
+    }
     tree_data_->orthogonality_threshold_ = orth_thresh;
+#endif
     {
       // generate all possible multinomial coefficients from the set of
       // multi indices
       IndexType i = 0;
       IndexType j = 0;
-      tree_data_->multinomial_coefficients.resize(tree_data_->m_dtilde_,
-                                                  tree_data_->m_dtilde_);
+      tree_data_->multinomial_coefficients.resize(tree_data_->m_d2tilde_,
+                                                  tree_data_->m_d2tilde_);
       for (auto &beta : tree_data_->idcs.get_MultiIndexSet()) {
         for (auto &alpha : tree_data_->idcs.get_MultiIndexSet()) {
           tree_data_->multinomial_coefficients(j, i) =
@@ -346,9 +371,10 @@ private:
       // this is the moment for the dad cluster
       mom_buffer_ =
           qr.matrixQR()
-              .block(0, 0, tree_data_->m_dtilde_, tree_data_->m_dtilde_)
+              .block(0, 0, tree_data_->m_d2tilde_, tree_data_->m_d2tilde_)
               .template triangularView<Eigen::Upper>()
               .transpose();
+      mom_buffer_.conservativeResize(tree_data_->m_d2tilde_, nscalfs_);
     } else {
       Q_ = eigenMatrix::Identity(mom_buffer_.cols(), mom_buffer_.cols());
       nscalfs_ = mom_buffer_.cols();

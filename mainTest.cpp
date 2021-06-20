@@ -12,7 +12,7 @@
 #include "FMCA/src/util/print2file.hpp"
 #include "FMCA/src/util/tictoc.hpp"
 #include "imgCompression/matrixReader.h"
-#define DIM 4
+#define DIM 3
 #define MPOLE_DEG 3
 #define DTILDE 2
 #define LEAFSIZE 4
@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
   }
   for (int npts : {1}) {
     std::cout << "loading data: ";
-    Eigen::MatrixXd B = readMatrix("./Points/bunnySurface4D.txt");
+    Eigen::MatrixXd B = readMatrix("./Points/bunnySurface.txt");
     std::cout << "data size: ";
     std::cout << B.rows() << " " << B.cols() << std::endl;
     npts = B.rows();
@@ -75,7 +75,7 @@ int main(int argc, char *argv[]) {
     std::cout << "npts:      " << npts << std::endl;
     std::cout << std::string(60, '-') << std::endl;
     srand(0);
-    // Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM,npts);
+    // Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, 10000);
     //////////////////////////////////////////////////////////////////////////////
     // set up cluster tree
     T.tic();
