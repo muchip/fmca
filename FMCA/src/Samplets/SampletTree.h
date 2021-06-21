@@ -94,6 +94,7 @@ public:
         mtlde += binomialCoefficient(dimension + d2tlde - 1, dimension - 1);
         ++d2tlde;
       }
+      --d2tlde;
       std::cout << "internal dtlde: " << d2tlde << " desired dtlde: " << dtilde
                 << std::endl;
       tree_data_->dtilde_ = dtilde;
