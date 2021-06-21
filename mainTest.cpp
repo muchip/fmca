@@ -93,8 +93,7 @@ int main(int argc, char *argv[]) {
       std::cout << "l)\t#pts\ttotal#pts" << std::endl;
       for (auto i = 0; i < tree.size(); ++i) {
         int numInd = 0;
-        for (auto j = 0; j < tree[i].size(); ++j)
-          numInd += tree[i][j];
+        for (auto j = 0; j < tree[i].size(); ++j) numInd += tree[i][j];
         std::cout << i << ")\t" << tree[i].size() << "\t" << numInd << "\n";
       }
       std::cout << std::string(60, '-') << std::endl;
@@ -161,7 +160,11 @@ int main(int argc, char *argv[]) {
       T.tic();
       auto trips = BC.get_Pattern_triplets();
       Eigen::SparseMatrix<double> W(P.cols(), P.cols());
-      W.setFromTriplets(trips.begin(), trips.end());
+      W.setFromTriplets(
+          trips.begin(), trips.end(), [](const double &a, const double &b) {
+            std::cout << a << " " << b << " duplicate in triplet list\n";
+            return b;
+          });
       double err = 0;
       Eigen::VectorXd y1(P.cols());
       Eigen::VectorXd y2(P.cols());
