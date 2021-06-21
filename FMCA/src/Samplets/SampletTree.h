@@ -14,7 +14,8 @@
 
 #define USE_QR_CONSTRUCTION_
 namespace FMCA {
-template <typename ClusterTree> class SampletTree;
+template <typename ClusterTree>
+class SampletTree;
 
 /**
  *  \ingroup Samplets
@@ -25,7 +26,8 @@ template <typename ClusterTree> class SampletTree;
  *         In particular, we hace here a levelwise serialisation of the
  *         samplet tree stored in the std::vector samplet_list
  */
-template <typename ClusterTree> struct SampletTreeData {
+template <typename ClusterTree>
+struct SampletTreeData {
   IndexType max_wlevel_ = 0;
   IndexType dtilde_ = 0;
   IndexType d2tilde_ = 0;
@@ -49,11 +51,12 @@ template <typename ClusterTree> struct SampletTreeData {
  *         if the cluster tree is mutated or goes out of scope, we get dangeling
  *         pointers!
  */
-template <typename ClusterTree> class SampletTree {
+template <typename ClusterTree>
+class SampletTree {
   friend class BivariateCompressor<SampletTree>;
   friend class BivariateCompressorH2<SampletTree>;
 
-public:
+ public:
   typedef typename ClusterTree::value_type value_type;
   enum { dimension = ClusterTree::dimension };
   typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
@@ -79,13 +82,12 @@ public:
       IndexType d2tlde = 0;
       std::vector<const ClusterTree *> leafs;
       CT.getLeafIterator(leafs);
-      IndexType max_cluster_size = 0;
-      IndexType min_cluster_size = IndexType(1e10);
-      for (const auto &it : leafs) {
-        if (max_cluster_size < it->get_indices().size())
-          max_cluster_size = it->get_indices().size();
-        if (min_cluster_size > it->get_indices().size())
-          min_cluster_size = it->get_indices().size();
+      unsigned int max_cluster_size = (*(leafs[0])).get_indices().size();
+      unsigned int min_cluster_size = (*(leafs[0])).get_indices().size();
+      for (auto i = 0; i < leafs.size(); ++i) {
+        const unsigned int fthis = (*(leafs[i])).get_indices().size();
+        if (max_cluster_size < fthis) max_cluster_size = fthis;
+        if (min_cluster_size > fthis) min_cluster_size = fthis;
       }
       std::cout << "min leafsize: " << min_cluster_size
                 << " max leafsize: " << max_cluster_size << std::endl;
@@ -106,6 +108,8 @@ public:
       }
       tree_data_->idcs.init(tree_data_->d2tilde_ - 1);
       tree_data_->m_d2tilde_ = tree_data_->idcs.get_MultiIndexSet().size();
+      std::cout << "number of used polynomials: " << tree_data_->m_d2tilde_
+                << std::endl;
     }
 #else
     {
@@ -142,10 +146,8 @@ public:
   }
   //////////////////////////////////////////////////////////////////////////////
   void sampletTransformMatrix(eigenMatrix &M) {
-    for (auto j = 0; j < M.cols(); ++j)
-      M.col(j) = sampletTransform(M.col(j));
-    for (auto i = 0; i < M.rows(); ++i)
-      M.row(i) = sampletTransform(M.row(i));
+    for (auto j = 0; j < M.cols(); ++j) M.col(j) = sampletTransform(M.col(j));
+    for (auto i = 0; i < M.rows(); ++i) M.row(i) = sampletTransform(M.row(i));
   }
   //////////////////////////////////////////////////////////////////////////////
   void inverseSampletTransformMatrix(eigenMatrix &M) {
@@ -185,10 +187,8 @@ public:
         max_id = it->cluster_->get_id();
         min_id = it->cluster_->get_id();
       }
-      if (min_id > it->cluster_->get_id())
-        min_id = it->cluster_->get_id();
-      if (max_id < it->cluster_->get_id())
-        max_id = it->cluster_->get_id();
+      if (min_id > it->cluster_->get_id()) min_id = it->cluster_->get_id();
+      if (max_id < it->cluster_->get_id()) max_id = it->cluster_->get_id();
       std::cout << it->wlevel_ << ")\t"
                 << "id: " << it->cluster_->get_id() << std::endl;
     }
@@ -259,7 +259,7 @@ public:
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
-private:
+ private:
   //////////////////////////////////////////////////////////////////////////////
   // private methods
   //////////////////////////////////////////////////////////////////////////////
@@ -267,8 +267,7 @@ private:
                                         eigenVector *svec) const {
     eigenVector retval(0);
     IndexType scalf_shift = 0;
-    if (!wlevel_)
-      scalf_shift = nscalfs_;
+    if (!wlevel_) scalf_shift = nscalfs_;
     if (sons_.size()) {
       for (auto i = 0; i < sons_.size(); ++i) {
         auto scalf = sons_[i].sampletTransformRecursion(data, svec);
@@ -284,8 +283,7 @@ private:
           Q_.rightCols(nsamplets_).transpose() * retval;
       retval = Q_.leftCols(nscalfs_).transpose() * retval;
     }
-    if (!wlevel_)
-      svec->segment(start_index_, nscalfs_) = retval;
+    if (!wlevel_) svec->segment(start_index_, nscalfs_) = retval;
     return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
@@ -316,9 +314,9 @@ private:
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
-  void
-  computeSamplets(const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
-                  const ClusterTree &CT) {
+  void computeSamplets(
+      const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
+      const ClusterTree &CT) {
     cluster_ = &CT;
     // the computation of the samplet level is a bit cumbersome as we have to
     // account for empty clusters and clusters with a single point here.
@@ -334,8 +332,7 @@ private:
     } else
       wlevel_ = CT.get_tree_data().max_level_ + 1;
 
-    if (tree_data_->max_wlevel_ < wlevel_)
-      tree_data_->max_wlevel_ = wlevel_;
+    if (tree_data_->max_wlevel_ < wlevel_) tree_data_->max_wlevel_ = wlevel_;
     if (CT.get_sons().size()) {
       sons_.resize(CT.get_sons().size());
       IndexType offset = 0;
@@ -470,7 +467,7 @@ private:
   //////////////////////////////////////////////////////////////////////////////
   // private member variables
   //////////////////////////////////////////////////////////////////////////////
-private:
+ private:
   std::vector<SampletTree> sons_;
   std::shared_ptr<SampletTreeData<ClusterTree>> tree_data_;
   const ClusterTree *cluster_;
@@ -484,5 +481,5 @@ private:
   IndexType start_index_;
   IndexType block_id_;
 };
-} // namespace FMCA
+}  // namespace FMCA
 #endif

@@ -14,9 +14,11 @@
 
 namespace FMCA {
 
-template <typename ClusterTree, IndexType Deg> class H2ClusterTree;
+template <typename ClusterTree, IndexType Deg>
+class H2ClusterTree;
 
-template <typename ValueType, IndexType Dim> struct ClusterTreeData {
+template <typename ValueType, IndexType Dim>
+struct ClusterTreeData {
   ValueType geometry_diam_ = 0;
   IndexType max_id_ = 0;
   IndexType max_level_ = 0;
@@ -36,7 +38,7 @@ class ClusterTree {
   friend Splitter;
   friend H2ClusterTree<ClusterTree, Deg>;
 
-public:
+ public:
   typedef ValueType value_type;
   enum { dimension = Dim };
   //////////////////////////////////////////////////////////////////////////////
@@ -71,13 +73,12 @@ public:
       for (auto i = 0; i < sons_.size(); ++i)
         sons_[i].get_BboxVector(bbvec, level);
     if (level_ == level)
-      if (indices_.size())
-        bbvec->push_back(bb_);
+      if (indices_.size()) bbvec->push_back(bb_);
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
-  void
-  get_BboxVectorLeafs(std::vector<Eigen::Matrix<ValueType, Dim, 3u>> *bbvec) {
+  void get_BboxVectorLeafs(
+      std::vector<Eigen::Matrix<ValueType, Dim, 3u>> *bbvec) {
     if (sons_.size())
       for (auto i = 0; i < sons_.size(); ++i)
         sons_[i].get_BboxVectorLeafs(bbvec);
@@ -107,22 +108,20 @@ public:
   IndexType get_indices_begin() const { return indices_begin_; }
   //////////////////////////////////////////////////////////////////////////////
   void exportTreeStructure(std::vector<std::vector<IndexType>> &tree) {
-    if (level_ >= tree.size())
-      tree.resize(level_ + 1);
+    if (level_ >= tree.size()) tree.resize(level_ + 1);
     tree[level_].push_back(indices_.size());
-    for (auto i = 0; i < sons_.size(); ++i)
-      sons_[i].exportTreeStructure(tree);
+    for (auto i = 0; i < sons_.size(); ++i) sons_[i].exportTreeStructure(tree);
   }
   //////////////////////////////////////////////////////////////////////////////
   void getLeafIterator(std::vector<const ClusterTree *> &leafs) const {
     if (sons_.size() == 0)
       leafs.push_back(this);
     else
-      for (auto i = 0; i < sons_.size(); ++i)
-        sons_[i].getLeafIterator(leafs);
+      for (auto i = 0; i < sons_.size(); ++i) sons_[i].getLeafIterator(leafs);
+    return;
   }
   //////////////////////////////////////////////////////////////////////////////
-private:
+ private:
   //////////////////////////////////////////////////////////////////////////////
   // private methods
   //////////////////////////////////////////////////////////////////////////////
@@ -163,8 +162,7 @@ private:
       // split index set and set sons bounding boxes
       split(P, indices_, bb_, sons_[0], sons_[1]);
       // let recursion handle the rest
-      for (auto i = 0; i < sons_.size(); ++i)
-        sons_[i].computeClusters(P);
+      for (auto i = 0; i < sons_.size(); ++i) sons_[i].computeClusters(P);
       // make indices hierarchically
       indices_.clear();
       for (auto i = 0; i < sons_.size(); ++i)
@@ -181,8 +179,7 @@ private:
         Eigen::Matrix<ValueType, Dim, 3u>::Zero();
     if (sons_.size()) {
       // assert that all sons have fitted bb's
-      for (auto i = 0; i < sons_.size(); ++i)
-        sons_[i].shrinkToFit(P);
+      for (auto i = 0; i < sons_.size(); ++i) sons_[i].shrinkToFit(P);
       // now update own bb
       // we need a son with indices to get a first bb
       for (auto i = 0; i < sons_.size(); ++i)
@@ -236,5 +233,5 @@ private:
   IndexType indices_begin_;
   IndexType id_;
 };
-} // namespace FMCA
+}  // namespace FMCA
 #endif

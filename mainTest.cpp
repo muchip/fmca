@@ -12,8 +12,8 @@
 #include "FMCA/src/util/print2file.hpp"
 #include "FMCA/src/util/tictoc.hpp"
 #include "imgCompression/matrixReader.h"
-#define DIM 3
-#define MPOLE_DEG 3
+#define DIM 4
+#define MPOLE_DEG 6
 #define DTILDE 2
 #define LEAFSIZE 4
 
@@ -61,12 +61,12 @@ int main(int argc, char *argv[]) {
   }
   for (int npts : {1}) {
     std::cout << "loading data: ";
-    Eigen::MatrixXd B = readMatrix("./Points/bunnySurface.txt");
+    Eigen::MatrixXd B = readMatrix("./Points/bunnySurface4D.txt");
     std::cout << "data size: ";
     std::cout << B.rows() << " " << B.cols() << std::endl;
     npts = B.rows();
-    std::cout << "----------------------------------------------------\n";
-    Eigen::MatrixXd P = B.transpose();
+    std::cout << std::string(60, '-') << std::endl;
+    // Eigen::MatrixXd P = B.transpose();
     std::cout << std::string(60, '-') << std::endl;
     std::cout << "dim:       " << DIM << std::endl;
     std::cout << "leaf size: " << LEAFSIZE << std::endl;
@@ -75,12 +75,23 @@ int main(int argc, char *argv[]) {
     std::cout << "npts:      " << npts << std::endl;
     std::cout << std::string(60, '-') << std::endl;
     srand(0);
-    // Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, 10000);
     //////////////////////////////////////////////////////////////////////////////
     // set up cluster tree
     T.tic();
     ClusterT CT(P);
     T.toc("set up cluster tree: ");
+    {
+      std::vector<std::vector<FMCA::IndexType>> tree;
+      CT.exportTreeStructure(tree);
+      std::cout << "cluster structure: " << std::endl;
+      std::cout << "l)\t#pts\ttotal#pts" << std::endl;
+      for (auto i = 0; i < tree.size(); ++i) {
+        int numInd = 0;
+        for (auto j = 0; j < tree[i].size(); ++j) numInd += tree[i][j];
+        std::cout << i << ")\t" << tree[i].size() << "\t" << numInd << "\n";
+      }
+      std::cout << std::string(60, '-') << std::endl;
+    }
     //////////////////////////////////////////////////////////////////////////////
     // set up H2 cluster tree
     T.tic();
