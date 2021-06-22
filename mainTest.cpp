@@ -12,7 +12,7 @@
 #include "FMCA/src/util/print2file.hpp"
 #include "FMCA/src/util/tictoc.hpp"
 #include "imgCompression/matrixReader.h"
-#define DIM 3
+#define DIM 2
 #define MPOLE_DEG 3
 #define DTILDE 2
 #define LEAFSIZE 4
@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
   }
   for (int npts : {1}) {
     std::cout << "loading data: ";
-    Eigen::MatrixXd B = readMatrix("./Points/bunnyVolume.txt");
+    Eigen::MatrixXd B = readMatrix("./Points/bunnyProjection2D.txt");
     std::cout << "data size: ";
     std::cout << B.rows() << " " << B.cols() << std::endl;
     npts = B.rows();
@@ -123,6 +123,25 @@ int main(int argc, char *argv[]) {
 #endif
     ST.computeMultiscaleClusterBases(H2CT);
     T.toc("set up time multiscale cluster bases");
+    {
+      std::vector<const ClusterT *> leafs;
+      CT.getLeafIterator(leafs);
+      int numInd = 0;
+      for (auto i = 0; i < leafs.size(); ++i)
+        numInd += (leafs[i])->get_indices().size();
+      for (auto level = 0; level < 14; ++level) {
+        std::vector<Eigen::Matrix<double, DIM, 3u>> bbvec;
+        CT.get_BboxVector(&bbvec, level);
+        FMCA::IO::plotBoxes2D("boxes" + std::to_string(level) + ".vtk", bbvec);
+      }
+      std::vector<Eigen::Matrix<double, DIM, 3u>> bbvec;
+      CT.get_BboxVectorLeafs(&bbvec);
+      FMCA::IO::plotBoxes2D("boxesLeafs.vtk", bbvec);
+      Eigen::MatrixXd Q(3, P.cols());
+      Q.setZero();
+      Q.topRows(2) = P;
+      FMCA::IO::plotPoints("points.vtk", Q);
+    }
     std::cout << std::string(60, '-') << std::endl;
     //////////////////////////////////////////////////////////////////////////////
     // set up bivariate compressor
@@ -136,6 +155,7 @@ int main(int argc, char *argv[]) {
     BC.init(P, ST, exponentialKernel());
     std::cout << std::string(60, '-') << std::endl;
     double ctime = T.toc("set up Samplet compressed matrix: ");
+
     double nz = 0;
     double nza = 0;
     {
