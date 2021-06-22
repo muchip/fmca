@@ -12,8 +12,8 @@
 #include "FMCA/src/util/print2file.hpp"
 #include "FMCA/src/util/tictoc.hpp"
 #include "imgCompression/matrixReader.h"
-#define DIM 4
-#define MPOLE_DEG 6
+#define DIM 3
+#define MPOLE_DEG 3
 #define DTILDE 2
 #define LEAFSIZE 4
 
@@ -61,12 +61,12 @@ int main(int argc, char *argv[]) {
   }
   for (int npts : {1}) {
     std::cout << "loading data: ";
-    Eigen::MatrixXd B = readMatrix("./Points/bunnySurface4D.txt");
+    Eigen::MatrixXd B = readMatrix("./Points/bunnyVolume.txt");
     std::cout << "data size: ";
     std::cout << B.rows() << " " << B.cols() << std::endl;
     npts = B.rows();
     std::cout << std::string(60, '-') << std::endl;
-    // Eigen::MatrixXd P = B.transpose();
+    Eigen::MatrixXd P = B.transpose();
     std::cout << std::string(60, '-') << std::endl;
     std::cout << "dim:       " << DIM << std::endl;
     std::cout << "leaf size: " << LEAFSIZE << std::endl;
@@ -140,8 +140,9 @@ int main(int argc, char *argv[]) {
     double nza = 0;
     {
       auto trips = BC.get_Pattern_triplets();
-      nz = trips.size() / P.cols();
-      nza = BC.get_storage_size() / P.cols();
+      std::cout << trips.size() << " " << BC.get_storage_size() << std::endl;
+      nz = double(trips.size()) / double(P.cols());
+      nza = double(BC.get_storage_size()) / double(P.cols());
       std::cout << "nz per row:     " << nza << " / " << nz << std::endl;
       std::cout << "storage sparse: "
                 << double(sizeof(double) * trips.size() * 3) / double(1e9)

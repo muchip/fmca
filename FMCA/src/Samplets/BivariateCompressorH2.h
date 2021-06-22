@@ -222,7 +222,7 @@ public:
     threshold_ = threshold;
     return;
   }
-  IndexType get_storage_size() const { return storage_size_; }
+  size_t get_storage_size() const { return storage_size_; }
 
 private:
   //////////////////////////////////////////////////////////////////////////////
