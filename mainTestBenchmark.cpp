@@ -10,10 +10,24 @@
 #include "imgCompression/matrixReader.h"
 
 ////////////////////////////////////////////////////////////////////////////////
-#define DIM 2
+#define DIM 3
 #define MPOLE_DEG 3
 #define DTILDE 2
 #define LEAFSIZE 4
+////////////////////////////////////////////////////////////////////////////////
+template<typename Derived>
+double get2norm(const Eigen:EigenBase<Derived> &A) {
+double retval = 0;
+Eigen::VectorXd vec = Eigen::VectorXd::Random(A.cols());
+vec /= vec.norm();
+for (auto i = 0; i < 10; ++i) {
+  vec *= A;
+  retval = vec.norm();
+  vec *= 1./retval;
+  std::cout << retval <<std::endl;
+}
+return retval;;
+}
 ////////////////////////////////////////////////////////////////////////////////
 struct exponentialKernel {
   double operator()(const Eigen::Matrix<double, DIM, 1> &x,
@@ -45,17 +59,17 @@ int main(int argc, char *argv[]) {
   tictoc T;
   {
     std::ifstream file;
-    file.open("loggerBenchmark.txt");
+    file.open("loggerBenchmark3DSVD.txt");
     if (!file.good()) {
       file.close();
       std::fstream newfile;
-      newfile.open("loggerBenchmark.txt", std::fstream::out);
+      newfile.open("loggerBenchmark3DSVD.txt", std::fstream::out);
       newfile << std::setw(10) << "Npts" << std ::setw(5) << "dim"
               << std::setw(8) << "mpdeg" << std::setw(8) << "dtilde"
               << std::setw(6) << "eta" << std::setw(8) << "apost"
               << std::setw(8) << "svd" << std::setw(9) << "nza" << std::setw(9)
               << "nzp" << std::setw(14) << "mom ortho" << std::setw(14)
-              << "error" << std::setw(12) << "ctime" << std::endl;
+              << "nrm2" << std::setw(12) << "ctime" << std::endl;
       newfile.close();
     }
   }
@@ -150,7 +164,7 @@ int main(int argc, char *argv[]) {
       std::cout << "orthogonality error: " << mom_err << std::endl;
       std::cout << std::string(60, '-') << std::endl;
     }
-    {
+    
       T.tic();
       auto trips = BC.get_Pattern_triplets();
       Eigen::SparseMatrix<double> W(P.cols(), P.cols());
@@ -159,6 +173,8 @@ int main(int argc, char *argv[]) {
           std::cout << a << " " << b << " duplicate in triplet list\n";
           return b;
         });
+      #if 0
+      {
       double err = 0;
       Eigen::VectorXd y1(P.cols());
       Eigen::VectorXd y2(P.cols());
@@ -176,8 +192,11 @@ int main(int argc, char *argv[]) {
       std::cout << std::endl;
       T.toc("time error computation: ");
       std::cout << "error: " << err << std::endl;
-      std::fstream newfile;
-      newfile.open("loggerBenchmark.txt", std::fstream::app);
+    }
+     #endif
+    double err = get2norm(W);
+     std::fstream newfile;
+      newfile.open("loggerBenchmark3DSVD.txt", std::fstream::app);
       newfile << std::setw(10) << npts << std ::setw(5) << DIM << std::setw(8)
             << MPOLE_DEG << std::setw(8) << DTILDE << std::setw(6) << eta
             << std::setw(8) << aposteriori_threshold << std::setw(8)
@@ -185,7 +204,7 @@ int main(int argc, char *argv[]) {
             << std::setw(14) << mom_err << std::setw(14) << err << std::setw(12)
             << ctime << std::endl;
       newfile.close();
-    }
+  
   }
   return 0;
 }
