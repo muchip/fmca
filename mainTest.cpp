@@ -10,7 +10,7 @@
 #include "imgCompression/matrixReader.h"
 
 ////////////////////////////////////////////////////////////////////////////////
-#define DIM 3
+#define DIM 2
 #define MPOLE_DEG 3
 #define DTILDE 2
 #define LEAFSIZE 4
@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
   }
   std::cout << std::string(60, '-') << std::endl;
   std::cout << "loading data: ";
-  Eigen::MatrixXd B = readMatrix("./Points/bunnyVolume.txt");
+  Eigen::MatrixXd B = readMatrix("./Points/bunnyProjection2D.txt");
   std::cout << "data size: ";
   std::cout << B.rows() << " " << B.cols() << std::endl;
   const unsigned int npts = B.rows();

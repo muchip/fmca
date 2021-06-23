@@ -96,8 +96,8 @@ class H2ClusterTree {
         E_.emplace_back(std::move(E));
       }
     } else {
-      eigen_assert(TP_interp_->get_Xi().cols() <= CT.get_indices().size() &&
-                   "????");
+      //eigen_assert(TP_interp_->get_Xi().cols() <= CT.get_indices().size() &&
+      //             "????");
       // compute leaf
       V_.resize(TP_interp_->get_Xi().cols(), CT.get_indices().size());
       for (auto i = 0; i < CT.get_indices().size(); ++i)
