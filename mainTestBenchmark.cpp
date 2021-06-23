@@ -15,18 +15,17 @@
 #define DTILDE 2
 #define LEAFSIZE 4
 ////////////////////////////////////////////////////////////////////////////////
-template<typename Derived>
-double get2norm(const Eigen:EigenBase<Derived> &A) {
-double retval = 0;
-Eigen::VectorXd vec = Eigen::VectorXd::Random(A.cols());
-vec /= vec.norm();
-for (auto i = 0; i < 10; ++i) {
-  vec *= A;
-  retval = vec.norm();
-  vec *= 1./retval;
-  std::cout << retval <<std::endl;
-}
-return retval;;
+template <typename Derived>
+double get2norm(const Eigen::SparseMatrix<Derived> &A) {
+  double retval = 0;
+  Eigen::VectorXd vec = Eigen::VectorXd::Random(A.cols());
+  vec /= vec.norm();
+  for (auto i = 0; i < 200; ++i) {
+    vec = A * vec;
+    retval = vec.norm();
+    vec *= 1. / retval;
+  }
+  return retval;
 }
 ////////////////////////////////////////////////////////////////////////////////
 struct exponentialKernel {
@@ -56,14 +55,15 @@ int main(int argc, char *argv[]) {
   const double eta = 0.8;
   const double svd_threshold = 1e-6;
   const double aposteriori_threshold = 1e-6;
+  const std::string logger = "loggerBenchmark3DSVD.txt";
   tictoc T;
   {
     std::ifstream file;
-    file.open("loggerBenchmark3DSVD.txt");
+    file.open(logger);
     if (!file.good()) {
       file.close();
       std::fstream newfile;
-      newfile.open("loggerBenchmark3DSVD.txt", std::fstream::out);
+      newfile.open(logger, std::fstream::out);
       newfile << std::setw(10) << "Npts" << std ::setw(5) << "dim"
               << std::setw(8) << "mpdeg" << std::setw(8) << "dtilde"
               << std::setw(6) << "eta" << std::setw(8) << "apost"
@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
     }
   }
   std::cout << std::string(60, '-') << std::endl;
-  for (auto i = 0; i <= 20; ++i) {
+  for (auto i = 2; i <= 20; ++i) {
     const unsigned int npts = 1 << i;
     Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, npts);
     std::cout << std::string(60, '-') << std::endl;
@@ -141,11 +141,11 @@ int main(int argc, char *argv[]) {
       nza = double(BC.get_storage_size()) / double(P.cols());
       std::cout << "nz per row:     " << nza << " / " << nz << std::endl;
       std::cout << "storage sparse: "
-              << double(sizeof(double) * trips.size() * 3) / double(1e9)
-              << "GB\n";
+                << double(sizeof(double) * trips.size() * 3) / double(1e9)
+                << "GB\n";
       std::cout << "storage full:   "
-              << double(sizeof(double) * P.cols() * P.cols()) / double(1e9)
-              << "GB" << std::endl;
+                << double(sizeof(double) * P.cols() * P.cols()) / double(1e9)
+                << "GB" << std::endl;
     }
     std::cout << std::string(60, '-') << std::endl;
     double mom_err = 0;
@@ -164,16 +164,12 @@ int main(int argc, char *argv[]) {
       std::cout << "orthogonality error: " << mom_err << std::endl;
       std::cout << std::string(60, '-') << std::endl;
     }
-    
-      T.tic();
-      auto trips = BC.get_Pattern_triplets();
-      Eigen::SparseMatrix<double> W(P.cols(), P.cols());
-      W.setFromTriplets(
-          trips.begin(), trips.end(), [](const double &a, const double &b) {
-          std::cout << a << " " << b << " duplicate in triplet list\n";
-          return b;
-        });
-      #if 0
+
+    T.tic();
+    auto trips = BC.get_Pattern_triplets();
+    Eigen::SparseMatrix<double> W(P.cols(), P.cols());
+    W.setFromTriplets(trips.begin(), trips.end());
+#if 0
       {
       double err = 0;
       Eigen::VectorXd y1(P.cols());
@@ -193,18 +189,17 @@ int main(int argc, char *argv[]) {
       T.toc("time error computation: ");
       std::cout << "error: " << err << std::endl;
     }
-     #endif
+#endif
     double err = get2norm(W);
-     std::fstream newfile;
-      newfile.open("loggerBenchmark3DSVD.txt", std::fstream::app);
-      newfile << std::setw(10) << npts << std ::setw(5) << DIM << std::setw(8)
+    std::fstream newfile;
+    newfile.open(logger, std::fstream::app);
+    newfile << std::setw(10) << npts << std ::setw(5) << DIM << std::setw(8)
             << MPOLE_DEG << std::setw(8) << DTILDE << std::setw(6) << eta
             << std::setw(8) << aposteriori_threshold << std::setw(8)
             << svd_threshold << std::setw(9) << nza << std::setw(9) << nz
             << std::setw(14) << mom_err << std::setw(14) << err << std::setw(12)
             << ctime << std::endl;
-      newfile.close();
-  
+    newfile.close();
   }
   return 0;
 }
