@@ -25,20 +25,21 @@ struct exponentialKernel {
     return exp(-4 * (x - y).norm());
   }
 };
-
+struct enterpriseSignal {
+  double operator()(const Eigen::Matrix<double, DIM, 1> &x) const {
+    Eigen::Vector3d g1, g2, d1;
+    g1 << 0.114038, -0.112162, -0.00241223;
+    g2 << 0.114038, 0.125671, -0.00241223;
+    d1 << 0.0563624, 0.00728756, -0.04141;
+    return exp(-25 * (x - g1).norm()) + exp(-25 * (x - g2).norm()) +
+           exp(-40 * (x - d1).norm());
+  }
+};
 using ClusterT = FMCA::ClusterTree<double, DIM, LEAFSIZE, MPOLE_DEG>;
 
 int main() {
-  FMCA::MultiIndexSet<DIM> idcs;
-  idcs.init(5);
-  auto idset = idcs.get_MultiIndexSet();
-  std::cout << "   : " << idset.size() << std::endl;
-  for (const auto &it : idset) {
-    for (const auto &it2 : it)
-      std::cout << it2 << " ";
-    std::cout << std::endl;
-  }
-  return 0;
+  tictoc T;
+#if 0
   Eigen::MatrixXd Grayscale = readMatrix("imgCompression/GrayBicycle.txt");
   std::cout << "img data: " << Grayscale.rows() << "x" << Grayscale.cols()
             << std::endl;
@@ -52,13 +53,14 @@ int main() {
       P(2, k) = 0;
       ++k;
     }
-#if 0 
+#endif
   std::cout << "loading data: ";
-  Eigen::MatrixXd B = readMatrix("./Points/bunnyVolume.txt");
+  Eigen::MatrixXd B = readMatrix("./Points/enterpriseD.txt");
   std::cout << "data size: ";
   std::cout << B.rows() << " " << B.cols() << std::endl;
   std::cout << "----------------------------------------------------\n";
   Eigen::MatrixXd P = B.transpose();
+#if 0
   srand(0);
   Eigen::Matrix3d rot;
   rot << 0.8047379, -0.3106172, 0.5058793, 0.5058793, 0.8047379, -0.3106172,
@@ -75,9 +77,16 @@ int main() {
   Eigen::VectorXd nrms = P.colwise().norm();
   for (auto i = 0; i < P.cols(); ++i)
     P.col(i) *= 1 / nrms(i);
-#endif
+  T.tic();
 
-  tictoc T;
+  Grayscale /= 255;
+  Eigen::VectorXd graydata(indices.size());
+  for (auto i = 0; i < indices.size(); ++i) {
+    graydata(i) = Grayscale(indices[i]);
+  }
+  Eigen::VectorXd rcompf = ST.sampletTransform(graydata);
+#endif
+#if 1
   T.tic();
   ClusterT CT(P);
   T.toc("set up cluster tree: ");
@@ -86,21 +95,14 @@ int main() {
   T.toc("set up samplet tree: ");
 
   auto indices = CT.get_indices();
-  Grayscale /= 255;
-  Eigen::VectorXd graydata(indices.size());
-  for (auto i = 0; i < indices.size(); ++i) {
-    graydata(i) = Grayscale(indices[i]);
-  }
-  Eigen::VectorXd rcompf = ST.sampletTransform(graydata);
-#if 0
   Eigen::VectorXd data(P.cols());
-  auto fun = exponentialKernel();
+  auto fun = enterpriseSignal();
   for (auto j = 0; j < P.cols(); ++j)
-    data(j) = fun(P.col(0), P.col(CT.get_indices()[j]));
+    data(j) = fun(P.col(CT.get_indices()[j]));
   Eigen::VectorXd Tdata = ST.sampletTransform(data);
 #endif
-  ST.visualizeCoefficients(rcompf, "coeff.vtk",
-                           1e-3 * rcompf.cwiseAbs().maxCoeff());
-  FMCA::IO::plotPoints("points.vtk", CT, P, graydata);
+  ST.visualizeCoefficients(Tdata, "coeff.vtk",
+                           1e-2 * Tdata.cwiseAbs().maxCoeff());
+  FMCA::IO::plotPoints("points.vtk", CT, P, data);
   return 0;
 }
