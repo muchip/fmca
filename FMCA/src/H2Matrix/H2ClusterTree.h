@@ -51,6 +51,8 @@ class H2ClusterTree {
     TP_interp_ = std::make_shared<
         TensorProductInterpolator<value_type, dimension, Deg>>();
     TP_interp_->init();
+    std::cout << "H2 number of polynomials: " << TP_interp_->get_Xi().cols()
+              << std::endl;
     // now compute the H2 cluster bases
     computeClusterBases(P, CT);
   }
@@ -94,6 +96,8 @@ class H2ClusterTree {
         E_.emplace_back(std::move(E));
       }
     } else {
+      //eigen_assert(TP_interp_->get_Xi().cols() <= CT.get_indices().size() &&
+      //             "????");
       // compute leaf
       V_.resize(TP_interp_->get_Xi().cols(), CT.get_indices().size());
       for (auto i = 0; i < CT.get_indices().size(); ++i)

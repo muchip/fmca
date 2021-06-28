@@ -14,8 +14,9 @@
 
 namespace FMCA {
 
-template <typename SampletTree> class BivariateCompressorH2 {
-public:
+template <typename SampletTree>
+class BivariateCompressorH2 {
+ public:
   enum Admissibility { Refine = 0, LowRank = 1, Dense = 2 };
   typedef typename SampletTree::value_type value_type;
   typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
@@ -48,13 +49,7 @@ public:
     buffer_.resize(ST.tree_data_->samplet_list.size());
     max_buff_size_ = 0;
     storage_size_ = 0;
-    // std::cout << "a:      " << a_param_ << std::endl;
-    // std::cout << "dp:     " << dprime_ << std::endl;
-    // std::cout << "dt:     " << dtilde_ << std::endl;
-    // std::cout << "op:     " << op_ << std::endl;
     std::cout << "J:      " << J_param_ << std::endl;
-    // std::cout << "cc1:    " << cut_const1_ << std::endl;
-    // std::cout << "cc2:    " << cut_const2_ << std::endl;
     std::cout << "eta:    " << eta_ << std::endl;
     std::cout << "thrshd: " << threshold_ << std::endl;
     std::cout << "diam:   " << geo_diam_ << std::endl;
@@ -109,7 +104,7 @@ public:
     const value_type first = j < jp ? 1. / (1 << j) : 1. / (1 << jp);
     const value_type second =
         std::pow(2., cut_const1_ - (j + jp) * cut_const2_);
-    return a_param_ * first * geo_diam_; //(first > second ? first : second);
+    return a_param_ * first * geo_diam_;  //(first > second ? first : second);
   }
   //////////////////////////////////////////////////////////////////////////////
   bool cutOff(IndexType j, IndexType jp, value_type dist) {
@@ -224,7 +219,7 @@ public:
   }
   size_t get_storage_size() const { return storage_size_; }
 
-private:
+ private:
   //////////////////////////////////////////////////////////////////////////////
   value_type computeDistance(const SampletTree &TR, const SampletTree &TC) {
     const value_type row_radius = 0.5 * TR.cluster_->get_bb().col(2).norm();
@@ -259,8 +254,7 @@ private:
                                  buf.cols() + TR.sons_[i].nscalfs_);
           buf.rightCols(TR.sons_[i].nscalfs_) =
               (it->second).transpose().leftCols(TR.sons_[i].nscalfs_);
-          if (it->first != 0)
-            buffer_[TR.sons_[i].block_id_].erase(it);
+          if (it->first != 0) buffer_[TR.sons_[i].block_id_].erase(it);
         } else {
           eigenMatrix ret =
               recursivelyComputeBlock(P, nullptr, TR.sons_[i], TC, fun);
@@ -389,9 +383,9 @@ private:
   IndexType max_wlevel_;
   IndexType fun_calls_;
   IndexType max_buff_size_;
-  IndexType storage_size_;
+  size_t storage_size_;
 };
-} // namespace FMCA
+}  // namespace FMCA
 #endif
 
 #if 0

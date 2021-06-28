@@ -8,10 +8,10 @@
 PROG= a.out
 CPP = g++ -std=c++11
 CPPFLAGS = -O3 -fPIC
-#INCLUDE = -I/usr/local/include/eigen3
-INCLUDE = -I/usr/include/eigen3
-LDFLAGS = -lm
-OBJECTS = mainTest.o
+INCLUDE = -I/opt/homebrew/include/eigen3 -I/opt/homebrew/include
+#INCLUDE = -I/usr/include/eigen3
+LDFLAGS = -lm -L/opt/homebrew/lib -lmetis
+OBJECTS = mainMatrixPattern.o
 all: $(OBJECTS)
 	$(CPP) $(OBJECTS) -o$(PROG) $(LDFLAGS)  
 #
