@@ -12,7 +12,6 @@
 #ifndef FMCA_SAMPLETS_SAMPLETTREE_H_
 #define FMCA_SAMPLETS_SAMPLETTREE_H_
 
-//#define USE_QR_CONSTRUCTION_
 namespace FMCA {
 template <typename ClusterTree>
 class SampletTree;

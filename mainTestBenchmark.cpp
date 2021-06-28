@@ -1,5 +1,13 @@
+#include <iostream>
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 #include <Eigen/Dense>
+#include <Eigen/MetisSupport>
 #include <Eigen/Sparse>
+#include <Eigen/SparseCholesky>
 #include <fstream>
 #include <functional>
 #include <iomanip>
@@ -10,7 +18,7 @@
 #include "imgCompression/matrixReader.h"
 
 ////////////////////////////////////////////////////////////////////////////////
-#define DIM 3
+#define DIM 2
 #define MPOLE_DEG 3
 #define DTILDE 2
 #define LEAFSIZE 4
@@ -75,8 +83,14 @@ int main(int argc, char *argv[]) {
   }
   std::cout << std::string(60, '-') << std::endl;
   for (auto i = 2; i <= 20; ++i) {
-    const unsigned int npts = 1 << i;
-    Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, npts);
+    // const unsigned int npts = 1 << i;
+    //  Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, npts);
+    std::cout << "loading data: ";
+    Eigen::MatrixXd B = readMatrix("./Points/Halton2D_small.txt");
+    std::cout << "data size: ";
+    std::cout << B.rows() << " " << B.cols() << std::endl;
+    const unsigned int npts = B.rows();
+    Eigen::MatrixXd P = B.transpose();
     std::cout << std::string(60, '-') << std::endl;
     std::cout << "dim:       " << DIM << std::endl;
     std::cout << "leaf size: " << LEAFSIZE << std::endl;
@@ -136,7 +150,6 @@ int main(int argc, char *argv[]) {
     double nza = 0;
     {
       auto trips = BC.get_Pattern_triplets();
-      std::cout << trips.size() << " " << BC.get_storage_size() << std::endl;
       nz = double(trips.size()) / double(P.cols());
       nza = double(BC.get_storage_size()) / double(P.cols());
       std::cout << "nz per row:     " << nza << " / " << nz << std::endl;
@@ -168,7 +181,40 @@ int main(int argc, char *argv[]) {
     T.tic();
     auto trips = BC.get_Pattern_triplets();
     Eigen::SparseMatrix<double> W(P.cols(), P.cols());
+    Eigen::SparseMatrix<double> I(P.cols(), P.cols());
     W.setFromTriplets(trips.begin(), trips.end());
+    I.setIdentity();
+    W += 1 * I;
+    Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>, Eigen::Lower,
+                          Eigen::COLAMDOrdering<int>>
+        solver;
+    solver.compute(W);
+    T.toc("Cholesky: ");
+    std::cout << "nz Mat: " << W.nonZeros() / P.cols();
+    Eigen::SparseMatrix<double> L = solver.matrixL();
+    std::cout << " nz L: " << L.nonZeros() / P.cols() << std::endl;
+    Eigen::SparseMatrix<double> cp =
+        L * solver.vectorD().asDiagonal() * L.transpose();
+    std::cout << (cp - W).norm() / W.norm() << std::endl;
+    {
+      double err = 0;
+      Eigen::VectorXd y1(P.cols());
+      Eigen::VectorXd y2(P.cols());
+      Eigen::VectorXd x(P.cols());
+      FMCA::ProgressBar PB;
+      PB.reset(10);
+      for (auto i = 0; i < 10; ++i) {
+        x.setRandom();
+        y1 = L * solver.vectorD().asDiagonal() * (L.transpose() * x);
+        y2 = W * x;
+        err += (y1 - y2).norm() / y2.norm();
+        PB.next();
+      }
+      err /= 10;
+      std::cout << "\nerror: " << err << std::endl;
+    }
+    T.tic();
+
 #if 0
       {
       double err = 0;
