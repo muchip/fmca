@@ -1,9 +1,9 @@
 #include <iostream>
 ////////////////////////////////////////////////////////////////////////////////
 #define USE_QR_CONSTRUCTION_
-#define DIM 2
-#define MPOLE_DEG 3
-#define DTILDE 2
+#define DIM 3
+#define MPOLE_DEG 4
+#define DTILDE 3
 #define LEAFSIZE 4
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -48,7 +48,7 @@ double get2norm(const Eigen::SparseMatrix<Derived> &A) {
 struct exponentialKernel {
   double operator()(const Eigen::Matrix<double, DIM, 1> &x,
                     const Eigen::Matrix<double, DIM, 1> &y) const {
-    return exp(-4 * (x - y).norm());
+    return exp(-40 * (x - y).norm());
   }
 };
 ////////////////////////////////////////////////////////////////////////////////
@@ -69,9 +69,9 @@ using H2ClusterT = FMCA::H2ClusterTree<ClusterT, MPOLE_DEG>;
 
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
-  const double eta = 0.8;
+  const double eta = 0.5;
   const double svd_threshold = 1e-6;
-  const double aposteriori_threshold = 1e-6;
+  const double aposteriori_threshold = 1e-8;
   const std::string logger = "loggerBenchmark3DSVD.txt";
   tictoc T;
   {
@@ -94,7 +94,7 @@ int main(int argc, char *argv[]) {
   // const unsigned int npts = 1 << i;
   //  Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, npts);
   std::cout << "loading data: ";
-  Eigen::MatrixXd B = readMatrix("./Points/Halton2D_tiny.txt");
+  Eigen::MatrixXd B = readMatrix("./Points/bunnySurface_tiny.txt");
   std::cout << "data size: ";
   std::cout << B.rows() << " " << B.cols() << std::endl;
   const unsigned int npts = B.rows();
@@ -154,8 +154,9 @@ int main(int argc, char *argv[]) {
   std::cout << std::string(60, '-') << std::endl;
   double ctime = T.toc("set up Samplet compressed matrix: ");
   std::cout << std::string(60, '-') << std::endl;
-  double nz = 0;
-  double nza = 0;
+  unsigned int nz = 0;
+  unsigned int nza = 0;
+  Eigen::SparseMatrix<double> W(P.cols(), P.cols());
   {
     auto trips = BC.get_Pattern_triplets();
     nz = double(trips.size()) / double(P.cols());
@@ -167,6 +168,7 @@ int main(int argc, char *argv[]) {
     std::cout << "storage full:   "
               << double(sizeof(double) * P.cols() * P.cols()) / double(1e9)
               << "GB" << std::endl;
+    W.setFromTriplets(trips.begin(), trips.end());
   }
   std::cout << std::string(60, '-') << std::endl;
   double mom_err = 0;
@@ -185,43 +187,19 @@ int main(int argc, char *argv[]) {
     std::cout << "orthogonality error: " << mom_err << std::endl;
     std::cout << std::string(60, '-') << std::endl;
   }
-
-  T.tic();
-  auto trips = BC.get_Pattern_triplets();
-  Eigen::SparseMatrix<double> W(P.cols(), P.cols());
-  Eigen::SparseMatrix<double> I(P.cols(), P.cols());
-  W.setFromTriplets(trips.begin(), trips.end());
-  I.setIdentity();
-  W += I;
-  EigenCholesky solver;
-  solver.compute(W);
-  T.toc("Cholesky: ");
-  std::cout << "nz Mat: " << W.nonZeros() / P.cols();
-  Eigen::SparseMatrix<double> L = solver.matrixL();
-  std::cout << " nz L: " << L.nonZeros() / P.cols() << std::endl;
-  Eigen::SparseMatrix<double> cp = L * L.transpose();
-  std::cout << (cp - W).norm() / W.norm() << std::endl;
   {
-    double err = 0;
-    Eigen::VectorXd y1(P.cols());
-    Eigen::VectorXd y2(P.cols());
-    Eigen::VectorXd x(P.cols());
-    FMCA::ProgressBar PB;
-    PB.reset(10);
-    for (auto i = 0; i < 10; ++i) {
-      x.setRandom();
-      y1 = L * (L.transpose() * x);
-      y2 = W * x;
-      err += (y1 - y2).norm() / y2.norm();
-      PB.next();
-    }
-    err /= 10;
-    std::cout << "\nerror: " << err << std::endl;
-  }
-  T.tic();
-
-#if 0
-      {
+    T.tic();
+    Eigen::SparseMatrix<double> I(P.cols(), P.cols());
+    I.setIdentity();
+    W += I;
+    EigenCholesky solver;
+    solver.compute(W);
+    T.toc("Cholesky: ");
+    std::cout << "sinfo: " << (solver.info() == Eigen::Success) << std::endl;
+    std::cout << "nz Mat: " << W.nonZeros() / P.cols();
+    Eigen::SparseMatrix<double> L = solver.matrixL();
+    std::cout << " nz L: " << L.nonZeros() / P.cols() << std::endl;
+    {
       double err = 0;
       Eigen::VectorXd y1(P.cols());
       Eigen::VectorXd y2(P.cols());
@@ -230,18 +208,38 @@ int main(int argc, char *argv[]) {
       PB.reset(10);
       for (auto i = 0; i < 10; ++i) {
         x.setRandom();
-        y1 = matrixMultiplier(P, CT.get_indices(), exponentialKernel(), x);
-        y2 = ST.inverseSampletTransform(W * ST.sampletTransform(x));
-        err += (y1 - y2).norm() / y1.norm();
+        y1 = L * (L.transpose() * x);
+        y2 = W * x;
+        err += (y1 - y2).norm() / y2.norm();
         PB.next();
       }
       err /= 10;
-      std::cout << std::endl;
-      T.toc("time error computation: ");
-      std::cout << "error: " << err << std::endl;
+      std::cout << "\nerror: " << err << std::endl;
+      std::cout << "Wnrm2: " << get2norm(W) << " Wfnrm: " << W.norm()
+                << std::endl;
     }
-#endif
-  double err = get2norm(W);
+    W -= I;
+  }
+  T.tic();
+  double err = 0;
+  {
+    Eigen::VectorXd y1(P.cols());
+    Eigen::VectorXd y2(P.cols());
+    Eigen::VectorXd x(P.cols());
+    FMCA::ProgressBar PB;
+    PB.reset(10);
+    for (auto i = 0; i < 10; ++i) {
+      x.setRandom();
+      y1 = matrixMultiplier(P, CT.get_indices(), exponentialKernel(), x);
+      y2 = ST.inverseSampletTransform(W * ST.sampletTransform(x));
+      err += (y1 - y2).norm() / y1.norm();
+      PB.next();
+    }
+    err /= 10;
+    std::cout << std::endl;
+    T.toc("time error computation: ");
+    std::cout << "error: " << err << std::endl;
+  }
   std::fstream newfile;
   newfile.open(logger, std::fstream::app);
   newfile << std::setw(10) << npts << std ::setw(5) << DIM << std::setw(8)
