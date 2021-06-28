@@ -48,7 +48,7 @@ double get2norm(const Eigen::SparseMatrix<Derived> &A) {
 struct exponentialKernel {
   double operator()(const Eigen::Matrix<double, DIM, 1> &x,
                     const Eigen::Matrix<double, DIM, 1> &y) const {
-    return exp(-40 * (x - y).norm());
+    return exp(-10 * (x - y).norm());
   }
 };
 ////////////////////////////////////////////////////////////////////////////////
@@ -69,9 +69,10 @@ using H2ClusterT = FMCA::H2ClusterTree<ClusterT, MPOLE_DEG>;
 
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
-  const double eta = 0.5;
+  const double eta = 0.8;
   const double svd_threshold = 1e-6;
-  const double aposteriori_threshold = 1e-8;
+  const double aposteriori_threshold = 1e-6;
+  const double ridge_param = 1e-3;
   const std::string logger = "loggerBenchmark3DSVD.txt";
   tictoc T;
   {
@@ -97,14 +98,16 @@ int main(int argc, char *argv[]) {
   Eigen::MatrixXd B = readMatrix("./Points/bunnySurface_tiny.txt");
   std::cout << "data size: ";
   std::cout << B.rows() << " " << B.cols() << std::endl;
-  const unsigned int npts = B.rows();
+  const unsigned int npts = 20000;
   Eigen::MatrixXd P = B.transpose();
+  P = P.leftCols(20000);
   std::cout << std::string(60, '-') << std::endl;
   std::cout << "dim:       " << DIM << std::endl;
   std::cout << "leaf size: " << LEAFSIZE << std::endl;
   std::cout << "mpole deg: " << MPOLE_DEG << std::endl;
   std::cout << "dtilde:    " << DTILDE << std::endl;
   std::cout << "npts:      " << npts << std::endl;
+  std::cout << "rparam:    " << ridge_param << std::endl;
   std::cout << std::string(60, '-') << std::endl;
   //////////////////////////////////////////////////////////////////////////////
   // set up cluster tree
@@ -191,7 +194,7 @@ int main(int argc, char *argv[]) {
     T.tic();
     Eigen::SparseMatrix<double> I(P.cols(), P.cols());
     I.setIdentity();
-    W += I;
+    W += ridge_param * I;
     EigenCholesky solver;
     solver.compute(W);
     T.toc("Cholesky: ");
@@ -208,7 +211,8 @@ int main(int argc, char *argv[]) {
       PB.reset(10);
       for (auto i = 0; i < 10; ++i) {
         x.setRandom();
-        y1 = L * (L.transpose() * x);
+        y1 = solver.permutationPinv() * L *
+             (L.transpose() * solver.permutationP() * x);
         y2 = W * x;
         err += (y1 - y2).norm() / y2.norm();
         PB.next();
@@ -218,7 +222,7 @@ int main(int argc, char *argv[]) {
       std::cout << "Wnrm2: " << get2norm(W) << " Wfnrm: " << W.norm()
                 << std::endl;
     }
-    W -= I;
+    W -= ridge_param * I;
   }
   T.tic();
   double err = 0;
