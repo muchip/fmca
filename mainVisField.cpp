@@ -35,7 +35,7 @@ using EigenCholesky =
 struct exponentialKernel {
   double operator()(const Eigen::Matrix<double, DIM, 1> &x,
                     const Eigen::Matrix<double, DIM, 1> &y) const {
-    return exp(-10 * (x - y).squaredNorm());
+    return exp(-10 * (x - y).norm());
   }
 };
 ////////////////////////////////////////////////////////////////////////////////
@@ -46,16 +46,16 @@ using H2ClusterT = FMCA::H2ClusterTree<ClusterT, MPOLE_DEG>;
 int main(int argc, char *argv[]) {
   const double eta = 0.8;
   const double svd_threshold = 1e-6;
-  const double aposteriori_threshold = 1e-6;
-  const double ridge_param = 1e-3;
-  const unsigned int npts = 10000;
+  const double aposteriori_threshold = 1e-10;
+  const double ridge_param = 1e-2;
+  const unsigned int npts = 20000;
   Eigen::MatrixXd P;
   tictoc T;
   {
     ////////////////////////////////////////////////////////////////////////////
     std::cout << std::string(60, '-') << std::endl;
     std::cout << "loading data: ";
-    Eigen::MatrixXd B = readMatrix("./Points/bunnyVolume.txt");
+    Eigen::MatrixXd B = readMatrix("./Points/bunnySurface.txt");
     std::cout << "data size: ";
     std::cout << B.rows() << " " << B.cols() << std::endl;
     ////////////////////////////////////////////////////////////////////////////
