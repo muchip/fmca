@@ -3,10 +3,9 @@
 #define USE_QR_CONSTRUCTION_
 #define FMCA_CLUSTERSET_
 #define DIM 3
-#define MPOLE_DEG 4
-#define DTILDE 3
+#define MPOLE_DEG 5
+#define DTILDE 4
 #define LEAFSIZE 4
-
 ////////////////////////////////////////////////////////////////////////////////
 #include <Eigen/Dense>
 #include <Eigen/MetisSupport>
@@ -87,20 +86,21 @@ int main(int argc, char *argv[]) {
               << std::setw(8) << "mpdeg" << std::setw(8) << "dtilde"
               << std::setw(6) << "eta" << std::setw(8) << "apost"
               << std::setw(8) << "svd" << std::setw(9) << "nza" << std::setw(9)
-              << "nzp" << std::setw(14) << "mom ortho" << std::setw(14)
-              << "nrm2" << std::setw(12) << "ctime" << std::endl;
+              << "nzp" << std::setw(9) << "nzL" << std::setw(14) << "Comp_err"
+              << std::setw(14) << "Chol_err" << std::setw(14) << "cond"
+              << std::setw(12) << "ctime" << std::endl;
       newfile.close();
     }
   }
+  //////////////////////////////////////////////////////////////////////////////
   std::cout << std::string(60, '-') << std::endl;
-  // const unsigned int npts = 1 << i;
-  //  Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, npts);
   std::cout << "loading data: ";
   Eigen::MatrixXd B = readMatrix("./Points/bunnyVolume.txt");
   std::cout << "data size: ";
   std::cout << B.rows() << " " << B.cols() << std::endl;
-  Eigen::MatrixXd P = B.transpose();
+  //////////////////////////////////////////////////////////////////////////////
   for (auto npts = 10;;) {
+    Eigen::MatrixXd P = B.transpose();
     P.conservativeResize(P.rows(), npts);
     std::cout << std::string(60, '-') << std::endl;
     std::cout << "dim:       " << DIM << std::endl;
@@ -110,12 +110,12 @@ int main(int argc, char *argv[]) {
     std::cout << "npts:      " << npts << std::endl;
     std::cout << "rparam:    " << ridge_param << std::endl;
     std::cout << std::string(60, '-') << std::endl;
-    //////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
     // set up cluster tree
     T.tic();
     ClusterT CT(P);
     T.toc("set up cluster tree: ");
-    //////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
     // set up H2 cluster tree
     T.tic();
     H2ClusterT H2CT(P, CT);
@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
       }
       std::cout << std::string(60, '-') << std::endl;
     }
-    //////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
     // set up samplet tree
     T.tic();
     FMCA::SampletTree<ClusterT> ST(P, CT, DTILDE, svd_threshold);
@@ -148,8 +148,8 @@ int main(int argc, char *argv[]) {
     ST.computeMultiscaleClusterBases(H2CT);
     T.toc("set up time multiscale cluster bases");
     std::cout << std::string(60, '-') << std::endl;
-    //////////////////////////////////////////////////////////////////////////////
-    // set up bivariate compressor
+    ////////////////////////////////////////////////////////////////////////////
+    // set up bivariate compressor and compress matrix
     T.tic();
     FMCA::BivariateCompressorH2<FMCA::SampletTree<ClusterT>> BC;
     BC.set_eta(eta);
@@ -161,6 +161,9 @@ int main(int argc, char *argv[]) {
     std::cout << std::string(60, '-') << std::endl;
     unsigned int nz = 0;
     unsigned int nza = 0;
+    unsigned int nzL = 0;
+    ////////////////////////////////////////////////////////////////////////////
+    // get samplet matrix and output storage and compression
     Eigen::SparseMatrix<double> W(P.cols(), P.cols());
     {
       auto trips = BC.get_Pattern_triplets();
@@ -176,6 +179,9 @@ int main(int argc, char *argv[]) {
       W.setFromTriplets(trips.begin(), trips.end());
     }
     std::cout << std::string(60, '-') << std::endl;
+    ////////////////////////////////////////////////////////////////////////////
+    // test vanishing moments, the samplets should at least be orthogonal up
+    // to degree dtilde -1
     double mom_err = 0;
     {
       std::cout << "testing vanishing moments:\n";
@@ -192,6 +198,10 @@ int main(int argc, char *argv[]) {
       std::cout << "orthogonality error: " << mom_err << std::endl;
       std::cout << std::string(60, '-') << std::endl;
     }
+    ////////////////////////////////////////////////////////////////////////////
+    // perform the Cholesky factorization of the compressed matrix
+    double Chol_err = 0;
+    double cond = 0;
     {
       T.tic();
       Eigen::SparseMatrix<double> I(P.cols(), P.cols());
@@ -203,9 +213,10 @@ int main(int argc, char *argv[]) {
       std::cout << "sinfo: " << (solver.info() == Eigen::Success) << std::endl;
       std::cout << "nz Mat: " << W.nonZeros() / P.cols();
       Eigen::SparseMatrix<double> L = solver.matrixL();
-      std::cout << " nz L: " << L.nonZeros() / P.cols() << std::endl;
+      nzL = L.nonZeros() / P.cols();
+      std::cout << " nz L: " << nzL << std::endl;
+      Chol_err = 0;
       {
-        double err = 0;
         Eigen::VectorXd y1(P.cols());
         Eigen::VectorXd y2(P.cols());
         Eigen::VectorXd x(P.cols());
@@ -213,23 +224,30 @@ int main(int argc, char *argv[]) {
         PB.reset(10);
         for (auto i = 0; i < 10; ++i) {
           x.setRandom();
-          y1 = solver.permutationPinv() * L *
-               (L.transpose() * solver.permutationP() * x);
+          y1 = solver.permutationPinv() *
+               (L * (L.transpose() * (solver.permutationP() * x).eval()).eval())
+                   .eval();
           y2 = W * x;
-          err += (y1 - y2).norm() / y2.norm();
+          Chol_err += (y1 - y2).norm() / y2.norm();
           PB.next();
         }
-        err /= 10;
-        std::cout << "\nerror: " << err << std::endl;
-        if (npts < 1e5)
-        std::cout << "Wnrm2: " << get2norm(W) << " Wfnrm: " << W.norm()
+        Chol_err /= 10;
+        std::cout << "\nCholesky decomposition error: " << Chol_err
                   << std::endl;
+        cond = 0;
+        if (npts < 1e5) {
+          cond = get2norm(W);
+          std::cout << "Wnrm2: " << cond << " Wfnrm: " << W.norm() << std::endl;
+          cond /= ridge_param;
+        }
       }
       W -= ridge_param * I;
     }
-    T.tic();
+    ////////////////////////////////////////////////////////////////////////////
+    // perform error computation
     double err = 0;
     if (npts < 1e5) {
+      T.tic();
       Eigen::VectorXd y1(P.cols());
       Eigen::VectorXd y2(P.cols());
       Eigen::VectorXd x(P.cols());
@@ -244,8 +262,8 @@ int main(int argc, char *argv[]) {
       }
       err /= 10;
       std::cout << std::endl;
-      T.toc("time error computation: ");
-      std::cout << "error: " << err << std::endl;
+      T.toc("time compression error computation: ");
+      std::cout << "compression error: " << err << std::endl;
     }
     std::fstream newfile;
     newfile.open(logger, std::fstream::app);
@@ -253,12 +271,17 @@ int main(int argc, char *argv[]) {
             << MPOLE_DEG << std::setw(8) << DTILDE << std::setw(6) << eta
             << std::setw(8) << aposteriori_threshold << std::setw(8)
             << svd_threshold << std::setw(9) << nza << std::setw(9) << nz
-            << std::setw(14) << mom_err << std::setw(14) << err << std::setw(12)
-            << ctime << std::endl;
+            << std::setw(9) << nzL << std::setw(14) << err << std::setw(14)
+            << Chol_err << std::setw(14) << cond << std::setw(12) << ctime
+            << std::endl;
     newfile.close();
     if (npts == B.rows())
       break;
     npts = 2 * npts <= B.rows() ? 2 * npts : B.rows();
+    ////////////////////////////////////////////////////////////////////////////
+    std::cout << std::string(60, '-') << std::endl;
+    std::cout << std::string(60, '*') << std::endl;
+    std::cout << std::string(60, '*') << std::endl;
   }
   return 0;
 }
