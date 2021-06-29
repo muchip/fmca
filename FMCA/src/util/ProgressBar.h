@@ -27,7 +27,8 @@ public:
     return;
   }
   void next() {
-    if (currStep_ < numSteps_)
+#ifndef FMCA_CLUSTERSET_
+if (currStep_ < numSteps_)
       ++currStep_;
     percent_ = (100 * currStep_) / numSteps_;
     if (percent_ > 100)
@@ -39,6 +40,7 @@ public:
       std::cout << " (" << percent_ << "%)" << std::flush;
       displayNext_ += 1;
     }
+#endif
     return;
   }
 

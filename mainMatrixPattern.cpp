@@ -1,6 +1,7 @@
 #include <iostream>
 ////////////////////////////////////////////////////////////////////////////////
 #define USE_QR_CONSTRUCTION_
+#define FMCA_CLUSTERSET_
 #define DIM 3
 #define MPOLE_DEG 4
 #define DTILDE 3
@@ -100,7 +101,7 @@ int main(int argc, char *argv[]) {
   std::cout << B.rows() << " " << B.cols() << std::endl;
   Eigen::MatrixXd P = B.transpose();
   for (auto npts = 10;;) {
-    P = P.leftCols(npts);
+    P.conservativeResize(P.rows(), npts);
     std::cout << std::string(60, '-') << std::endl;
     std::cout << "dim:       " << DIM << std::endl;
     std::cout << "leaf size: " << LEAFSIZE << std::endl;
@@ -220,6 +221,7 @@ int main(int argc, char *argv[]) {
         }
         err /= 10;
         std::cout << "\nerror: " << err << std::endl;
+        if (npts < 1e5)
         std::cout << "Wnrm2: " << get2norm(W) << " Wfnrm: " << W.norm()
                   << std::endl;
       }
@@ -256,7 +258,7 @@ int main(int argc, char *argv[]) {
     newfile.close();
     if (npts == B.rows())
       break;
-    npts = 2 * npts <= B.rows() ? 2 npts : B.rows();
+    npts = 2 * npts <= B.rows() ? 2 * npts : B.rows();
   }
   return 0;
 }
