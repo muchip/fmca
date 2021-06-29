@@ -71,7 +71,7 @@ using H2ClusterT = FMCA::H2ClusterTree<ClusterT, MPOLE_DEG>;
 int main(int argc, char *argv[]) {
   const double eta = 0.8;
   const double svd_threshold = 1e-6;
-  const double aposteriori_threshold = 1e-6;
+  const double aposteriori_threshold = 1e-5;
   const double ridge_param = 1e-3;
   const std::string logger = "loggerBenchmark3DQR.txt";
   tictoc T;

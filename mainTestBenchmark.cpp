@@ -1,13 +1,13 @@
-#include <iostream>
 ////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
+#define USE_QR_CONSTRUCTION_
+#define FMCA_CLUSTERSET_
+#define DIM 1
+#define MPOLE_DEG 5
+#define DTILDE 4
+#define LEAFSIZE 4
 ////////////////////////////////////////////////////////////////////////////////
 #include <Eigen/Dense>
-#include <Eigen/MetisSupport>
 #include <Eigen/Sparse>
-#include <Eigen/SparseCholesky>
 #include <fstream>
 #include <functional>
 #include <iomanip>
@@ -18,10 +18,6 @@
 #include "imgCompression/matrixReader.h"
 
 ////////////////////////////////////////////////////////////////////////////////
-#define DIM 2
-#define MPOLE_DEG 3
-#define DTILDE 2
-#define LEAFSIZE 4
 ////////////////////////////////////////////////////////////////////////////////
 template <typename Derived>
 double get2norm(const Eigen::SparseMatrix<Derived> &A) {
@@ -39,7 +35,7 @@ double get2norm(const Eigen::SparseMatrix<Derived> &A) {
 struct exponentialKernel {
   double operator()(const Eigen::Matrix<double, DIM, 1> &x,
                     const Eigen::Matrix<double, DIM, 1> &y) const {
-    return exp(-4 * (x - y).norm());
+    return exp(-10 * (x - y).norm());
   }
 };
 ////////////////////////////////////////////////////////////////////////////////
@@ -62,8 +58,9 @@ using H2ClusterT = FMCA::H2ClusterTree<ClusterT, MPOLE_DEG>;
 int main(int argc, char *argv[]) {
   const double eta = 0.8;
   const double svd_threshold = 1e-6;
-  const double aposteriori_threshold = 1e-6;
-  const std::string logger = "loggerBenchmark3DSVD.txt";
+  const double aposteriori_threshold = 1e-5;
+  const std::string logger =
+      "loggerTimeBenchmark" + std::to_string(DIM) + "DQR.txt";
   tictoc T;
   {
     std::ifstream file;
@@ -82,15 +79,10 @@ int main(int argc, char *argv[]) {
     }
   }
   std::cout << std::string(60, '-') << std::endl;
+  //////////////////////////////////////////////////////////////////////////////
   for (auto i = 2; i <= 20; ++i) {
-    // const unsigned int npts = 1 << i;
-    //  Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, npts);
-    std::cout << "loading data: ";
-    Eigen::MatrixXd B = readMatrix("./Points/Halton2D_small.txt");
-    std::cout << "data size: ";
-    std::cout << B.rows() << " " << B.cols() << std::endl;
-    const unsigned int npts = B.rows();
-    Eigen::MatrixXd P = B.transpose();
+    const unsigned int npts = 1 << i;
+    Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, npts);
     std::cout << std::string(60, '-') << std::endl;
     std::cout << "dim:       " << DIM << std::endl;
     std::cout << "leaf size: " << LEAFSIZE << std::endl;
@@ -98,12 +90,12 @@ int main(int argc, char *argv[]) {
     std::cout << "dtilde:    " << DTILDE << std::endl;
     std::cout << "npts:      " << npts << std::endl;
     std::cout << std::string(60, '-') << std::endl;
-    //////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
     // set up cluster tree
     T.tic();
     ClusterT CT(P);
     T.toc("set up cluster tree: ");
-    //////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
     // set up H2 cluster tree
     T.tic();
     H2ClusterT H2CT(P, CT);
@@ -148,6 +140,7 @@ int main(int argc, char *argv[]) {
     std::cout << std::string(60, '-') << std::endl;
     double nz = 0;
     double nza = 0;
+    Eigen::SparseMatrix<double> W(P.cols(), P.cols());
     {
       auto trips = BC.get_Pattern_triplets();
       nz = double(trips.size()) / double(P.cols());
@@ -159,6 +152,7 @@ int main(int argc, char *argv[]) {
       std::cout << "storage full:   "
                 << double(sizeof(double) * P.cols() * P.cols()) / double(1e9)
                 << "GB" << std::endl;
+      W.setFromTriplets(trips.begin(), trips.end());
     }
     std::cout << std::string(60, '-') << std::endl;
     double mom_err = 0;
@@ -177,47 +171,11 @@ int main(int argc, char *argv[]) {
       std::cout << "orthogonality error: " << mom_err << std::endl;
       std::cout << std::string(60, '-') << std::endl;
     }
-
-    T.tic();
-    auto trips = BC.get_Pattern_triplets();
-    Eigen::SparseMatrix<double> W(P.cols(), P.cols());
-    Eigen::SparseMatrix<double> I(P.cols(), P.cols());
-    W.setFromTriplets(trips.begin(), trips.end());
-    I.setIdentity();
-    W += 1 * I;
-    Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>, Eigen::Lower,
-                          Eigen::COLAMDOrdering<int>>
-        solver;
-    solver.compute(W);
-    T.toc("Cholesky: ");
-    std::cout << "nz Mat: " << W.nonZeros() / P.cols();
-    Eigen::SparseMatrix<double> L = solver.matrixL();
-    std::cout << " nz L: " << L.nonZeros() / P.cols() << std::endl;
-    Eigen::SparseMatrix<double> cp =
-        L * solver.vectorD().asDiagonal() * L.transpose();
-    std::cout << (cp - W).norm() / W.norm() << std::endl;
-    {
-      double err = 0;
-      Eigen::VectorXd y1(P.cols());
-      Eigen::VectorXd y2(P.cols());
-      Eigen::VectorXd x(P.cols());
-      FMCA::ProgressBar PB;
-      PB.reset(10);
-      for (auto i = 0; i < 10; ++i) {
-        x.setRandom();
-        y1 = L * solver.vectorD().asDiagonal() * (L.transpose() * x);
-        y2 = W * x;
-        err += (y1 - y2).norm() / y2.norm();
-        PB.next();
-      }
-      err /= 10;
-      std::cout << "\nerror: " << err << std::endl;
-    }
-    T.tic();
-
-#if 0
-      {
-      double err = 0;
+    ////////////////////////////////////////////////////////////////////////////
+    // perform error computation
+    double err = 0;
+    if (npts < 1e5) {
+      T.tic();
       Eigen::VectorXd y1(P.cols());
       Eigen::VectorXd y2(P.cols());
       Eigen::VectorXd x(P.cols());
@@ -232,11 +190,10 @@ int main(int argc, char *argv[]) {
       }
       err /= 10;
       std::cout << std::endl;
-      T.toc("time error computation: ");
-      std::cout << "error: " << err << std::endl;
+      T.toc("time compression error computation: ");
+      std::cout << "compression error: " << err << std::endl;
+      std::cout << "wnrm2: " << get2norm(W) << std::endl;
     }
-#endif
-    double err = get2norm(W);
     std::fstream newfile;
     newfile.open(logger, std::fstream::app);
     newfile << std::setw(10) << npts << std ::setw(5) << DIM << std::setw(8)
