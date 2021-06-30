@@ -1,9 +1,9 @@
 ////////////////////////////////////////////////////////////////////////////////
 #define USE_QR_CONSTRUCTION_
 #define FMCA_CLUSTERSET_
-#define DIM 1
+#define DIM 3
 #define MPOLE_DEG 5
-#define DTILDE 4
+#define DTILDE 3
 #define LEAFSIZE 4
 ////////////////////////////////////////////////////////////////////////////////
 #include <Eigen/Dense>
@@ -35,7 +35,7 @@ double get2norm(const Eigen::SparseMatrix<Derived> &A) {
 struct exponentialKernel {
   double operator()(const Eigen::Matrix<double, DIM, 1> &x,
                     const Eigen::Matrix<double, DIM, 1> &y) const {
-    return exp(-10 * (x - y).norm());
+    return exp(-10 * (x - y).norm() / sqrt(DIM));
   }
 };
 ////////////////////////////////////////////////////////////////////////////////
@@ -74,13 +74,13 @@ int main(int argc, char *argv[]) {
               << std::setw(6) << "eta" << std::setw(8) << "apost"
               << std::setw(8) << "svd" << std::setw(9) << "nza" << std::setw(9)
               << "nzp" << std::setw(14) << "mom ortho" << std::setw(14)
-              << "nrm2" << std::setw(12) << "ctime" << std::endl;
+              << "err" << std::setw(12) << "ctime" << std::endl;
       newfile.close();
     }
   }
   std::cout << std::string(60, '-') << std::endl;
   //////////////////////////////////////////////////////////////////////////////
-  for (auto i = 2; i <= 20; ++i) {
+  for (auto i = 19; i <= 20; ++i) {
     const unsigned int npts = 1 << i;
     Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, npts);
     std::cout << std::string(60, '-') << std::endl;
@@ -156,6 +156,7 @@ int main(int argc, char *argv[]) {
     }
     std::cout << std::string(60, '-') << std::endl;
     double mom_err = 0;
+    #if 0
     {
       std::cout << "testing vanishing moments:\n";
       // compute the multi indices for the monomials used for vanishing moments
@@ -171,10 +172,11 @@ int main(int argc, char *argv[]) {
       std::cout << "orthogonality error: " << mom_err << std::endl;
       std::cout << std::string(60, '-') << std::endl;
     }
+#endif
     ////////////////////////////////////////////////////////////////////////////
     // perform error computation
     double err = 0;
-    if (npts < 1e5) {
+    if (npts < 2e4) {
       T.tic();
       Eigen::VectorXd y1(P.cols());
       Eigen::VectorXd y2(P.cols());

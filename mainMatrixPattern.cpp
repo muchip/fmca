@@ -4,7 +4,7 @@
 #define FMCA_CLUSTERSET_
 #define DIM 3
 #define MPOLE_DEG 5
-#define DTILDE 4
+#define DTILDE 3
 #define LEAFSIZE 4
 ////////////////////////////////////////////////////////////////////////////////
 #include <Eigen/Dense>
@@ -37,7 +37,7 @@ double get2norm(const Eigen::SparseMatrix<Derived> &A) {
   double retval = 0;
   Eigen::VectorXd vec = Eigen::VectorXd::Random(A.cols());
   vec /= vec.norm();
-  for (auto i = 0; i < 200; ++i) {
+  for (auto i = 0; i < 100; ++i) {
     vec = A * vec;
     retval = vec.norm();
     vec *= 1. / retval;
@@ -183,6 +183,7 @@ int main(int argc, char *argv[]) {
     // test vanishing moments, the samplets should at least be orthogonal up
     // to degree dtilde -1
     double mom_err = 0;
+#if 0
     {
       std::cout << "testing vanishing moments:\n";
       // compute the multi indices for the monomials used for vanishing moments
@@ -198,6 +199,7 @@ int main(int argc, char *argv[]) {
       std::cout << "orthogonality error: " << mom_err << std::endl;
       std::cout << std::string(60, '-') << std::endl;
     }
+#endif
     ////////////////////////////////////////////////////////////////////////////
     // perform the Cholesky factorization of the compressed matrix
     double Chol_err = 0;
@@ -235,7 +237,7 @@ int main(int argc, char *argv[]) {
         std::cout << "\nCholesky decomposition error: " << Chol_err
                   << std::endl;
         cond = 0;
-        if (npts < 1e5) {
+        if (npts < 5e4) {
           cond = get2norm(W);
           std::cout << "Wnrm2: " << cond << " Wfnrm: " << W.norm() << std::endl;
           cond /= ridge_param;
@@ -246,7 +248,7 @@ int main(int argc, char *argv[]) {
     ////////////////////////////////////////////////////////////////////////////
     // perform error computation
     double err = 0;
-    if (npts < 1e5) {
+    if (npts < 5e4) {
       T.tic();
       Eigen::VectorXd y1(P.cols());
       Eigen::VectorXd y2(P.cols());
