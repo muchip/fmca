@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
   }
   std::cout << std::string(60, '-') << std::endl;
   //////////////////////////////////////////////////////////////////////////////
-  for (auto i = 19; i <= 20; ++i) {
+  for (auto i = 20; i <= 20; ++i) {
     const unsigned int npts = 1 << i;
     Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, npts);
     std::cout << std::string(60, '-') << std::endl;
@@ -152,7 +152,7 @@ int main(int argc, char *argv[]) {
       std::cout << "storage full:   "
                 << double(sizeof(double) * P.cols() * P.cols()) / double(1e9)
                 << "GB" << std::endl;
-      W.setFromTriplets(trips.begin(), trips.end());
+ //     W.setFromTriplets(trips.begin(), trips.end());
     }
     std::cout << std::string(60, '-') << std::endl;
     double mom_err = 0;

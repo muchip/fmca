@@ -3,8 +3,8 @@
 #define USE_QR_CONSTRUCTION_
 #define FMCA_CLUSTERSET_
 #define DIM 3
-#define MPOLE_DEG 5
-#define DTILDE 3
+#define MPOLE_DEG 3
+#define DTILDE 2
 #define LEAFSIZE 4
 ////////////////////////////////////////////////////////////////////////////////
 #include <Eigen/Dense>
@@ -48,7 +48,7 @@ double get2norm(const Eigen::SparseMatrix<Derived> &A) {
 struct exponentialKernel {
   double operator()(const Eigen::Matrix<double, DIM, 1> &x,
                     const Eigen::Matrix<double, DIM, 1> &y) const {
-    return exp(-10 * (x - y).norm());
+    return exp(-10 * (x - y).norm() / sqrt(DIM));
   }
 };
 ////////////////////////////////////////////////////////////////////////////////
@@ -73,7 +73,7 @@ int main(int argc, char *argv[]) {
   const double svd_threshold = 1e-6;
   const double aposteriori_threshold = 1e-5;
   const double ridge_param = 1e-3;
-  const std::string logger = "loggerBenchmark3DQR.txt";
+  const std::string logger = "loggerBenchmark2DQR2.txt";
   tictoc T;
   {
     std::ifstream file;
@@ -95,7 +95,7 @@ int main(int argc, char *argv[]) {
   //////////////////////////////////////////////////////////////////////////////
   std::cout << std::string(60, '-') << std::endl;
   std::cout << "loading data: ";
-  Eigen::MatrixXd B = readMatrix("./Points/bunnyVolume.txt");
+  Eigen::MatrixXd B = readMatrix("./Points/bunnySurface.txt");
   std::cout << "data size: ";
   std::cout << B.rows() << " " << B.cols() << std::endl;
   //////////////////////////////////////////////////////////////////////////////
