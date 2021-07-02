@@ -1,3 +1,5 @@
+#define USE_QR_CONSTRUCTION_
+
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <fstream>
@@ -24,16 +26,16 @@
 //#define NPTS 1024
 //#define NPTS 512
 //#define NPTS 64
-#define DIM 3
-#define MPOLE_DEG 4
+#define DIM 1
+#define MPOLE_DEG 5
 #define DTILDE 3
 #define LEAFSIZE 4
 
 //#define PLOT_BOXES_
-#define TEST_H2MATRIX_
-#define TEST_COMPRESSOR_
+//#define TEST_H2MATRIX_
+//#define TEST_COMPRESSOR_
 #define TEST_SAMPLET_TRANSFORM_
-#define TEST_SAMPLET_BASIS_
+//#define TEST_SAMPLET_BASIS_
 
 struct Gaussian {
   double operator()(const Eigen::Matrix<double, DIM, 1> &x,
@@ -66,7 +68,7 @@ int main() {
   P.row(2) = 0.5 * P1;
   P = rot * P;
 #endif
-    Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, NPTS);
+  Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, NPTS);
 //  Eigen::VectorXd nrms = P.colwise().norm();
 //  for (auto i = 0; i < P.cols(); ++i)
 //    P.col(i) *= 1 / nrms(i);
@@ -82,8 +84,7 @@ int main() {
     std::cout << "l)\t#pts\ttotal#pts" << std::endl;
     for (auto i = 0; i < tree.size(); ++i) {
       int numInd = 0;
-      for (auto j = 0; j < tree[i].size(); ++j)
-        numInd += tree[i][j];
+      for (auto j = 0; j < tree[i].size(); ++j) numInd += tree[i][j];
       std::cout << i << ")\t" << tree[i].size() << "\t" << numInd << "\n";
     }
     std::cout << "----------------------------------------------------\n";
@@ -98,8 +99,7 @@ int main() {
     std::cout << "l)\t#pts\ttotal#pts" << std::endl;
     for (auto i = 0; i < tree.size(); ++i) {
       int numInd = 0;
-      for (auto j = 0; j < tree[i].size(); ++j)
-        numInd += tree[i][j];
+      for (auto j = 0; j < tree[i].size(); ++j) numInd += tree[i][j];
       std::cout << i << ")\t" << tree[i].size() << "\t" << numInd << "\n";
     }
     std::cout << "----------------------------------------------------\n";
@@ -233,7 +233,7 @@ int main() {
     T.toc("time inverse samplet transform matrix: ");
     std::cout << "error: " << (K - K2).norm() / K2.norm() << std::endl;
     std::cout << "----------------------------------------------------\n";
-#if 0
+#if 1
     Bembel::IO::print2m("SampletBasis.m", "T", Tmat, "w");
     Bembel::IO::print2m("Points.m", "P", P, "w");
     Eigen::VectorXi idx(P.cols());

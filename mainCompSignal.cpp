@@ -35,6 +35,16 @@ struct enterpriseSignal {
            exp(-40 * (x - d1).norm());
   }
 };
+
+struct bunnySignal {
+  double operator()(const Eigen::Matrix<double, DIM, 1> &x) const {
+    Eigen::Vector3d g1, g2, d1;
+    g1 << -0.33, 0.68, -0.57;
+    g2 << 0.084, 0.74, -0.32;
+    return exp(-20 * (x - g1).norm()) + exp(-20 * (x - g2).norm());
+  }
+};
+
 using ClusterT = FMCA::ClusterTree<double, DIM, LEAFSIZE, MPOLE_DEG>;
 
 int main() {
@@ -55,7 +65,7 @@ int main() {
     }
 #endif
   std::cout << "loading data: ";
-  Eigen::MatrixXd B = readMatrix("./Points/enterpriseD.txt");
+  Eigen::MatrixXd B = readMatrix("./Points/bunnySurface.txt");
   std::cout << "data size: ";
   std::cout << B.rows() << " " << B.cols() << std::endl;
   std::cout << "----------------------------------------------------\n";
@@ -96,9 +106,8 @@ int main() {
 
   auto indices = CT.get_indices();
   Eigen::VectorXd data(P.cols());
-  auto fun = enterpriseSignal();
-  for (auto j = 0; j < P.cols(); ++j)
-    data(j) = fun(P.col(CT.get_indices()[j]));
+  auto fun = bunnySignal();
+  for (auto j = 0; j < P.cols(); ++j) data(j) = fun(P.col(CT.get_indices()[j]));
   Eigen::VectorXd Tdata = ST.sampletTransform(data);
 #endif
   ST.visualizeCoefficients(Tdata, "coeff.vtk",
