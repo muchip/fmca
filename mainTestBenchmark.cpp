@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
   const double svd_threshold = 1e-6;
   const double aposteriori_threshold = 1e-5;
   const std::string logger =
-      "loggerTimeBenchmark" + std::to_string(DIM) + "DQR_ND.txt";
+      "loggerTimeBenchmark" + std::to_string(DIM) + "DQR.txt";
   tictoc T;
   {
     std::ifstream file;

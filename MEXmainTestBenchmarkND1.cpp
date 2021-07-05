@@ -2,7 +2,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 #define USE_QR_CONSTRUCTION_
 #define FMCA_CLUSTERSET_
-#define DIM 2
+#define DIM 1
 #define MPOLE_DEG 3
 #define DTILDE 2
 #define LEAFSIZE 4
@@ -43,7 +43,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   const FMCA::IndexType lvl = std::round(*(mxGetPr(prhs[0])));
   const double eta = 0.8;
   const double svd_threshold = 1e-6;
-  const double aposteriori_threshold = 1e-4;
+  const double aposteriori_threshold = 1e-6;
   const double ridge_param = 1e-1;
   const FMCA::IndexType npts = 1 << lvl;
   const std::string logger =

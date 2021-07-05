@@ -2,7 +2,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 #define USE_QR_CONSTRUCTION_
 #define FMCA_CLUSTERSET_
-#define DIM 3
+#define DIM 2
 #define MPOLE_DEG 3
 #define DTILDE 2
 #define LEAFSIZE 4
@@ -11,7 +11,7 @@
 #include <Eigen/MetisSupport>
 #include <Eigen/Sparse>
 #include <Eigen/SparseCholesky>
-#if 0
+#if 1
 using EigenCholesky =
     Eigen::SimplicialLLT<Eigen::SparseMatrix<double>, Eigen::Lower,
                          Eigen::COLAMDOrdering<int>>;
@@ -37,7 +37,7 @@ double get2norm(const Eigen::SparseMatrix<Derived> &A) {
   double retval = 0;
   Eigen::VectorXd vec = Eigen::VectorXd::Random(A.cols());
   vec /= vec.norm();
-  for (auto i = 0; i < 200; ++i) {
+  for (auto i = 0; i < 100; ++i) {
     vec = A * vec;
     retval = vec.norm();
     vec *= 1. / retval;
@@ -48,7 +48,7 @@ double get2norm(const Eigen::SparseMatrix<Derived> &A) {
 struct exponentialKernel {
   double operator()(const Eigen::Matrix<double, DIM, 1> &x,
                     const Eigen::Matrix<double, DIM, 1> &y) const {
-    return exp(-10 * (x - y).norm() / sqrt(DIM));
+    return exp(-25 * (x - y).norm() / sqrt(DIM));
   }
 };
 ////////////////////////////////////////////////////////////////////////////////
@@ -71,10 +71,10 @@ using H2ClusterT = FMCA::H2ClusterTree<ClusterT, MPOLE_DEG>;
 int main(int argc, char *argv[]) {
   const double eta = 0.8;
   const double svd_threshold = 1e-6;
-  const double aposteriori_threshold = 1e-8;
-  const double ridge_param = 1e-1;
+  const double aposteriori_threshold = 1e-4;
+  const double ridge_param = 10;
   const std::string logger =
-      "loggerTimeBenchmark" + std::to_string(DIM) + "DQR.txt";
+      "loggerTimeBenchmark" + std::to_string(DIM) + "DQR_ND.txt";
   tictoc T;
   {
     std::ifstream file;
@@ -95,7 +95,7 @@ int main(int argc, char *argv[]) {
   }
   std::cout << std::string(60, '-') << std::endl;
   //////////////////////////////////////////////////////////////////////////////
-  for (auto i = 4; i <= 20; ++i) {
+  for (auto i = 20; i <= 20; ++i) {
     const unsigned int npts = 1 << i;
     Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, npts);
     std::cout << std::string(60, '-') << std::endl;
@@ -158,7 +158,15 @@ int main(int argc, char *argv[]) {
     unsigned int nzL = 0;
     Eigen::SparseMatrix<double> W(P.cols(), P.cols());
     {
-      auto trips = BC.get_Pattern_triplets();
+      const std::vector<Eigen::Triplet<double>> &trips = 
+                                                   BC.get_Pattern_triplets();
+      Eigen::Index maxi = 0;
+      Eigen::Index maxj = 0;
+      for (const auto &it : trips) {
+        maxi = maxi < it.row() ? it.row() : maxi;
+        maxj = maxj < it.col() ? it.col() : maxj;
+      }
+      std::cout << "maxi: " << maxi << " maxj: " << maxj << " n: " << P.cols() <<std::endl;
       nz = double(trips.size()) / double(P.cols());
       nza = double(BC.get_storage_size()) / double(P.cols());
       std::cout << "nz per row:     " << nza << " / " << nz << std::endl;
@@ -168,7 +176,9 @@ int main(int argc, char *argv[]) {
       std::cout << "storage full:   "
                 << double(sizeof(double) * P.cols() * P.cols()) / double(1e9)
                 << "GB" << std::endl;
+      std::cout << "beginning set from triplets ...\n" << std::flush;
       W.setFromTriplets(trips.begin(), trips.end());
+      std::cout << "done.\n" << std::flush;
     }
     std::cout << std::string(60, '-') << std::endl;
     double mom_err = 0;
@@ -177,20 +187,25 @@ int main(int argc, char *argv[]) {
     double Chol_err = 0;
     double cond = 0;
     {
-      T.tic();
+      std::cout << "starting Cholesky decomposition\n";
       Eigen::SparseMatrix<double> I(P.cols(), P.cols());
       I.setIdentity();
       W += ridge_param * I;
+      std::cout << "added ridge parameter!\n" << std::flush;
       EigenCholesky solver;
-      solver.compute(W);
-      T.toc("Cholesky: ");
-      std::cout << "sinfo: " << (solver.info() == Eigen::Success) << std::endl;
+      T.tic();
+      solver.analyzePattern(W);
+      T.toc("analyze Pattern: ");
+      T.tic();
+      solver.factorize(W);
+      T.toc("time factorization: ");
+      std::cout << "sinfo: " << solver.info() << std::endl;
       std::cout << "nz Mat: " << W.nonZeros() / P.cols();
-      Eigen::SparseMatrix<double> L = solver.matrixL();
-      nzL = L.nonZeros() / P.cols();
+      nzL = solver.matrixL().nestedExpression().nonZeros() / P.cols();
       std::cout << " nz L: " << nzL << std::endl;
       Chol_err = 0;
-      {
+      #if 0
+      if (npts < 1e-5){
         Eigen::VectorXd y1(P.cols());
         Eigen::VectorXd y2(P.cols());
         Eigen::VectorXd x(P.cols());
@@ -209,13 +224,14 @@ int main(int argc, char *argv[]) {
         std::cout << "\nCholesky decomposition error: " << Chol_err
                   << std::endl;
         cond = 0;
-        if (npts < 5e4) {
+        if (npts < 1e5) {
           cond = get2norm(W);
           std::cout << "Wnrm2: " << cond << " Wfnrm: " << W.norm() << std::endl;
           cond /= ridge_param;
         }
       }
       W -= ridge_param * I;
+#endif
     }
     ////////////////////////////////////////////////////////////////////////////
     // perform error computation
