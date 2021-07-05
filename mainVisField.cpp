@@ -2,9 +2,9 @@
 ////////////////////////////////////////////////////////////////////////////////
 #define USE_QR_CONSTRUCTION_
 //#define FMCA_CLUSTERSET_
-#define DIM 3
-#define MPOLE_DEG 5
-#define DTILDE 4
+#define DIM 4
+#define MPOLE_DEG 3
+#define DTILDE 2
 #define LEAFSIZE 4
 ////////////////////////////////////////////////////////////////////////////////
 #include <Eigen/Dense>
@@ -38,6 +38,13 @@ struct exponentialKernel {
     return exp(-10 * (x - y).norm());
   }
 };
+
+struct GaussianKernel {
+  double operator()(const Eigen::Matrix<double, DIM, 1> &x,
+                    const Eigen::Matrix<double, DIM, 1> &y) const {
+    return exp(-10 * (x - y).squaredNorm());
+  }
+};
 ////////////////////////////////////////////////////////////////////////////////
 using ClusterT = FMCA::ClusterTree<double, DIM, LEAFSIZE, MPOLE_DEG>;
 using H2ClusterT = FMCA::H2ClusterTree<ClusterT, MPOLE_DEG>;
@@ -48,19 +55,25 @@ int main(int argc, char *argv[]) {
   const double svd_threshold = 1e-6;
   const double aposteriori_threshold = 1e-10;
   const double ridge_param = 1e-2;
-  const unsigned int npts = 20000;
-  Eigen::MatrixXd P;
+  const unsigned int npts = 100000;
+  Eigen::MatrixXd P(DIM, npts);
+  Eigen::MatrixXd Phat(DIM - 1, npts);
+  P.setZero();
   tictoc T;
   {
     ////////////////////////////////////////////////////////////////////////////
     std::cout << std::string(60, '-') << std::endl;
     std::cout << "loading data: ";
     Eigen::MatrixXd B = readMatrix("./Points/bunnySurface.txt");
+    Eigen::MatrixXd Rot = readMatrix("./Points/RotationMatrix.txt");
+    std::cout << Rot << std::endl;
+    std::cout << Rot * Rot.transpose() << std::endl;
     std::cout << "data size: ";
     std::cout << B.rows() << " " << B.cols() << std::endl;
     ////////////////////////////////////////////////////////////////////////////
-    P = B.transpose();
-    P.conservativeResize(P.rows(), npts);
+    P.topRows(DIM - 1) = B.topRows(npts).transpose();
+    Phat = B.topRows(npts).transpose();
+    P = Rot * P;
   }
   std::cout << std::string(60, '-') << std::endl;
   std::cout << "dim:       " << DIM << std::endl;
@@ -87,8 +100,7 @@ int main(int argc, char *argv[]) {
     std::cout << "l)\t#pts\ttotal#pts" << std::endl;
     for (auto i = 0; i < tree.size(); ++i) {
       int numInd = 0;
-      for (auto j = 0; j < tree[i].size(); ++j)
-        numInd += tree[i][j];
+      for (auto j = 0; j < tree[i].size(); ++j) numInd += tree[i][j];
       std::cout << i << ")\t" << tree[i].size() << "\t" << numInd << "\n";
     }
     std::cout << std::string(60, '-') << std::endl;
@@ -168,7 +180,8 @@ int main(int argc, char *argv[]) {
         y1 = solver.permutationPinv() *
              (L * (L.transpose() * (solver.permutationP() * x).eval()).eval())
                  .eval();
-        y2 = W * x;
+        y2 = W.triangularView<Eigen::Lower>() * x +
+             W.triangularView<Eigen::StrictlyLower>().transpose() * x;
         Chol_err += (y1 - y2).norm() / y2.norm();
         PB.next();
       }
@@ -179,12 +192,12 @@ int main(int argc, char *argv[]) {
   }
   FMCA::NormalDistribution ND(0, 1, 0);
   Eigen::VectorXd data;
-  for (auto i = 0; i < 10; ++i) {
+  for (auto i = 0; i < 20; ++i) {
     data = ND.get_randMat(P.cols(), 1);
     data = ST.sampletTransform(data);
     data = solver.permutationPinv() * L * data;
     data = ST.inverseSampletTransform(data);
-    FMCA::IO::plotPoints("points" + std::to_string(i) + ".vtk", CT, P, data);
+    FMCA::IO::plotPoints("points" + std::to_string(i) + ".vtk", CT, Phat, data);
   }
   return 0;
 }

@@ -361,14 +361,14 @@ class BivariateCompressorH2 {
     for (auto k = 0; k < ncols; ++k)
       for (auto j = 0; j < nrows; ++j)
         if (abs(block(j, k)) > threshold_)
-          #ifdef FMCA_SYMMETRIC_STORAGE_
+#ifdef FMCA_SYMMETRIC_STORAGE_
           if (srow + j >= scol + k)
             triplet_list_.push_back(
                 Eigen::Triplet<value_type>(srow + j, scol + k, block(j, k)));
 #else
-            triplet_list_.push_back(
-                Eigen::Triplet<value_type>(srow + j, scol + k, block(j, k)));
-  #endif
+          triplet_list_.push_back(
+              Eigen::Triplet<value_type>(srow + j, scol + k, block(j, k)));
+#endif
   }
   //////////////////////////////////////////////////////////////////////////////
   /// member variables
