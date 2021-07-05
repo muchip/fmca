@@ -53,7 +53,7 @@ using H2ClusterT = FMCA::H2ClusterTree<ClusterT, MPOLE_DEG>;
 int main(int argc, char *argv[]) {
   const double eta = 0.8;
   const double svd_threshold = 1e-6;
-  const double aposteriori_threshold = 1e-10;
+  const double aposteriori_threshold = 1e-6;
   const double ridge_param = 1e-2;
   const unsigned int npts = 100000;
   Eigen::MatrixXd P(DIM, npts);
@@ -138,7 +138,8 @@ int main(int argc, char *argv[]) {
   // get samplet matrix and output storage and compression
   Eigen::SparseMatrix<double> W(P.cols(), P.cols());
   {
-    auto trips = BC.get_Pattern_triplets();
+    const std::vector<Eigen::Triplet<double>> &trips =
+        BC.get_Pattern_triplets();
     nz = double(trips.size()) / double(P.cols());
     nza = double(BC.get_storage_size()) / double(P.cols());
     std::cout << "nz per row:     " << nza << " / " << nz << std::endl;
