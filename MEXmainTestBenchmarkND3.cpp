@@ -42,8 +42,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   }
   const FMCA::IndexType lvl = std::round(*(mxGetPr(prhs[0])));
   const double eta = 0.8;
-  const double svd_threshold = 1e-6;
-  const double aposteriori_threshold = 1e-6;
+  const double svd_threshold = 1e-4;
+  const double aposteriori_threshold = 1e-4;
   const double ridge_param = 1e-1;
   const FMCA::IndexType npts = 1 << lvl;
   const std::string logger =
@@ -102,9 +102,12 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   *mxGetPr(plhs[1]) = ctime;
   Eigen::Map<Eigen::MatrixXd> retU(mxGetPr(plhs[0]), pattern_triplets.size(),
                                    3);
-  for (auto i = 0; i < pattern_triplets.size(); ++i)
+  for (auto i = 0; i < pattern_triplets.size(); ++i) {
+    eigen_assert(pattern_triplets[i].row() >= 0 && pattern_triplets[i].col() >= 0
+    && "triplet negative index");
     retU.row(i) << pattern_triplets[i].row() + 1, pattern_triplets[i].col() + 1,
         pattern_triplets[i].value();
+  }
 
   return;
 }

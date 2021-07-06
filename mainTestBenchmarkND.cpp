@@ -2,8 +2,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 #define USE_QR_CONSTRUCTION_
 #define FMCA_CLUSTERSET_
-#define DIM 2
-#define MPOLE_DEG 3
+#define DIM 3
+#define MPOLE_DEG 3 
 #define DTILDE 2
 #define LEAFSIZE 4
 ////////////////////////////////////////////////////////////////////////////////
@@ -11,7 +11,7 @@
 #include <Eigen/MetisSupport>
 #include <Eigen/Sparse>
 #include <Eigen/SparseCholesky>
-#if 1
+#if 0
 using EigenCholesky =
     Eigen::SimplicialLLT<Eigen::SparseMatrix<double>, Eigen::Lower,
                          Eigen::COLAMDOrdering<int>>;
@@ -48,7 +48,7 @@ double get2norm(const Eigen::SparseMatrix<Derived> &A) {
 struct exponentialKernel {
   double operator()(const Eigen::Matrix<double, DIM, 1> &x,
                     const Eigen::Matrix<double, DIM, 1> &y) const {
-    return exp(-25 * (x - y).norm() / sqrt(DIM));
+    return exp(-10 * (x - y).norm() / sqrt(DIM));
   }
 };
 ////////////////////////////////////////////////////////////////////////////////
@@ -71,10 +71,10 @@ using H2ClusterT = FMCA::H2ClusterTree<ClusterT, MPOLE_DEG>;
 int main(int argc, char *argv[]) {
   const double eta = 0.8;
   const double svd_threshold = 1e-6;
-  const double aposteriori_threshold = 1e-4;
+  const double aposteriori_threshold = 1e-6;
   const double ridge_param = 10;
   const std::string logger =
-      "loggerTimeBenchmark" + std::to_string(DIM) + "DQR_ND.txt";
+      "loggerTimeBenchmark" + std::to_string(DIM) + "DQR_ND2.txt";
   tictoc T;
   {
     std::ifstream file;
@@ -95,7 +95,7 @@ int main(int argc, char *argv[]) {
   }
   std::cout << std::string(60, '-') << std::endl;
   //////////////////////////////////////////////////////////////////////////////
-  for (auto i = 20; i <= 20; ++i) {
+  for (auto i = 4; i <= 20; ++i) {
     const unsigned int npts = 1 << i;
     Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, npts);
     std::cout << std::string(60, '-') << std::endl;
@@ -167,8 +167,8 @@ int main(int argc, char *argv[]) {
         maxj = maxj < it.col() ? it.col() : maxj;
       }
       std::cout << "maxi: " << maxi << " maxj: " << maxj << " n: " << P.cols() <<std::endl;
-      nz = double(trips.size()) / double(P.cols());
-      nza = double(BC.get_storage_size()) / double(P.cols());
+      nz = std::ceil(double(trips.size()) / double(P.cols()));
+      nza = std::ceil(double(BC.get_storage_size()) / double(P.cols()));
       std::cout << "nz per row:     " << nza << " / " << nz << std::endl;
       std::cout << "storage sparse: "
                 << double(sizeof(double) * trips.size() * 3) / double(1e9)
@@ -194,18 +194,14 @@ int main(int argc, char *argv[]) {
       std::cout << "added ridge parameter!\n" << std::flush;
       EigenCholesky solver;
       T.tic();
-      solver.analyzePattern(W);
-      T.toc("analyze Pattern: ");
-      T.tic();
-      solver.factorize(W);
+      solver.compute(W);
       T.toc("time factorization: ");
       std::cout << "sinfo: " << solver.info() << std::endl;
       std::cout << "nz Mat: " << W.nonZeros() / P.cols();
-      nzL = solver.matrixL().nestedExpression().nonZeros() / P.cols();
+      nzL = std::ceil(double(solver.matrixL().nestedExpression().nonZeros()) / P.cols());
       std::cout << " nz L: " << nzL << std::endl;
       Chol_err = 0;
-      #if 0
-      if (npts < 1e-5){
+      if (npts < 1e5){
         Eigen::VectorXd y1(P.cols());
         Eigen::VectorXd y2(P.cols());
         Eigen::VectorXd x(P.cols());
@@ -214,29 +210,22 @@ int main(int argc, char *argv[]) {
         for (auto i = 0; i < 10; ++i) {
           x.setRandom();
           y1 = solver.permutationPinv() *
-               (L * (L.transpose() * (solver.permutationP() * x).eval()).eval())
+               (solver.matrixL() * (solver.matrixL().transpose() * (solver.permutationP() * x).eval()).eval())
                    .eval();
-          y2 = W * x;
+        y2 = W.triangularView<Eigen::Lower>() * x +
+             W.triangularView<Eigen::StrictlyLower>().transpose() * x;
           Chol_err += (y1 - y2).norm() / y2.norm();
           PB.next();
         }
         Chol_err /= 10;
         std::cout << "\nCholesky decomposition error: " << Chol_err
                   << std::endl;
-        cond = 0;
-        if (npts < 1e5) {
-          cond = get2norm(W);
-          std::cout << "Wnrm2: " << cond << " Wfnrm: " << W.norm() << std::endl;
-          cond /= ridge_param;
-        }
       }
-      W -= ridge_param * I;
-#endif
     }
     ////////////////////////////////////////////////////////////////////////////
     // perform error computation
     double err = 0;
-    if (npts < 5e4) {
+    if (npts < 5e0) {
       T.tic();
       Eigen::VectorXd y1(P.cols());
       Eigen::VectorXd y2(P.cols());

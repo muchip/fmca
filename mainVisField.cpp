@@ -35,14 +35,14 @@ using EigenCholesky =
 struct exponentialKernel {
   double operator()(const Eigen::Matrix<double, DIM, 1> &x,
                     const Eigen::Matrix<double, DIM, 1> &y) const {
-    return exp(-10 * (x - y).norm());
+    return exp(-25 * (x - y).norm());
   }
 };
 
 struct GaussianKernel {
   double operator()(const Eigen::Matrix<double, DIM, 1> &x,
                     const Eigen::Matrix<double, DIM, 1> &y) const {
-    return exp(-10 * (x - y).squaredNorm());
+    return exp(-25 * (x - y).squaredNorm());
   }
 };
 ////////////////////////////////////////////////////////////////////////////////
@@ -164,7 +164,7 @@ int main(int argc, char *argv[]) {
     W += ridge_param * I;
     solver.compute(W);
     T.toc("Cholesky: ");
-    std::cout << "sinfo: " << (solver.info() == Eigen::Success) << std::endl;
+    std::cout << "sinfo: " << solver.info() << std::endl;
     std::cout << "nz Mat: " << W.nonZeros() / P.cols();
     L = solver.matrixL();
     nzL = L.nonZeros() / P.cols();

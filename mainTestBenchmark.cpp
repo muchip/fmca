@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 #define USE_QR_CONSTRUCTION_
 #define FMCA_CLUSTERSET_
-#define DIM 3
+#define DIM 2
 #define MPOLE_DEG 5
 #define DTILDE 3
 #define LEAFSIZE 4
@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
   }
   std::cout << std::string(60, '-') << std::endl;
   //////////////////////////////////////////////////////////////////////////////
-  for (auto i = 20; i <= 20; ++i) {
+  for (auto i = 4; i <= 20; ++i) {
     const unsigned int npts = 1 << i;
     Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, npts);
     std::cout << std::string(60, '-') << std::endl;
