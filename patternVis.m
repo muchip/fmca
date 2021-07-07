@@ -1,21 +1,25 @@
 clear all
 close all
+diary('thisIsRediculous.txt')
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 maxNumCompThreads(1)
 bins = 512;
 [P,ctime] = MEXmainTestBenchmarkND3(17);
 S = tril(sparse(P(:,1),P(:,2),P(:,3)));
+clear P;
 size(S)
 S = S + 10 * speye(size(S));
 
-T = S + tril(S,-1)';
-condest(T)
-
+%T = S + tril(S,-1)';
+%condest(T)
+%clear T;
+whos
 p = dissect(S);
 L = chol(S(p,p),'lower'); 
 
 S = S + tril(S,-1)';
+whos
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 SND = S(p,p);
@@ -41,6 +45,7 @@ axis off;
 box on;
 title(sprintf('bins: %d, n: %d, binsize: %d, nnz: %d',...
               bins, n_size, csize, nnz(S)));
+set(gcf,'renderer','Painters');
 saveas(gcf,'Spattern.eps','epsc');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 compL = [];
@@ -63,7 +68,8 @@ axis off;
 box on;
 title(sprintf('bins: %d, n: %d, binsize: %d, nnz: %d',...
               bins, n_size, csize, nnz(L)));
-%saveas(gcf,'Lpattern.eps','epsc');
+set(gcf,'renderer','Painters');
+saveas(gcf,'Lpattern.eps','epsc');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 compS = [];
 for i=0:bins-1
@@ -85,7 +91,8 @@ axis off;
 box on;
 title(sprintf('bins: %d, n: %d, binsize: %d, nnz: %d',...
               bins, n_size, csize, nnz(S)));
-%saveas(gcf,'SWpattern.eps','epsc');
+set(gcf,'renderer','Painters');
+saveas(gcf,'SWpattern.eps','epsc');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
