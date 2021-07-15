@@ -54,38 +54,40 @@ Tfun1(find(abs(Tfun) < 1e-1 * mCoeff)) = 0;
 % ans =
 % 
 %     0.9963
-M = [sP', fun', Tfun, T' * Tfun1, T' * Tfun2, T' * Tfun3];
-save('BMCompress1D.txt','M','-ascii');
-
+% M = [sP', fun', Tfun, T' * Tfun1, T' * Tfun2, T' * Tfun3];
+% save('BMCompress1D.txt','M','-ascii');
+% 
 plot(sP, fun,'b-');
 hold on
 plot(sP, T' * Tfun,'r.')
-% 
-% axmax = max(max(T));
-% axmin = min(min(T));
-% aymin = min(P);
-% aymax = max(P);
-% 
-% figure(4)
-% for i = 1:4000
-% figure(4)
-% clf;
-% subplot(2,1,1)
-% plot(sP, fun,'b-');
-% hold on;
-% plot(sP, T(1:i,:)' * Tfun(1:i),'r.')
-% subplot(2,1,2)
-% plot(sP, T(i,:)','k.','linewidth',2)
-% axis([axmin axmax -0.5 0.5]);
-% pause(0.01)
-% end
-% figure(2);
+
+axmax = max(max(T));
+axmin = min(min(T));
+aymin = min(P);
+aymax = max(P);
+
+figure(4)
+for i = 1:4000
+%figure(4)
+clf;
+%subplot(2,1,1)
+%plot(sP, fun,'b-');
+%hold on;
+%plot(sP, T(1:i,:)' * Tfun(1:i),'r.')
+%subplot(2,1,2)
+plot(sP, T(i,:)','k.','linewidth',2)
+axis([axmin axmax -0.5 0.5]);
+if(mod(i,20) == 1)
+pause()
+end
+end
+figure(2);
 
 
-% for i = 1:50
-%     figure(2)
-%     plot(P(Idcs),T(i,:),'b.','linewidth',2)
-%     axis([axmin axmax aymin aymax]);
-%     title(sprintf('samplet number %d', i));
-%     pause(1)
-% end
+for i = 1:50
+    figure(2)
+    plot(P(Idcs),T(i,:),'b.','linewidth',2)
+    axis([axmin axmax aymin aymax]);
+    title(sprintf('samplet number %d', i));
+    pause(1)
+end

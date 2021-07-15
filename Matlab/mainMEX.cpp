@@ -1,6 +1,3 @@
-#define USE_QR_CONSTRUCTION_
-#define FMCA_CLUSTERSET_
-
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <fstream>
@@ -16,20 +13,17 @@
 #include "matrix.h"
 #include "mex.h"
 
-#define DIM 2
-#define MPOLE_DEG 5
+#define DIM 3
+#define MPOLE_DEG 3
 
 struct Gaussian {
   double operator()(const Eigen::Matrix<double, DIM, 1> &x,
                     const Eigen::Matrix<double, DIM, 1> &y) const {
-     // return (1 + sqrt(3) * 20 * (x - y).norm()) *
-     //        exp(-20 * sqrt(3) * (x - y).norm());
-    return exp(-20 * (x - y).norm());
+    return exp(-4 * (x - y).norm());
   }
 };
 
-using ClusterT = FMCA::ClusterTree<double, DIM, 10, MPOLE_DEG>;
-using H2ClusterT = FMCA::H2ClusterTree<ClusterT, MPOLE_DEG>;
+using ClusterT = FMCA::ClusterTree<double, DIM, 10>;
 
 /** nlhs Number of expected output mxArrays
  *   plhs Array of pointers to the expected output mxArrays
@@ -45,54 +39,52 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
                       "MXmain requires two arguments. Check help.");
   }
   FMCA::IndexType dtilde = std::round(*(mxGetPr(prhs[1])));
-  auto p_values = mxGetPr(prhs[0]);
-  auto dimM = *(mxGetDimensions(prhs[0]));
-  auto dimN = *(mxGetDimensions(prhs[0]) + 1);
-  std::cout << "M: " << dimM << " N: " << dimN << std::endl;
-  Eigen::Map<Eigen::MatrixXd> interp_values(p_values, dimM, dimN);
-  Eigen::MatrixXd P = interp_values.transpose();
+  std::string filename(mxArrayToString(prhs[0]));
+  std::cout << "loading data: ";
+  Eigen::MatrixXd B = readMatrix(filename);
+  std::cout << "data size: ";
+  std::cout << B.rows() << " " << B.cols() << std::endl;
+  std::cout << "----------------------------------------------------\n";
+  Eigen::MatrixXd P = B.transpose();
+
   tictoc T;
   T.tic();
   ClusterT CT(P);
   T.tic();
-  H2ClusterT H2CT(P, CT);
+  FMCA::H2ClusterTree<ClusterT, MPOLE_DEG> H2CT(P, CT);
   T.toc("set up H2-cluster tree: ");
   FMCA::SampletTree<ClusterT> ST(P, CT, dtilde);
   T.toc("set up ct: ");
-#ifdef USE_QR_CONSTRUCTION_
-  std::cout << "using QR construction for samplet basis\n";
-#endif
+  std::vector<ClusterT *> leafs;
+  CT.getLeafIterator(leafs);
+  int numInd = 0;
+  for (auto i = 0; i < leafs.size(); ++i)
+    numInd += (leafs[i])->get_indices().size();
+  for (auto level = 0; level < 14; ++level) {
+    std::vector<Eigen::Matrix3d> bbvec;
+    CT.get_BboxVector(&bbvec, level);
+    FMCA::IO::plotBoxes("boxes" + std::to_string(level) + ".vtk", bbvec);
+  }
+  std::vector<Eigen::Matrix<double, DIM, 3u>> bbvec;
+  CT.get_BboxVectorLeafs(&bbvec);
+  FMCA::IO::plotBoxes("boxesLeafs.vtk", bbvec);
+  FMCA::IO::plotPoints("points.vtk", P);
   T.tic();
   ST.computeMultiscaleClusterBases(H2CT);
   T.toc("set up time multiscale cluster bases");
   T.tic();
   FMCA::BivariateCompressorH2<FMCA::SampletTree<ClusterT>> BC;
   BC.set_eta(0.8);
-  BC.set_threshold(0);
+  BC.set_threshold(1e-6);
   BC.init(P, ST, Gaussian());
   T.toc("set up Samplet compressed matrix: ");
   auto pattern_triplets = BC.get_Pattern_triplets();
-  auto trafo_triplets = ST.get_transformationMatrix();
   plhs[0] = mxCreateDoubleMatrix(pattern_triplets.size(), 3, mxREAL);
-  plhs[1] = mxCreateDoubleMatrix(trafo_triplets.size(), 3, mxREAL);
-  plhs[2] = mxCreateDoubleMatrix(P.cols(), 1, mxREAL);
-
   Eigen::Map<Eigen::MatrixXd> retU(mxGetPr(plhs[0]), pattern_triplets.size(),
                                    3);
-  Eigen::Map<Eigen::MatrixXd> retQ(mxGetPr(plhs[1]), trafo_triplets.size(), 3);
-
-  Eigen::Map<Eigen::MatrixXd> retI(mxGetPr(plhs[2]), P.cols(), 1);
-
   for (auto i = 0; i < pattern_triplets.size(); ++i)
     retU.row(i) << pattern_triplets[i].row() + 1, pattern_triplets[i].col() + 1,
         pattern_triplets[i].value();
-
-  for (auto i = 0; i < trafo_triplets.size(); ++i)
-    retQ.row(i) << trafo_triplets[i].row() + 1, trafo_triplets[i].col() + 1,
-        trafo_triplets[i].value();
-
-  auto idcs = CT.get_indices();
-  for (auto i = 0; i < idcs.size(); ++i) retI(i) = idcs[i] + 1;
 
   return;
 }

@@ -201,9 +201,8 @@ class SampletTree {
   const std::vector<SampletTree> &get_sons() const { return sons_; }
   const ClusterTree *get_cluster() const { return cluster_; }
   //////////////////////////////////////////////////////////////////////////////
-  Eigen::SparseMatrix<value_type> get_transformationMatrix() const {
+  std::vector<Eigen::Triplet<value_type>> get_transformationMatrix() const {
     const IndexType n = cluster_->get_indices().size();
-    Eigen::SparseMatrix<value_type> Tmat(n, n);
     eigenVector buffer(n);
     std::vector<Eigen::Triplet<value_type>> triplet_list;
     for (auto j = 0; j < n; ++j) {
@@ -215,8 +214,7 @@ class SampletTree {
           triplet_list.emplace_back(
               Eigen::Triplet<value_type>(i, j, buffer(i)));
     }
-    Tmat.setFromTriplets(triplet_list.begin(), triplet_list.end());
-    return Tmat;
+    return triplet_list;
   }
 
   template <typename H2ClusterTree>

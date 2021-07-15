@@ -26,15 +26,15 @@
 //#define NPTS 1024
 //#define NPTS 512
 //#define NPTS 64
-#define DIM 1
+#define DIM 3
 #define MPOLE_DEG 5
 #define DTILDE 3
 #define LEAFSIZE 4
 
-//#define PLOT_BOXES_
+#define PLOT_BOXES_
 //#define TEST_H2MATRIX_
 //#define TEST_COMPRESSOR_
-#define TEST_SAMPLET_TRANSFORM_
+//#define TEST_SAMPLET_TRANSFORM_
 //#define TEST_SAMPLET_BASIS_
 
 struct Gaussian {
@@ -47,9 +47,9 @@ struct Gaussian {
 using ClusterT = FMCA::ClusterTree<double, DIM, LEAFSIZE, MPOLE_DEG>;
 
 int main() {
-#if 0
+#if 1
   std::cout << "loading data: ";
-  Eigen::MatrixXd B = readMatrix("defiant.txt");
+  Eigen::MatrixXd B = readMatrix("Points/bunnySurface.txt");
   std::cout << "data size: ";
   std::cout << B.rows() << " " << B.cols() << std::endl;
   std::cout << "----------------------------------------------------\n";
@@ -105,10 +105,10 @@ int main() {
     std::cout << "----------------------------------------------------\n";
   }
   T.tic();
-  FMCA::H2Matrix<FMCA::H2ClusterTree<ClusterT, MPOLE_DEG>> H2mat(P, H2CT,
-                                                                 Gaussian());
+//  FMCA::H2Matrix<FMCA::H2ClusterTree<ClusterT, MPOLE_DEG>> H2mat(P, H2CT,
+  //                                                               Gaussian());
   T.toc("set up H2-matrix: ");
-  H2mat.get_statistics();
+ // H2mat.get_statistics();
 #ifdef TEST_H2MATRIX_
   {
     Eigen::MatrixXd K(P.cols(), P.cols());
@@ -125,6 +125,8 @@ int main() {
   T.tic();
   FMCA::SampletTree<ClusterT> ST(P, CT, DTILDE);
   T.toc("set up samplet tree: ");
+  #if 0
+
   T.tic();
   ST.computeMultiscaleClusterBases(H2CT);
   T.toc("set up time multiscale cluster bases");
@@ -144,7 +146,7 @@ int main() {
             << double(sizeof(double) * P.cols() * P.cols()) / double(1e9)
             << "GB" << std::endl;
   std::cout << "----------------------------------------------------\n";
-
+#endif
 #ifdef TEST_SAMPLET_BASIS_
   {
     std::cout << "testing vanishing moments:\n";
@@ -163,7 +165,7 @@ int main() {
 #endif
 
 #ifdef PLOT_BOXES_
-  std::vector<ClusterT *> leafs;
+  std::vector<const ClusterT *> leafs;
   CT.getLeafIterator(leafs);
   int numInd = 0;
   for (auto i = 0; i < leafs.size(); ++i)
