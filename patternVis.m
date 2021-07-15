@@ -3,7 +3,6 @@ close all
 diary('thisIsRediculous.txt')
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-maxNumCompThreads(1)
 bins = 512;
 [P,ctime] = MEXmainTestBenchmarkND3(17);
 S = tril(sparse(P(:,1),P(:,2),P(:,3)));
@@ -11,6 +10,7 @@ clear P;
 size(S)
 S = S + 10 * speye(size(S));
 
+S = S + tril(S,-1)';
 %T = S + tril(S,-1)';
 %condest(T)
 %clear T;
@@ -18,7 +18,6 @@ whos
 p = dissect(S);
 L = chol(S(p,p),'lower'); 
 
-S = S + tril(S,-1)';
 whos
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -32,14 +31,13 @@ for i=0:bins-1
         compS(i+1,j+1) = length(I) / csize() / csize;
    end
 end
-figure(1)
-clf;
 [X,Y] = meshgrid(1:bins);
 index = find(compS > 0);
 scatter(X(index),bins+1-Y(index),1.5,(compS(index)), 'filled')
-c = gray;
-c = flipud(c(1:200,:));
-colormap(c);
+%c = gray;
+%c = flipud(c(1:200,:));
+colormap(flipud(copper));
+set(gca,'colorscale','log')
 axis equal;
 axis off;
 box on;
@@ -55,14 +53,11 @@ for i=0:bins-1
         compL(i+1,j+1) = length(I) / csize() / csize;
    end
 end
-figure(2)
-clf;
 [X,Y] = meshgrid(1:bins);
 index = find(compL > 0);
 scatter(X(index),bins+1-Y(index),1.5,(compL(index)), 'filled')
-c = gray;
-c = flipud(c(1:200,:));
-colormap(c);
+colormap(flipud(copper));
+set(gca,'colorscale','log')
 axis equal;
 axis off;
 box on;
@@ -78,14 +73,13 @@ for i=0:bins-1
         compS(i+1,j+1) = length(I) / csize() / csize;
    end
 end
-figure(3)
-clf;
 [X,Y] = meshgrid(1:bins);
 index = find(compS > 0);
 scatter(X(index),bins+1-Y(index),1.5,(compS(index)), 'filled')
-c = gray;
-c = flipud(c(1:200,:));
-colormap(c);
+%c = gray;
+%c = flipud(c(1:200,:));
+colormap(flipud(copper));
+set(gca,'colorscale','log')
 axis equal;
 axis off;
 box on;

@@ -155,7 +155,6 @@ int main(int argc, char *argv[]) {
   ////////////////////////////////////////////////////////////////////////////
   // perform the Cholesky factorization of the compressed matrix
   double Chol_err = 0;
-  Eigen::SparseMatrix<double> L;
   EigenCholesky solver;
   {
     T.tic();
@@ -165,11 +164,11 @@ int main(int argc, char *argv[]) {
     solver.compute(W);
     T.toc("Cholesky: ");
     std::cout << "sinfo: " << solver.info() << std::endl;
-    std::cout << "nz Mat: " << W.nonZeros() / P.cols();
-    L = solver.matrixL();
-    nzL = L.nonZeros() / P.cols();
+    std::cout << "nz Mat: " << std::ceil(double(W.nonZeros()) / P.cols());
+    nzL = std::ceil(double(solver.matrixL().nestedExpression().nonZeros()) / P.cols());
     std::cout << " nz L: " << nzL << std::endl;
     Chol_err = 0;
+  #if 0
     {
       Eigen::VectorXd y1(P.cols());
       Eigen::VectorXd y2(P.cols());
@@ -190,6 +189,7 @@ int main(int argc, char *argv[]) {
       std::cout << "\nCholesky decomposition error: " << Chol_err << std::endl;
     }
     W -= ridge_param * I;
+#endif
   }
   FMCA::NormalDistribution ND(0, 1, 0);
   Eigen::VectorXd data;

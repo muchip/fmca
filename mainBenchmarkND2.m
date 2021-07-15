@@ -20,6 +20,7 @@ for i = 1:20
     S = tril(sparse(P(:,1),P(:,2),P(:,3)));
     S = S + rparam * speye(size(S));
     clear P;
+    S = tril(S) + tril(S,-1)';
     if i <= 10
       cnd = condest(S)
     else

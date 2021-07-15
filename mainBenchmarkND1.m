@@ -20,6 +20,7 @@ for i = 1:20
     S = tril(sparse(P(:,1),P(:,2),P(:,3)));
     S = S + rparam * speye(size(S));
     clear P;
+    S = tril(S) + tril(S,-1)';
     cnd = condest(S)
     stime = toc
     fprintf(fileID, ' %10.2f %10.2f %10d', stime, cnd, ceil(nnz(S) / size(S,1)));

@@ -9,7 +9,7 @@ fileID = fopen(filename, 'w');
 fprintf(fileID, '      npts       ctim       stim       cond        nzS       dtim       Ltim        nzL\n');
 fclose(fileID);
 tic
-for i = 1:20
+for i = 20:20
     display(i)
     fileID = fopen(filename, 'a');
     tic
@@ -30,6 +30,7 @@ for i = 1:20
       cnd = 0;
       end
     stime = toc
+    whos
     fprintf(fileID, ' %10.2f %10.2f %10d', stime, cnd, ceil(nnz(S) / size(S,1)));
     tic
     p = dissect(S);
@@ -40,5 +41,8 @@ for i = 1:20
     Ltime = toc
     fprintf(fileID, ' %10.2f %10d\n', Ltime, ceil(nnz(L) / size(S,1)));
     whos
+    clear L;
+    clear S;
+    clear P;
 end
 
