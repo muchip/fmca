@@ -196,9 +196,13 @@ class SampletTree {
               << std::endl;
     return;
   }
+  //////////////////////////////////////////////////////////////////////////////
   IndexType get_nscalfs() const { return nscalfs_; }
+  //////////////////////////////////////////////////////////////////////////////
   const eigenMatrix &get_Q() const { return Q_; }
+  //////////////////////////////////////////////////////////////////////////////
   const std::vector<SampletTree> &get_sons() const { return sons_; }
+  //////////////////////////////////////////////////////////////////////////////
   const ClusterTree *get_cluster() const { return cluster_; }
   //////////////////////////////////////////////////////////////////////////////
   std::vector<Eigen::Triplet<value_type>> get_transformationMatrix() const {
@@ -216,7 +220,7 @@ class SampletTree {
     }
     return triplet_list;
   }
-
+  //////////////////////////////////////////////////////////////////////////////
   template <typename H2ClusterTree>
   void computeMultiscaleClusterBases(const H2ClusterTree &CT) {
     assert(&(CT.get_cluster()) == cluster_);
@@ -246,6 +250,7 @@ class SampletTree {
     }
     return;
   }
+  //////////////////////////////////////////////////////////////////////////////
   void visualizeCoefficients(const eigenVector &coeffs,
                              const std::string &filename,
                              value_type thresh = 1e-6) {
@@ -437,7 +442,7 @@ class SampletTree {
     }
     return;
   }
-
+  //////////////////////////////////////////////////////////////////////////////
   void visualizeCoefficientsRecursion(const eigenVector &coeffs,
                                       std::vector<Eigen::Matrix3d> &bbvec,
                                       std::vector<value_type> &cval,
