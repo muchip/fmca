@@ -12,11 +12,11 @@
 #ifndef FMCA_SAMPLETS_BIVARIATECOMPRESSORH2_H_
 #define FMCA_SAMPLETS_BIVARIATECOMPRESSORH2_H_
 //#define FMCA_SYMMETRIC_STORAGE_
+#define FMCA_COMPRESSOR_BUFSIZE_
 namespace FMCA {
 
-template <typename SampletTree>
-class BivariateCompressorH2 {
- public:
+template <typename SampletTree> class BivariateCompressorH2 {
+public:
   enum Admissibility { Refine = 0, LowRank = 1, Dense = 2 };
   typedef typename SampletTree::value_type value_type;
   typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
@@ -69,20 +69,14 @@ class BivariateCompressorH2 {
                    "there is a missing root block!");
       storeBlock(start_index, ST.start_index_, nsamplets, ST.Q_.cols(),
                  (it->second).bottomRows(nsamplets));
-#if 0
-      for (auto k = 0; k < ST.Q_.cols(); ++k)
-        for (auto j = 0; j < nsamplets; ++j)
-          triplet_list_.push_back(
-              Eigen::Triplet<value_type>(start_index + j, ST.start_index_ + k,
-                                         (it->second)(nscalfs + j, k)));
-#endif
       buffer_[block_id].erase(it);
     }
     std::cout << std::endl;
-#if 0
+#ifdef FMCA_COMPRESSOR_BUFSIZE_
     std::cout << "max buffer size: " << max_buff_size_ << std::endl;
     max_buff_size_ = 0;
-    for (const auto &it : buffer_) max_buff_size_ += it.size();
+    for (const auto &it : buffer_)
+      max_buff_size_ += it.size();
     std::cout << "final buffer size: " << max_buff_size_ << std::endl;
 #endif
   }
@@ -104,7 +98,7 @@ class BivariateCompressorH2 {
     const value_type first = j < jp ? 1. / (1 << j) : 1. / (1 << jp);
     const value_type second =
         std::pow(2., cut_const1_ - (j + jp) * cut_const2_);
-    return a_param_ * first * geo_diam_;  //(first > second ? first : second);
+    return a_param_ * first * geo_diam_; //(first > second ? first : second);
   }
   //////////////////////////////////////////////////////////////////////////////
   bool cutOff(IndexType j, IndexType jp, value_type dist) {
@@ -219,7 +213,7 @@ class BivariateCompressorH2 {
   }
   size_t get_storage_size() const { return storage_size_; }
 
- private:
+private:
   //////////////////////////////////////////////////////////////////////////////
   value_type computeDistance(const SampletTree &TR, const SampletTree &TC) {
     const value_type row_radius = 0.5 * TR.cluster_->get_bb().col(2).norm();
@@ -254,7 +248,8 @@ class BivariateCompressorH2 {
                                  buf.cols() + TR.sons_[i].nscalfs_);
           buf.rightCols(TR.sons_[i].nscalfs_) =
               (it->second).transpose().leftCols(TR.sons_[i].nscalfs_);
-          if (it->first != 0) buffer_[TR.sons_[i].block_id_].erase(it);
+          if (it->first != 0)
+            buffer_[TR.sons_[i].block_id_].erase(it);
         } else {
           eigenMatrix ret =
               recursivelyComputeBlock(P, nullptr, TR.sons_[i], TC, fun);
@@ -297,9 +292,10 @@ class BivariateCompressorH2 {
       storeBlock(TR.start_index_, TC.start_index_, TR.nsamplets_, TC.nsamplets_,
                  block.bottomRightCorner(TR.nsamplets_, TC.nsamplets_));
     buffer_[TR.block_id_].emplace(std::make_pair(TC.block_id_, block));
-#if 0
+#ifdef FMCA_COMPRESSOR_BUFSIZE_
     IndexType buff_size = 0;
-    for (const auto &it : buffer_) buff_size += it.size();
+    for (const auto &it : buffer_)
+      buff_size += it.size();
     max_buff_size_ = max_buff_size_ < buff_size ? buff_size : max_buff_size_;
     return;
 #endif
@@ -391,7 +387,7 @@ class BivariateCompressorH2 {
   IndexType max_buff_size_;
   size_t storage_size_;
 };
-}  // namespace FMCA
+} // namespace FMCA
 #endif
 
 #if 0

@@ -4,3 +4,5 @@ FMCA.xcodeproj
 *.out
 *.vtk
 *.swp
+*.mexa64
+*.mexmaci64
