@@ -22,15 +22,15 @@
 //#define NPTS 65536
 //#define NPTS 32768
 //#define NPTS 16384
-#define NPTS 8192
+#define NPTS 10000
 //#define NPTS 4096
 //#define NPTS 2048
 //#define NPTS 1024
 //#define NPTS 512
 //#define NPTS 64
-#define DIM 3
+#define DIM 2
 #define MPOLE_DEG 5
-#define DTILDE 3
+#define DTILDE 4
 #define LEAFSIZE 4
 
 //#define PLOT_BOXES_

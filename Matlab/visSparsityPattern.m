@@ -1,7 +1,8 @@
-function visSparsityPattern(P, fignum)
+function visSparsityPattern(S, fignum)
 figure(fignum)
 clf;
-hp = patch(P(:,1), P(:,2), P(:,3), ...
+[I,J,K] = find(S);
+hp = patch(I, J, K, ...
            'Marker', 's', 'MarkerFaceColor', 'flat', 'MarkerSize', 4, ...
            'EdgeColor', 'none', 'FaceColor', 'none');
 axis square;

@@ -18,13 +18,13 @@
 
 #define MPOLE_DEG 5
 
-struct Gaussian {
+struct exponentialKernel {
   template <typename Derived>
   double operator()(const Eigen::MatrixBase<Derived> &x,
                     const Eigen::MatrixBase<Derived> &y) const {
     // return (1 + sqrt(3) * 20 * (x - y).norm()) *
     //        exp(-20 * sqrt(3) * (x - y).norm());
-    return exp(-20 * (x - y).norm());
+    return exp(-10 * (x - y).norm());
   }
 };
 
@@ -48,16 +48,17 @@ using H2ClusterT5 = FMCA::H2ClusterTree<ClusterT5, MPOLE_DEG>;
  *        produce undesired side effects.
  */
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
-  if (nrhs != 2) {
+  if (nrhs != 4) {
     mexErrMsgIdAndTxt("MATLAB:MXmain:nargin",
-                      "MXmain requires two arguments. Check help.");
+                      "MXmain requires four arguments. Check help.");
   }
   const FMCA::IndexType dtilde = std::round(*(mxGetPr(prhs[1])));
   const double *p_values = mxGetPr(prhs[0]);
   const int dimM = *(mxGetDimensions(prhs[0]));
   const int dimN = *(mxGetDimensions(prhs[0]) + 1);
-  const double eta = 0.8;
-  const double apost_thres = 0;
+  const double eta = *(mxGetPr(prhs[2]));
+  const double apost_thres = *(mxGetPr(prhs[3]));
+  const auto function = exponentialKernel();
   std::cout << "M: " << dimM << " N: " << dimN << std::endl;
   Eigen::Map<const Eigen::MatrixXd> interp_values(p_values, dimM, dimN);
   Eigen::MatrixXd P = interp_values;
@@ -68,83 +69,78 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   std::vector<Eigen::Triplet<double>> trafo_triplets;
   std::vector<FMCA::IndexType> idcs;
   switch (dimM) {
-  case 1: {
-    ClusterT1 CT(P);
-    H2ClusterT1 H2CT(P, CT);
-    FMCA::SampletTree<ClusterT1> ST(P, CT, dtilde);
-    ST.computeMultiscaleClusterBases(H2CT);
-    FMCA::BivariateCompressorH2<FMCA::SampletTree<ClusterT1>> BC;
-    BC.set_eta(eta);
-    BC.set_threshold(apost_thres);
-    BC.init(P, ST, Gaussian());
-    pattern_triplets = BC.get_Pattern_triplets();
-    if (nlhs == 3)
-      trafo_triplets = ST.get_transformationMatrix();
-    idcs = CT.get_indices();
-    break;
-  }
-  case 2: {
-    ClusterT2 CT(P);
-    H2ClusterT2 H2CT(P, CT);
-    FMCA::SampletTree<ClusterT2> ST(P, CT, dtilde);
-    ST.computeMultiscaleClusterBases(H2CT);
-    FMCA::BivariateCompressorH2<FMCA::SampletTree<ClusterT2>> BC;
-    BC.set_eta(eta);
-    BC.set_threshold(apost_thres);
-    BC.init(P, ST, Gaussian());
-    pattern_triplets = BC.get_Pattern_triplets();
-    if (nlhs == 3)
-      trafo_triplets = ST.get_transformationMatrix();
-    idcs = CT.get_indices();
-    break;
-  }
-  case 3: {
-    ClusterT3 CT(P);
-    H2ClusterT3 H2CT(P, CT);
-    FMCA::SampletTree<ClusterT3> ST(P, CT, dtilde);
-    ST.computeMultiscaleClusterBases(H2CT);
-    FMCA::BivariateCompressorH2<FMCA::SampletTree<ClusterT3>> BC;
-    BC.set_eta(eta);
-    BC.set_threshold(apost_thres);
-    BC.init(P, ST, Gaussian());
-    pattern_triplets = BC.get_Pattern_triplets();
-    if (nlhs == 3)
-      trafo_triplets = ST.get_transformationMatrix();
-    idcs = CT.get_indices();
-    break;
-  }
-  case 4: {
-    ClusterT4 CT(P);
-    H2ClusterT4 H2CT(P, CT);
-    FMCA::SampletTree<ClusterT4> ST(P, CT, dtilde);
-    ST.computeMultiscaleClusterBases(H2CT);
-    FMCA::BivariateCompressorH2<FMCA::SampletTree<ClusterT4>> BC;
-    BC.set_eta(eta);
-    BC.set_threshold(apost_thres);
-    BC.init(P, ST, Gaussian());
-    pattern_triplets = BC.get_Pattern_triplets();
-    if (nlhs == 3)
-      trafo_triplets = ST.get_transformationMatrix();
-    idcs = CT.get_indices();
-    break;
-  }
-  case 5: {
-    ClusterT5 CT(P);
-    H2ClusterT5 H2CT(P, CT);
-    FMCA::SampletTree<ClusterT5> ST(P, CT, dtilde);
-    ST.computeMultiscaleClusterBases(H2CT);
-    FMCA::BivariateCompressorH2<FMCA::SampletTree<ClusterT5>> BC;
-    BC.set_eta(eta);
-    BC.set_threshold(apost_thres);
-    BC.init(P, ST, Gaussian());
-    pattern_triplets = BC.get_Pattern_triplets();
-    if (nlhs == 3)
-      trafo_triplets = ST.get_transformationMatrix();
-    idcs = CT.get_indices();
-    break;
-  }
-  default:
-    std::cout << "THIS IS NOT IMPLEMENTED!!!\n";
+    case 1: {
+      ClusterT1 CT(P);
+      H2ClusterT1 H2CT(P, CT);
+      FMCA::SampletTree<ClusterT1> ST(P, CT, dtilde);
+      ST.computeMultiscaleClusterBases(H2CT);
+      FMCA::BivariateCompressorH2<FMCA::SampletTree<ClusterT1>> BC;
+      BC.set_eta(eta);
+      BC.set_threshold(apost_thres);
+      BC.init(P, ST, function);
+      pattern_triplets = BC.get_Pattern_triplets();
+      if (nlhs == 3) trafo_triplets = ST.get_transformationMatrix();
+      idcs = CT.get_indices();
+      break;
+    }
+    case 2: {
+      ClusterT2 CT(P);
+      H2ClusterT2 H2CT(P, CT);
+      FMCA::SampletTree<ClusterT2> ST(P, CT, dtilde);
+      ST.computeMultiscaleClusterBases(H2CT);
+      FMCA::BivariateCompressorH2<FMCA::SampletTree<ClusterT2>> BC;
+      BC.set_eta(eta);
+      BC.set_threshold(apost_thres);
+      BC.init(P, ST, function);
+      pattern_triplets = BC.get_Pattern_triplets();
+      if (nlhs == 3) trafo_triplets = ST.get_transformationMatrix();
+      idcs = CT.get_indices();
+      break;
+    }
+    case 3: {
+      ClusterT3 CT(P);
+      H2ClusterT3 H2CT(P, CT);
+      FMCA::SampletTree<ClusterT3> ST(P, CT, dtilde);
+      ST.computeMultiscaleClusterBases(H2CT);
+      FMCA::BivariateCompressorH2<FMCA::SampletTree<ClusterT3>> BC;
+      BC.set_eta(eta);
+      BC.set_threshold(apost_thres);
+      BC.init(P, ST, function);
+      pattern_triplets = BC.get_Pattern_triplets();
+      if (nlhs == 3) trafo_triplets = ST.get_transformationMatrix();
+      idcs = CT.get_indices();
+      break;
+    }
+    case 4: {
+      ClusterT4 CT(P);
+      H2ClusterT4 H2CT(P, CT);
+      FMCA::SampletTree<ClusterT4> ST(P, CT, dtilde);
+      ST.computeMultiscaleClusterBases(H2CT);
+      FMCA::BivariateCompressorH2<FMCA::SampletTree<ClusterT4>> BC;
+      BC.set_eta(eta);
+      BC.set_threshold(apost_thres);
+      BC.init(P, ST, function);
+      pattern_triplets = BC.get_Pattern_triplets();
+      if (nlhs == 3) trafo_triplets = ST.get_transformationMatrix();
+      idcs = CT.get_indices();
+      break;
+    }
+    case 5: {
+      ClusterT5 CT(P);
+      H2ClusterT5 H2CT(P, CT);
+      FMCA::SampletTree<ClusterT5> ST(P, CT, dtilde);
+      ST.computeMultiscaleClusterBases(H2CT);
+      FMCA::BivariateCompressorH2<FMCA::SampletTree<ClusterT5>> BC;
+      BC.set_eta(eta);
+      BC.set_threshold(apost_thres);
+      BC.init(P, ST, function);
+      pattern_triplets = BC.get_Pattern_triplets();
+      if (nlhs == 3) trafo_triplets = ST.get_transformationMatrix();
+      idcs = CT.get_indices();
+      break;
+    }
+    default:
+      std::cout << "THIS IS NOT IMPLEMENTED!!!\n";
   }
   plhs[0] = mxCreateDoubleMatrix(pattern_triplets.size(), 3, mxREAL);
   plhs[1] = mxCreateDoubleMatrix(P.cols(), 1, mxREAL);
