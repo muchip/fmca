@@ -5,7 +5,7 @@
 #define DIM 3
 #define MPOLE_DEG 3
 #define DTILDE 2
-#define LEAFSIZE 4
+#define LEAFSIZE 50
 ////////////////////////////////////////////////////////////////////////////////
 #include <fstream>
 #include <functional>

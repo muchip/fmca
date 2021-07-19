@@ -29,9 +29,9 @@ template <typename ClusterTree>
 struct SampletTreeData {
   IndexType max_wlevel_ = 0;
   IndexType dtilde_ = 0;
-  IndexType dtilde2_ = 0;
+  IndexType d2tilde_ = 0;
   IndexType m_dtilde_ = 0;
-  IndexType m_dtilde2_ = 0;
+  IndexType m_d2tilde_ = 0;
   typename ClusterTree::value_type orthogonality_threshold_ = 0;
   MultiIndexSet<ClusterTree::dimension> idcs;
   std::vector<SampletTree<ClusterTree> *> samplet_list;
@@ -90,26 +90,27 @@ class SampletTree {
       }
       std::cout << "min leafsize: " << min_cluster_size
                 << " max leafsize: " << max_cluster_size << std::endl;
-      IndexType m_dtilde =
-          binomialCoefficient(dimension + dtilde - 1, dimension);
-      IndexType dtilde2 = dtilde;
-      while (2 * m_dtilde >
-             binomialCoefficient(dimension + dtilde2 - 1, dimension))
-        ++dtilde2;
-      IndexType m_dtilde2 =
-          binomialCoefficient(dimension + dtilde2 - 1, dimension);
-      std::cout << "ditlde: " << dtilde << " dtilde2: " << dtilde2 << std::endl
-                << "mtilde: " << m_dtilde << " mtilde2: " << m_dtilde2
+      IndexType mtlde = 0;
+      while (mtlde < min_cluster_size) {
+        mtlde += binomialCoefficient(dimension + d2tlde - 1, dimension - 1);
+        IndexType mtlde2 = binomialCoefficient(dimension + d2tlde, dimension);
+        eigen_assert("Check if this works" && mtlde2 == mtlde);
+        ++d2tlde;
+      }
+      --d2tlde;
+      std::cout << "internal dtlde: " << d2tlde << " desired dtlde: " << dtilde
                 << std::endl;
       tree_data_->dtilde_ = dtilde;
-      tree_data_->dtilde2_ = dtilde2;
-      tree_data_->m_dtilde_ = m_dtilde;
-      tree_data_->m_dtilde2_ = m_dtilde2;
-
-      tree_data_->idcs.init(tree_data_->dtilde2_ - 1);
-      eigen_assert(tree_data_->idcs.get_MultiIndexSet().size() ==
-                       tree_data_->m_dtilde2_ &&
-                   "dimension mismatch in total degree indexset");
+      tree_data_->d2tilde_ = d2tlde > dtilde ? d2tlde : dtilde;
+      tree_data_->m_dtilde_ = 0;
+      for (auto i = 0; i < dtilde; ++i) {
+        tree_data_->m_dtilde_ +=
+            binomialCoefficient(dimension + i - 1, dimension - 1);
+      }
+      tree_data_->idcs.init(tree_data_->d2tilde_ - 1);
+      tree_data_->m_d2tilde_ = tree_data_->idcs.get_MultiIndexSet().size();
+      std::cout << "number of used polynomials: " << tree_data_->m_d2tilde_
+                << std::endl;
     }
 #else
     {
@@ -126,10 +127,10 @@ class SampletTree {
       // multi indices
       IndexType i = 0;
       IndexType j = 0;
-      tree_data_->multinomial_coefficients.resize(tree_data_->m_dtilde2_,
-                                                  tree_data_->m_dtilde2_);
-      for (const auto &beta : tree_data_->idcs.get_MultiIndexSet()) {
-        for (const auto &alpha : tree_data_->idcs.get_MultiIndexSet()) {
+      tree_data_->multinomial_coefficients.resize(tree_data_->m_d2tilde_,
+                                                  tree_data_->m_d2tilde_);
+      for (auto &beta : tree_data_->idcs.get_MultiIndexSet()) {
+        for (auto &alpha : tree_data_->idcs.get_MultiIndexSet()) {
           tree_data_->multinomial_coefficients(j, i) =
               multinomialCoefficient<ClusterTree::dimension>(alpha, beta);
           ++j;
@@ -363,8 +364,8 @@ class SampletTree {
       mom_buffer_ = momentComputer<ClusterTree>(P, *cluster_, tree_data_->idcs);
     }
 #ifdef USE_QR_CONSTRUCTION_
-    // are there samplets?
-    if (tree_data_->m_dtilde_ < mom_buffer_.cols()) {
+    // are there wavelets?
+    if (mom_buffer_.rows() < mom_buffer_.cols()) {
       Eigen::HouseholderQR<eigenMatrix> qr(mom_buffer_.transpose());
       Q_ = qr.householderQ();
       nscalfs_ = tree_data_->m_dtilde_;
@@ -372,9 +373,10 @@ class SampletTree {
       // this is the moment for the dad cluster
       mom_buffer_ =
           qr.matrixQR()
-              .block(0, 0, tree_data_->m_dtilde_, tree_data_->m_dtilde2_)
+              .block(0, 0, tree_data_->m_d2tilde_, tree_data_->m_d2tilde_)
               .template triangularView<Eigen::Upper>()
               .transpose();
+      mom_buffer_.conservativeResize(tree_data_->m_d2tilde_, nscalfs_);
     } else {
       Q_ = eigenMatrix::Identity(mom_buffer_.cols(), mom_buffer_.cols());
       nscalfs_ = mom_buffer_.cols();

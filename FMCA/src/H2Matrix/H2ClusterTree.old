@@ -64,8 +64,18 @@ class H2ClusterTree {
     bool refine = true;
     V_.resize(0, 0);
     E_.clear();
-
     if (CT.get_sons().size()) {
+      // check if all sons have more indices than the number of
+      // interpolation points. if not, create a leaf;
+      for (auto i = 0; i < CT.get_sons().size(); ++i) {
+        if (CT.get_sons()[i].get_indices().size() <
+            TP_interp_->get_Xi().cols()) {
+          refine = false;
+          break;
+        }
+      }
+    }
+    if (CT.get_sons().size() && refine) {
       sons_.resize(CT.sons_.size());
       for (auto i = 0; i < CT.sons_.size(); ++i) {
         sons_[i].TP_interp_ = TP_interp_;
@@ -86,7 +96,7 @@ class H2ClusterTree {
         E_.emplace_back(std::move(E));
       }
     } else {
-      // eigen_assert(TP_interp_->get_Xi().cols() <= CT.get_indices().size() &&
+      //eigen_assert(TP_interp_->get_Xi().cols() <= CT.get_indices().size() &&
       //             "????");
       // compute leaf
       V_.resize(TP_interp_->get_Xi().cols(), CT.get_indices().size());
@@ -95,6 +105,9 @@ class H2ClusterTree {
             ((P.col(CT.get_indices()[i]) - CT.get_bb().col(0)).array() /
              CT.get_bb().col(2).array())
                 .matrix());
+      // delete children of the cluster tree, as we do not need them for the
+      // moment!!!
+      cluster_->sons_.clear();
     }
 #ifdef CHECK_TRANSFER_MATRICES_
     if (E_.size()) {
