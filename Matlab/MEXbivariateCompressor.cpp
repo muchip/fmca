@@ -16,7 +16,7 @@
 #include "matrix.h"
 #include "mex.h"
 
-#define MPOLE_DEG 5
+#define MPOLE_DEG 0
 
 struct exponentialKernel {
   template <typename Derived>

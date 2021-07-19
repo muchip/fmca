@@ -93,6 +93,8 @@ class SampletTree {
       IndexType mtlde = 0;
       while (mtlde < min_cluster_size) {
         mtlde += binomialCoefficient(dimension + d2tlde - 1, dimension - 1);
+        IndexType mtlde2 = binomialCoefficient(dimension + d2tlde, dimension);
+        eigen_assert("Check if this works" && mtlde2 == mtlde);
         ++d2tlde;
       }
       --d2tlde;
