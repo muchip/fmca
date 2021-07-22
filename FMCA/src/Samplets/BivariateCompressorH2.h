@@ -11,8 +11,8 @@
 //
 #ifndef FMCA_SAMPLETS_BIVARIATECOMPRESSORH2_H_
 #define FMCA_SAMPLETS_BIVARIATECOMPRESSORH2_H_
-//#define FMCA_SYMMETRIC_STORAGE_
-#define FMCA_COMPRESSOR_BUFSIZE_
+#define FMCA_SYMMETRIC_STORAGE_
+//#define FMCA_COMPRESSOR_BUFSIZE_
 namespace FMCA {
 
 template <typename SampletTree> class BivariateCompressorH2 {

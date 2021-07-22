@@ -12,7 +12,7 @@ INCLUDE = -I/opt/homebrew/include/eigen3 -I/opt/homebrew/include\
 					-I/usr/local/include/eigen3
 #INCLUDE = -I/usr/include/eigen3
 LDFLAGS = -lm #-L/opt/homebrew/lib -lmetis
-OBJECTS = mainDebug.o
+OBJECTS = mainCompressionBenchmark.o
 all: $(OBJECTS)
 	$(CPP) $(OBJECTS) -o$(PROG) $(LDFLAGS)  
 #
