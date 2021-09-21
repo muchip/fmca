@@ -69,8 +69,8 @@ using ClusterT = FMCA::ClusterTree<double, DIM, LEAFSIZE, MPOLE_DEG>;
 using H2ClusterT = FMCA::H2ClusterTree<ClusterT, MPOLE_DEG>;
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
-  const double eta = 0.1;
-  const double aposteriori_threshold = 1e-10;
+  const double eta = 0.8;
+  const double aposteriori_threshold = 1e-6;
   const std::string logger =
       "loggerCompressionBenchmark_" + std::to_string(DIM) + ".txt";
   tictoc T;
