@@ -22,7 +22,7 @@
 //#define NPTS 65536
 //#define NPTS 32768
 //#define NPTS 16384
-#define NPTS 10000
+#define NPTS 1000
 //#define NPTS 4096
 //#define NPTS 2048
 //#define NPTS 1024
