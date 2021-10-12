@@ -1,0 +1,1 @@
+      Npts  dim   mpdeg  dtilde   eta   apost     svd      nza      nzp      nzL      Comp_err      Chol_err          cond       ctime

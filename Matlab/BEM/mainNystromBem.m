@@ -1,18 +1,19 @@
 clear all;
 close all;
 addpath('../')
-refSol = @(X,Y) X.^2 - Y.^2 + 10 * X;
+refSol = @(X,Y) ((X+0.05).^2 - Y.^2);
+refSol = @(X,Y) sin(4 * pi * Y) .* exp(-4 * pi * X);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % set number of collocation points
 i = 1;
-n = 2000
+n = 6000
 % set subdivision of [0,1)
 x = (1./n) * [0:n-1]';
 % set up the boundary using the cubic B-spline
 [b3, db3 d2b3] = cbspline;
-fr = @(x) 0.1 + 0.1 * b3(4 * x - 2);
-fDr = @(x) db3(4 * x - 2) * 0.4;
-fD2r = @(x) d2b3(4 * x - 2) * 1.6;
+fr = @(x) 0.1 + 0.1 * (b3(4 * x - 2) + 0.6 * sin(10 * pi * x));
+fDr = @(x) db3(4 * x - 2) * 0.4 + 0.6 * pi * cos(10 * pi * x);
+fD2r = @(x) d2b3(4 * x - 2) * 1.6 - 6 * pi * pi * sin(10 * pi * x);
 [g, N, detT, T, D2g] = Gamma (fr, fDr, fD2r, x);
 plot([g(:,1); g(1,1)], [g(:,2); g(1,2)], 'b-')
 axis square
@@ -50,7 +51,7 @@ d = 2 * log (detT / (2 * pi));
 V0 = (V0 + spdiags (d, 0, n, n)) / n;
 % compute the analytic part and plug everything together
 V1 = getV1 (n);
-V = -(V0) / 4 / pi;
+V = -(V0 + V1) / 4 / pi;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -64,16 +65,19 @@ rhoK = K \ rhs;
 m = 10;
 [X, Y, uK] = potentialn (g, N, detT, T, D2g, rhoK, m);
 [~, ~, uV] = potentialc (g, N, detT, T, D2g, rhoV, m);
+figure(1)
+surf(X,Y,uV)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 sol = refSol(X, Y);
-errK(i) = max (abs(uK(:) - sol(:)));
-errV(i) = max (abs(uV(:) - sol(:)));
+errK(i) = max (abs(uK(:) - sol(:)))
+errV(i) = max (abs(uV(:) - sol(:)))
 i = i + 1;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % figure(2);
 % semilogy(errK,'b-')
 % hold on;
 % semilogy(errV,'r-')
+V = V0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 tic
 [~, I, T] = MEXbivariateCompressor(g', 2, 10, 1e-1);
@@ -87,19 +91,5 @@ KW = Q * K(I, I) * Q';
 VW = Q * V(I, I) * Q';
 KW(find(abs(KW) < 1e-10)) = 0;
 VW(find(abs(VW) < 1e-10)) = 0;
-figure(2)
-vismat(KW)
-figure(3)
-vismat(VW)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% visualize solution, since X,Y,u are only defined for the interior
-% we have to append the (closed) boundary by hand
-% figure(3)
-% g(n+1,:) = g(1,:);
-% X(:,m+1) = g(:,1);
-% Y(:,m+1) = g(:,2);
-% rhs(n+1) = rhs(1);
-% uV(:,m+1) = rhs;
-% clf
-% surf (X,Y, uV);
-%shading interp;
+KW = sparse(KW);
+VW = sparse(VW);
