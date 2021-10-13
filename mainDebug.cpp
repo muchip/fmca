@@ -22,7 +22,7 @@
 //#define NPTS 65536
 //#define NPTS 32768
 //#define NPTS 16384
-#define NPTS 1000
+#define NPTS 40000
 //#define NPTS 4096
 //#define NPTS 2048
 //#define NPTS 1024
@@ -33,11 +33,11 @@
 #define DTILDE 4
 #define LEAFSIZE 4
 
-//#define PLOT_BOXES_
-#define TEST_H2MATRIX_
-#define TEST_COMPRESSOR_
-#define TEST_SAMPLET_TRANSFORM_
-#define TEST_VANISHING_MOMENTS_
+#define PLOT_BOXES_
+//#define TEST_H2MATRIX_
+//#define TEST_COMPRESSOR_
+//#define TEST_SAMPLET_TRANSFORM_
+//#define TEST_VANISHING_MOMENTS_
 //#define USE_BUNNY_
 
 struct exponentialKernel {
@@ -59,19 +59,19 @@ int main() {
   tictoc T;
   Eigen::MatrixXd P;
   std::cout << std::string(60, '-') << std::endl;
-#if USE_BUNNY_
+#ifdef USE_BUNNY_
   {
     std::cout << "loading data: \n";
     Eigen::MatrixXd B = readMatrix("Points/bunnySurface.txt");
-    P = B.transpose();
+    P = B.topRows(40000).transpose();
   }
 #else
   {
     std::cout << "using random points";
     P = Eigen::MatrixXd::Random(DIM, NPTS);
-    //  Eigen::VectorXd nrms = P.colwise().norm();
-    //  for (auto i = 0; i < P.cols(); ++i)
-    //    P.col(i) *= 1 / nrms(i);
+    P.row(2) *= 0;
+    Eigen::VectorXd nrms = P.colwise().norm();
+    for (auto i = 0; i < P.cols(); ++i) P.col(i) *= 1 / nrms(i);
   }
 #endif
   std::cout << "data size: ";

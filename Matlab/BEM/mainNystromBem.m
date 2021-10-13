@@ -90,6 +90,7 @@ Qerror = norm(Q * Q' - speye(size(Q)), 'fro') / norm(speye(size(Q)), 'fro')
 KW = Q * K(I, I) * Q';
 VW = Q * V(I, I) * Q';
 KW(find(abs(KW) < 1e-10)) = 0;
-VW(find(abs(VW) < 1e-10)) = 0;
+%VW(find(abs(VW) < 1e-10)) = 0;
 KW = sparse(KW);
-VW = sparse(VW);
+patternVis(KW, 1000, 'LU')
+%VW = sparse(VW);

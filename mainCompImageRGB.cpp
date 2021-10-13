@@ -101,9 +101,9 @@ int main() {
             << 1 - double(gcoeff) / Treddata.size() << "|"
             << 1 - double(bcoeff) / Treddata.size() << ")" << std::endl;
 
-  //Treddata = ST.inverseSampletTransform(Treddata);
-  //Tgreendata = ST.inverseSampletTransform(Tgreendata);
-  //Tbluedata = ST.inverseSampletTransform(Tbluedata);
+  Treddata = ST.inverseSampletTransform(Treddata);
+  Tgreendata = ST.inverseSampletTransform(Tgreendata);
+  Tbluedata = ST.inverseSampletTransform(Tbluedata);
   Eigen::VectorXd compTR = Treddata;
   Eigen::VectorXd compTG = Tgreendata;
   Eigen::VectorXd compTB = Tbluedata;

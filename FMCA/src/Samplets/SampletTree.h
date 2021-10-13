@@ -459,12 +459,12 @@ class SampletTree {
     if (color > thresh) {
       Eigen::Matrix3d bla;
       bla.setZero();
-      //  if (dimension == 2) {
-      //       bla.topRows(2) = cluster_->get_bb();
-      //      }
-      if (dimension == 3) {
-        bla = cluster_->get_bb();
-      }
+        if (dimension == 2) {
+             bla.topRows(2) = cluster_->get_bb();
+            }
+      //if (dimension == 3) {
+      //  bla = cluster_->get_bb();
+      //}
       bbvec.push_back(bla);
       cval.push_back(color);
     }
