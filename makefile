@@ -6,7 +6,7 @@
 #                                                                      #
 ########################################################################
 PROG= a.out
-CPP = g++ -std=c++11
+CPP = clang++ -std=c++11
 CPPFLAGS = -O3 -fPIC
 INCLUDE = -I/opt/homebrew/include/eigen3 -I/opt/homebrew/include\
 					-I/usr/local/include/eigen3

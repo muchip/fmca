@@ -1,7 +1,7 @@
 // This file is part of FMCA, the Fast Multiresolution Covariance Analysis
 // package.
 //
-// Copyright (c) 2020, Michael Multerer
+// Copyright (c) 2021, Michael Multerer
 //
 // All rights reserved.
 //
@@ -14,15 +14,37 @@
 
 namespace FMCA {
 
-template <typename ClusterTree, IndexType Deg>
-class H2ClusterTree;
-
-template <typename ValueType, IndexType Dim>
+template <typename ValueType>
 struct ClusterTreeData {
   ValueType geometry_diam_ = 0;
   IndexType max_id_ = 0;
   IndexType max_level_ = 0;
 };
+
+template <typename ValueType>
+struct ClusterTreeNode : public NodeBase<ClusterTreeNode<ValueType>> {
+  ClusterTreeNode() : tree_data_(nullptr), indices_begin_(-1) {
+    bb_.resize(0, 0);
+    indices_.resize(0);
+  }
+  std::shared_ptr<ClusterTreeData<ValueType>> tree_data_;
+  Eigen::Matrix<ValueType, Eigen::Dynamic, Eigen::Dynamic> bb_;
+  std::vector<IndexType> indices_;
+  IndexType indices_begin_;
+};
+
+template <typename ValueType, typename Splitter>
+class ClusterTree;
+
+namespace internal {
+
+template <typename ValueType, typename Splitter>
+struct traits<ClusterTree<ValueType, Splitter>> {
+  typedef ValueType value_type;
+  typedef ClusterTreeNode<value_type> node_type;
+  typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
+};
+}  // namespace internal
 
 /**
  *  \ingroup ClusterTree
@@ -30,208 +52,128 @@ struct ClusterTreeData {
  *         arbitrary dimensions. We always use a binary tree which can
  *         afterwards always be recombined into an 2^n tree.
  */
-template <typename ValueType, IndexType Dim, IndexType MinClusterSize,
-          IndexType Deg = 3,
-          typename Splitter =
-              ClusterSplitter::CardinalityBisection<ValueType, Dim>>
-class ClusterTree {
-  friend Splitter;
-  friend H2ClusterTree<ClusterTree, Deg>;
-
+template <typename ValueType,
+          typename Splitter = ClusterSplitter::CardinalityBisection<ValueType>>
+class ClusterTree : public TreeBase<ClusterTree<ValueType>> {
  public:
-  typedef ValueType value_type;
-  enum { dimension = Dim };
+  typedef typename internal::traits<ClusterTree>::eigenMatrix eigenMatrix;
+  typedef typename internal::traits<ClusterTree>::node_type node_type;
+  using TreeBase<ClusterTree<ValueType>>::node;
+  using TreeBase<ClusterTree<ValueType>>::sons;
+  using TreeBase<ClusterTree<ValueType>>::appendSons;
+  using TreeBase<ClusterTree<ValueType>>::nSons;
   //////////////////////////////////////////////////////////////////////////////
   // constructors
   //////////////////////////////////////////////////////////////////////////////
   ClusterTree() {}
-  ClusterTree(const Eigen::Matrix<ValueType, Dim, Eigen::Dynamic> &P) {
-    init(P);
+  ClusterTree(const eigenMatrix &P, IndexType min_cluster_size = 1) {
+    init(P, min_cluster_size);
   }
   //////////////////////////////////////////////////////////////////////////////
   // init
   //////////////////////////////////////////////////////////////////////////////
-  void init(const Eigen::Matrix<ValueType, Dim, Eigen::Dynamic> &P) {
+  void init(const eigenMatrix &P, IndexType min_cluster_size = 1) {
     // set up bounding box for root node
-    tree_data_ = std::make_shared<ClusterTreeData<ValueType, Dim>>();
+    node().tree_data_ = std::make_shared<ClusterTreeData<ValueType>>();
     initBoundingBox(P);
-    level_ = 0;
-    id_ = 0;
-    indices_begin_ = 0;
-    indices_.resize(P.cols());
-    std::iota(std::begin(indices_), std::end(indices_), 0u);
-    computeClusters(P);
+    node().indices_begin_ = 0;
+    node().indices_.resize(P.cols());
+    std::iota(node().indices_.begin(), node().indices_.end(), 0u);
+    computeClusters(P, min_cluster_size);
     shrinkToFit(P);
-    tree_data_->geometry_diam_ = bb_.col(2).norm();
-  }
-  //////////////////////////////////////////////////////////////////////////////
-  // get a vector with the bounding boxes on a certain level
-  //////////////////////////////////////////////////////////////////////////////
-  void get_BboxVector(std::vector<Eigen::Matrix<ValueType, Dim, 3u>> *bbvec,
-                      IndexType level = 0) {
-    if (sons_.size() && level_ < level)
-      for (auto i = 0; i < sons_.size(); ++i)
-        sons_[i].get_BboxVector(bbvec, level);
-    if (level_ == level)
-      if (indices_.size()) bbvec->push_back(bb_);
-    return;
-  }
-  //////////////////////////////////////////////////////////////////////////////
-  void get_BboxVectorLeafs(
-      std::vector<Eigen::Matrix<ValueType, Dim, 3u>> *bbvec) {
-    if (sons_.size())
-      for (auto i = 0; i < sons_.size(); ++i)
-        sons_[i].get_BboxVectorLeafs(bbvec);
-    else if (indices_.size())
-      bbvec->push_back(bb_);
-    return;
-  }
-  //////////////////////////////////////////////////////////////////////////////
-  // getter
-  //////////////////////////////////////////////////////////////////////////////
-  const ClusterTree *get_cluster() const { return this; }
-
-  const Eigen::Matrix<ValueType, Dim, 3u> &get_bb() const { return bb_; }
-
-  const std::vector<IndexType> &get_indices() const { return indices_; }
-
-  const std::vector<ClusterTree> &get_sons() const { return sons_; }
-
-  const ClusterTreeData<ValueType, Dim> &get_tree_data() const {
-    return *tree_data_;
+    node().tree_data_->geometry_diam_ = node().bb_.col(2).norm();
   }
 
-  IndexType get_level() const { return level_; }
-
-  IndexType get_id() const { return id_; }
-
-  IndexType get_indices_begin() const { return indices_begin_; }
-  //////////////////////////////////////////////////////////////////////////////
-  void exportTreeStructure(std::vector<std::vector<IndexType>> &tree) {
-    if (level_ >= tree.size()) tree.resize(level_ + 1);
-    tree[level_].push_back(indices_.size());
-    for (auto i = 0; i < sons_.size(); ++i) sons_[i].exportTreeStructure(tree);
-  }
-  //////////////////////////////////////////////////////////////////////////////
-  void getLeafIterator(std::vector<const ClusterTree *> &leafs) const {
-    if (sons_.size() == 0)
-      leafs.push_back(this);
-    else
-      for (auto i = 0; i < sons_.size(); ++i) sons_[i].getLeafIterator(leafs);
-    return;
-  }
-  //////////////////////////////////////////////////////////////////////////////
  private:
   //////////////////////////////////////////////////////////////////////////////
   // private methods
   //////////////////////////////////////////////////////////////////////////////
-  void initBoundingBox(const Eigen::Matrix<ValueType, Dim, Eigen::Dynamic> &P) {
-    for (auto i = 0; i < Dim; ++i) {
-      bb_(i, 0) = P.row(i).minCoeff();
-      bb_(i, 1) = P.row(i).maxCoeff();
-      // add some padding, e.g. 5%, see FMCA_BBOX_THREASHOLD
-      bb_(i, 0) = bb_(i, 0) < 0 ? bb_(i, 0) * (1 + FMCA_BBOX_THREASHOLD)
-                                : bb_(i, 0) * (1 - FMCA_BBOX_THREASHOLD);
-      bb_(i, 1) = bb_(i, 1) < 0 ? bb_(i, 1) * (1 - FMCA_BBOX_THREASHOLD)
-                                : bb_(i, 1) * (1 + FMCA_BBOX_THREASHOLD);
-    }
-    bb_.col(2) = bb_.col(1) - bb_.col(0);
+  void initBoundingBox(const eigenMatrix &P) {
+    node().bb_.resize(P.rows(), 3);
+    node().bb_.col(0) = P.rowwise().minCoeff();
+    node().bb_.col(1) = P.rowwise().maxCoeff();
+    node().bb_.col(0) += FMCA_BBOX_THREASHOLD * node().bb_.col(0);
+    node().bb_.col(1) += FMCA_BBOX_THREASHOLD * node().bb_.col(1);
+    node().bb_.col(2) = node().bb_.col(1) - node().bb_.col(0);
     return;
   }
-
   // recursively perform clustering on sons
-  void computeClusters(const Eigen::Matrix<ValueType, Dim, Eigen::Dynamic> &P) {
+  void computeClusters(const eigenMatrix &P, IndexType min_cluster_size) {
     Splitter split;
-    if (indices_.size() > MinClusterSize) {
-      sons_.resize(2);
-      // set up bounding boxes for sons (which are traversed in a binary
-      // fashion)
+    if (node().indices_.size() > min_cluster_size) {
+      appendSons(2);
+      // set up bounding boxes for sons
       for (auto i = 0; i < 2; ++i) {
-        sons_[i].level_ = level_ + 1;
-        tree_data_->max_level_ = (tree_data_->max_level_ < level_ + 1)
-                                     ? (level_ + 1)
-                                     : tree_data_->max_level_;
-        sons_[i].id_ = (1 << (level_ + 1)) + 2 * id_ + i;
-        tree_data_->max_id_ = tree_data_->max_id_ < sons_[i].id_
-                                  ? sons_[i].id_
-                                  : tree_data_->max_id_;
-        sons_[i].bb_ = bb_;
-        sons_[i].tree_data_ = tree_data_;
-        sons_[i].indices_begin_ = indices_begin_;
+        sons(i).node().bb_ = node().bb_;
+        sons(i).node().tree_data_ = node().tree_data_;
+        sons(i).node().indices_begin_ = node().indices_begin_;
       }
       // split index set and set sons bounding boxes
-      split(P, indices_, bb_, sons_[0], sons_[1]);
+      split(P, node().indices_, node().bb_, sons(0).node(), sons(1).node());
       // let recursion handle the rest
-      for (auto i = 0; i < sons_.size(); ++i) sons_[i].computeClusters(P);
+      for (auto i = 0; i < nSons(); ++i)
+        sons(i).computeClusters(P, min_cluster_size);
       // make indices hierarchically
-      indices_.clear();
-      for (auto i = 0; i < sons_.size(); ++i)
-        indices_.insert(indices_.end(), sons_[i].indices_.begin(),
-                        sons_[i].indices_.end());
+      node().indices_.clear();
+      for (auto i = 0; i < nSons(); ++i)
+        node().indices_.insert(node().indices_.end(),
+                               sons(i).node().indices_.begin(),
+                               sons(i).node().indices_.end());
     }
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
   // make bounding boxes tight
   //////////////////////////////////////////////////////////////////////////////
-  void shrinkToFit(const Eigen::Matrix<ValueType, Dim, Eigen::Dynamic> &P) {
-    Eigen::Matrix<ValueType, Dim, 3u> bbmat =
-        Eigen::Matrix<ValueType, Dim, 3u>::Zero();
-    if (sons_.size()) {
+  void shrinkToFit(const eigenMatrix &P) {
+    eigenMatrix bbmat(P.rows(), 3);
+    if (nSons()) {
       // assert that all sons have fitted bb's
-      for (auto i = 0; i < sons_.size(); ++i) sons_[i].shrinkToFit(P);
-      // now update own bb
-      // we need a son with indices to get a first bb
-      for (auto i = 0; i < sons_.size(); ++i)
-        if (sons_[i].indices_.size()) {
-          bbmat.col(0).array() = sons_[i].bb_.col(0);
-          bbmat.col(1).array() = sons_[i].bb_.col(1);
+      for (auto i = 0; i < nSons(); ++i) sons(i).shrinkToFit(P);
+      // now update own bb (we need a son with indices to get a first bb)
+      for (auto i = 0; i < nSons(); ++i)
+        if (sons(i).node().indices_.size()) {
+          bbmat.col(0).array() = sons(i).node().bb_.col(0);
+          bbmat.col(1).array() = sons(i).node().bb_.col(1);
           break;
         }
-      for (auto i = 0; i < sons_.size(); ++i)
-        if (sons_[i].indices_.size()) {
+      for (auto i = 0; i < nSons(); ++i)
+        if (sons(i).node().indices_.size()) {
           bbmat.col(0).array() =
-              bbmat.col(0).array().min(sons_[i].bb_.col(0).array());
+              bbmat.col(0).array().min(sons(i).node().bb_.col(0).array());
           bbmat.col(1).array() =
-              bbmat.col(1).array().max(sons_[i].bb_.col(1).array());
+              bbmat.col(1).array().max(sons(i).node().bb_.col(1).array());
         }
     } else {
-      if (indices_.size()) {
-        for (auto j = 0; j < Dim; ++j) {
-          bbmat(j, 0) = P(j, indices_[0]);
-          bbmat(j, 1) = P(j, indices_[0]);
+      if (node().indices_.size()) {
+        for (auto j = 0; j < P.rows(); ++j) {
+          bbmat(j, 0) = P(j, node().indices_[0]);
+          bbmat(j, 1) = P(j, node().indices_[0]);
         }
-        for (auto i = 1; i < indices_.size(); ++i)
-          for (auto j = 0; j < Dim; ++j) {
+        for (auto i = 1; i < node().indices_.size(); ++i)
+          for (auto j = 0; j < P.rows(); ++j) {
             // determine minimum
-            bbmat(j, 0) = bbmat(j, 0) <= P(j, indices_[i]) ? bbmat(j, 0)
-                                                           : P(j, indices_[i]);
+            bbmat(j, 0) = bbmat(j, 0) <= P(j, node().indices_[i])
+                              ? bbmat(j, 0)
+                              : P(j, node().indices_[i]);
             // determine maximum
-            bbmat(j, 1) = bbmat(j, 1) >= P(j, indices_[i]) ? bbmat(j, 1)
-                                                           : P(j, indices_[i]);
+            bbmat(j, 1) = bbmat(j, 1) >= P(j, node().indices_[i])
+                              ? bbmat(j, 1)
+                              : P(j, node().indices_[i]);
           }
         bbmat.col(0).array() -= 10 * FMCA_ZERO_TOLERANCE;
         bbmat.col(1).array() += 10 * FMCA_ZERO_TOLERANCE;
       } else {
         // collapse empty box to its midpoint
-        bbmat.col(0) = 0.5 * (bb_.col(0) + bb_.col(1));
+        bbmat.col(0) = 0.5 * (node().bb_.col(0) + node().bb_.col(1));
         bbmat.col(1) = bbmat.col(0);
       }
     }
     bbmat.col(2) = bbmat.col(1) - bbmat.col(0);
-    bb_ = bbmat;
+    node().bb_ = bbmat;
     return;
   }
-  //////////////////////////////////////////////////////////////////////////////
-  // private member variables
-  //////////////////////////////////////////////////////////////////////////////
-  Eigen::Matrix<ValueType, Dim, 3u> bb_;
-  std::vector<IndexType> indices_;
-  std::vector<ClusterTree> sons_;
-  std::shared_ptr<ClusterTreeData<ValueType, Dim>> tree_data_;
-  IndexType level_;
-  IndexType indices_begin_;
-  IndexType id_;
 };
+
 }  // namespace FMCA
 #endif

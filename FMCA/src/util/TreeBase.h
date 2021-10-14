@@ -15,37 +15,81 @@
 #include <memory>
 #include <vector>
 
-#include "Macros.h"
 namespace FMCA {
 
+namespace internal {
+template <typename Derived>
+struct traits {};
+
+}  // namespace internal
+template <typename Derived>
+struct NodeBase {
+  // return a reference to the derived object
+  Derived &derived() { return *static_cast<Derived *>(this); }
+  // return a const reference to the derived object */
+};
+
+/**
+ *  \ingroup util
+ *  \brief manages a generic tree providing tree topology and a node
+ *         iterator
+ */
 template <typename Derived>
 class TreeBase {
  public:
-  // we assume polymorphic node data and allow up and
-  // down casting while accessing them
-  template <typename NodeDataType>
-  const Derived &data() const {
-    return *(dynamic_cast<NodeDataType *>(n_data_.get()));
-  }
-  template <typename NodeDataType>
-  Derived &data() {
-    return *(dynamic_cast<NodeDataType *>(n_data_.get()));
+  typedef typename internal::traits<Derived>::node_type node_type;
+  // when a tree is constructed, we add at least the memory for its node
+  TreeBase() noexcept
+      : dad_(nullptr), prev_(nullptr), next_(nullptr), level_(0) {
+    node_ = std::unique_ptr<NodeBase<node_type>>(new node_type);
   }
   //////////////////////////////////////////////////////////////////////////////
-  const std::vector<TreeBase> &sons() const { return sons_; }
-  std::vector<TreeBase> &sons() { return sons_; }
+  using iterator = GenericForwardIterator<TreeBase, false>;
+  using const_iterator = GenericForwardIterator<TreeBase, true>;
+  // return a reference to the derived object
+  Derived &derived() { return *static_cast<Derived *>(this); }
+  // return a const reference to the derived object */
+  const Derived &derived() const { return *static_cast<const Derived *>(this); }
+  // exposed the trees init routine
+  template <typename... Ts>
+  void init(Ts &&...ts) {
+    derived().init(std::forward<Ts>(ts)...);
+  }
+  // we assume polymorphic node data and allow up and
+  // down casting while accessing them
+  node_type &node() { return node_->derived(); }
 
-  IndexType get_level() const { return level_; }
+  const node_type &node() const { return node_->derived(); }
 
-  IndexType get_id() const { return id_; }
+  //////////////////////////////////////////////////////////////////////////////
+  Derived &sons(typename std::vector<TreeBase>::size_type i) {
+    return sons_[i].derived();
+  }
+  const Derived &sons(typename std::vector<TreeBase>::size_type i) const {
+    return sons_[i].derived();
+  }
+
+  typename std::vector<TreeBase>::size_type nSons() { return sons_.size(); }
+  void appendSons(typename std::vector<TreeBase>::size_type n) {
+    sons_.resize(n);
+    for (TreeBase &s : sons_) {
+      s.dad_ = this;
+      s.level_ = level_ + 1;
+    }
+  }
+
+  // we also expose the node_ ptr such that we may mutate it
+  // std::unique_ptr<NodeBase<Derived>> &pnode() { return node_; }
+
+  void updateNodeList() {}
   //////////////////////////////////////////////////////////////////////////////
  private:
   std::vector<TreeBase> sons_;
-  std::unique_ptr<typename Derived::NodeData> n_data_;
+  std::unique_ptr<NodeBase<node_type>> node_;
+  TreeBase *dad_;
   TreeBase *prev_;
-  TreeBase *ndex_;
+  TreeBase *next_;
   IndexType level_;
-  IndexType id_;
 };
 
 }  // namespace FMCA

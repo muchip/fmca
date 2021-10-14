@@ -20,11 +20,12 @@ namespace FMCA {
  */
 namespace ClusterSplitter {
 
-template <typename ValueType, IndexType Dim> struct GeometricBisection {
+template <typename ValueType>
+struct GeometricBisection {
+  typedef Eigen::Matrix<ValueType, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
   template <class ClusterTree>
-  void operator()(const Eigen::Matrix<ValueType, Dim, Eigen::Dynamic> &P,
-                  const std::vector<IndexType> &indices,
-                  const Eigen::Matrix<ValueType, Dim, 3u> &bb, ClusterTree &c1,
+  void operator()(const eigenMatrix &P, const std::vector<IndexType> &indices,
+                  const eigenMatrix &bb, ClusterTree &c1,
                   ClusterTree &c2) const {
     // assign bounding boxes by longest edge bisection
     IndexType longest;
@@ -46,7 +47,8 @@ template <typename ValueType, IndexType Dim> struct GeometricBisection {
   }
 };
 
-template <typename Derived> struct CoordinateCompare {
+template <typename Derived>
+struct CoordinateCompare {
   const typename Eigen::MatrixBase<Derived> &P_;
   Eigen::Index cmp_;
   CoordinateCompare(const Eigen::MatrixBase<Derived> &P, Eigen::Index cmp)
@@ -57,11 +59,12 @@ template <typename Derived> struct CoordinateCompare {
   }
 };
 
-template <typename ValueType, IndexType Dim> struct CardinalityBisection {
+template <typename ValueType>
+struct CardinalityBisection {
+  typedef Eigen::Matrix<ValueType, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
   template <class ClusterTree>
-  void operator()(const Eigen::Matrix<ValueType, Dim, Eigen::Dynamic> &P,
-                  const std::vector<IndexType> &indices,
-                  const Eigen::Matrix<ValueType, Dim, 3u> &bb, ClusterTree &c1,
+  void operator()(const eigenMatrix &P, const std::vector<IndexType> &indices,
+                  const eigenMatrix &bb, ClusterTree &c1,
                   ClusterTree &c2) const {
     std::vector<IndexType> sorted_indices;
     IndexType longest;
@@ -70,14 +73,13 @@ template <typename ValueType, IndexType Dim> struct CardinalityBisection {
     sorted_indices = indices;
     // sort father index set with respect to the longest edge component
     std::sort(sorted_indices.begin(), sorted_indices.end(),
-              CoordinateCompare<Eigen::Matrix<ValueType, Dim, Eigen::Dynamic>>(
-                  P, longest));
-    c1.indices_ = std::vector<IndexType>(sorted_indices.begin(),
-                                         sorted_indices.begin() +
-                                             sorted_indices.size() / 2);
-    c2.indices_ = std::vector<IndexType>(sorted_indices.begin() +
-                                             sorted_indices.size() / 2,
-                                         sorted_indices.end());
+              CoordinateCompare<eigenMatrix>(P, longest));
+    c1.indices_ = std::vector<IndexType>(
+        sorted_indices.begin(),
+        sorted_indices.begin() + sorted_indices.size() / 2);
+    c2.indices_ = std::vector<IndexType>(
+        sorted_indices.begin() + sorted_indices.size() / 2,
+        sorted_indices.end());
     c2.indices_begin_ += c1.indices_.size();
     c1.bb_ = bb;
     c1.bb_(longest, 1) = P(longest, c1.indices_.back());
@@ -88,6 +90,6 @@ template <typename ValueType, IndexType Dim> struct CardinalityBisection {
   }
 };
 
-} // namespace ClusterSplitter
-} // namespace FMCA
+}  // namespace ClusterSplitter
+}  // namespace FMCA
 #endif

@@ -1,10 +1,20 @@
-#include "FMCA/src/util/TreeBase.h"
+#include <Eigen/Dense>
 
-struct Tree {
-  typedef int NodeData;
-};
+#include "FMCA/ClusterTree"
+#include "FMCA/src/util/tictoc.hpp"
+
 int main() {
-  FMCA::TreeBase<Tree> myTree;
+  std::cout << "using random points\n";
+  Eigen::MatrixXd P = Eigen::MatrixXd::Random(3, 10000000);
+  std::cout << P.rows() << " " << P.cols() << std::endl;
+  // P.row(2) *= 0;
+  // Eigen::VectorXd nrms = P.colwise().norm();
+  // for (auto i = 0; i < P.cols(); ++i) P.col(i) *= 1 / nrms(i);
+  tictoc T;
+
+  T.tic();
+  FMCA::ClusterTree<double> myTree(P, 100);
+  T.toc("tree setup: ");
 
   return 0;
 }
