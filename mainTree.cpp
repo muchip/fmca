@@ -3,6 +3,9 @@
 #include "FMCA/ClusterTree"
 #include "FMCA/src/util/tictoc.hpp"
 
+  using ClusterT = FMCA::ClusterTree<double>;
+ // using ClusterT = FMCA::ClusterTree<double, 3, 100, 3>;
+
 int main() {
   std::cout << "using random points\n";
   Eigen::MatrixXd P = Eigen::MatrixXd::Random(3, 10000000);
@@ -13,7 +16,8 @@ int main() {
   tictoc T;
 
   T.tic();
-  FMCA::ClusterTree<double> myTree(P, 100);
+  //ClusterT CT(P, 100);
+  ClusterT CT();
   T.toc("tree setup: ");
 
   return 0;
