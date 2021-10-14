@@ -58,10 +58,12 @@ class ClusterTree : public TreeBase<ClusterTree<ValueType>> {
  public:
   typedef typename internal::traits<ClusterTree>::eigenMatrix eigenMatrix;
   typedef typename internal::traits<ClusterTree>::node_type node_type;
+  // make base class methods visible
   using TreeBase<ClusterTree<ValueType>>::node;
   using TreeBase<ClusterTree<ValueType>>::sons;
   using TreeBase<ClusterTree<ValueType>>::appendSons;
   using TreeBase<ClusterTree<ValueType>>::nSons;
+  using TreeBase<ClusterTree<ValueType>>::level;
   //////////////////////////////////////////////////////////////////////////////
   // constructors
   //////////////////////////////////////////////////////////////////////////////
@@ -83,6 +85,54 @@ class ClusterTree : public TreeBase<ClusterTree<ValueType>> {
     shrinkToFit(P);
     node().tree_data_->geometry_diam_ = node().bb_.col(2).norm();
   }
+  //////////////////////////////////////////////////////////////////////////////
+  // get a vector with the bounding boxes on a certain level
+  //////////////////////////////////////////////////////////////////////////////
+  void get_BboxVector(std::vector<eigenMatrix> *bbvec, IndexType lvl = 0) {
+    if (nSons() && level() < lvl)
+      for (auto i = 0; i < nSons(); ++i) sons(i).get_BboxVector(bbvec, lvl);
+    if (level() == lvl)
+      if (node().indices_.size()) bbvec->push_back(node().bb_);
+    return;
+  }
+  //////////////////////////////////////////////////////////////////////////////
+  void get_BboxVectorLeafs(std::vector<eigenMatrix> *bbvec) {
+    if (nSons())
+      for (auto i = 0; i < nSons(); ++i) sons(i).get_BboxVectorLeafs(bbvec);
+    else if (node().indices_.size())
+      bbvec->push_back(node().bb_);
+    return;
+  }
+  //////////////////////////////////////////////////////////////////////////////
+  // getter
+  //////////////////////////////////////////////////////////////////////////////
+  const ClusterTree *get_cluster() const { return this; }
+
+  const eigenMatrix &get_bb() const { return node().bb_; }
+
+  const std::vector<IndexType> &get_indices() const { return node().indices_; }
+
+  const ClusterTreeData<ValueType> &get_tree_data() const {
+    return *(node().tree_data_);
+  }
+
+  IndexType get_level() const { return level(); }
+
+  IndexType get_indices_begin() const { return node().indices_begin_; }
+  //////////////////////////////////////////////////////////////////////////////
+  void exportTreeStructure(std::vector<std::vector<IndexType>> &tree) {
+    if (level() >= tree.size()) tree.resize(level() + 1);
+    tree[level()].push_back(node().indices_.size());
+    for (auto i = 0; i < nSons(); ++i) sons(i).exportTreeStructure(tree);
+  }
+  //////////////////////////////////////////////////////////////////////////////
+  void getLeafIterator(std::vector<const ClusterTree *> &leafs) const {
+    if (nSons() == 0)
+      leafs.push_back(this);
+    else
+      for (auto i = 0; i < nSons(); ++i) sons(i).getLeafIterator(leafs);
+    return;
+  }
 
  private:
   //////////////////////////////////////////////////////////////////////////////
@@ -100,6 +150,9 @@ class ClusterTree : public TreeBase<ClusterTree<ValueType>> {
   // recursively perform clustering on sons
   void computeClusters(const eigenMatrix &P, IndexType min_cluster_size) {
     Splitter split;
+    node().tree_data_->max_level_ = node().tree_data_->max_level_ < level()
+                                       ? level()
+                                       : node().tree_data_->max_level_;
     if (node().indices_.size() > min_cluster_size) {
       appendSons(2);
       // set up bounding boxes for sons

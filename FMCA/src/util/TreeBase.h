@@ -70,6 +70,9 @@ class TreeBase {
   }
 
   typename std::vector<TreeBase>::size_type nSons() { return sons_.size(); }
+  const typename std::vector<TreeBase>::size_type nSons() const {
+    return sons_.size();
+  }
   void appendSons(typename std::vector<TreeBase>::size_type n) {
     sons_.resize(n);
     for (TreeBase &s : sons_) {
@@ -78,6 +81,8 @@ class TreeBase {
     }
   }
 
+  IndexType level() { return level_; };
+  const IndexType level() const { return level_; };
   // we also expose the node_ ptr such that we may mutate it
   // std::unique_ptr<NodeBase<Derived>> &pnode() { return node_; }
 
