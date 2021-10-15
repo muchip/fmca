@@ -6,20 +6,21 @@
 #include "FMCA/src/util/IO.h"
 #include "FMCA/src/util/tictoc.hpp"
 
-//using ClusterT = FMCA::ClusterTree<double, FMCA::ClusterSplitter::GeometricBisection<double>>;
+// using ClusterT = FMCA::ClusterTree<double,
+// FMCA::ClusterSplitter::GeometricBisection<double>>;
 using ClusterT = FMCA::ClusterTree<double>;
 
 int main() {
   std::cout << "using random points\n";
-  Eigen::MatrixXd P = Eigen::MatrixXd::Random(3, 100000);
+  Eigen::MatrixXd P = Eigen::MatrixXd::Random(3, 500005);
   std::cout << P.rows() << " " << P.cols() << std::endl;
-  P.row(2) *= 0;
-  Eigen::VectorXd nrms = P.colwise().norm();
-  for (auto i = 0; i < P.cols(); ++i) P.col(i) *= 1 / nrms(i);
+  // P.row(2) *= 0;
+  // Eigen::VectorXd nrms = P.colwise().norm();
+  // for (auto i = 0; i < P.cols(); ++i) P.col(i) *= 1 / nrms(i);
   tictoc T;
 
   T.tic();
-  ClusterT CT(P, 100);
+  ClusterT CT(P, 1000);
   T.toc("set up cluster tree: ");
   {
     std::vector<std::vector<FMCA::IndexType>> tree;
@@ -33,6 +34,20 @@ int main() {
     }
     std::cout << std::string(60, '-') << std::endl;
   }
+  int oldl = 0;
+  int numInd = 0;
+  int i = 0;
+  for (const auto &n : CT) {
+    if (oldl != n.level()) {
+      std::cout << oldl << ")\t" << i << "\t" << numInd << std::endl;
+      i = 0;
+      numInd = 0;
+      oldl = n.level();
+    }
+    numInd += n.node().indices_.size();
+    ++i;
+  }
+  std::cout << oldl << ")\t" << i << "\t" << numInd << std::endl;
 
   {
     std::vector<const ClusterT *> leafs;

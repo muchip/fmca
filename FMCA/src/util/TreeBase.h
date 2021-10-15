@@ -39,13 +39,14 @@ class TreeBase {
  public:
   typedef typename internal::traits<Derived>::node_type node_type;
   // when a tree is constructed, we add at least the memory for its node
-  TreeBase() noexcept
-      : dad_(nullptr), prev_(nullptr), next_(nullptr), level_(0) {
+  TreeBase() noexcept : dad_(nullptr), level_(0) {
     node_ = std::unique_ptr<NodeBase<node_type>>(new node_type);
   }
   //////////////////////////////////////////////////////////////////////////////
-  using iterator = GenericForwardIterator<TreeBase, false>;
-  using const_iterator = GenericForwardIterator<TreeBase, true>;
+  using iterator = IDDFSForwardIterator<TreeBase, false>;
+  using const_iterator = IDDFSForwardIterator<TreeBase, true>;
+  friend iterator;
+  friend const_iterator;
   // return a reference to the derived object
   Derived &derived() { return *static_cast<Derived *>(this); }
   // return a const reference to the derived object */
@@ -61,6 +62,8 @@ class TreeBase {
 
   const node_type &node() const { return node_->derived(); }
 
+  iterator begin() { return iterator(this, 0, *max_level_); }
+  iterator end() { return iterator(nullptr, 0, *max_level_); }
   //////////////////////////////////////////////////////////////////////////////
   Derived &sons(typename std::vector<TreeBase>::size_type i) {
     return sons_[i].derived();
@@ -75,10 +78,15 @@ class TreeBase {
   }
   void appendSons(typename std::vector<TreeBase>::size_type n) {
     sons_.resize(n);
+    if (max_level_ == nullptr) {
+      max_level_ = std::make_shared<IndexType>();
+    }
     for (TreeBase &s : sons_) {
       s.dad_ = this;
       s.level_ = level_ + 1;
+      s.max_level_ = max_level_;
     }
+    *max_level_ = (*max_level_ < level_ + 1) ? level_ + 1 : *max_level_;
   }
 
   IndexType level() { return level_; };
@@ -92,9 +100,8 @@ class TreeBase {
   std::vector<TreeBase> sons_;
   std::unique_ptr<NodeBase<node_type>> node_;
   TreeBase *dad_;
-  TreeBase *prev_;
-  TreeBase *next_;
   IndexType level_;
+  std::shared_ptr<IndexType> max_level_;
 };
 
 }  // namespace FMCA

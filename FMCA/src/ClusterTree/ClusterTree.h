@@ -53,7 +53,7 @@ struct traits<ClusterTree<ValueType, Splitter>> {
  *         afterwards always be recombined into an 2^n tree.
  */
 template <typename ValueType,
-          typename Splitter = ClusterSplitter::CardinalityBisection<ValueType>>
+          typename Splitter = ClusterSplitter::GeometricBisection<ValueType>>
 class ClusterTree : public TreeBase<ClusterTree<ValueType>> {
  public:
   typedef typename internal::traits<ClusterTree>::eigenMatrix eigenMatrix;

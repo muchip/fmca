@@ -21,7 +21,7 @@
 #include <Eigen/Dense>
 
 #include "src/util/Macros.h"
-#include "src/util/GenericIterator.h"
+#include "src/util/IDDFSForwardIterator.h"
 #include "src/util/TreeBase.h"
 #include "src/ClusterTree/ClusterTreeSplitter.h"
 #include "src/ClusterTree/ClusterTree.h"
