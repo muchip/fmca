@@ -12,7 +12,7 @@ using ClusterT = FMCA::ClusterTree<double>;
 
 int main() {
   std::cout << "using random points\n";
-  Eigen::MatrixXd P = Eigen::MatrixXd::Random(3, 500005);
+  Eigen::MatrixXd P = Eigen::MatrixXd::Random(3, 1379);
   std::cout << P.rows() << " " << P.cols() << std::endl;
   // P.row(2) *= 0;
   // Eigen::VectorXd nrms = P.colwise().norm();
@@ -20,7 +20,7 @@ int main() {
   tictoc T;
 
   T.tic();
-  ClusterT CT(P, 1000);
+  ClusterT CT(P, 2);
   T.toc("set up cluster tree: ");
   {
     std::vector<std::vector<FMCA::IndexType>> tree;

@@ -14,72 +14,46 @@
 
 namespace FMCA {
 
-template <typename T, bool IS_CONST>
-struct IDDFSForwardIterator {
+template <typename T, bool IS_CONST> struct IDDFSForwardIterator {
   using value_type = typename std::conditional<IS_CONST, const T, T>::type;
   using iterator_category = std::forward_iterator_tag;
   using difference_type = std::ptrdiff_t;
-  using pointer = value_type*;
-  using reference = value_type&;
+  using pointer = value_type *;
+  using reference = value_type &;
 
   explicit IDDFSForwardIterator(pointer ptr, IndexType depth,
                                 IndexType max_depth)
-      : ptr_(ptr), depth_(depth), max_depth_(max_depth) {
-    // always set the begin to the root of the tree
-    if (ptr_ != nullptr)
-      while (ptr_->dad_ != nullptr) ptr_ = ptr_->dad_;
-    root_ = ptr_;
-  }
+      : ptr_(ptr), depth_(depth), max_depth_(max_depth) {}
 
   reference operator*() const { return *ptr_; }
   pointer operator->() const { return ptr_; }
 
   // Prefix increment
-  IDDFSForwardIterator& operator++() {
-    // store the current value of the iterator;
-    pointer ptr_old = ptr_;
-
+  IDDFSForwardIterator &operator++() {
     // as our search terminated, we are at a leaf with the current allowed
     // depth. Check if there are more of them by going up
-    for (pointer it_p = ptr_; it_p->dad_ != nullptr;) {
-      // check which son is the current one
-      auto i = 0;
-      for (; i < it_p->dad_->sons_.size(); ++i)
-        if (it_p == std::addressof(it_p->dad_->sons_[i])) {
-          break;
-        }
+    while (ptr_->dad_ != nullptr) {
       // if there is another branch, lets follow it to a leaf
-      if (i < it_p->dad_->sons_.size() - 1) {
-        ptr_ = std::addressof(it_p->dad_->sons_[i + 1]);
-        while (ptr_->sons_.size() && ptr_->level_ < depth_) {
+      if (ptr_ != std::addressof(ptr_->dad_->sons_.back())) {
+        ++ptr_;
+        while (ptr_->sons_.size() && ptr_->level_ < depth_)
           ptr_ = std::addressof(ptr_->sons_[0]);
-        }
         // did we find a valid next node? if so return it
-        if (ptr_->level_ == depth_) return *this;
-        it_p = ptr_;
-      } else {
-        it_p = it_p->dad_;
-      }
+        if (ptr_->level_ == depth_)
+          return *this;
+      } else
+        ptr_ = ptr_->dad_;
     }
-    // if we ended up here, we are back to the root. Now, we either
-    // have already traversed all the nodes or we need to increase the
-    // depth
-    if (ptr_old == ptr_) {
-      // end of the tree
-      if (depth_ > max_depth_) {
-        ptr_ = nullptr;
-        return *this;
-      } else {
-        ++depth_;
-        ptr_ = root_;
-        while (ptr_->sons_.size() && ptr_->level_ < depth_) {
-          ptr_ = std::addressof(ptr_->sons_[0]);
-        }
-        // did we find a valid next node? if so return it
-        if (ptr_->level_ == depth_) return *this;
-      }
-    }
-    ++(*this);
+    if (depth_ < max_depth_) {
+      // increase depth and traverse the left branch to a leaf
+      ++depth_;
+      while (ptr_->sons_.size() && ptr_->level_ < depth_)
+        ptr_ = std::addressof(ptr_->sons_[0]);
+      // did we find a valid next node? if so return it
+      if (ptr_->level_ != depth_)
+        ++(*this);
+    } else
+      ptr_ = nullptr;
     return *this;
   }
 
@@ -101,13 +75,12 @@ struct IDDFSForwardIterator {
     return IDDFSForwardIterator<T, true>(ptr_, depth_, max_depth_);
   }
 
- private:
-  pointer root_;
+private:
   pointer ptr_;
   IndexType depth_;
   IndexType max_depth_;
   // give iterator access to const_iterator::m_ptr
   friend IDDFSForwardIterator<T, false>;
 };
-}  // namespace FMCA
+} // namespace FMCA
 #endif
