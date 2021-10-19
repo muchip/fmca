@@ -21,9 +21,8 @@ template <typename T, bool IS_CONST> struct IDDFSForwardIterator {
   using pointer = value_type *;
   using reference = value_type &;
 
-  explicit IDDFSForwardIterator(pointer ptr, IndexType depth,
-                                IndexType max_depth)
-      : ptr_(ptr), depth_(depth), max_depth_(max_depth) {}
+  explicit IDDFSForwardIterator(pointer ptr, IndexType depth)
+      : ptr_(ptr), depth_(depth), max_depth_(0) {}
 
   reference operator*() const { return *ptr_; }
   pointer operator->() const { return ptr_; }
@@ -39,16 +38,18 @@ template <typename T, bool IS_CONST> struct IDDFSForwardIterator {
         while (ptr_->sons_.size() && ptr_->level_ < depth_)
           ptr_ = std::addressof(ptr_->sons_[0]);
         // did we find a valid next node? if so return it
+        max_depth_ = max_depth_ < ptr_->level_ ? ptr_->level_ : max_depth_;
         if (ptr_->level_ == depth_)
           return *this;
       } else
         ptr_ = ptr_->dad_;
     }
-    if (depth_ < max_depth_) {
+    if (depth_ <= max_depth_) {
       // increase depth and traverse the left branch to a leaf
       ++depth_;
       while (ptr_->sons_.size() && ptr_->level_ < depth_)
         ptr_ = std::addressof(ptr_->sons_[0]);
+      max_depth_ = max_depth_ < ptr_->level_ ? ptr_->level_ : max_depth_;
       // did we find a valid next node? if so return it
       if (ptr_->level_ != depth_)
         ++(*this);
@@ -72,7 +73,7 @@ template <typename T, bool IS_CONST> struct IDDFSForwardIterator {
 
   // provide implicit conversion from iterator to const_iterator
   operator IDDFSForwardIterator<T, true>() const {
-    return IDDFSForwardIterator<T, true>(ptr_, depth_, max_depth_);
+    return IDDFSForwardIterator<T, true>(ptr_, depth_);
   }
 
 private:

@@ -18,12 +18,10 @@
 namespace FMCA {
 
 namespace internal {
-template <typename Derived>
-struct traits {};
+template <typename Derived> struct traits {};
 
-}  // namespace internal
-template <typename Derived>
-struct NodeBase {
+} // namespace internal
+template <typename Derived> struct NodeBase {
   // return a reference to the derived object
   Derived &derived() { return *static_cast<Derived *>(this); }
   // return a const reference to the derived object */
@@ -34,9 +32,8 @@ struct NodeBase {
  *  \brief manages a generic tree providing tree topology and a node
  *         iterator
  */
-template <typename Derived>
-class TreeBase {
- public:
+template <typename Derived> class TreeBase {
+public:
   typedef typename internal::traits<Derived>::node_type node_type;
   // when a tree is constructed, we add at least the memory for its node
   TreeBase() noexcept : dad_(nullptr), level_(0) {
@@ -52,8 +49,7 @@ class TreeBase {
   // return a const reference to the derived object */
   const Derived &derived() const { return *static_cast<const Derived *>(this); }
   // exposed the trees init routine
-  template <typename... Ts>
-  void init(Ts &&...ts) {
+  template <typename... Ts> void init(Ts &&...ts) {
     derived().init(std::forward<Ts>(ts)...);
   }
   // we assume polymorphic node data and allow up and
@@ -62,8 +58,8 @@ class TreeBase {
 
   const node_type &node() const { return node_->derived(); }
 
-  iterator begin() { return iterator(this, 0, *max_level_); }
-  iterator end() { return iterator(nullptr, 0, *max_level_); }
+  iterator begin() { return iterator(this, 0); }
+  iterator end() { return iterator(nullptr, 0); }
   //////////////////////////////////////////////////////////////////////////////
   Derived &sons(typename std::vector<TreeBase>::size_type i) {
     return sons_[i].derived();
@@ -78,15 +74,10 @@ class TreeBase {
   }
   void appendSons(typename std::vector<TreeBase>::size_type n) {
     sons_.resize(n);
-    if (max_level_ == nullptr) {
-      max_level_ = std::make_shared<IndexType>();
-    }
     for (TreeBase &s : sons_) {
       s.dad_ = this;
       s.level_ = level_ + 1;
-      s.max_level_ = max_level_;
     }
-    *max_level_ = (*max_level_ < level_ + 1) ? level_ + 1 : *max_level_;
   }
 
   IndexType level() { return level_; };
@@ -96,14 +87,13 @@ class TreeBase {
 
   void updateNodeList() {}
   //////////////////////////////////////////////////////////////////////////////
- private:
+private:
   std::vector<TreeBase> sons_;
   std::unique_ptr<NodeBase<node_type>> node_;
   TreeBase *dad_;
   IndexType level_;
-  std::shared_ptr<IndexType> max_level_;
 };
 
-}  // namespace FMCA
+} // namespace FMCA
 
 #endif
