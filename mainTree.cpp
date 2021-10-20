@@ -6,10 +6,6 @@
 #include "FMCA/src/util/IO.h"
 #include "FMCA/src/util/tictoc.hpp"
 
-// using ClusterT = FMCA::ClusterTree<double,
-// FMCA::ClusterSplitter::GeometricBisection<double>>;
-using ClusterT = FMCA::ClusterTree<double>;
-
 int main() {
   std::cout << "using random points\n";
   Eigen::MatrixXd P = Eigen::MatrixXd::Random(3, 1379);
@@ -20,7 +16,7 @@ int main() {
   tictoc T;
 
   T.tic();
-  ClusterT CT(P, 2);
+  FMCA::ClusterT CT(P, 2);
   T.toc("set up cluster tree: ");
   {
     std::vector<std::vector<FMCA::IndexType>> tree;
@@ -29,7 +25,8 @@ int main() {
     std::cout << "l)\t#pts\ttotal#pts" << std::endl;
     for (auto i = 0; i < tree.size(); ++i) {
       int numInd = 0;
-      for (auto j = 0; j < tree[i].size(); ++j) numInd += tree[i][j];
+      for (auto j = 0; j < tree[i].size(); ++j)
+        numInd += tree[i][j];
       std::cout << i << ")\t" << tree[i].size() << "\t" << numInd << "\n";
     }
     std::cout << std::string(60, '-') << std::endl;
@@ -48,22 +45,47 @@ int main() {
     ++i;
   }
   std::cout << oldl << ")\t" << i << "\t" << numInd << std::endl;
-
   {
-    std::vector<const ClusterT *> leafs;
-    CT.getLeafIterator(leafs);
-    int numInd = 0;
-    for (auto i = 0; i < leafs.size(); ++i)
-      numInd += (leafs[i])->get_indices().size();
+    std::vector<const FMCA::TreeBase<FMCA::ClusterT> *> leafs;
     for (auto level = 0; level < 14; ++level) {
       std::vector<Eigen::MatrixXd> bbvec;
-      CT.get_BboxVector(&bbvec, level);
+      for (const auto &node : CT) {
+        if (node.level() == level)
+          bbvec.push_back(node.derived().bb());
+      }
       FMCA::IO::plotBoxes("boxes" + std::to_string(level) + ".vtk", bbvec);
     }
     std::vector<Eigen::MatrixXd> bbvec;
-    CT.get_BboxVectorLeafs(&bbvec);
+
+    for (const auto &node : CT) {
+      if (!node.nSons())
+        bbvec.push_back(node.derived().bb());
+    }
     FMCA::IO::plotBoxes("boxesLeafs.vtk", bbvec);
     FMCA::IO::plotPoints("points.vtk", P);
   }
   return 0;
 }
+#if 0
+  //////////////////////////////////////////////////////////////////////////////
+  // get a vector with the bounding boxes on a certain level
+  //////////////////////////////////////////////////////////////////////////////
+  void get_BboxVector(std::vector<eigenMatrix> *bbvec, IndexType lvl = 0) {
+    if (nSons() && level() < lvl)
+      for (auto i = 0; i < nSons(); ++i)
+        sons(i).get_BboxVector(bbvec, lvl);
+    if (level() == lvl)
+      if (node().indices_.size())
+        bbvec->push_back(node().bb_);
+    return;
+  }
+  //////////////////////////////////////////////////////////////////////////////
+  void get_BboxVectorLeafs(std::vector<eigenMatrix> *bbvec) {
+    if (nSons())
+      for (auto i = 0; i < nSons(); ++i)
+        sons(i).get_BboxVectorLeafs(bbvec);
+    else if (node().indices_.size())
+      bbvec->push_back(node().bb_);
+    return;
+  }
+#endif

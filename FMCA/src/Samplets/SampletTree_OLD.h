@@ -13,6 +13,9 @@
 #define FMCA_SAMPLETS_SAMPLETTREE_H_
 
 namespace FMCA {
+template <typename ClusterTree>
+class SampletTree;
+
 /**
  *  \ingroup Samplets
  *  \brief The SampletTreeData struct keeps all information that should be
@@ -22,42 +25,20 @@ namespace FMCA {
  *         In particular, we hace here a levelwise serialisation of the
  *         samplet tree stored in the std::vector samplet_list
  */
-template <typename ValueType>
-struct SampletTreeData : public ClusterTreeData<ValueType> {
+template <typename ClusterTree>
+struct SampletTreeData {
   IndexType max_wlevel_ = 0;
   IndexType dtilde_ = 0;
   IndexType dtilde2_ = 0;
   IndexType m_dtilde_ = 0;
   IndexType m_dtilde2_ = 0;
-  ValueType orthogonality_threshold_ = 0;
-  MultiIndexSet idcs;
-  Eigen::Matrix<ValueType, Eigen::Dynamic, Eigen::Dynamic>
+  typename ClusterTree::value_type orthogonality_threshold_ = 0;
+  MultiIndexSet<ClusterTree::dimension> idcs;
+  std::vector<SampletTree<ClusterTree> *> samplet_list;
+  Eigen::Matrix<typename ClusterTree::value_type, Eigen::Dynamic,
+                Eigen::Dynamic>
       multinomial_coefficients;
 };
-
-template <typename ValueType>
-struct SampletTreeNode : public ClusterTreeNode<ValueType> {
-  Eigen::Matrix<ValueType, Eigen::Dynamic, Eigen::Dynamic> mom_buffer_;
-  Eigen::Matrix<ValueType, Eigen::Dynamic, Eigen::Dynamic> Q_;
-  Eigen::Matrix<ValueType, Eigen::Dynamic, Eigen::Dynamic> V_;
-  IndexType nscalfs_;
-  IndexType nsamplets_;
-  IndexType wlevel_;
-  IndexType start_index_;
-  IndexType block_id_;
-};
-
-template <typename ValueType, typename Splitter> class SampletTree;
-
-namespace internal {
-
-template <typename ValueType, typename Splitter>
-struct traits<SampletTree<ValueType, Splitter>> {
-  typedef ValueType value_type;
-  typedef SampletTreeNode<value_type> node_type;
-  typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
-};
-} // namespace internal
 
 /**
  *  \ingroup Samplets
@@ -69,12 +50,16 @@ struct traits<SampletTree<ValueType, Splitter>> {
  *         if the cluster tree is mutated or goes out of scope, we get dangeling
  *         pointers!
  */
-template <typename ValueType,
-          typename Splitter = ClusterSplitter::GeometricBisection<ValueType>>
+template <typename ClusterTree>
 class SampletTree {
-public:
-  typedef typename internal::traits<SampletTree>::eigenMatrix eigenMatrix;
-  typedef typename internal::traits<SampletTree>::node_type node_type;
+  friend class BivariateCompressor<SampletTree>;
+  friend class BivariateCompressorH2<SampletTree>;
+
+ public:
+  typedef typename ClusterTree::value_type value_type;
+  enum { dimension = ClusterTree::dimension };
+  typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
+  typedef Eigen::Matrix<value_type, Eigen::Dynamic, 1> eigenVector;
   //////////////////////////////////////////////////////////////////////////////
   // constructors
   //////////////////////////////////////////////////////////////////////////////
@@ -84,8 +69,6 @@ public:
               value_type orth_thresh = 1e-6) {
     init(P, CT, dtilde);
   }
-
-#if 0
   //////////////////////////////////////////////////////////////////////////////
   // init
   //////////////////////////////////////////////////////////////////////////////
@@ -102,10 +85,8 @@ public:
       unsigned int min_cluster_size = (*(leafs[0])).get_indices().size();
       for (auto i = 0; i < leafs.size(); ++i) {
         const unsigned int fthis = (*(leafs[i])).get_indices().size();
-        if (max_cluster_size < fthis)
-          max_cluster_size = fthis;
-        if (min_cluster_size > fthis)
-          min_cluster_size = fthis;
+        if (max_cluster_size < fthis) max_cluster_size = fthis;
+        if (min_cluster_size > fthis) min_cluster_size = fthis;
       }
       std::cout << "min leafsize: " << min_cluster_size
                 << " max leafsize: " << max_cluster_size << std::endl;
@@ -165,10 +146,8 @@ public:
   }
   //////////////////////////////////////////////////////////////////////////////
   void sampletTransformMatrix(eigenMatrix &M) {
-    for (auto j = 0; j < M.cols(); ++j)
-      M.col(j) = sampletTransform(M.col(j));
-    for (auto i = 0; i < M.rows(); ++i)
-      M.row(i) = sampletTransform(M.row(i));
+    for (auto j = 0; j < M.cols(); ++j) M.col(j) = sampletTransform(M.col(j));
+    for (auto i = 0; i < M.rows(); ++i) M.row(i) = sampletTransform(M.row(i));
   }
   //////////////////////////////////////////////////////////////////////////////
   void inverseSampletTransformMatrix(eigenMatrix &M) {
@@ -208,10 +187,8 @@ public:
         max_id = it->cluster_->get_id();
         min_id = it->cluster_->get_id();
       }
-      if (min_id > it->cluster_->get_id())
-        min_id = it->cluster_->get_id();
-      if (max_id < it->cluster_->get_id())
-        max_id = it->cluster_->get_id();
+      if (min_id > it->cluster_->get_id()) min_id = it->cluster_->get_id();
+      if (max_id < it->cluster_->get_id()) max_id = it->cluster_->get_id();
       std::cout << it->wlevel_ << ")\t"
                 << "id: " << it->cluster_->get_id() << std::endl;
     }
@@ -285,7 +262,7 @@ public:
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
-private:
+ private:
   //////////////////////////////////////////////////////////////////////////////
   // private methods
   //////////////////////////////////////////////////////////////////////////////
@@ -293,8 +270,7 @@ private:
                                         eigenVector *svec) const {
     eigenVector retval(0);
     IndexType scalf_shift = 0;
-    if (!wlevel_)
-      scalf_shift = nscalfs_;
+    if (!wlevel_) scalf_shift = nscalfs_;
     if (sons_.size()) {
       for (auto i = 0; i < sons_.size(); ++i) {
         auto scalf = sons_[i].sampletTransformRecursion(data, svec);
@@ -310,8 +286,7 @@ private:
           Q_.rightCols(nsamplets_).transpose() * retval;
       retval = Q_.leftCols(nscalfs_).transpose() * retval;
     }
-    if (!wlevel_)
-      svec->segment(start_index_, nscalfs_) = retval;
+    if (!wlevel_) svec->segment(start_index_, nscalfs_) = retval;
     return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
@@ -342,9 +317,9 @@ private:
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
-  void
-  computeSamplets(const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
-                  const ClusterTree &CT) {
+  void computeSamplets(
+      const Eigen::Matrix<value_type, dimension, Eigen::Dynamic> &P,
+      const ClusterTree &CT) {
     cluster_ = &CT;
     // the computation of the samplet level is a bit cumbersome as we have to
     // account for empty clusters and clusters with a single point here.
@@ -360,8 +335,7 @@ private:
     } else
       wlevel_ = CT.get_tree_data().max_level_ + 1;
 
-    if (tree_data_->max_wlevel_ < wlevel_)
-      tree_data_->max_wlevel_ = wlevel_;
+    if (tree_data_->max_wlevel_ < wlevel_) tree_data_->max_wlevel_ = wlevel_;
     if (CT.get_sons().size()) {
       sons_.resize(CT.get_sons().size());
       IndexType offset = 0;
@@ -485,10 +459,10 @@ private:
     if (color > thresh) {
       Eigen::Matrix3d bla;
       bla.setZero();
-      if (dimension == 2) {
-        bla.topRows(2) = cluster_->get_bb();
-      }
-      // if (dimension == 3) {
+        if (dimension == 2) {
+             bla.topRows(2) = cluster_->get_bb();
+            }
+      //if (dimension == 3) {
       //  bla = cluster_->get_bb();
       //}
       bbvec.push_back(bla);
@@ -503,7 +477,7 @@ private:
   //////////////////////////////////////////////////////////////////////////////
   // private member variables
   //////////////////////////////////////////////////////////////////////////////
-private:
+ private:
   std::vector<SampletTree> sons_;
   std::shared_ptr<SampletTreeData<ClusterTree>> tree_data_;
   const ClusterTree *cluster_;
@@ -517,6 +491,5 @@ private:
   IndexType start_index_;
   IndexType block_id_;
 };
-#endif
-} // namespace FMCA
+}  // namespace FMCA
 #endif

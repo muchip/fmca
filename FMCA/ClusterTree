@@ -24,6 +24,7 @@
 #include "src/util/IDDFSForwardIterator.h"
 #include "src/util/TreeBase.h"
 #include "src/ClusterTree/ClusterTreeSplitter.h"
+#include "src/ClusterTree/ClusterTreeBase.h"
 #include "src/ClusterTree/ClusterTree.h"
 
 #endif

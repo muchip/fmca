@@ -25,6 +25,7 @@ template <typename Derived> struct NodeBase {
   // return a reference to the derived object
   Derived &derived() { return *static_cast<Derived *>(this); }
   // return a const reference to the derived object */
+  const Derived &derived() const { return *static_cast<const Derived *>(this); }
 };
 
 /**
@@ -60,6 +61,25 @@ public:
 
   iterator begin() { return iterator(this, 0); }
   iterator end() { return iterator(nullptr, 0); }
+
+  //////////////////////////////////////////////////////////////////////////////
+  void exportTreeStructure(std::vector<std::vector<IndexType>> &tree) {
+    if (level() >= tree.size())
+      tree.resize(level() + 1);
+    tree[level()].push_back(node().indices_.size());
+    for (auto i = 0; i < nSons(); ++i)
+      sons(i).exportTreeStructure(tree);
+  }
+  //////////////////////////////////////////////////////////////////////////////
+  void getLeafIterator(std::vector<const TreeBase *> &leafs) const {
+    if (nSons() == 0)
+      leafs.push_back(this);
+    else
+      for (auto i = 0; i < nSons(); ++i)
+        sons(i).getLeafIterator(leafs);
+    return;
+  }
+
   //////////////////////////////////////////////////////////////////////////////
   Derived &sons(typename std::vector<TreeBase>::size_type i) {
     return sons_[i].derived();
