@@ -9,8 +9,8 @@
 // any warranty, see <https://github.com/muchip/FMCA> for further
 // information.
 //
-#ifndef FMCA_CLUSTERTREE_MODULE_
-#define FMCA_CLUSTERTREE_MODULE_
+#ifndef FMCA_CLUSTERING_MODULE_
+#define FMCA_CLUSTERING_MODULE_
 
 #include <algorithm>
 #include <iostream>
@@ -23,8 +23,7 @@
 #include "src/util/Macros.h"
 #include "src/util/IDDFSForwardIterator.h"
 #include "src/util/TreeBase.h"
-#include "src/ClusterTree/ClusterTreeSplitter.h"
-#include "src/ClusterTree/ClusterTreeBase.h"
-#include "src/ClusterTree/ClusterTree.h"
-
+#include "src/Clustering/ClusterTreeSplitter.h"
+#include "src/Clustering/ClusterTreeBase.h"
+#include "src/Clustering/ClusterTree.h"
 #endif

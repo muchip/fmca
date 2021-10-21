@@ -9,8 +9,8 @@
 // any warranty, see <https://github.com/muchip/FMCA> for further
 // information.
 //
-#ifndef FMCA_CLUSTERTREE_CLUSTERTREE_H_
-#define FMCA_CLUSTERTREE_CLUSTERTREE_H_
+#ifndef FMCA_CLUSTERING_CLUSTERTREE_H_
+#define FMCA_CLUSTERING_CLUSTERTREE_H_
 
 namespace FMCA {
 
@@ -39,7 +39,7 @@ struct traits<ClusterTree<ValueType, TheSplitter>> {
 } // namespace internal
 
 /**
- *  \ingroup ClusterTree
+ *  \ingroup Clustering
  *  \brief The ClusterTree class manages cluster trees for point sets in
  *         arbitrary dimensions. We always use a binary tree which can
  *         afterwards always be recombined into an 2^n tree.

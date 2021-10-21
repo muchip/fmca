@@ -45,41 +45,24 @@ public:
   using const_iterator = IDDFSForwardIterator<TreeBase, true>;
   friend iterator;
   friend const_iterator;
+  //////////////////////////////////////////////////////////////////////////////
   // return a reference to the derived object
   Derived &derived() { return *static_cast<Derived *>(this); }
-  // return a const reference to the derived object */
+  // return a const reference to the derived object
   const Derived &derived() const { return *static_cast<const Derived *>(this); }
+  //////////////////////////////////////////////////////////////////////////////
   // exposed the trees init routine
   template <typename... Ts> void init(Ts &&...ts) {
     derived().init(std::forward<Ts>(ts)...);
   }
-  // we assume polymorphic node data and allow up and
-  // down casting while accessing them
+  //////////////////////////////////////////////////////////////////////////////
   node_type &node() { return node_->derived(); }
-
   const node_type &node() const { return node_->derived(); }
-
+  //////////////////////////////////////////////////////////////////////////////
   iterator begin() { return iterator(this, 0); }
   iterator end() { return iterator(nullptr, 0); }
-
-  //////////////////////////////////////////////////////////////////////////////
-  void exportTreeStructure(std::vector<std::vector<IndexType>> &tree) {
-    if (level() >= tree.size())
-      tree.resize(level() + 1);
-    tree[level()].push_back(node().indices_.size());
-    for (auto i = 0; i < nSons(); ++i)
-      sons(i).exportTreeStructure(tree);
-  }
-  //////////////////////////////////////////////////////////////////////////////
-  void getLeafIterator(std::vector<const TreeBase *> &leafs) const {
-    if (nSons() == 0)
-      leafs.push_back(this);
-    else
-      for (auto i = 0; i < nSons(); ++i)
-        sons(i).getLeafIterator(leafs);
-    return;
-  }
-
+  const_iterator cbegin() const { return const_iterator(this, 0); }
+  const_iterator cend() const { return const_iterator(nullptr, 0); }
   //////////////////////////////////////////////////////////////////////////////
   Derived &sons(typename std::vector<TreeBase>::size_type i) {
     return sons_[i].derived();
@@ -87,11 +70,12 @@ public:
   const Derived &sons(typename std::vector<TreeBase>::size_type i) const {
     return sons_[i].derived();
   }
-
+  //////////////////////////////////////////////////////////////////////////////
   typename std::vector<TreeBase>::size_type nSons() { return sons_.size(); }
   const typename std::vector<TreeBase>::size_type nSons() const {
     return sons_.size();
   }
+  //////////////////////////////////////////////////////////////////////////////
   void appendSons(typename std::vector<TreeBase>::size_type n) {
     sons_.resize(n);
     for (TreeBase &s : sons_) {
@@ -99,13 +83,18 @@ public:
       s.level_ = level_ + 1;
     }
   }
-
+  //////////////////////////////////////////////////////////////////////////////
   IndexType level() { return level_; };
   const IndexType level() const { return level_; };
-  // we also expose the node_ ptr such that we may mutate it
-  // std::unique_ptr<NodeBase<Derived>> &pnode() { return node_; }
-
-  void updateNodeList() {}
+  //////////////////////////////////////////////////////////////////////////////
+  // provide a levelwise ordered output of the tree for debugging purposes only
+  void exportTreeStructure(std::vector<std::vector<IndexType>> &tree) {
+    if (level() >= tree.size())
+      tree.resize(level() + 1);
+    tree[level()].push_back(node().indices_.size());
+    for (auto i = 0; i < nSons(); ++i)
+      sons(i).exportTreeStructure(tree);
+  }
   //////////////////////////////////////////////////////////////////////////////
 private:
   std::vector<TreeBase> sons_;

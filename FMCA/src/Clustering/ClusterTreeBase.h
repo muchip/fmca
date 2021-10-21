@@ -9,13 +9,13 @@
 // any warranty, see <https://github.com/muchip/FMCA> for further
 // information.
 //
-#ifndef FMCA_CLUSTERTREE_CLUSTERTREEBASE_H_
-#define FMCA_CLUSTERTREE_CLUSTERTREEBASE_H_
+#ifndef FMCA_CLUSTERING_CLUSTERTREEBASE_H_
+#define FMCA_CLUSTERING_CLUSTERTREEBASE_H_
 
 namespace FMCA {
 
 /**
- *  \ingroup ClusterTree
+ *  \ingroup Clustering
  *  \brief The ClusterTree class manages cluster trees for point sets in
  *         arbitrary dimensions. We always use a binary tree which can
  *         afterwards always be recombined into an 2^n tree.

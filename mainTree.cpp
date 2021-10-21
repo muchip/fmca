@@ -2,7 +2,7 @@
 #include <fstream>
 #include <iostream>
 
-#include "FMCA/ClusterTree"
+#include "FMCA/Clustering"
 #include "FMCA/src/util/IO.h"
 #include "FMCA/src/util/tictoc.hpp"
 

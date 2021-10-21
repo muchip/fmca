@@ -9,15 +9,15 @@
 // any warranty, see <https://github.com/muchip/FMCA> for further
 // information.
 //
-#ifndef FMCA_CLUSTERTREE_CLUSTERTREESPLITTER_H_
-#define FMCA_CLUSTERTREE_CLUSTERTREESPLITTER_H_
+#ifndef FMCA_CLUSTERING_CLUSTERTREESPLITTER_H_
+#define FMCA_CLUSTERING_CLUSTERTREESPLITTER_H_
 
 namespace FMCA {
 
 /**
- *  \ingroup ClusterTree
- *  \brief provides different methods to assigs points into a a cluster
- */
+ *  \ingroup Clustering
+ *  \brief provides different methods to bisect a given cluster
+ **/
 namespace ClusterSplitter {
 
 template <typename ValueType>
