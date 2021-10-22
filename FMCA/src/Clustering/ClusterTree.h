@@ -14,29 +14,25 @@
 
 namespace FMCA {
 
-template <typename ValueType>
-struct ClusterTreeNode : public NodeBase<ClusterTreeNode<ValueType>> {
-  ClusterTreeNode() : indices_begin_(-1) {
-    bb_.resize(0, 0);
-    indices_.resize(0);
-  }
-  Eigen::Matrix<ValueType, Eigen::Dynamic, Eigen::Dynamic> bb_;
-  std::vector<IndexType> indices_;
-  IndexType indices_begin_;
+namespace internal {
+template <>
+struct traits<ClusterTreeNode> {
+  typedef double value_type;
+  typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
 };
+}  // namespace internal
 
-template <typename ValueType, typename Splitter> class ClusterTree;
+struct ClusterTreeNode : public ClusterTreeNodeBase<ClusterTreeNode> {};
 
 namespace internal {
-
-template <typename ValueType, typename TheSplitter>
-struct traits<ClusterTree<ValueType, TheSplitter>> {
-  typedef ValueType value_type;
-  typedef ClusterTreeNode<value_type> node_type;
+template <>
+struct traits<ClusterTree> {
+  typedef double value_type;
+  typedef ClusterTreeNode node_type;
   typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
-  typedef TheSplitter Splitter;
+  typedef ClusterSplitter::CardinalityBisection<value_type> Splitter;
 };
-} // namespace internal
+}  // namespace internal
 
 /**
  *  \ingroup Clustering
@@ -44,12 +40,25 @@ struct traits<ClusterTree<ValueType, TheSplitter>> {
  *         arbitrary dimensions. We always use a binary tree which can
  *         afterwards always be recombined into an 2^n tree.
  */
-template <typename ValueType,
-          typename Splitter = ClusterSplitter::CardinalityBisection<ValueType>>
-class ClusterTree : public ClusterTreeBase<ClusterTree<ValueType, Splitter>> {
-  using ClusterTreeBase<ClusterTree<ValueType, Splitter>>::ClusterTreeBase;
+struct ClusterTree : public ClusterTreeBase<ClusterTree> {
+  typedef typename internal::traits<ClusterTree>::eigenMatrix eigenMatrix;
+  typedef ClusterTreeBase<ClusterTree> Base;
+  // make base class methods visible
+  using Base::appendSons;
+  using Base::init;
+  using Base::level;
+  using Base::node;
+  using Base::nSons;
+  using Base::sons;
+  //////////////////////////////////////////////////////////////////////////////
+  // constructors
+  //////////////////////////////////////////////////////////////////////////////
+  ClusterTree() {}
+  ClusterTree(const eigenMatrix &P, IndexType min_cluster_size = 1) {
+    init(P, min_cluster_size);
+  }
 };
 
-using ClusterT = ClusterTree<double>;
-} // namespace FMCA
+using ClusterT = ClusterTree;
+}  // namespace FMCA
 #endif

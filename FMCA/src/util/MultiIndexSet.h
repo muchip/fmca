@@ -15,8 +15,8 @@
 #define FMCA_UTIL_MULTIINDEXSET_H_
 
 #include <algorithm>
-#include <array>
 #include <set>
+#include <vector>
 
 #include "Macros.h"
 
@@ -24,27 +24,30 @@ namespace FMCA {
 
 enum IndexSetType { TotalDegree, TensorProduct };
 
-template <IndexSetType T> struct IndexSetCriterion {};
+template <IndexSetType T>
+struct IndexSetCriterion {};
 
-template <> struct IndexSetCriterion<TotalDegree> {
+template <>
+struct IndexSetCriterion<TotalDegree> {
   IndexSetCriterion(){};
   IndexSetCriterion(IndexType max_degree) : max_degree_(max_degree) {}
-  template <typename T> bool operator()(const T &index) {
+  template <typename T>
+  bool operator()(const T &index) {
     IndexType sum = 0;
-    for (auto i : index)
-      sum += i;
+    for (auto i : index) sum += i;
     return sum <= max_degree_;
   }
   IndexType max_degree_;
 };
 
-template <> struct IndexSetCriterion<TensorProduct> {
+template <>
+struct IndexSetCriterion<TensorProduct> {
   IndexSetCriterion(){};
   IndexSetCriterion(IndexType max_degree) : max_degree_(max_degree) {}
-  template <typename T> bool operator()(const T &index) {
+  template <typename T>
+  bool operator()(const T &index) {
     IndexType max = 0;
-    for (auto i : index)
-      max = max > i ? max : i;
+    for (auto i : index) max = max > i ? max : i;
     return max <= max_degree_;
   }
   IndexType max_degree_;
@@ -54,14 +57,13 @@ template <> struct IndexSetCriterion<TensorProduct> {
  *  \brief in order to obtain hierarchies in the index set, we employ
  *  a normwise ordering combined with the lexicographical one
  **/
-template <typename Array> struct FMCA_Compare {
+template <typename Array>
+struct FMCA_Compare {
   bool operator()(const Array &a, const Array &b) const {
     typename Array::value_type nrma = 0;
     typename Array::value_type nrmb = 0;
-    for (auto i = 0; i < a.size(); ++i)
-      nrma += std::abs(double(a[i]));
-    for (auto i = 0; i < b.size(); ++i)
-      nrmb += std::abs(double(b[i]));
+    for (auto i = 0; i < a.size(); ++i) nrma += std::abs(double(a[i]));
+    for (auto i = 0; i < b.size(); ++i) nrmb += std::abs(double(b[i]));
     if (nrma != nrmb)
       return nrma < nrmb;
     else
@@ -73,17 +75,18 @@ template <typename Array> struct FMCA_Compare {
 /**
  *  \brief specialization for index sets with a general boolean criterion
  **/
-template <IndexType Dim, IndexSetType T = TotalDegree> class MultiIndexSet {
-public:
+template <IndexSetType T = TotalDegree>
+class MultiIndexSet {
+ public:
   MultiIndexSet(){};
-  MultiIndexSet(IndexType max_degree) { init(max_degree); }
+  MultiIndexSet(IndexType dim, IndexType max_degree) { init(dim, max_degree); }
 
-  void init(IndexType max_degree) {
+  void init(IndexType dim, IndexType max_degree) {
+    dim_ = dim;
     max_degree_ = max_degree;
     is_element_.max_degree_ = max_degree;
     multi_index_set_.clear();
-    std::array<IndexType, Dim> index;
-    std::fill(index.begin(), index.end(), 0);
+    std::vector<IndexType> index(dim_, 0);
     if (is_element_(index)) {
       multi_index_set_.insert(index);
       // compute all other indices in the set recursively
@@ -94,17 +97,17 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
   IndexType max_degree() const { return max_degree; }
+  IndexType dim() const { return dim_; }
 
-  const std::set<std::array<IndexType, Dim>,
-                 FMCA_Compare<std::array<IndexType, Dim>>> &
-  get_MultiIndexSet() const {
+  const std::set<std::vector<IndexType>, FMCA_Compare<std::vector<IndexType>>>
+      &get_MultiIndexSet() const {
     return multi_index_set_;
   }
   //////////////////////////////////////////////////////////////////////////////
-private:
-  void addChildren(IndexType max_bit, std::array<IndexType, Dim> &index) {
+ private:
+  void addChildren(IndexType max_bit, std::vector<IndexType> &index) {
     // successively increase all entries in the current index
-    for (auto i = max_bit; i < Dim; ++i) {
+    for (auto i = max_bit; i < dim_; ++i) {
       index[i] += 1;
       if (is_element_(index)) {
         multi_index_set_.insert(index);
@@ -116,12 +119,13 @@ private:
     }
     return;
   }
-  std::set<std::array<IndexType, Dim>, FMCA_Compare<std::array<IndexType, Dim>>>
+  std::set<std::vector<IndexType>, FMCA_Compare<std::vector<IndexType>>>
       multi_index_set_;
   IndexSetCriterion<T> is_element_;
   IndexType max_degree_;
+  IndexType dim_;
 };
 
-} // namespace FMCA
+}  // namespace FMCA
 
 #endif

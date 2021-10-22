@@ -15,13 +15,16 @@
 
 #include <Eigen/Dense>
 
-#include "ClusterTree"
+#include "Clustering"
 
+#include "src/util/ForwardDeclarations.h"
 #include "src/util/Macros.h"
 #include "src/util/GenericMatrix.h"
 #include "src/util/MultiIndexSet.h"
 #include "src/H2Matrix/ChebyshevInterpolation.h"
+#include "src/H2Matrix/compute_cluster_bases_impl.h"
+#include "src/H2Matrix/H2ClusterTreeBase.h"
 #include "src/H2Matrix/H2ClusterTree.h"
-#include "src/H2Matrix/H2Matrix.h"
+//#include "src/H2Matrix/H2Matrix.h"
 
 #endif
