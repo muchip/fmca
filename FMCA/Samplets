@@ -24,7 +24,7 @@
 #include <Eigen/SVD>
 #include <Eigen/Sparse>
 
-#include "ClusterTree"
+#include "Clustering"
 #include "H2Matrix"
 
 #include "src/util/BinomialCoefficient.h"
