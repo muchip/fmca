@@ -17,7 +17,7 @@ namespace FMCA {
 namespace internal {
 template <>
 struct traits<H2ClusterTreeNode> {
-  typedef double value_type;
+  typedef FloatType value_type;
   typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
   typedef TensorProductInterpolator<value_type> Interpolator;
 };

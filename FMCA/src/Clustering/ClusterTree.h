@@ -17,7 +17,7 @@ namespace FMCA {
 namespace internal {
 template <>
 struct traits<ClusterTreeNode> {
-  typedef double value_type;
+  typedef FloatType value_type;
   typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
 };
 }  // namespace internal
@@ -27,7 +27,7 @@ struct ClusterTreeNode : public ClusterTreeNodeBase<ClusterTreeNode> {};
 namespace internal {
 template <>
 struct traits<ClusterTree> {
-  typedef double value_type;
+  typedef FloatType value_type;
   typedef ClusterTreeNode node_type;
   typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
   typedef ClusterSplitter::CardinalityBisection<value_type> Splitter;

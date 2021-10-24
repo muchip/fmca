@@ -21,7 +21,8 @@ namespace FMCA {
 #define FMCA_BBOX_THREASHOLD 5e-2
 #define FMCA_ZERO_TOLERANCE 1e-14
 
-typedef unsigned long long int IndexType;
+typedef unsigned int IndexType;
+typedef double FloatType;
 } // namespace FMCA
 
 #endif

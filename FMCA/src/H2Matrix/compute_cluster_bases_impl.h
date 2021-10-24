@@ -66,7 +66,7 @@ void compute_cluster_bases_impl(H2ClusterTreeBase<Derived> &CT,
       V.rightCols(CT.sons(i).node().V_.cols()) =
           CT.node().E_[i] * CT.sons(i).node().V_;
     }
-    double nrm = (V - CT.node().V_).norm() / CT.node().V_.norm();
+    FloatType nrm = (V - CT.node().V_).norm() / CT.node().V_.norm();
     eigen_assert(nrm < 1e-14 && "the H2 cluster basis is faulty");
   }
 #endif

@@ -60,11 +60,12 @@ class H2Matrix {
     std::cout << "number of low rank blocks: " << low_rank_blocks << std::endl;
     std::cout << "number of full blocks: " << full_blocks << std::endl;
     std::cout << "nz per row: "
-              << round(double(memory) /
+              << round(FloatType(memory) /
                        col_cluster_->cluster_->get_indices().size())
               << std::endl;
-    std::cout << "storage size: " << double(memory * sizeof(value_type)) / 1e9
-              << "GB" << std::endl;
+    std::cout << "storage size: "
+              << FloatType(memory * sizeof(value_type)) / 1e9 << "GB"
+              << std::endl;
   }
 
   //////////////////////////////////////////////////////////////////////////////
