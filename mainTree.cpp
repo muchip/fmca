@@ -6,21 +6,21 @@
 #include "FMCA/H2Matrix"
 #include "FMCA/Samplets"
 #include "FMCA/src/util/IO.h"
-#include "FMCA/src/util/tictoc.hpp"
 #include "FMCA/src/util/print2file.hpp"
+#include "FMCA/src/util/tictoc.hpp"
 
 int main() {
   std::cout << "using random points\n";
-  Eigen::MatrixXd P = Eigen::MatrixXd::Random(3, 1379);
+  Eigen::MatrixXd P = Eigen::MatrixXd::Random(3, 4379);
   std::cout << P.rows() << " " << P.cols() << std::endl;
-  P.row(2) *= 0;
-  Eigen::VectorXd nrms = P.colwise().norm();
-  for (auto i = 0; i < P.cols(); ++i) P.col(i) *= 1 / nrms(i);
+  // P.row(2) *= 0;
+  // Eigen::VectorXd nrms = P.colwise().norm();
+  // for (auto i = 0; i < P.cols(); ++i) P.col(i) *= 1 / nrms(i);
   tictoc T;
 
   T.tic();
-  FMCA::ClusterT CT(P, 2);
-  FMCA::H2ClusterTree H2T(P, 2);
+  FMCA::ClusterT CT(P, 20);
+  FMCA::H2ClusterTree H2T(P, 20);
   T.toc("set up cluster tree: ");
   {
     std::vector<std::vector<FMCA::IndexType>> tree;
@@ -49,8 +49,13 @@ int main() {
   }
   std::cout << oldl << ")\t" << i << "\t" << numInd << std::endl;
   FMCA::SampletTreeQR ST(P, 20, 4);
-  Eigen::MatrixXd Q =
-      ST.sampletTransform(Eigen::MatrixXd::Identity(P.cols(), P.cols()));
+  Eigen::MatrixXd Q = Eigen::MatrixXd::Identity(P.cols(), P.cols());
+  ST.sampletTransformMatrix(Q);
+  ST.inverseSampletTransformMatrix(Q);
+  std::cout << "samplet trafo err:"
+            << (Q - Eigen::MatrixXd::Identity(P.cols(), P.cols())).norm() /
+                   sqrt(P.cols())
+            << std::endl;
   Bembel::IO::print2m("Qmat.m", "Q", Q, "w");
   {
     std::vector<const FMCA::TreeBase<FMCA::ClusterT> *> leafs;

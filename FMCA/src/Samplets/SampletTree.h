@@ -48,7 +48,6 @@ struct SampletTreeQR : public SampletTreeBase<SampletTreeQR> {
   SampletTreeQR(const eigenMatrix &P, IndexType min_cluster_size = 1,
                 IndexType dtilde = 1) {
     init(P, min_cluster_size, dtilde);
-    sampletMapper();
   }
   //////////////////////////////////////////////////////////////////////////////
   // init
@@ -60,23 +59,8 @@ struct SampletTreeQR : public SampletTreeBase<SampletTreeQR> {
     SampleMomentComputerQR<SampletTreeQR, MultiIndexSet<TotalDegree>> mom_comp;
     mom_comp.init(P.rows(), dtilde);
     computeSamplets(P, mom_comp);
-    //  now map it
-    // sampletMapper();
+    sampletMapper();
     return;
-  }
-  //////////////////////////////////////////////////////////////////////////////
-  void sampletTransformMatrix(eigenMatrix &M) {
-    M = sampletTransform(M);
-    M = sampletTransform(M.transpose());
-  }
-  //////////////////////////////////////////////////////////////////////////////
-  eigenMatrix sampletTransform(const eigenMatrix &data) const {
-    assert(is_root() &&
-           "sampletTransform needs to be called from the root cluster");
-    eigenMatrix retval(data.rows(), data.cols());
-    retval.setZero();
-    sampletTransformRecursion(data, &retval);
-    return retval;
   }
 
  private:
@@ -122,142 +106,11 @@ struct SampletTreeQR : public SampletTreeBase<SampletTreeQR> {
     }
     return;
   }
-  //////////////////////////////////////////////////////////////////////////////
-  void sampletMapper() {
-    assert(is_root() &&
-           "sampletMapper needs to be called from the root cluster");
-    IndexType i = 0;
-    IndexType sum = 0;
-    // assign vector start_index to each wavelet cluster
-    for (auto &it : *this) {
-      it.node().start_index_ = sum;
-      it.node().block_id_ = i;
-      sum += it.derived().nsamplets();
-      if (it.is_root()) sum += it.derived().nscalfs();
-    }
-    assert(sum == indices().size());
-    return;
-  }
-
-  eigenMatrix sampletTransformRecursion(const eigenMatrix &data,
-                                        eigenMatrix *svec) const {
-    eigenMatrix retval(0, 0);
-    IndexType scalf_shift = 0;
-    if (is_root()) scalf_shift = nscalfs();
-    if (nSons()) {
-      for (auto i = 0; i < nSons(); ++i) {
-        eigenMatrix scalf = sons(i).sampletTransformRecursion(data, svec);
-        retval.conservativeResize(retval.rows() + scalf.rows(), data.cols());
-        retval.bottomRows(scalf.rows()) = scalf;
-      }
-    } else {
-      retval = data.middleRows(indices_begin(), indices().size());
-    }
-    if (nsamplets()) {
-      svec->middleRows(start_index() + scalf_shift, nsamplets()) =
-          Q().rightCols(nsamplets()).transpose() * retval;
-      retval = Q().leftCols(nscalfs()).transpose() * retval;
-    }
-    if (is_root()) svec->middleRows(start_index(), nscalfs()) = retval;
-    return retval;
-  }
+};
+}  // namespace FMCA
+#endif
 
 #if 0
-
-  //////////////////////////////////////////////////////////////////////////////
-  void inverseSampletTransformMatrix(eigenMatrix &M) {
-    for (auto j = 0; j < M.cols(); ++j)
-      M.col(j) = inverseSampletTransform(M.col(j));
-    for (auto i = 0; i < M.rows(); ++i)
-      M.row(i) = inverseSampletTransform(M.row(i));
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-  eigenVector inverseSampletTransform(const eigenVector &data) const {
-    assert(!cluster_->get_id() &&
-           "sampletTransform needs to be called from the root cluster");
-    eigenVector retval(data.size());
-    retval.setZero();
-    inverseSampletTransformRecursion(data, &retval, nullptr);
-    return retval;
-  }
-  //////////////////////////////////////////////////////////////////////////////
-  void basisInfo() {
-    IndexType cur_level = 0;
-    IndexType max_id = 0;
-    IndexType min_id = IndexType(1e10);
-
-    for (auto it : tree_data_->samplet_list) {
-      if (cur_level != it->wlevel_) {
-        cur_level = it->wlevel_;
-        std::cout << "min/max ID: " << min_id << " / " << max_id << std::endl;
-        max_id = it->cluster_->get_id();
-        min_id = it->cluster_->get_id();
-      }
-      if (min_id > it->cluster_->get_id()) min_id = it->cluster_->get_id();
-      if (max_id < it->cluster_->get_id()) max_id = it->cluster_->get_id();
-      std::cout << it->wlevel_ << ")\t"
-                << "id: " << it->cluster_->get_id() << std::endl;
-    }
-    std::cout << "min/max ID: " << min_id << " / " << max_id << std::endl;
-    std::cout << "wavelet blocks: " << tree_data_->samplet_list.size()
-              << std::endl;
-    return;
-  }
-  //////////////////////////////////////////////////////////////////////////////
-  IndexType get_nscalfs() const { return nscalfs_; }
-  //////////////////////////////////////////////////////////////////////////////
-  const eigenMatrix &get_Q() const { return Q_; }
-  //////////////////////////////////////////////////////////////////////////////
-  const std::vector<SampletTree> &get_sons() const { return sons_; }
-  //////////////////////////////////////////////////////////////////////////////
-  const ClusterTree *get_cluster() const { return cluster_; }
-  //////////////////////////////////////////////////////////////////////////////
-  std::vector<Eigen::Triplet<value_type>> get_transformationMatrix() const {
-    const IndexType n = cluster_->get_indices().size();
-    eigenVector buffer(n);
-    std::vector<Eigen::Triplet<value_type>> triplet_list;
-    for (auto j = 0; j < n; ++j) {
-      buffer.setZero();
-      buffer = sampletTransform(
-          Eigen::Matrix<value_type, Eigen::Dynamic, 1>::Unit(n, j));
-      for (auto i = 0; i < buffer.size(); ++i)
-        if (abs(buffer(i)) > 1e-14)
-          triplet_list.emplace_back(
-              Eigen::Triplet<value_type>(i, j, buffer(i)));
-    }
-    return triplet_list;
-  }
-  //////////////////////////////////////////////////////////////////////////////
-  template <typename H2ClusterTree>
-  void computeMultiscaleClusterBases(const H2ClusterTree &CT) {
-    assert(&(CT.get_cluster()) == cluster_);
-
-    if (!wlevel_) {
-      // as I do not have a better solution right now, store the interpolation
-      // points within the samplet tree
-      pXi_ = std::make_shared<eigenMatrix>();
-      *pXi_ = CT.get_Xi();
-    }
-    if (!sons_.size()) {
-      V_ = CT.get_V() * Q_;
-    } else {
-      // compute multiscale cluster bases of sons and update own
-      for (auto i = 0; i < sons_.size(); ++i) {
-        sons_[i].pXi_ = pXi_;
-        sons_[i].computeMultiscaleClusterBases(CT.get_sons()[i]);
-      }
-      V_.resize(0, 0);
-      for (auto i = 0; i < sons_.size(); ++i) {
-        V_.conservativeResize(sons_[i].V_.rows(),
-                              V_.cols() + sons_[i].nscalfs_);
-        V_.rightCols(sons_[i].nscalfs_) =
-            CT.get_E()[i] * sons_[i].V_.leftCols(sons_[i].nscalfs_);
-      }
-      V_ *= Q_;
-    }
-    return;
-  }
   //////////////////////////////////////////////////////////////////////////////
   void visualizeCoefficients(const eigenVector &coeffs,
                              const std::string &filename,
@@ -268,68 +121,7 @@ struct SampletTreeQR : public SampletTreeBase<SampletTreeQR> {
     IO::plotBoxes(filename, bbvec, cell_values);
     return;
   }
-  //////////////////////////////////////////////////////////////////////////////
- private:
-  //////////////////////////////////////////////////////////////////////////////
-  // private methods
-  //////////////////////////////////////////////////////////////////////////////
 
-  //////////////////////////////////////////////////////////////////////////////
-  void inverseSampletTransformRecursion(const eigenVector &data,
-                                        eigenVector *fvec, eigenVector *ddata,
-                                        IndexType ddata_offset = 0) const {
-    eigenVector retval;
-    if (!wlevel_) {
-      retval = Q_.leftCols(nscalfs_) * data.segment(start_index_, nscalfs_) +
-               Q_.rightCols(nsamplets_) *
-                   data.segment(start_index_ + nscalfs_, nsamplets_);
-    } else {
-      retval = Q_.leftCols(nscalfs_) * ddata->segment(ddata_offset, nscalfs_);
-      if (nsamplets_)
-        retval +=
-            Q_.rightCols(nsamplets_) * data.segment(start_index_, nsamplets_);
-    }
-    if (sons_.size()) {
-      ddata_offset = 0;
-      for (auto i = 0; i < sons_.size(); ++i) {
-        sons_[i].inverseSampletTransformRecursion(data, fvec, &retval,
-                                                  ddata_offset);
-        ddata_offset += sons_[i].nscalfs_;
-      }
-    } else {
-      fvec->segment(cluster_->get_indices_begin(), retval.size()) = retval;
-    }
-    return;
-  }
-  //////////////////////////////////////////////////////////////////////////////
-  void sampletMapper() {
-    assert(!cluster_->get_id() &&
-           "sampletMapper needs to be called from the root cluster");
-    IndexType n_pts = cluster_->get_indices().size();
-    IndexType max_wlevel = tree_data_->max_wlevel_;
-    IndexType max_cluster_id = cluster_->get_tree_data().max_id_;
-    {
-      // this method traverses the samplet tree and stores them in a levelwise
-      // ordering  [l_0|l_1|l_2|...]
-      std::vector<std::vector<SampletTree *>> mapper(max_wlevel + 1);
-      sampletMapperRecursion(this, mapper);
-      tree_data_->samplet_list.clear();
-      for (auto it : mapper)
-        tree_data_->samplet_list.insert(tree_data_->samplet_list.end(),
-                                        it.begin(), it.end());
-    }
-    IndexType sum = 0;
-    // assign vector start_index to each wavelet cluster
-    for (auto i = 0; i < tree_data_->samplet_list.size(); ++i) {
-      tree_data_->samplet_list[i]->start_index_ = sum;
-      tree_data_->samplet_list[i]->block_id_ = i;
-      sum += tree_data_->samplet_list[i]->nsamplets_;
-      if (tree_data_->samplet_list[i]->wlevel_ == 0)
-        sum += tree_data_->samplet_list[i]->Q_.cols() -
-               tree_data_->samplet_list[i]->nsamplets_;
-    }
-    return;
-  }
   //////////////////////////////////////////////////////////////////////////////
   void visualizeCoefficientsRecursion(const eigenVector &coeffs,
                                       std::vector<Eigen::Matrix3d> &bbvec,
@@ -363,22 +155,34 @@ struct SampletTreeQR : public SampletTreeBase<SampletTreeQR> {
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
-  // private member variables
-  //////////////////////////////////////////////////////////////////////////////
- private:
-  std::vector<SampletTree> sons_;
-  std::shared_ptr<SampletTreeData<ClusterTree>> tree_data_;
-  const ClusterTree *cluster_;
-  std::shared_ptr<eigenMatrix> pXi_;
-  eigenMatrix mom_buffer_;
-  eigenMatrix Q_;
-  eigenMatrix V_;
-  IndexType nscalfs_;
-  IndexType nsamplets_;
-  IndexType wlevel_;
-  IndexType start_index_;
-  IndexType block_id_;
-#endif
-};
-}  // namespace FMCA
+  template <typename H2ClusterTree>
+  void computeMultiscaleClusterBases(const H2ClusterTree &CT) {
+    assert(&(CT.get_cluster()) == cluster_);
+
+    if (!wlevel_) {
+      // as I do not have a better solution right now, store the interpolation
+      // points within the samplet tree
+      pXi_ = std::make_shared<eigenMatrix>();
+      *pXi_ = CT.get_Xi();
+    }
+    if (!sons_.size()) {
+      V_ = CT.get_V() * Q_;
+    } else {
+      // compute multiscale cluster bases of sons and update own
+      for (auto i = 0; i < sons_.size(); ++i) {
+        sons_[i].pXi_ = pXi_;
+        sons_[i].computeMultiscaleClusterBases(CT.get_sons()[i]);
+      }
+      V_.resize(0, 0);
+      for (auto i = 0; i < sons_.size(); ++i) {
+        V_.conservativeResize(sons_[i].V_.rows(),
+                              V_.cols() + sons_[i].nscalfs_);
+        V_.rightCols(sons_[i].nscalfs_) =
+            CT.get_E()[i] * sons_[i].V_.leftCols(sons_[i].nscalfs_);
+      }
+      V_ *= Q_;
+    }
+    return;
+  }
+
 #endif
