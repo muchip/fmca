@@ -91,6 +91,8 @@ class TreeBase {
   //////////////////////////////////////////////////////////////////////////////
   IndexType level() { return level_; };
   const IndexType level() const { return level_; };
+
+  bool is_root() const { return dad_ == nullptr; }
   //////////////////////////////////////////////////////////////////////////////
   // provide a levelwise ordered output of the tree for debugging purposes only
   void exportTreeStructure(std::vector<std::vector<IndexType>> &tree) {

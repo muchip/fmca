@@ -4,8 +4,10 @@
 
 #include "FMCA/Clustering"
 #include "FMCA/H2Matrix"
+#include "FMCA/Samplets"
 #include "FMCA/src/util/IO.h"
 #include "FMCA/src/util/tictoc.hpp"
+#include "FMCA/src/util/print2file.hpp"
 
 int main() {
   std::cout << "using random points\n";
@@ -46,6 +48,10 @@ int main() {
     ++i;
   }
   std::cout << oldl << ")\t" << i << "\t" << numInd << std::endl;
+  FMCA::SampletTreeQR ST(P, 20, 4);
+  Eigen::MatrixXd Q =
+      ST.sampletTransform(Eigen::MatrixXd::Identity(P.cols(), P.cols()));
+  Bembel::IO::print2m("Qmat.m", "Q", Q, "w");
   {
     std::vector<const FMCA::TreeBase<FMCA::ClusterT> *> leafs;
     for (auto level = 0; level < 14; ++level) {
@@ -63,6 +69,7 @@ int main() {
     FMCA::IO::plotBoxes("boxesLeafs.vtk", bbvec);
     FMCA::IO::plotPoints("points.vtk", P);
   }
+
   return 0;
 }
 #if 0

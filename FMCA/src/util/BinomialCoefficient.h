@@ -12,8 +12,6 @@
 #ifndef FMCA_UTIL_BINOMIALCOEFFICIENT_H_
 #define FMCA_UTIL_BINOMIALCOEFFICIENT_H_
 
-#include <array>
-
 #include "Macros.h"
 
 namespace FMCA {
@@ -27,14 +25,14 @@ IndexType binomialCoefficient(IndexType n, IndexType k) {
     return binomialCoefficient(n - 1, k - 1) + binomialCoefficient(n - 1, k);
 }
 
-template <IndexType Dim>
-IndexType multinomialCoefficient(const std::array<IndexType, Dim> &alpha,
-                                 const std::array<IndexType, Dim> &beta) {
+template <typename MultiIndex>
+IndexType multinomialCoefficient(const MultiIndex &alpha,
+                                 const MultiIndex &beta) {
   IndexType retval = 1;
-  for (auto i = 0; i < Dim; ++i)
+  for (auto i = 0; i < alpha.size(); ++i)
     retval *= binomialCoefficient(alpha[i], beta[i]);
   return retval;
 }
-} // namespace FMCA
+}  // namespace FMCA
 
 #endif
