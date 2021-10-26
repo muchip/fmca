@@ -62,6 +62,7 @@ struct H2SampletTree : public H2SampletTreeBase<H2SampletTree> {
     mom_comp.init(P.rows(), dtilde);
     computeSamplets(P, mom_comp);
     sampletMapper();
+    computeMultiscaleClusterBasis();
     return;
   }
 

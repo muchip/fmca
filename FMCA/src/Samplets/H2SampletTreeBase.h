@@ -65,6 +65,24 @@ struct H2SampletTreeBase : public SampletTreeBase<Derived> {
 
   const eigenMatrix &Xi() const { return node().interp_->Xi(); }
   //////////////////////////////////////////////////////////////////////////////
+  void computeMultiscaleClusterBasis() {
+    if (!nSons()) {
+      node().V_ = node().V_ * node().Q_;
+    } else {
+      // compute multiscale cluster bases of sons and update own
+      for (auto i = 0; i < nSons(); ++i)
+        sons(i).computeMultiscaleClusterBasis();
+      node().V_.resize(0, 0);
+      for (auto i = 0; i < nSons(); ++i) {
+        node().V_.conservativeResize(sons(i).V().rows(),
+                                     node().V_.cols() + sons(i).nscalfs());
+        node().V_.rightCols(sons(i).nscalfs()) =
+            node().E_[i] * sons(i).V().leftCols(sons(i).nscalfs());
+      }
+      node().V_ *= node().Q_;
+    }
+    return;
+  }
 };
 }  // namespace FMCA
 #endif
