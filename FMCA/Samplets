@@ -37,6 +37,7 @@
 #include "src/Samplets/MomentComputer.h"
 #include "src/Samplets/SampletTreeBase.h"
 #include "src/Samplets/SampletTree.h"
-
+#include "src/Samplets/H2SampletTreeBase.h"
+#include "src/Samplets/H2SampletTree.h"
 
 #endif

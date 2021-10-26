@@ -9,16 +9,22 @@
 // any warranty, see <https://github.com/muchip/FMCA> for further
 // information.
 //
-#ifndef FMCA_H2MATRIX_COMPUTECLUSTERBASESIMPL_H_
-#define FMCA_H2MATRIX_COMPUTECLUSTERBASESIMPL_H_
+#ifndef FMCA_UTIL_COMPUTECLUSTERBASESIMPL_H_
+#define FMCA_UTIL_COMPUTECLUSTERBASESIMPL_H_
 
 #define CHECK_TRANSFER_MATRICES_
 namespace FMCA {
 namespace internal {
 
+/**
+ * \ingroup internal
+ * \brief Removed the type checker here as this is in any case an internal
+ *        method. This way, we can reuse it for the H2SampletTree. At the
+ *        moment there is no more elegant solution to avoid the diamond
+ *        when inheriting from H2ClusterTreeBase and SampletTreeBase
+ **/
 template <typename Derived, typename eigenMatrix>
-void compute_cluster_bases_impl(H2ClusterTreeBase<Derived> &CT,
-                                const eigenMatrix &P) {
+void compute_cluster_bases_impl(Derived &CT, const eigenMatrix &P) {
   CT.V().resize(0, 0);
   CT.Es().clear();
 
@@ -73,8 +79,8 @@ void compute_cluster_bases_impl(H2ClusterTreeBase<Derived> &CT,
   return;
 }
 
-}  // namespace internal
+} // namespace internal
 
-}  // namespace FMCA
+} // namespace FMCA
 
 #endif

@@ -29,7 +29,8 @@ int main() {
     std::cout << "l)\t#pts\ttotal#pts" << std::endl;
     for (auto i = 0; i < tree.size(); ++i) {
       int numInd = 0;
-      for (auto j = 0; j < tree[i].size(); ++j) numInd += tree[i][j];
+      for (auto j = 0; j < tree[i].size(); ++j)
+        numInd += tree[i][j];
       std::cout << i << ")\t" << tree[i].size() << "\t" << numInd << "\n";
     }
     std::cout << std::string(60, '-') << std::endl;
@@ -49,6 +50,7 @@ int main() {
   }
   std::cout << oldl << ")\t" << i << "\t" << numInd << std::endl;
   FMCA::SampletTreeQR ST(P, 20, 4);
+  FMCA::H2SampletTree H2ST;
   Eigen::MatrixXd Q = Eigen::MatrixXd::Identity(P.cols(), P.cols());
   ST.sampletTransformMatrix(Q);
   ST.inverseSampletTransformMatrix(Q);
@@ -62,14 +64,16 @@ int main() {
     for (auto level = 0; level < 14; ++level) {
       std::vector<Eigen::MatrixXd> bbvec;
       for (const auto &node : CT) {
-        if (node.level() == level) bbvec.push_back(node.derived().bb());
+        if (node.level() == level)
+          bbvec.push_back(node.derived().bb());
       }
       FMCA::IO::plotBoxes("boxes" + std::to_string(level) + ".vtk", bbvec);
     }
     std::vector<Eigen::MatrixXd> bbvec;
 
     for (const auto &node : CT) {
-      if (!node.nSons()) bbvec.push_back(node.derived().bb());
+      if (!node.nSons())
+        bbvec.push_back(node.derived().bb());
     }
     FMCA::IO::plotBoxes("boxesLeafs.vtk", bbvec);
     FMCA::IO::plotPoints("points.vtk", P);

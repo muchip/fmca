@@ -26,11 +26,15 @@ class H2ClusterTree;
 
 class SampletTreeQR;
 
+class H2SampletTree;
+
 struct ClusterTreeNode;
 
 struct H2ClusterTreeNode;
 
 struct SampletTreeNode;
+
+struct H2SampletTreeNode;
 
 }  // namespace FMCA
 
