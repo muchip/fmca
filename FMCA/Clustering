@@ -13,19 +13,18 @@
 #define FMCA_CLUSTERING_MODULE_
 
 #include <algorithm>
-#include <iostream>
-#include <memory>
 #include <numeric>
-#include <vector>
 
 #include <Eigen/Dense>
 
-#include "src/util/Macros.h"
-#include "src/util/IDDFSForwardIterator.h"
 #include "src/util/ForwardDeclarations.h"
+#include "src/util/Macros.h"
 #include "src/util/TreeBase.h"
-#include "src/Clustering/init_ClusterTree_impl.h"
-#include "src/Clustering/ClusterTreeBase.h"
+
+#include "src/Clustering/ClusterTreeInitialization.h"
 #include "src/Clustering/ClusterTreeSplitter.h"
+#include "src/Clustering/ClusterTreeBase.h"
 #include "src/Clustering/ClusterTree.h"
+
+
 #endif

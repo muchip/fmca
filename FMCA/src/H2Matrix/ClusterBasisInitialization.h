@@ -9,8 +9,8 @@
 // any warranty, see <https://github.com/muchip/FMCA> for further
 // information.
 //
-#ifndef FMCA_UTIL_COMPUTECLUSTERBASESIMPL_H_
-#define FMCA_UTIL_COMPUTECLUSTERBASESIMPL_H_
+#ifndef FMCA_H2MATRIX_COMPUTECLUSTERBASESIMPL_H_
+#define FMCA_H2MATRIX_COMPUTECLUSTERBASESIMPL_H_
 
 #define CHECK_TRANSFER_MATRICES_
 namespace FMCA {

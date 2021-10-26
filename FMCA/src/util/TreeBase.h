@@ -15,6 +15,9 @@
 #include <memory>
 #include <vector>
 
+#include "Macros.h"
+#include "IDDFSForwardIterator.h"
+
 namespace FMCA {
 
 namespace internal {

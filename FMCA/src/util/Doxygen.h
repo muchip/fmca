@@ -5,6 +5,16 @@
  **/
 
 /**
+ * \defgroup internal internal
+ * \brief collects all routines that should not be used externally
+ **/
+
+/**
+ * \defgroup util util
+ * \brief collects all utilit routines, like e.g. the TreeBase class
+ **/
+
+/**
  * \defgroup Samplets Samplets
  * \brief Defines samplet related classes
  **/

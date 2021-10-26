@@ -14,9 +14,7 @@
 
 namespace FMCA {
 namespace internal {
-/** \ingroup internal
- *  \brief initializes a bounding box for the geometry
- **/
+
 template <typename Derived, typename eigenMatrix>
 void init_BoundingBox_impl(ClusterTreeBase<Derived> &CT, const eigenMatrix &P,
                            IndexType min_cluster_size) {
@@ -29,9 +27,6 @@ void init_BoundingBox_impl(ClusterTreeBase<Derived> &CT, const eigenMatrix &P,
   return;
 }
 
-/** \ingroup internal
- *  \brief perform cluster refinement given a Splitter class
- **/
 template <typename Derived, typename eigenMatrix>
 void init_ClusterTree_impl(ClusterTreeBase<Derived> &CT, const eigenMatrix &P,
                            IndexType min_cluster_size) {
@@ -60,10 +55,9 @@ void init_ClusterTree_impl(ClusterTreeBase<Derived> &CT, const eigenMatrix &P,
   return;
 }
 
-/** \ingroup internal
- *  \brief recursively shrink all bounding boxes to the minimal possible
- *         size
- **/
+//////////////////////////////////////////////////////////////////////////////
+// make bounding boxes tight
+//////////////////////////////////////////////////////////////////////////////
 template <typename Derived, typename eigenMatrix>
 void shrinkToFit_impl(ClusterTreeBase<Derived> &CT, const eigenMatrix &P) {
   eigenMatrix bbmat(P.rows(), 3);

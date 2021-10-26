@@ -12,13 +12,6 @@
 #ifndef FMCA_SAMPLETS_MODULE_
 #define FMCA_SAMPLETS_MODULE_
 
-#include <algorithm>
-#include <iostream>
-#include <map>
-#include <memory>
-#include <numeric>
-#include <vector>
-
 #include <Eigen/Dense>
 #include <Eigen/QR>
 #include <Eigen/SVD>
@@ -27,11 +20,14 @@
 #include "Clustering"
 #include "H2Matrix"
 
+#include "src/util/Macros.h"
 #include "src/util/ForwardDeclarations.h"
 #include "src/util/BinomialCoefficient.h"
 #include "src/util/MultiIndexSet.h"
 #include "src/util/ProgressBar.h"
 #include "src/util/IO.h"
+
+
 //#include "src/Samplets/BivariateCompressor.h"
 //#include "src/Samplets/BivariateCompressorH2.h"
 #include "src/Samplets/MomentComputer.h"

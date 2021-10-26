@@ -12,9 +12,15 @@
 #ifndef FMCA_UTIL_IDDFSFORWARDFITERATOR_H_
 #define FMCA_UTIL_IDDFSFORWARDFITERATOR_H_
 
-namespace FMCA {
+#include "Macros.h"
 
-template <typename T, bool IS_CONST> struct IDDFSForwardIterator {
+namespace FMCA {
+/** \ingroup util
+ *  \brief realizes a levelwise traversal of a tree using an
+ *         iterative deepening depth-first search
+ **/
+template <typename T, bool IS_CONST>
+struct IDDFSForwardIterator {
   using value_type = typename std::conditional<IS_CONST, const T, T>::type;
   using iterator_category = std::forward_iterator_tag;
   using difference_type = std::ptrdiff_t;
@@ -39,8 +45,7 @@ template <typename T, bool IS_CONST> struct IDDFSForwardIterator {
           ptr_ = std::addressof(ptr_->sons_[0]);
         // did we find a valid next node? if so return it
         max_depth_ = max_depth_ < ptr_->level_ ? ptr_->level_ : max_depth_;
-        if (ptr_->level_ == depth_)
-          return *this;
+        if (ptr_->level_ == depth_) return *this;
       } else
         ptr_ = ptr_->dad_;
     }
@@ -51,8 +56,7 @@ template <typename T, bool IS_CONST> struct IDDFSForwardIterator {
         ptr_ = std::addressof(ptr_->sons_[0]);
       max_depth_ = max_depth_ < ptr_->level_ ? ptr_->level_ : max_depth_;
       // did we find a valid next node? if so return it
-      if (ptr_->level_ != depth_)
-        ++(*this);
+      if (ptr_->level_ != depth_) ++(*this);
     } else
       ptr_ = nullptr;
     return *this;
@@ -76,12 +80,12 @@ template <typename T, bool IS_CONST> struct IDDFSForwardIterator {
     return IDDFSForwardIterator<T, true>(ptr_, depth_);
   }
 
-private:
+ private:
   pointer ptr_;
   IndexType depth_;
   IndexType max_depth_;
   // give iterator access to const_iterator::m_ptr
   friend IDDFSForwardIterator<T, false>;
 };
-} // namespace FMCA
+}  // namespace FMCA
 #endif
