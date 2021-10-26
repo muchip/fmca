@@ -56,7 +56,7 @@ struct SampletTreeQR : public SampletTreeBase<SampletTreeQR> {
             IndexType dtilde = 1) {
     // init moment computer
     ClusterTreeBase<SampletTreeQR>::init(P, min_cluster_size);
-    SampleMomentComputerQR<SampletTreeQR, MultiIndexSet<TotalDegree>> mom_comp;
+    SampleMomentComputer<SampletTreeQR, MultiIndexSet<TotalDegree>> mom_comp;
     mom_comp.init(P.rows(), dtilde);
     computeSamplets(P, mom_comp);
     sampletMapper();

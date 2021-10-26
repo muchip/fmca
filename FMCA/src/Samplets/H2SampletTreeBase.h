@@ -23,19 +23,20 @@ namespace FMCA {
 
 template <typename Derived>
 struct H2SampletTreeNodeBase : public ClusterTreeNodeBase<Derived>,
-                             public H2ClusterTreeNodeDataFields<Derived>,
-                             public SampletTreeNodeDataFields<Derived> {};
+                               public H2ClusterTreeNodeDataFields<Derived>,
+                               public SampletTreeNodeDataFields<Derived> {};
 /**
  *  \ingroup Samplets
- *  \brief The SampletTreeBase class manages abstract samplet trees
+ *  \brief The H2SampletTreeBase class manages abstract samplet trees
+ *         We replicate the H2ClusterTree init here to avoid a diamond
  **/
 template <typename Derived>
-struct H2SampletTreeBase : public H2ClusterTreeBase<Derived>,
-                           public SampletTreeBase<Derived> {
+struct H2SampletTreeBase : public SampletTreeBase<Derived> {
   typedef typename internal::traits<Derived>::eigenMatrix eigenMatrix;
   typedef typename internal::traits<Derived>::node_type node_type;
   typedef typename internal::traits<Derived>::value_type value_type;
-  typedef H2ClusterTreeBase<Derived> Base;
+  typedef typename internal::traits<Derived>::Interpolator Interpolator;
+  typedef SampletTreeBase<Derived> Base;
   // make base class methods explicitly visible
   using TreeBase<Derived>::is_root;
   using Base::appendSons;
@@ -45,6 +46,25 @@ struct H2SampletTreeBase : public H2ClusterTreeBase<Derived>,
   using Base::node;
   using Base::nSons;
   using Base::sons;
+
+  void init(const eigenMatrix &P, IndexType min_cluster_size = 1,
+            IndexType polynomial_degree = 3) {
+    // init cluster tree first
+    Base::init(P, min_cluster_size);
+    // init interpolation routines
+    node().interp_ = std::make_shared<Interpolator>();
+    node().interp_->init(P.rows(), polynomial_degree);
+    internal::compute_cluster_bases_impl(*this, P);
+  }
+
+  const eigenMatrix &V() const { return node().V_; }
+  eigenMatrix &V() { return node().V_; }
+
+  const std::vector<eigenMatrix> &Es() const { return node().E_; }
+  std::vector<eigenMatrix> &Es() { return node().E_; }
+
+  const eigenMatrix &Xi() const { return node().interp_->Xi(); }
+  //////////////////////////////////////////////////////////////////////////////
 };
-} // namespace FMCA
+}  // namespace FMCA
 #endif

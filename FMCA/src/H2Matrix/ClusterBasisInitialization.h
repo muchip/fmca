@@ -12,7 +12,7 @@
 #ifndef FMCA_H2MATRIX_COMPUTECLUSTERBASESIMPL_H_
 #define FMCA_H2MATRIX_COMPUTECLUSTERBASESIMPL_H_
 
-#define CHECK_TRANSFER_MATRICES_
+//#define CHECK_TRANSFER_MATRICES_
 namespace FMCA {
 namespace internal {
 
@@ -24,63 +24,64 @@ namespace internal {
  *        when inheriting from H2ClusterTreeBase and SampletTreeBase
  **/
 template <typename Derived, typename eigenMatrix>
-void compute_cluster_bases_impl(Derived &CT, const eigenMatrix &P) {
-  CT.V().resize(0, 0);
-  CT.Es().clear();
+void compute_cluster_bases_impl(TreeBase<Derived> &CT, const eigenMatrix &P) {
+  Derived &H2T = CT.derived();
+  H2T.V().resize(0, 0);
+  H2T.Es().clear();
 
-  if (CT.nSons()) {
-    for (auto i = 0; i < CT.nSons(); ++i) {
+  if (H2T.nSons()) {
+    for (auto i = 0; i < H2T.nSons(); ++i) {
       // give also the son access to the interpolation routines ...
-      CT.sons(i).node().interp_ = CT.node().interp_;
-      compute_cluster_bases_impl(CT.sons(i), P);
+      H2T.sons(i).node().interp_ = H2T.node().interp_;
+      compute_cluster_bases_impl(H2T.sons(i), P);
     }
     // compute transfer matrices
-    const eigenMatrix &Xi = CT.Xi();
-    for (auto i = 0; i < CT.nSons(); ++i) {
+    const eigenMatrix &Xi = H2T.Xi();
+    for (auto i = 0; i < H2T.nSons(); ++i) {
       eigenMatrix E(Xi.cols(), Xi.cols());
       for (auto j = 0; j < E.cols(); ++j)
-        E.col(j) = CT.node().interp_->evalLagrangePolynomials(
-            (Xi.col(j).array() * CT.sons(i).bb().col(2).array() /
-                 CT.bb().col(2).array() +
-             (CT.sons(i).bb().col(0).array() - CT.bb().col(0).array()) /
-                 CT.bb().col(2).array())
+        E.col(j) = H2T.node().interp_->evalLagrangePolynomials(
+            (Xi.col(j).array() * H2T.sons(i).bb().col(2).array() /
+                 H2T.bb().col(2).array() +
+             (H2T.sons(i).bb().col(0).array() - H2T.bb().col(0).array()) /
+                 H2T.bb().col(2).array())
                 .matrix());
-      CT.Es().emplace_back(std::move(E));
+      H2T.Es().emplace_back(std::move(E));
     }
   } else {
     // compute leaf bases
-    CT.V().resize(CT.Xi().cols(), CT.indices().size());
-    for (auto i = 0; i < CT.indices().size(); ++i)
-      CT.V().col(i) = CT.node().interp_->evalLagrangePolynomials(
-          ((P.col(CT.indices()[i]) - CT.bb().col(0)).array() /
-           CT.bb().col(2).array())
+    H2T.V().resize(H2T.Xi().cols(), H2T.indices().size());
+    for (auto i = 0; i < H2T.indices().size(); ++i)
+      H2T.V().col(i) = H2T.node().interp_->evalLagrangePolynomials(
+          ((P.col(H2T.indices()[i]) - H2T.bb().col(0)).array() /
+           H2T.bb().col(2).array())
               .matrix());
   }
 #ifdef CHECK_TRANSFER_MATRICES_
-  if (CT.node().E_.size()) {
+  if (H2T.node().E_.size()) {
     eigenMatrix V;
-    CT.node().V_.resize(CT.node().interp_->Xi().cols(), CT.indices().size());
-    for (auto i = 0; i < CT.indices().size(); ++i)
-      CT.node().V_.col(i) = CT.node().interp_->evalLagrangePolynomials(
-          ((P.col(CT.indices()[i]) - CT.bb().col(0)).array() /
-           CT.bb().col(2).array())
+    H2T.node().V_.resize(H2T.node().interp_->Xi().cols(), H2T.indices().size());
+    for (auto i = 0; i < H2T.indices().size(); ++i)
+      H2T.node().V_.col(i) = H2T.node().interp_->evalLagrangePolynomials(
+          ((P.col(H2T.indices()[i]) - H2T.bb().col(0)).array() /
+           H2T.bb().col(2).array())
               .matrix());
 
-    for (auto i = 0; i < CT.nSons(); ++i) {
-      V.conservativeResize(CT.sons(i).node().V_.rows(),
-                           V.cols() + CT.sons(i).node().V_.cols());
-      V.rightCols(CT.sons(i).node().V_.cols()) =
-          CT.node().E_[i] * CT.sons(i).node().V_;
+    for (auto i = 0; i < H2T.nSons(); ++i) {
+      V.conservativeResize(H2T.sons(i).node().V_.rows(),
+                           V.cols() + H2T.sons(i).node().V_.cols());
+      V.rightCols(H2T.sons(i).node().V_.cols()) =
+          H2T.node().E_[i] * H2T.sons(i).node().V_;
     }
-    FloatType nrm = (V - CT.node().V_).norm() / CT.node().V_.norm();
+    FloatType nrm = (V - H2T.node().V_).norm() / H2T.node().V_.norm();
     eigen_assert(nrm < 1e-14 && "the H2 cluster basis is faulty");
   }
 #endif
   return;
 }
 
-} // namespace internal
+}  // namespace internal
 
-} // namespace FMCA
+}  // namespace FMCA
 
 #endif

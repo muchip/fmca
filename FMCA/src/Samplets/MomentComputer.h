@@ -16,6 +16,7 @@ namespace FMCA {
 
 namespace internal {
 /**
+ *  \ingroup internal
  *  \brief computes the transformation matrix from the son cluster moments
  *         to the dad cluster moments. This one is only based on polynomial
  *         interpolation and hence agnostic to the particular moment generation
@@ -56,12 +57,11 @@ typename traits<Derived>::eigenMatrix momentShifter(
  *         of moments for sample data
  **/
 template <typename Derived, typename MultiIndexSet>
-class SampleMomentComputerQR {
+class SampleMomentComputer {
  public:
   typedef typename internal::traits<Derived>::eigenMatrix eigenMatrix;
   void init(IndexType dim, IndexType dtilde) {
     // set desired number of vanishing moments
-    std::cout << dim << " " << dtilde << std::endl;
     dim_ = dim;
     dtilde_ = dtilde;
     m_dtilde_ = binomialCoefficient(dim_ + dtilde_ - 1, dim_);
@@ -72,9 +72,6 @@ class SampleMomentComputerQR {
       ++dtilde2_;
       m_dtilde2_ = binomialCoefficient(dim_ + dtilde2_ - 1, dim_);
     }
-    std::cout << "ditlde: " << dtilde_ << " dtilde2: " << dtilde2_ << std::endl
-              << "mtilde: " << m_dtilde_ << " mtilde2: " << m_dtilde2_
-              << std::endl;
     idcs_.init(dim_, dtilde2_ - 1);
     eigen_assert(idcs_.get_MultiIndexSet().size() == m_dtilde2_ &&
                  "dimension mismatch in total degree indexset");
@@ -91,6 +88,7 @@ class SampleMomentComputerQR {
     }
     return;
   }
+
   const eigenMatrix &multinomial_coeffs() const { return multinomial_coeffs_; }
   eigenMatrix shift_matrix(const eigenMatrix &shift) const {
     return internal::momentShifter<Derived, MultiIndexSet>(shift, idcs_,
