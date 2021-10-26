@@ -21,10 +21,10 @@
 #include "src/util/Macros.h"
 #include "src/util/GenericMatrix.h"
 #include "src/util/MultiIndexSet.h"
-#include "src/H2Matrix/ChebyshevInterpolation.h"
+#include "src/H2Matrix/TensorProductInterpolation.h"
 #include "src/H2Matrix/ClusterBasisInitialization.h"
 #include "src/H2Matrix/H2ClusterTreeBase.h"
 #include "src/H2Matrix/H2ClusterTree.h"
-//#include "src/H2Matrix/H2Matrix.h"
+#include "src/H2Matrix/H2Matrix.h"
 
 #endif

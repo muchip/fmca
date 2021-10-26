@@ -10,7 +10,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 #include "FMCA/H2Matrix"
 #include "FMCA/Samplets"
-#include "FMCA/src/H2Matrix/ChebyshevInterpolation.h"
+#include "FMCA/src/H2Matrix/TensorProductInterpolation.h"
 #include "FMCA/src/util/BinomialCoefficient.h"
 #include "FMCA/src/util/IO.h"
 #include "FMCA/src/util/print2file.hpp"
@@ -22,32 +22,29 @@
 //#define NPTS 65536
 //#define NPTS 32768
 //#define NPTS 16384
-#define NPTS 40000
+#define NPTS 10000
 //#define NPTS 4096
 //#define NPTS 2048
 //#define NPTS 1024
 //#define NPTS 512
 //#define NPTS 64
 #define DIM 3
-#define MPOLE_DEG 5
+#define MPOLE_DEG 3
 #define DTILDE 4
-#define LEAFSIZE 4
+#define LEAFSIZE 20
 
-#define PLOT_BOXES_
-//#define TEST_H2MATRIX_
+//#define PLOT_BOXES_
+#define TEST_H2MATRIX_
 //#define TEST_COMPRESSOR_
 //#define TEST_SAMPLET_TRANSFORM_
 //#define TEST_VANISHING_MOMENTS_
 //#define USE_BUNNY_
 
 struct exponentialKernel {
-  double operator()(const Eigen::Matrix<double, DIM, 1> &x,
-                    const Eigen::Matrix<double, DIM, 1> &y) const {
+  double operator()(const Eigen::MatrixXd &x, const Eigen::MatrixXd &y) const {
     return exp(-10 * (x - y).norm());
   }
 };
-
-using ClusterT = FMCA::ClusterTree<double, DIM, LEAFSIZE, MPOLE_DEG>;
 
 int main() {
   const auto function = exponentialKernel();
@@ -89,7 +86,7 @@ int main() {
   std::cout << std::string(60, '-') << std::endl;
   //////////////////////////////////////////////////////////////////////////////
   T.tic();
-  ClusterT CT(P);
+  FMCA::ClusterT CT(P, LEAFSIZE);
   T.toc("set up cluster tree: ");
   {
     std::vector<std::vector<FMCA::IndexType>> tree;
@@ -104,7 +101,7 @@ int main() {
     std::cout << std::string(60, '-') << std::endl;
   }
   T.tic();
-  FMCA::H2ClusterTree<ClusterT, MPOLE_DEG> H2CT(P, CT);
+  FMCA::H2ClusterTree H2CT(P, LEAFSIZE, MPOLE_DEG);
   T.toc("set up H2-cluster tree: ");
   {
     std::vector<std::vector<FMCA::IndexType>> tree;
@@ -122,16 +119,14 @@ int main() {
 #ifdef TEST_H2MATRIX_
   {
     T.tic();
-    FMCA::H2Matrix<FMCA::H2ClusterTree<ClusterT, MPOLE_DEG>> H2mat(P, H2CT,
-                                                                   function);
+    FMCA::H2Matrix<FMCA::H2ClusterTree> H2mat(P, H2CT, function, 0.2);
     T.toc("set up H2-matrix: ");
     H2mat.get_statistics();
     Eigen::MatrixXd K(P.cols(), P.cols());
     T.tic();
     for (auto j = 0; j < P.cols(); ++j)
       for (auto i = 0; i < P.cols(); ++i)
-        K(i, j) =
-            function(P.col(CT.get_indices()[i]), P.col(CT.get_indices()[j]));
+        K(i, j) = function(P.col(H2CT.indices()[i]), P.col(H2CT.indices()[j]));
     T.toc("set up full matrix: ");
     std::cout << "H2-matrix compression error: "
               << (K - H2mat.full()).norm() / K.norm() << std::endl;
@@ -140,7 +135,7 @@ int main() {
 #endif
   //////////////////////////////////////////////////////////////////////////////
   T.tic();
-  FMCA::SampletTree<ClusterT> ST(P, CT, DTILDE);
+  FMCA::SampletTreeQR ST(P, LEAFSIZE, DTILDE);
   T.toc("set up samplet tree: ");
   std::cout << std::string(60, '-') << std::endl;
   //////////////////////////////////////////////////////////////////////////////
