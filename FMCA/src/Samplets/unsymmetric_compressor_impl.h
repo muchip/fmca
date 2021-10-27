@@ -1,7 +1,7 @@
 // This file is part of FMCA, the Fast Multiresolution Covariance Analysis
 // package.
 //
-// Copyright (c) 2020, Michael Multerer
+// Copyright (c) 2021, Michael Multerer
 //
 // All rights reserved.
 //
@@ -21,7 +21,7 @@ struct unsymmetric_compressor_impl {
   typedef typename internal::traits<Derived>::eigenMatrix eigenMatrix;
 
   template <typename EntryGenerator>
-  void compress(const TreeBase<Derived> &ST, const EntryGenerator &e_gen,
+  void compress(TreeBase<Derived> &ST, const EntryGenerator &e_gen,
                 value_type eta = 0.8, value_type threshold = 1e-6) {
     eigen_assert(ST.is_root() && "compress needs to be called from root");
     eta_ = eta;
@@ -35,20 +35,21 @@ struct unsymmetric_compressor_impl {
     ////////////////////////////////////////////////////////////////////////////
     // set up the compressed matrix
     PB_.reset(n_samplet_blocks);
-    setupColumn(P, ST, ST, fun);
+    setupColumn(ST.derived(), ST.derived(), e_gen);
     // set up remainder of the first column
     for (const auto &cluster : ST) {
-      const IndexType block_id = cluster.block_id();
-      const IndexType start_index = cluster.start_index();
-      const IndexType nsamplets = cluster.nsamplets();
-      const IndexType nscalfs = cluster.nscalfs();
-      auto it = buffer_[block_id].find(ST.block_id());
-      eigen_assert(it != buffer_[block_id].end() &&
-                   "there is a missing root block!");
-      if (!it.is_root())
-        storeBlock(start_index, ST.start_index(), nsamplets, ST.Q().cols(),
-                   (it->second).bottomRows(nsamplets));
-      buffer_[block_id].erase(it);
+      if (!cluster.is_root()) {
+        const IndexType block_id = cluster.derived().block_id();
+        const IndexType start_index = cluster.derived().start_index();
+        const IndexType nsamplets = cluster.derived().nsamplets();
+        const IndexType nscalfs = cluster.derived().nscalfs();
+        auto it = buffer_[block_id].find(ST.derived().block_id());
+        eigen_assert(it != buffer_[block_id].end() &&
+                     "there is a missing root block!");
+        storeBlock(start_index, ST.derived().start_index(), nsamplets,
+                   ST.derived().Q().cols(), (it->second).bottomRows(nsamplets));
+        buffer_[block_id].erase(it);
+      }
     }
     std::cout << std::endl;
 #ifdef FMCA_COMPRESSOR_BUFSIZE_
@@ -74,16 +75,14 @@ struct unsymmetric_compressor_impl {
                                const Derived &cluster2) {
     Admissibility retval;
     const value_type dist = computeDistance(cluster1, cluster2);
-    const value_type row_radius =
-        0.5 * cluster1.cluster_->get_bb().col(2).norm();
-    const value_type col_radius =
-        0.5 * cluster2.cluster_->get_bb().col(2).norm();
+    const value_type row_radius = 0.5 * cluster1.bb().col(2).norm();
+    const value_type col_radius = 0.5 * cluster2.bb().col(2).norm();
     const value_type radius = row_radius > col_radius ? row_radius : col_radius;
 
     if (radius > eta_ * dist) {
       // check if either cluster is a leaf in that case,
       // compute the full matrix block
-      if (!cluster1.sons_.size() || !cluster2.sons_.size())
+      if (!cluster1.nSons() || !cluster2.nSons())
         return Dense;
       else
         return Refine;
@@ -174,7 +173,7 @@ struct unsymmetric_compressor_impl {
           setupRow(TR.sons(i), TC, e_gen);
           auto it = buffer_[TR.sons(i).block_id()].find(TC.block_id());
           eigen_assert(it != buffer_[TR.sons(i).block_id()].end() &&
-                       "row: entry should exist");
+                       "row: entry does not exist");
           buf.conservativeResize((it->second).cols(),
                                  buf.cols() + TR.sons(i).nscalfs());
           buf.rightCols(TR.sons(i).nscalfs()) =

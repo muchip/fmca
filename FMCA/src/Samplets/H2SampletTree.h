@@ -61,8 +61,11 @@ struct H2SampletTree : public H2SampletTreeBase<H2SampletTree> {
     SampleMomentComputer<H2SampletTree, MultiIndexSet<TotalDegree>> mom_comp;
     mom_comp.init(P.rows(), dtilde);
     computeSamplets(P, mom_comp);
-    sampletMapper();
+
     computeMultiscaleClusterBasis();
+    std::cout << "calling samplet mapper: ";
+    sampletMapper();
+    std::cout << "done\n";
     return;
   }
 

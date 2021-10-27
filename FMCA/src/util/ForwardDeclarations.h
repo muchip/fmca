@@ -20,6 +20,9 @@ struct ClusterTreeBase;
 template <typename Derived>
 struct H2ClusterTreeBase;
 
+template <typename Derived>
+struct H2SampletTreeBase;
+
 class ClusterTree;
 
 class H2ClusterTree;

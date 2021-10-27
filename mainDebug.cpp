@@ -22,7 +22,7 @@
 //#define NPTS 65536
 //#define NPTS 32768
 //#define NPTS 16384
-#define NPTS 10000
+#define NPTS 1000
 //#define NPTS 4096
 //#define NPTS 2048
 //#define NPTS 1024
@@ -116,6 +116,17 @@ int main() {
     std::cout << std::string(60, '-') << std::endl;
   }
   //////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////
+  T.tic();
+  FMCA::H2SampletTree ST(P, LEAFSIZE, DTILDE);
+  T.toc("set up samplet tree: ");
+  std::cout << std::string(60, '-') << std::endl;
+  FMCA::unsymmetric_compressor_impl<FMCA::H2SampletTree> Scomp;
+  FMCA::NystromMatrixEvaluator<FMCA::H2SampletTree, exponentialKernel> nm_eval(
+      P, function);
+  Scomp.compress(ST, nm_eval);
+
+  Eigen::MatrixXd Ktest = nm_eval.compute_dense_block(ST, ST);
 #ifdef TEST_H2MATRIX_
   {
     T.tic();
@@ -130,14 +141,12 @@ int main() {
     T.toc("set up full matrix: ");
     std::cout << "H2-matrix compression error: "
               << (K - H2mat.full()).norm() / K.norm() << std::endl;
+    std::cout << "H2-matrix test evaluator: " << (K - Ktest).norm() / K.norm()
+              << std::endl;
+
     std::cout << std::string(60, '-') << std::endl;
   }
 #endif
-  //////////////////////////////////////////////////////////////////////////////
-  T.tic();
-  FMCA::SampletTreeQR ST(P, LEAFSIZE, DTILDE);
-  T.toc("set up samplet tree: ");
-  std::cout << std::string(60, '-') << std::endl;
   //////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_COMPRESSOR_
   {
