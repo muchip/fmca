@@ -117,12 +117,25 @@ struct unsymmetric_compressor_impl {
     // check for admissibility
     if (compareCluster(TR, TC) == LowRank) {
       ++compute_block_calls_;
-      buf = e_gen.interpolate_kernel(TR, TC);
+      const eigenMatrix &Xi = TR.Xi();
+      // e_gen.interpolate_kernel(TR, TC, &buf);
+      buf.resize(Xi.cols(), Xi.cols());
+      for (auto j = 0; j < buf.cols(); ++j)
+        for (auto i = 0; i < buf.rows(); ++i)
+          buf(i, j) = e_gen.kernel_(
+              TR.bb().col(2).cwiseProduct(Xi.col(i)) + TR.bb().col(0),
+              TC.bb().col(2).cwiseProduct(Xi.col(j)) + TC.bb().col(0));
+
       retval = TR.V().transpose() * buf * TC.V();
     } else {
       if (!TR.nSons() && !TC.nSons()) {
         // both are leafs: compute the block and return
-        buf = e_gen.compute_dense_block(TR, TC);
+        // e_gen.compute_dense_block(TR, TC, &buf);
+        buf.resize(TR.indices().size(), TC.indices().size());
+        for (auto j = 0; j < TC.indices().size(); ++j)
+          for (auto i = 0; i < TR.indices().size(); ++i)
+            buf(i, j) = e_gen.kernel_(e_gen.P_->col(TR.indices()[i]),
+                                      e_gen.P_->col(TC.indices()[j]));
         retval = TR.Q().transpose() * buf * TC.Q();
       } else if (!TR.nSons() && TC.nSons()) {
         // the row cluster is a leaf cluster: recursion on the col cluster

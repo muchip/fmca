@@ -41,32 +41,30 @@ struct NystromMatrixEvaluator {
    *         a precomputed H2-matrix! The variant below computes entries
    *         on the fly
    **/
-  eigenMatrix interpolate_kernel(const Derived &TR, const Derived &TC) const {
-    const eigenMatrix &Xi = TR.Xi();
-    eigenMatrix retval;
-    retval.resize(Xi.cols(), Xi.cols());
-    for (auto j = 0; j < retval.cols(); ++j)
-      for (auto i = 0; i < retval.rows(); ++i)
-        retval(i, j) = kernel_((TR.bb().col(2).array() * Xi.col(i).array() +
-                                TR.bb().col(0).array())
-                                   .matrix(),
-                               (TC.bb().col(2).array() * Xi.col(j).array() +
-                                TC.bb().col(0).array())
-                                   .matrix());
-    return retval;
+  void interpolate_kernel(const Derived &TR, const Derived &TC,
+                          eigenMatrix *retval) const {
+    retval->resize(TR.Xi().cols(), TR.Xi().cols());
+    for (auto j = 0; j < retval->cols(); ++j) {
+      for (auto i = 0; i < retval->rows(); ++i) {
+        (*retval)(i, j) = kernel_(
+            TR.bb().col(2).cwiseProduct(TR.Xi().col(i)) + TR.bb().col(0),
+            TC.bb().col(2).cwiseProduct(TR.Xi().col(j)) + TC.bb().col(0));
+      }
+    }
+    return;
   }
   /**
    *  \brief provides the evaluaton of a dense matrix block for a given
    *         cluster pair
    **/
-  eigenMatrix compute_dense_block(const Derived &TR, const Derived &TC) const {
-    eigenMatrix retval;
-    retval.resize(TR.indices().size(), TC.indices().size());
+  void compute_dense_block(const Derived &TR, const Derived &TC,
+                           eigenMatrix *retval) const {
+    retval->resize(TR.indices().size(), TC.indices().size());
     for (auto j = 0; j < TC.indices().size(); ++j)
       for (auto i = 0; i < TR.indices().size(); ++i)
-        retval(i, j) =
+        (*retval)(i, j) =
             kernel_(P_->col(TR.indices()[i]), P_->col(TC.indices()[j]));
-    return retval;
+    return;
   }
   const eigenMatrix *P_;
   Kernel kernel_;

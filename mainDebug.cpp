@@ -18,7 +18,9 @@
 #include "imgCompression/matrixReader.h"
 
 struct exponentialKernel {
-  double operator()(const Eigen::MatrixXd &x, const Eigen::MatrixXd &y) const {
+  template <typename Derived>
+  double operator()(const Eigen::MatrixBase<Derived> &x,
+                    const Eigen::MatrixBase<Derived> &y) const {
     return exp(-10 * (x - y).norm());
   }
 };
@@ -34,9 +36,9 @@ struct exponentialKernel {
 //#define NPTS 1024
 //#define NPTS 512
 //#define NPTS 64
-#define DIM 3
-#define MPOLE_DEG 3
-#define DTILDE 4
+#define DIM 4
+#define MPOLE_DEG 2
+#define DTILDE 3
 #define LEAFSIZE 20
 
 //#define PLOT_BOXES_
@@ -118,18 +120,18 @@ int main() {
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
   T.tic();
-  FMCA::H2SampletTree ST(P, LEAFSIZE, DTILDE);
+  FMCA::H2SampletTree ST(P, LEAFSIZE, DTILDE, MPOLE_DEG);
   T.toc("set up samplet tree: ");
   std::cout << std::string(60, '-') << std::endl;
   FMCA::unsymmetric_compressor_impl<FMCA::H2SampletTree> Scomp;
-  FMCA::NystromMatrixEvaluator<FMCA::H2SampletTree, exponentialKernel> nm_eval(
-      P, function);
+  FMCA::NystromMatrixEvaluator<FMCA::H2SampletTree, exponentialKernel> nm_eval;
+  nm_eval.init(P, function);
   T.tic();
-
   Scomp.compress(ST, nm_eval, eta, aposteriori_threshold);
   T.toc("set up compressed: ");
 
-  Eigen::MatrixXd Ktest = nm_eval.compute_dense_block(ST, ST);
+  Eigen::MatrixXd Ktest;
+  nm_eval.compute_dense_block(ST, ST, &Ktest);
 #ifdef TEST_H2MATRIX_
   {
     T.tic();
