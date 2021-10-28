@@ -21,7 +21,7 @@ struct exponentialKernel {
   template <typename Derived>
   double operator()(const Eigen::MatrixBase<Derived> &x,
                     const Eigen::MatrixBase<Derived> &y) const {
-    return exp(-10 * (x - y).norm());
+    return exp(-10 * (x - y).norm()) * x(1);
   }
 };
 ////////////////////////////////////////////////////////////////////////////////
@@ -37,13 +37,13 @@ struct exponentialKernel {
 //#define NPTS 512
 //#define NPTS 64
 #define DIM 4
-#define MPOLE_DEG 2
-#define DTILDE 3
+#define MPOLE_DEG 3
+#define DTILDE 4
 #define LEAFSIZE 20
 
 //#define PLOT_BOXES_
 //#define TEST_H2MATRIX_
-//#define TEST_COMPRESSOR_
+#define TEST_COMPRESSOR_
 //#define TEST_SAMPLET_TRANSFORM_
 //#define TEST_VANISHING_MOMENTS_
 //#define USE_BUNNY_
@@ -51,7 +51,6 @@ struct exponentialKernel {
 int main() {
   const auto function = exponentialKernel();
   const double eta = 0.6;
-  const double svd_threshold = 1e-6;
   const double aposteriori_threshold = 1e-10;
   const double ridge_param = 1e-3;
   //////////////////////////////////////////////////////////////////////////////
@@ -82,7 +81,6 @@ int main() {
   std::cout << "mpole deg:   " << MPOLE_DEG << std::endl;
   std::cout << "dtilde:      " << DTILDE << std::endl;
   std::cout << "eta:         " << eta << std::endl;
-  std::cout << "svd thres:   " << svd_threshold << std::endl;
   std::cout << "apost thres: " << aposteriori_threshold << std::endl;
   std::cout << "ridge param: " << ridge_param << std::endl;
   std::cout << std::string(60, '-') << std::endl;
@@ -155,17 +153,7 @@ int main() {
   //////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_COMPRESSOR_
   {
-    T.tic();
-    ST.computeMultiscaleClusterBases(H2CT);
-    T.toc("set up time multiscale cluster bases");
-    std::cout << std::string(60, '-') << std::endl;
-    T.tic();
-    FMCA::BivariateCompressorH2<FMCA::SampletTree<ClusterT>> BC;
-    BC.set_eta(eta);
-    BC.set_threshold(aposteriori_threshold);
-    BC.init(P, ST, exponentialKernel());
-    T.toc("set up Samplet compressed matrix: ");
-    const auto &trips = BC.get_Pattern_triplets();
+    const auto &trips = Scomp.pattern_triplets();
     std::cout << "nz per row: " << trips.size() / P.cols() << std::endl;
     std::cout << "storage sparse: "
               << double(sizeof(double) * trips.size() * 3) / double(1e9)
@@ -178,8 +166,7 @@ int main() {
     T.tic();
     for (auto j = 0; j < P.cols(); ++j)
       for (auto i = 0; i < P.cols(); ++i)
-        K(i, j) =
-            function(P.col(CT.get_indices()[i]), P.col(CT.get_indices()[j]));
+        K(i, j) = function(P.col(CT.indices()[i]), P.col(CT.indices()[j]));
     ST.sampletTransformMatrix(K);
     T.toc("set up full transformed matrix: ");
     Eigen::SparseMatrix<double> S(K.rows(), K.cols());

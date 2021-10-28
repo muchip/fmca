@@ -43,14 +43,16 @@ struct NystromMatrixEvaluator {
    **/
   void interpolate_kernel(const Derived &TR, const Derived &TC,
                           eigenMatrix *retval) const {
-    retval->resize(TR.Xi().cols(), TR.Xi().cols());
-    for (auto j = 0; j < retval->cols(); ++j) {
-      for (auto i = 0; i < retval->rows(); ++i) {
-        (*retval)(i, j) = kernel_(
-            TR.bb().col(2).cwiseProduct(TR.Xi().col(i)) + TR.bb().col(0),
-            TC.bb().col(2).cwiseProduct(TR.Xi().col(j)) + TC.bb().col(0));
-      }
-    }
+    eigenMatrix XiX =
+        TR.Xi().cwiseProduct(TR.bb().col(2).replicate(1, TR.Xi().cols())) +
+        TR.bb().col(0).replicate(1, TR.Xi().cols());
+    eigenMatrix XiY =
+        TR.Xi().cwiseProduct(TC.bb().col(2).replicate(1, TR.Xi().cols())) +
+        TC.bb().col(0).replicate(1, TR.Xi().cols());
+    retval->resize(XiX.cols(), XiX.cols());
+    for (auto j = 0; j < retval->cols(); ++j)
+      for (auto i = 0; i < retval->rows(); ++i)
+        (*retval)(i, j) = kernel_(XiX.col(i), XiY.col(j));
     return;
   }
   /**
