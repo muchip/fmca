@@ -35,6 +35,8 @@ struct unsymmetric_compressor_impl {
     ////////////////////////////////////////////////////////////////////////////
     // set up the compressed matrix
     PB_.reset(n_samplet_blocks);
+    compute_block_calls_ = 0;
+
     setupColumn(ST.derived(), ST.derived(), e_gen);
     // set up remainder of the first column
     for (const auto &cluster : ST) {
@@ -52,6 +54,9 @@ struct unsymmetric_compressor_impl {
       }
     }
     std::cout << std::endl;
+    std::cout << "number of compute calls: " << compute_block_calls_
+              << std::endl;
+
 #ifdef FMCA_COMPRESSOR_BUFSIZE_
     std::cout << "max buffer size: " << max_buff_size_ << std::endl;
     max_buff_size_ = 0;
@@ -111,6 +116,7 @@ struct unsymmetric_compressor_impl {
     eigenMatrix retval(0, 0);
     // check for admissibility
     if (compareCluster(TR, TC) == LowRank) {
+      ++compute_block_calls_;
       buf = e_gen.interpolate_kernel(TR, TC);
       retval = TR.V().transpose() * buf * TC.V();
     } else {
@@ -270,6 +276,7 @@ struct unsymmetric_compressor_impl {
   IndexType N_;
   size_t storage_size_;
   size_t max_buff_size_;
+  IndexType compute_block_calls_;
 };
 }  // namespace FMCA
 #endif
