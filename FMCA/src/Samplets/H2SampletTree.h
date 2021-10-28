@@ -63,9 +63,7 @@ struct H2SampletTree : public H2SampletTreeBase<H2SampletTree> {
     computeSamplets(P, mom_comp);
 
     computeMultiscaleClusterBasis();
-    std::cout << "calling samplet mapper: ";
     sampletMapper();
-    std::cout << "done\n";
     return;
   }
 

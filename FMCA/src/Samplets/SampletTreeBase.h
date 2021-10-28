@@ -107,7 +107,6 @@ struct SampletTreeBase : public ClusterTreeBase<Derived> {
  protected:
   //////////////////////////////////////////////////////////////////////////////
   void sampletMapper() {
-    std::cout << "calling this mapper!!!\n";
     assert(is_root() &&
            "sampletMapper needs to be called from the root cluster");
     IndexType i = 0;

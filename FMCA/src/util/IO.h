@@ -12,6 +12,8 @@
 #ifndef FMCA_UTIL_IO_H_
 #define FMCA_UTIL_IO_H_
 
+#include<fstream>
+
 namespace FMCA {
 namespace IO {
 ////////////////////////////////////////////////////////////////////////////////
