@@ -51,7 +51,7 @@ int main() {
     ++i;
   }
   std::cout << oldl << ")\t" << i << "\t" << numInd << std::endl;
-#if 0 MPO
+#if 0
   FMCA::SampletTreeQR ST(P, 20, 4);
   FMCA::H2SampletTree H2ST;
   Eigen::MatrixXd Q = Eigen::MatrixXd::Identity(P.cols(), P.cols());

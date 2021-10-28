@@ -7,3 +7,4 @@ FMCA.xcodeproj
 *.mexa64
 *.mexmaci64
 Documentation/*
+build/

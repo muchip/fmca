@@ -16,13 +16,19 @@
 #include "FMCA/src/util/print2file.hpp"
 #include "FMCA/src/util/tictoc.hpp"
 #include "imgCompression/matrixReader.h"
+
+struct exponentialKernel {
+  double operator()(const Eigen::MatrixXd &x, const Eigen::MatrixXd &y) const {
+    return exp(-10 * (x - y).norm());
+  }
+};
 ////////////////////////////////////////////////////////////////////////////////
 //#define NPTS 5000
 //#define NPTS 131072
 //#define NPTS 65536
 //#define NPTS 32768
 //#define NPTS 16384
-#define NPTS 1000
+#define NPTS 10000
 //#define NPTS 4096
 //#define NPTS 2048
 //#define NPTS 1024
@@ -34,17 +40,11 @@
 #define LEAFSIZE 20
 
 //#define PLOT_BOXES_
-#define TEST_H2MATRIX_
+//#define TEST_H2MATRIX_
 //#define TEST_COMPRESSOR_
 //#define TEST_SAMPLET_TRANSFORM_
 //#define TEST_VANISHING_MOMENTS_
 //#define USE_BUNNY_
-
-struct exponentialKernel {
-  double operator()(const Eigen::MatrixXd &x, const Eigen::MatrixXd &y) const {
-    return exp(-10 * (x - y).norm());
-  }
-};
 
 int main() {
   const auto function = exponentialKernel();
@@ -124,7 +124,10 @@ int main() {
   FMCA::unsymmetric_compressor_impl<FMCA::H2SampletTree> Scomp;
   FMCA::NystromMatrixEvaluator<FMCA::H2SampletTree, exponentialKernel> nm_eval(
       P, function);
-  Scomp.compress(ST, nm_eval);
+  T.tic();
+
+  Scomp.compress(ST, nm_eval, eta, aposteriori_threshold);
+  T.toc("set up compressed: ");
 
   Eigen::MatrixXd Ktest = nm_eval.compute_dense_block(ST, ST);
 #ifdef TEST_H2MATRIX_
