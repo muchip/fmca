@@ -12,10 +12,10 @@
 #ifndef FMCA_SAMPLETS_BIVARIATECOMPRESSORBASE_H_
 #define FMCA_SAMPLETS_BIVARIATECOMPRESSORBASE_H_
 //#define FMCA_COMPRESSOR_BUFSIZE_
+#define FMCA_SYMMETRIC_STORAGE_
 namespace FMCA {
 
-template <typename Derived>
-struct unsymmetric_compressor_impl {
+template <typename Derived> struct unsymmetric_compressor_impl {
   enum Admissibility { Refine = 0, LowRank = 1, Dense = 2 };
   typedef typename internal::traits<Derived>::value_type value_type;
   typedef typename internal::traits<Derived>::eigenMatrix eigenMatrix;
@@ -53,14 +53,11 @@ struct unsymmetric_compressor_impl {
         buffer_[block_id].erase(it);
       }
     }
-    std::cout << std::endl;
-    std::cout << "number of compute calls: " << compute_block_calls_
-              << std::endl;
-
 #ifdef FMCA_COMPRESSOR_BUFSIZE_
     std::cout << "max buffer size: " << max_buff_size_ << std::endl;
     max_buff_size_ = 0;
-    for (const auto &it : buffer_) max_buff_size_ += it.size();
+    for (const auto &it : buffer_)
+      max_buff_size_ += it.size();
     std::cout << "final buffer size: " << max_buff_size_ << std::endl;
 #endif
   }
@@ -104,7 +101,7 @@ struct unsymmetric_compressor_impl {
     return eigenMatrix(S);
   }
 
- private:
+private:
   /**
    *  \brief recursively computes for a given pair of row and column clusters
    *         the four blocks [A^PhiPhi, A^PhiSigma; A^SigmaPhi, A^SigmaSigma]
@@ -186,7 +183,8 @@ struct unsymmetric_compressor_impl {
                                  buf.cols() + TR.sons(i).nscalfs());
           buf.rightCols(TR.sons(i).nscalfs()) =
               (it->second).transpose().leftCols(TR.sons(i).nscalfs());
-          if (it->first != 0) buffer_[TR.sons(i).block_id()].erase(it);
+          if (it->first != 0)
+            buffer_[TR.sons(i).block_id()].erase(it);
         } else {
           eigenMatrix ret = recursivelyComputeBlock(TR.sons(i), TC, e_gen);
           buf.conservativeResize(ret.cols(), buf.cols() + TR.sons(i).nscalfs());
@@ -198,7 +196,8 @@ struct unsymmetric_compressor_impl {
       // we are at a leaf of the row cluster tree
     } else {
       // if TR and TC are both leafs, we compute the corresponding matrix block
-      if (!TC.nSons()) block = recursivelyComputeBlock(TR, TC, e_gen);
+      if (!TC.nSons())
+        block = recursivelyComputeBlock(TR, TC, e_gen);
       // if TC is not a leaf, we reuse the blocks of its children
       else {
         for (auto j = 0; j < TC.nSons(); ++j) {
@@ -228,7 +227,8 @@ struct unsymmetric_compressor_impl {
     buffer_[TR.block_id()].emplace(std::make_pair(TC.block_id(), block));
 #ifdef FMCA_COMPRESSOR_BUFSIZE_
     IndexType buff_size = 0;
-    for (const auto &it : buffer_) buff_size += it.size();
+    for (const auto &it : buffer_)
+      buff_size += it.size();
     max_buff_size_ = max_buff_size_ < buff_size ? buff_size : max_buff_size_;
     return;
 #endif
@@ -239,7 +239,8 @@ struct unsymmetric_compressor_impl {
                    const EntryGenerator &e_gen) {
     eigenMatrix retval;
     if (TC.nSons())
-      for (auto i = 0; i < TC.nSons(); ++i) setupColumn(TR, TC.sons(i), e_gen);
+      for (auto i = 0; i < TC.nSons(); ++i)
+        setupColumn(TR, TC.sons(i), e_gen);
     setupRow(TR, TC, e_gen);
     auto it = buffer_[TR.block_id()].find(TC.block_id());
     eigen_assert(it != buffer_[TR.block_id()].end() &&
@@ -264,8 +265,14 @@ struct unsymmetric_compressor_impl {
     for (auto k = 0; k < ncols; ++k)
       for (auto j = 0; j < nrows; ++j)
         if (abs(block(j, k)) > threshold_)
+#ifdef FMCA_SYMMETRIC_STORAGE_
+          if (srow + j >= scol + k)
+            triplet_list_.push_back(
+                Eigen::Triplet<value_type>(srow + j, scol + k, block(j, k)));
+#else
           triplet_list_.push_back(
               Eigen::Triplet<value_type>(srow + j, scol + k, block(j, k)));
+#endif
   }
   //////////////////////////////////////////////////////////////////////////////
   /// member variables
@@ -280,5 +287,5 @@ struct unsymmetric_compressor_impl {
   size_t max_buff_size_;
   IndexType compute_block_calls_;
 };
-}  // namespace FMCA
+} // namespace FMCA
 #endif
