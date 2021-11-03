@@ -27,16 +27,17 @@ using EigenCholesky =
 #include "imgCompression/matrixReader.h"
 ////////////////////////////////////////////////////////////////////////////////
 struct exponentialKernel {
-  double operator()(const Eigen::Matrix<double, DIM, 1> &x,
-                    const Eigen::Matrix<double, DIM, 1> &y) const {
-    return exp(-10 * (x - y).norm() / sqrt(DIM));
+  template <typename Derived>
+  double operator()(const Eigen::MatrixBase<Derived> &x,
+                    const Eigen::MatrixBase<Derived> &y) const {
+    return exp(-(x - y).norm() / sqrt(DIM));
   }
 };
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
   const exponentialKernel function = exponentialKernel();
   const double eta = 0.8;
-  const double aposteriori_threshold = 1e-6;
+  const double aposteriori_threshold = 1e-5;
   const double ridge_param = 10;
   const std::string logger = "benchmarkLogger_" + std::to_string(DIM) + ".txt";
   tictoc T;
@@ -140,6 +141,7 @@ int main(int argc, char *argv[]) {
     // perform the Cholesky factorization of the compressed matrix
     double Chol_err = 0;
     double cond = 0;
+#if 0
     {
       std::cout << "starting Cholesky decomposition\n";
       Eigen::SparseMatrix<double> I(P.cols(), P.cols());
@@ -179,21 +181,22 @@ int main(int argc, char *argv[]) {
                   << std::endl;
       }
     }
+#endif
     ////////////////////////////////////////////////////////////////////////////
     // perform error computation
     double err = 0;
     if (npts < 1e5) {
       T.tic();
-      Eigen::SparseMatrix<double> I(P.cols(), P.cols());
-      I.setIdentity();
-      W -= ridge_param * I;
+      //Eigen::SparseMatrix<double> I(P.cols(), P.cols());
+      //I.setIdentity();
+      //W -= ridge_param * I;
 
       Eigen::VectorXd y1(P.cols());
       Eigen::VectorXd y2(P.cols());
       Eigen::VectorXd x(P.cols());
       FMCA::ProgressBar PB;
       PB.reset(10);
-      for (auto i = 0; i < 10; ++i) {
+      for (auto i = 0; i < 20; ++i) {
         unsigned int index = rand() % P.cols();
         x.setZero();
         x(index) = 1;
