@@ -1,4 +1,5 @@
 #define USE_QR_CONSTRUCTION_
+#define FMCA_CLUSTERSET_
 ////////////////////////////////////////////////////////////////////////////////
 #include <fstream>
 #include <functional>
@@ -21,7 +22,7 @@ struct exponentialKernel {
   template <typename Derived>
   double operator()(const Eigen::MatrixBase<Derived> &x,
                     const Eigen::MatrixBase<Derived> &y) const {
-    return exp(-10 * (x - y).norm()) * x(1);
+    return exp(-10 * (x - y).norm());
   }
 };
 ////////////////////////////////////////////////////////////////////////////////
@@ -30,20 +31,20 @@ struct exponentialKernel {
 //#define NPTS 65536
 //#define NPTS 32768
 //#define NPTS 16384
-#define NPTS 10000
+#define NPTS 30000
 //#define NPTS 4096
 //#define NPTS 2048
 //#define NPTS 1024
 //#define NPTS 512
 //#define NPTS 64
-#define DIM 4
+#define DIM 3
 #define MPOLE_DEG 3
-#define DTILDE 4
-#define LEAFSIZE 20
+#define DTILDE 3
+#define LEAFSIZE 100
 
 //#define PLOT_BOXES_
 //#define TEST_H2MATRIX_
-#define TEST_COMPRESSOR_
+//#define TEST_COMPRESSOR_
 //#define TEST_SAMPLET_TRANSFORM_
 //#define TEST_VANISHING_MOMENTS_
 //#define USE_BUNNY_

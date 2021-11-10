@@ -42,18 +42,18 @@ struct IDDFSForwardIterator {
       if (ptr_ != std::addressof(ptr_->dad_->sons_.back())) {
         ++ptr_;
         while (ptr_->sons_.size() && ptr_->level_ < depth_)
-          ptr_ = std::addressof(ptr_->sons_[0]);
+          ptr_ = static_cast<pointer>(std::addressof(ptr_->sons_[0]));
         // did we find a valid next node? if so return it
         max_depth_ = max_depth_ < ptr_->level_ ? ptr_->level_ : max_depth_;
         if (ptr_->level_ == depth_) return *this;
       } else
-        ptr_ = ptr_->dad_;
+        ptr_ = static_cast<pointer>(ptr_->dad_);
     }
     if (depth_ <= max_depth_) {
       // increase depth and traverse the left branch to a leaf
       ++depth_;
       while (ptr_->sons_.size() && ptr_->level_ < depth_)
-        ptr_ = std::addressof(ptr_->sons_[0]);
+        ptr_ = static_cast<pointer>(std::addressof(ptr_->sons_[0]));
       max_depth_ = max_depth_ < ptr_->level_ ? ptr_->level_ : max_depth_;
       // did we find a valid next node? if so return it
       if (ptr_->level_ != depth_) ++(*this);

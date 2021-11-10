@@ -30,7 +30,8 @@ int main() {
       FMCA::unsymmetric_compressor_impl<FMCA::H2SampletTree> Scomp;
       Scomp.compress(ST, nm_eval, eta, threshold);
       const auto &trips = Scomp.pattern_triplets();
-      Eigen::MatrixXd K = nm_eval.compute_dense_block(ST, ST);
+      Eigen::MatrixXd K;
+      nm_eval.compute_dense_block(ST, ST, &K);
       ST.sampletTransformMatrix(K);
       Eigen::SparseMatrix<double> S(K.rows(), K.cols());
       S.setFromTriplets(trips.begin(), trips.end());

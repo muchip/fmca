@@ -1,7 +1,7 @@
 // This file is part of FMCA, the Fast Multiresolution Covariance Analysis
 // package.
 //
-// Copyright (c) 2020, Michael Multerer
+// Copyright (c) 2021, Michael Multerer
 //
 // All rights reserved.
 //
@@ -15,8 +15,8 @@
 #include <memory>
 #include <vector>
 
-#include "Macros.h"
 #include "IDDFSForwardIterator.h"
+#include "Macros.h"
 
 namespace FMCA {
 
@@ -48,8 +48,8 @@ class TreeBase {
     node_ = std::unique_ptr<NodeBase<node_type>>(new node_type);
   }
   //////////////////////////////////////////////////////////////////////////////
-  using iterator = IDDFSForwardIterator<TreeBase, false>;
-  using const_iterator = IDDFSForwardIterator<TreeBase, true>;
+  using iterator = IDDFSForwardIterator<Derived, false>;
+  using const_iterator = IDDFSForwardIterator<Derived, true>;
   friend iterator;
   friend const_iterator;
   //////////////////////////////////////////////////////////////////////////////
@@ -67,9 +67,11 @@ class TreeBase {
   node_type &node() { return node_->derived(); }
   const node_type &node() const { return node_->derived(); }
   //////////////////////////////////////////////////////////////////////////////
-  iterator begin() { return iterator(this, 0); }
+  iterator begin() { return iterator(static_cast<Derived *>(this), 0); }
   iterator end() { return iterator(nullptr, 0); }
-  const_iterator cbegin() const { return const_iterator(this, 0); }
+  const_iterator cbegin() const {
+    return const_iterator(static_cast<const Derived *>(this), 0);
+  }
   const_iterator cend() const { return const_iterator(nullptr, 0); }
   //////////////////////////////////////////////////////////////////////////////
   Derived &sons(typename std::vector<TreeBase>::size_type i) {
