@@ -1,7 +1,7 @@
 // This file is part of FMCA, the Fast Multiresolution Covariance Analysis
 // package.
 //
-// Copyright (c) 2020, Michael Multerer
+// Copyright (c) 2021, Michael Multerer
 //
 // All rights reserved.
 //
@@ -73,6 +73,18 @@ class H2Matrix {
     computeFullMatrixRecursion(*row_cluster_, *row_cluster_, &retval);
     return retval;
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+  template <typename otherDerived>
+  eigenMatrix matrixProduct(const Eigen::MatrixBase<otherDerived> &mat) const {
+    eigen_assert(row_cluster_->is_root() && col_cluster_->is_root() &&
+                 "method needs to be called from the root");
+    eigenMatrix retval(mat.rows(), mat.cols());
+    retval.setZero();
+    computeMatrixProductRecursion(*row_cluster_, *row_cluster_, mat, &retval);
+    return retval;
+  }
+
   //////////////////////////////////////////////////////////////////////////////
   static value_type computeDistance(const Derived &cluster1,
                                     const Derived &cluster2) {
@@ -144,6 +156,30 @@ class H2Matrix {
     }
     return;
   }
+  template <typename otherDerived>
+  void computeMatrixProductRecursion(const Derived &CR, const Derived &CS,
+                                     const Eigen::MatrixBase<otherDerived> mat,
+                                     eigenMatrix *target) const {
+    if (sons_.size()) {
+      for (auto i = 0; i < sons_.rows(); ++i)
+        for (auto j = 0; j < sons_.cols(); ++j)
+          sons_(i, j).computeMatrixProductRecursion(*(sons_(i, j).row_cluster_),
+                                                    *(sons_(i, j).col_cluster_),
+                                                    mat, target);
+    } else {
+      if (is_low_rank_)
+        target->block(
+            row_cluster_->indices_begin(), col_cluster_->indices_begin(),
+            row_cluster_->indices().size(), col_cluster_->indices().size()) =
+            row_cluster_->V().transpose() * S_ * col_cluster_->V();
+      else
+        target->block(row_cluster_->indices_begin(),
+                      col_cluster_->indices_begin(),
+                      row_cluster_->indices().size(),
+                      col_cluster_->indices().size()) = S_;
+    }
+    return;
+  }
 
   template <typename Functor>
   void computeH2Matrix(const eigenMatrix &P, const Derived &CT1,
@@ -183,7 +219,7 @@ class H2Matrix {
   const Derived *col_cluster_;
   bool is_low_rank_;
   eigenMatrix S_;
-};  // namespace FMCA
+};
 
 }  // namespace FMCA
 #endif

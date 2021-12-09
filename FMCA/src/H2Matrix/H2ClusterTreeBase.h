@@ -20,7 +20,8 @@ namespace FMCA {
  *         H2ClusterTree, i.e. fields for a ClusterTree plus transfer matrices
  *         and cluster bases
  **/
-template <typename Derived> struct H2ClusterTreeNodeDataFields {
+template <typename Derived>
+struct H2ClusterTreeNodeDataFields {
   std::vector<typename internal::traits<Derived>::eigenMatrix> E_;
   typename internal::traits<Derived>::eigenMatrix V_;
   std::shared_ptr<typename internal::traits<Derived>::Interpolator> interp_;
@@ -55,9 +56,8 @@ struct H2ClusterTreeBase : public ClusterTreeBase<Derived> {
     // init interpolation routines
     node().interp_ = std::make_shared<Interpolator>();
     node().interp_->init(P.rows(), polynomial_degree);
-    std::cout << "H2-ClusterTree: m_q=" << node().interp_->Xi().cols()
-              << std::endl;
-    internal::compute_cluster_bases_impl(*this, P);
+    internal::compute_cluster_bases_impl<Interpolator, Derived, eigenMatrix>(
+        *this, P);
   }
 
   const eigenMatrix &V() const { return node().V_; }
@@ -70,5 +70,5 @@ struct H2ClusterTreeBase : public ClusterTreeBase<Derived> {
   //////////////////////////////////////////////////////////////////////////////
 };
 
-} // namespace FMCA
+}  // namespace FMCA
 #endif

@@ -22,7 +22,7 @@
 #include "src/util/GenericMatrix.h"
 #include "src/util/MultiIndexSet.h"
 #include "src/H2Matrix/TensorProductInterpolation.h"
-#include "src/H2Matrix/ClusterBasisInitialization.h"
+#include "src/H2Matrix/compute_cluster_bases_impl.h"
 #include "src/H2Matrix/H2ClusterTreeBase.h"
 #include "src/H2Matrix/H2ClusterTree.h"
 #include "src/H2Matrix/H2Matrix.h"
