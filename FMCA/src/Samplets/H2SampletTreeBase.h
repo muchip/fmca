@@ -54,7 +54,8 @@ struct H2SampletTreeBase : public SampletTreeBase<Derived> {
     // init interpolation routines
     node().interp_ = std::make_shared<Interpolator>();
     node().interp_->init(P.rows(), polynomial_degree);
-    internal::compute_cluster_bases_impl(*this, P);
+    internal::compute_cluster_bases_impl<Interpolator, Derived, eigenMatrix>(
+        *this, P);
   }
 
   const eigenMatrix &V() const { return node().V_; }
@@ -84,5 +85,5 @@ struct H2SampletTreeBase : public SampletTreeBase<Derived> {
     return;
   }
 };
-}  // namespace FMCA
+} // namespace FMCA
 #endif

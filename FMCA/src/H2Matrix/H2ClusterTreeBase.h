@@ -51,11 +51,12 @@ struct H2ClusterTreeBase : public ClusterTreeBase<Derived> {
 
   void init(const eigenMatrix &P, IndexType min_cluster_size = 1,
             IndexType polynomial_degree = 3) {
-    // init cluster tree first
-    Base::init(P, min_cluster_size);
     // init interpolation routines
     node().interp_ = std::make_shared<Interpolator>();
     node().interp_->init(P.rows(), polynomial_degree);
+    // init cluster tree first
+    Base::init(P, min_cluster_size);
+
     internal::compute_cluster_bases_impl<Interpolator, Derived, eigenMatrix>(
         *this, P);
   }

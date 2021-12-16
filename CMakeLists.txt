@@ -1,20 +1,26 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.21)
 project(FMCA CXX)
 
 message(STATUS "
+****************************************************************************
+*                  ______   __    __    ______    ______                   * 
+*                 |   ___| |  \\  /  |  /   ___|  /      \\                  *
+*                 |   __   |   \\/   | |   /     |   /\\   |                 *
+*                 |   __|  |        | |  |      |  |__|  |                 *
+*                 |  |     |  |\\/|  | |  |      |   __   |                 *
+*                 |  |     |  |  |  | |   \\___  |  |  |  |                 *
+*                 |__|     |__|  |__|  \\______| |__|  |__|                 *
+*                                                                          *
+****************************************************************************
+This file is FMCA, the Fast Multiresolution Covariance Analysis package.
 
-// This file is FMCA, the Fast Multiresolution Covariance Analysis
-// package.
-//
-// Copyright (c) 2021, Michael Multerer
-//
-// All rights reserved.
-//
-// This source code is subject to the BSD 3-clause license and without
-// any warranty, see <https://github.com/muchip/FMCA> for further
-// information.
+Copyright (c) 2021, Michael Multerer
+All rights reserved.
+
+This source code is subject to the BSD 3-clause license and without
+any warranty, see <https://github.com/muchip/FMCA> for further
+information.
 ")
-
 
 #   Instructions for VisualStudio users (tested with VS 2019 Community)
 #
@@ -56,11 +62,11 @@ message(STATUS "Found -flto, adding option to builds of type >release< only")
 set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -flto" CACHE STRING "compile flags" FORCE)
 endif()
 
-find_package(OpenMP)
-if (OPENMP_FOUND)
-message(STATUS "Found -fopenmp, adding option to builds of type >release< only")
-set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fopenmp")
-endif()
+#find_package(OpenMP)
+#if (OPENMP_FOUND)
+#message(STATUS "Found -fopenmp, adding option to builds of type >release< only")
+#set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fopenmp")
+#endif()
 
 set( PROJECT_SOURCE_DIR "${PROJECT_SOURCE_DIR}")
 include_directories("${PROJECT_SOURCE_DIR}")
