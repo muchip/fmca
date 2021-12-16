@@ -55,7 +55,9 @@ struct H2ClusterTreeBase : public ClusterTreeBase<Derived> {
     node().interp_ = std::make_shared<Interpolator>();
     node().interp_->init(P.rows(), polynomial_degree);
     // init cluster tree first
-    Base::init(P, min_cluster_size);
+    Base::init(P, min_cluster_size > node().interp_->Xi().cols()
+                      ? min_cluster_size
+                      : node().interp_->Xi().cols());
 
     internal::compute_cluster_bases_impl<Interpolator, Derived, eigenMatrix>(
         *this, P);

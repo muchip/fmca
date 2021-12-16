@@ -36,7 +36,7 @@ template <typename Derived, typename eigenMatrix>
 void init_ClusterTree_impl(ClusterTreeBase<Derived> &CT, const eigenMatrix &P,
                            IndexType min_cluster_size) {
   typename traits<Derived>::Splitter split;
-  if (CT.node().indices_.size() > min_cluster_size) {
+  if (CT.node().indices_.size() > 2 * min_cluster_size) {
     CT.appendSons(2);
     // set up bounding boxes for sons
     for (auto i = 0; i < 2; ++i) {

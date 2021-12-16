@@ -83,5 +83,6 @@ add_custom_target(release
   COMMENT "Switch CMAKE_BUILD_TYPE to Release"
   )
 
+add_subdirectory(examples)
 add_subdirectory(tests)
 enable_testing()
