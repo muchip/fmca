@@ -1,17 +1,14 @@
 clear all;
 close all;
-k = @(X, Y) exp(-10 * abs(X-Y));
-k = @(X, Y) max(1-200*abs(X-Y),0);
-%k = @(X, Y) (1 + 50 * abs(X-Y)) .* exp(-50 * abs(X-Y));
-%k = @(X, Y) exp(-100 * abs(X-Y).^2);
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-pts = [0:0.001:1];
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-tic
-[~, I, T] = MEXbivariateCompressor(pts, 3, 0.8, 1e-6);
+hat = @(x) max(1-abs(x),0)
+h = 0.001;
+k = @(X,Y) hat(1/h*(X-Y));
+pts = [0:h:1];
+[~, I, T] = MEXbivariateCompressor(pts, 1, 0.8, 1e-6);
 Q = sparse(T(:,1), T(:,2), T(:,3));
 clear T;
-toc
+D = h * ones(length(pts) + 1,1) * [1/6, 2/3, 1/6];
+M = spdiags(D, -1:1, length(pts), length(pts));
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 Qerror = norm(Q * Q' - speye(size(Q)), 'fro') / norm(speye(size(Q)), 'fro')
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -19,7 +16,7 @@ figure(1);
 spy(Q);
 [X, Y] = meshgrid(pts);
 K = k(X, Y);
-x = [0:0.00001:1];
+x = [0:h:1];
 [X, Y] = meshgrid(pts,x);
 Keval = k(X, Y);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -30,13 +27,13 @@ for i = 1:length(pts)
     hold on;
     plot(x', Keval(:,i), 'k-', 'linewidth', 2);
 end
-for i = 1:40
+for i = 1:100
     figure(1);
     clf;
     samplet = Q(i,invI);
-    sampletTilde = (K + 1e-12 * eye(size(K))) \ samplet';
-    plot(x', Keval* samplet', 'b-', 'linewidth', 2);
+    sampletTilde = M \ samplet';
+    plot(x', samplet', 'b-', 'linewidth', 2);
     hold on;
-    plot(x', Keval* sampletTilde,'r-', 'linewidth', 2);
+    %plot(x', Keval* sampletTilde,'r-', 'linewidth', 2);
 pause
 end
