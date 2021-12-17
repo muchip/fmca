@@ -15,23 +15,21 @@
 namespace FMCA {
 
 namespace internal {
-template <>
-struct traits<H2ClusterTreeNode> {
+template <> struct traits<H2ClusterTreeNode> {
   typedef FloatType value_type;
   typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
-  typedef TensorProductInterpolator<value_type> Interpolator;
+  typedef TotalDegreeInterpolator<value_type> Interpolator;
 };
-}  // namespace internal
+} // namespace internal
 
 struct H2ClusterTreeNode : public H2ClusterTreeNodeBase<H2ClusterTreeNode> {};
 
 namespace internal {
-template <>
-struct traits<H2ClusterTree> : public traits<ClusterTree> {
+template <> struct traits<H2ClusterTree> : public traits<ClusterTree> {
   typedef H2ClusterTreeNode node_type;
   typedef traits<H2ClusterTreeNode>::Interpolator Interpolator;
 };
-}  // namespace internal
+} // namespace internal
 
 /**
  *  \ingroup H2Matrix
@@ -45,7 +43,7 @@ struct traits<H2ClusterTree> : public traits<ClusterTree> {
  *         dangeling pointers!
  */
 struct H2ClusterTree : public H2ClusterTreeBase<H2ClusterTree> {
- public:
+public:
   typedef typename internal::traits<H2ClusterTree>::value_type value_type;
   typedef typename internal::traits<H2ClusterTree>::node_type node_type;
   typedef typename internal::traits<H2ClusterTree>::eigenMatrix eigenMatrix;
@@ -67,5 +65,5 @@ struct H2ClusterTree : public H2ClusterTreeBase<H2ClusterTree> {
   }
 };
 
-}  // namespace FMCA
+} // namespace FMCA
 #endif
