@@ -33,7 +33,7 @@ const double LejaPoints[50] = {
     0.325638738643865, 0.998719486196507, 0.075661046964471, 0.806873625853102,
     0.440350654950455, 0.001046782061681};
 
-template <typename ValueType, IndexType Dim, IndexType Deg>
+template <typename ValueType>
 class TotalDegreeInterpolator {
  public:
   typedef Eigen::Matrix<ValueType, Eigen::Dynamic, 1> eigenVector;
@@ -44,9 +44,11 @@ class TotalDegreeInterpolator {
    *         as the nodes are on [0,1]. However, this does not matter as
    *         the factor cancels.
    **/
-  void init() {
-    idcs_.init(Deg);
-    TD_xi_.resize(Dim, idcs_.get_MultiIndexSet().size());
+  void init(IndexType dim, IndexType deg) {
+    dim_ = dim;
+    deg_ = deg;
+    idcs_.init(dim, deg);
+    TD_xi_.resize(dim_, idcs_.get_MultiIndexSet().size());
     V_.resize(idcs_.get_MultiIndexSet().size(),
               idcs_.get_MultiIndexSet().size());
     // determine tensor product interpolation points
@@ -63,13 +65,13 @@ class TotalDegreeInterpolator {
   //////////////////////////////////////////////////////////////////////////////
   template <typename Derived>
   eigenMatrix evalLegendrePolynomials1D(const Eigen::MatrixBase<Derived> &pt) {
-    eigenMatrix retval(pt.rows(), Deg + 1);
+    eigenMatrix retval(pt.rows(), deg_ + 1);
     P0_.resize(pt.rows());
     P1_.resize(pt.rows());
     P0_.setZero();
     P1_.setOnes();
     retval.col(0) = P1_;
-    for (auto i = 1; i <= Deg; ++i) {
+    for (auto i = 1; i <= deg_; ++i) {
       retval.col(i) = ValueType(2 * i - 1) / ValueType(i) *
                           (2 * pt.array() - 1) * P1_.array() -
                       ValueType(i - 1) / ValueType(i) * P0_.array();
@@ -88,23 +90,25 @@ class TotalDegreeInterpolator {
     retval.setOnes();
     IndexType k = 0;
     for (const auto &it : idcs_.get_MultiIndexSet()) {
-      for (auto i = 0; i < Dim; ++i) retval(k) *= p_values(i, it[i]);
+      for (auto i = 0; i < dim_; ++i) retval(k) *= p_values(i, it[i]);
       ++k;
     }
     return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
-  const eigenMatrix &get_Xi() const { return TD_xi_; }
-  const eigenMatrix &get_invV() const { return invV_; }
-  const eigenMatrix &get_V() const { return V_; }
+  const eigenMatrix &Xi() const { return TD_xi_; }
+  const eigenMatrix &invV() const { return invV_; }
+  const eigenMatrix &V() const { return V_; }
 
  private:
-  MultiIndexSet<Dim, TotalDegree> idcs_;
+  MultiIndexSet<TotalDegree> idcs_;
   eigenMatrix TD_xi_;
   eigenMatrix invV_;
   eigenMatrix V_;
   eigenVector P0_;
   eigenVector P1_;
+  IndexType dim_;
+  IndexType deg_;
 };
 }  // namespace FMCA
 #endif

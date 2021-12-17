@@ -199,6 +199,8 @@ class H2Matrix {
                          (CT2.bb().col(2).array() * Xi.col(j).array() +
                           CT2.bb().col(0).array())
                              .matrix());
+      S_ = CT1.node().interp_->invV() * S_ *
+           CT1.node().interp_->invV().transpose();
     } else if (adm == Refine) {
       sons_.resize(CT1.nSons(), CT2.nSons());
       for (auto j = 0; j < CT2.nSons(); ++j)

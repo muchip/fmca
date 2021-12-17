@@ -25,18 +25,18 @@ struct exponentialKernel {
 //#define NPTS 65536
 //#define NPTS 32768
 //#define NPTS 16384
-#define NPTS 10000
+#define NPTS 20000
 //#define NPTS 4096
 //#define NPTS 2048
 //#define NPTS 1024
 //#define NPTS 512
 //#define NPTS 64
-#define DIM 3
+#define DIM 5
 #define MPOLE_DEG 3
 #define LEAFSIZE 1
 
 int main() {
-  const double eta = 0.8;
+  const double eta = 1.;
   const auto function = exponentialKernel();
   const Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, NPTS);
   FMCA::H2ClusterTree CT(P, LEAFSIZE, MPOLE_DEG);
@@ -58,9 +58,14 @@ int main() {
   FMCA::H2Matrix<FMCA::H2ClusterTree> H2mat(P, CT, function, eta);
   H2mat.get_statistics();
   Eigen::MatrixXd K(P.cols(), P.cols());
+  unsigned int nnz = 0;
   for (auto j = 0; j < P.cols(); ++j)
-    for (auto i = 0; i < P.cols(); ++i)
+    for (auto i = 0; i < P.cols(); ++i) {
       K(i, j) = function(P.col(CT.indices()[i]), P.col(CT.indices()[j]));
+      if (abs(K(i, j)) > 1e-8) ++nnz;
+    }
+  std::cout << nnz / NPTS << std::endl;
+
   std::cout << "H2-matrix compression error: "
             << (K - H2mat.full()).norm() / K.norm() << std::endl;
   std::cout << std::string(60, '-') << std::endl;

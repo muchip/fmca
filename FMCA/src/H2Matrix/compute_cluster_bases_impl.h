@@ -90,6 +90,73 @@ struct compute_cluster_bases_impl<
     return;
   }
 };
+
+template <typename Derived, typename eigenMatrix>
+struct compute_cluster_bases_impl<
+    TotalDegreeInterpolator<typename Derived::value_type>, Derived,
+    eigenMatrix> {
+  compute_cluster_bases_impl(TreeBase<Derived> &CT, const eigenMatrix &P) {
+    compute(CT, P);
+  }
+  void compute(TreeBase<Derived> &CT, const eigenMatrix &P) {
+    Derived &H2T = CT.derived();
+    H2T.V().resize(0, 0);
+    H2T.Es().clear();
+
+    if (H2T.nSons()) {
+      for (auto i = 0; i < H2T.nSons(); ++i) {
+        // give also the son access to the interpolation routines ...
+        H2T.sons(i).node().interp_ = H2T.node().interp_;
+        compute_cluster_bases_impl(H2T.sons(i), P);
+      }
+      // compute transfer matrices
+      const eigenMatrix &Xi = H2T.Xi();
+      for (auto i = 0; i < H2T.nSons(); ++i) {
+        eigenMatrix E(Xi.cols(), Xi.cols());
+        for (auto j = 0; j < E.cols(); ++j)
+          E.col(j) = H2T.node().interp_->evalLegendrePolynomials(
+              (Xi.col(j).array() * H2T.sons(i).bb().col(2).array() /
+                   H2T.bb().col(2).array() +
+               (H2T.sons(i).bb().col(0).array() - H2T.bb().col(0).array()) /
+                   H2T.bb().col(2).array())
+                  .matrix());
+        E = E * H2T.node().interp_->invV().transpose();
+        H2T.Es().emplace_back(std::move(E));
+      }
+    } else {
+      // compute leaf bases
+      H2T.V().resize(H2T.Xi().cols(), H2T.indices().size());
+      for (auto i = 0; i < H2T.indices().size(); ++i)
+        H2T.V().col(i) = H2T.node().interp_->evalLegendrePolynomials(
+            ((P.col(H2T.indices()[i]) - H2T.bb().col(0)).array() /
+             H2T.bb().col(2).array())
+                .matrix());
+    }
+#ifdef CHECK_TRANSFER_MATRICES_
+    if (H2T.node().E_.size()) {
+      eigenMatrix V;
+      H2T.node().V_.resize(H2T.node().interp_->Xi().cols(),
+                           H2T.indices().size());
+      for (auto i = 0; i < H2T.indices().size(); ++i)
+        H2T.node().V_.col(i) = H2T.node().interp_->evalLegendrePolynomials(
+            ((P.col(H2T.indices()[i]) - H2T.bb().col(0)).array() /
+             H2T.bb().col(2).array())
+                .matrix());
+
+      for (auto i = 0; i < H2T.nSons(); ++i) {
+        V.conservativeResize(H2T.sons(i).node().V_.rows(),
+                             V.cols() + H2T.sons(i).node().V_.cols());
+        V.rightCols(H2T.sons(i).node().V_.cols()) =
+            H2T.node().E_[i] * H2T.sons(i).node().V_;
+      }
+      FloatType nrm = (V - H2T.node().V_).norm() / H2T.node().V_.norm();
+      eigen_assert(nrm < 1e-12 && "the H2 cluster basis is faulty");
+    }
+#endif
+    return;
+  }
+};
+
 }  // namespace internal
 
 }  // namespace FMCA
