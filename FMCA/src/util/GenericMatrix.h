@@ -12,10 +12,9 @@
 #include <vector>
 
 namespace FMCA {
-template <typename T>
-class GenericMatrix {
- public:
-  typedef typename std::vector<std::vector<T>>::size_type colIndex;
+template <typename T> class GenericMatrix {
+public:
+  typedef typename std::vector<T>::size_type colIndex;
   typedef typename std::vector<T>::size_type rowIndex;
   //////////////////////////////////////////////////////////////////////////////
   //  constructors
@@ -39,8 +38,7 @@ class GenericMatrix {
   //  methods
   //////////////////////////////////////////////////////////////////////////////
   void resize(rowIndex rows, colIndex cols) {
-    m_data_.resize(cols);
-    for (auto it = m_data_.begin(); it != m_data_.end(); ++it) it->resize(rows);
+    m_data_.resize(rows * cols);
     rows_ = rows;
     cols_ = cols;
     return;
@@ -51,14 +49,18 @@ class GenericMatrix {
   rowIndex rows() const { return rows_; }
 
   rowIndex size() const { return rows_ * cols_; }
+  const T &back() const { return m_data_.back(); }
+  T &back() { return m_data_.back(); }
   //////////////////////////////////////////////////////////////////////////////
   //  operators
   //////////////////////////////////////////////////////////////////////////////
   const T &operator()(rowIndex row, colIndex col) const {
-    return m_data_[col][row];
+    return m_data_[col + cols_ * row];
   }
 
-  T &operator()(rowIndex row, colIndex col) { return m_data_[col][row]; }
+  T &operator()(rowIndex row, colIndex col) {
+    return m_data_[col + cols_ * row];
+  }
 
   GenericMatrix &operator=(GenericMatrix other) {
     rows_ = other.rows_;
@@ -69,10 +71,10 @@ class GenericMatrix {
   //////////////////////////////////////////////////////////////////////////////
   //  private members
   //////////////////////////////////////////////////////////////////////////////
- private:
-  std::vector<std::vector<T>> m_data_;
+private:
+  std::vector<T> m_data_;
   colIndex cols_;
   rowIndex rows_;
 };
-}  // namespace FMCA
+} // namespace FMCA
 #endif

@@ -20,9 +20,8 @@ namespace FMCA {
  *         H2ClusterTree.
 
  */
-template <typename Derived>
-class H2Matrix {
- public:
+template <typename Derived> class H2Matrix {
+public:
   typedef typename internal::traits<Derived>::value_type value_type;
   typedef typename internal::traits<Derived>::eigenMatrix eigenMatrix;
   enum Admissibility { Refine = 0, LowRank = 1, Dense = 2 };
@@ -45,7 +44,13 @@ class H2Matrix {
     computeH2Matrix(P, CT.derived(), CT.derived(), fun, eta);
     return;
   }
-
+  IndexType rows() const { return row_cluster_->indices().size(); }
+  IndexType cols() const { return col_cluster_->indices().size(); }
+  const Derived *rcluster() const { return row_cluster_; }
+  const Derived *ccluster() const { return col_cluster_; }
+  const GenericMatrix<H2Matrix> &sons() const { return sons_; }
+  bool is_low_rank() const { return is_low_rank_; }
+  const eigenMatrix &matrixS() const { return S_; }
   //////////////////////////////////////////////////////////////////////////////
   void get_statistics() const {
     IndexType low_rank_blocks = 0;
@@ -116,7 +121,7 @@ class H2Matrix {
       return LowRank;
   }
   //////////////////////////////////////////////////////////////////////////////
- private:
+private:
   //////////////////////////////////////////////////////////////////////////////
   void getStatisticsRecursion(IndexType *low_rank_blocks,
                               IndexType *full_blocks, IndexType *memory) const {
@@ -223,5 +228,5 @@ class H2Matrix {
   eigenMatrix S_;
 };
 
-}  // namespace FMCA
+} // namespace FMCA
 #endif
