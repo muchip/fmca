@@ -51,6 +51,11 @@ public:
   rowIndex size() const { return rows_ * cols_; }
   const T &back() const { return m_data_.back(); }
   T &back() { return m_data_.back(); }
+  T &front() { return m_data_.front(); }
+  typename std::vector<T>::const_iterator begin() const {
+    return m_data_.cbegin();
+  }
+  typename std::vector<T>::const_iterator end() const { return m_data_.cend(); }
   //////////////////////////////////////////////////////////////////////////////
   //  operators
   //////////////////////////////////////////////////////////////////////////////

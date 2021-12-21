@@ -25,6 +25,16 @@ public:
   typedef typename internal::traits<Derived>::value_type value_type;
   typedef typename internal::traits<Derived>::eigenMatrix eigenMatrix;
   enum Admissibility { Refine = 0, LowRank = 1, Dense = 2 };
+  using iterator = IDDFSForwardIterator<H2Matrix, false>;
+  using const_iterator = IDDFSForwardIterator<H2Matrix, true>;
+  friend iterator;
+  friend const_iterator;
+  iterator begin() { return iterator(static_cast<H2Matrix *>(this), 0); }
+  iterator end() { return iterator(nullptr, 0); }
+  const_iterator cbegin() const {
+    return const_iterator(static_cast<const H2Matrix *>(this), 0);
+  }
+  const_iterator cend() const { return const_iterator(nullptr, 0); }
   //////////////////////////////////////////////////////////////////////////////
   // constructors
   //////////////////////////////////////////////////////////////////////////////
@@ -126,10 +136,8 @@ private:
   void getStatisticsRecursion(IndexType *low_rank_blocks,
                               IndexType *full_blocks, IndexType *memory) const {
     if (sons_.size()) {
-      for (auto i = 0; i < sons_.rows(); ++i)
-        for (auto j = 0; j < sons_.cols(); ++j)
-          sons_(i, j).getStatisticsRecursion(low_rank_blocks, full_blocks,
-                                             memory);
+      for (const auto &s : sons_)
+        s.getStatisticsRecursion(low_rank_blocks, full_blocks, memory);
     } else {
       if (is_low_rank_)
         ++(*low_rank_blocks);
@@ -209,8 +217,10 @@ private:
     } else if (adm == Refine) {
       sons_.resize(CT1.nSons(), CT2.nSons());
       for (auto j = 0; j < CT2.nSons(); ++j)
-        for (auto i = 0; i < CT1.nSons(); ++i)
+        for (auto i = 0; i < CT1.nSons(); ++i) {
+          sons_(i, j).dad_ = this;
           sons_(i, j).computeH2Matrix(P, CT1.sons(i), CT2.sons(j), fun, eta);
+        }
     } else {
       S_.resize(CT1.indices().size(), CT2.indices().size());
       for (auto j = 0; j < CT2.indices().size(); ++j)
@@ -222,6 +232,7 @@ private:
 
   //////////////////////////////////////////////////////////////////////////////
   GenericMatrix<H2Matrix> sons_;
+  H2Matrix *dad_;
   const Derived *row_cluster_;
   const Derived *col_cluster_;
   bool is_low_rank_;
