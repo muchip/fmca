@@ -19,8 +19,7 @@ namespace FMCA {
  *  \brief realizes a levelwise traversal of a tree using an
  *         iterative deepening depth-first search
  **/
-template <typename T, bool IS_CONST>
-struct IDDFSForwardIterator {
+template <typename T, bool IS_CONST> struct IDDFSForwardIterator {
   using value_type = typename std::conditional<IS_CONST, const T, T>::type;
   using iterator_category = std::forward_iterator_tag;
   using difference_type = std::ptrdiff_t;
@@ -42,10 +41,11 @@ struct IDDFSForwardIterator {
       if (ptr_ != std::addressof(ptr_->dad_->sons_.back())) {
         ++ptr_;
         while (ptr_->sons_.size() && ptr_->level_ < depth_)
-          ptr_ = static_cast<pointer>(std::addressof(ptr_->sons_[0]));
+          ptr_ = static_cast<pointer>(std::addressof(ptr_->sons_.front()));
         // did we find a valid next node? if so return it
         max_depth_ = max_depth_ < ptr_->level_ ? ptr_->level_ : max_depth_;
-        if (ptr_->level_ == depth_) return *this;
+        if (ptr_->level_ == depth_)
+          return *this;
       } else
         ptr_ = static_cast<pointer>(ptr_->dad_);
     }
@@ -53,10 +53,11 @@ struct IDDFSForwardIterator {
       // increase depth and traverse the left branch to a leaf
       ++depth_;
       while (ptr_->sons_.size() && ptr_->level_ < depth_)
-        ptr_ = static_cast<pointer>(std::addressof(ptr_->sons_[0]));
+        ptr_ = static_cast<pointer>(std::addressof(ptr_->sons_.front()));
       max_depth_ = max_depth_ < ptr_->level_ ? ptr_->level_ : max_depth_;
       // did we find a valid next node? if so return it
-      if (ptr_->level_ != depth_) ++(*this);
+      if (ptr_->level_ != depth_)
+        ++(*this);
     } else
       ptr_ = nullptr;
     return *this;
@@ -80,12 +81,12 @@ struct IDDFSForwardIterator {
     return IDDFSForwardIterator<T, true>(ptr_, depth_);
   }
 
- private:
+private:
   pointer ptr_;
   IndexType depth_;
   IndexType max_depth_;
   // give iterator access to const_iterator::m_ptr
   friend IDDFSForwardIterator<T, false>;
 };
-}  // namespace FMCA
+} // namespace FMCA
 #endif

@@ -29,6 +29,12 @@ public:
   using const_iterator = IDDFSForwardIterator<H2Matrix, true>;
   friend iterator;
   friend const_iterator;
+
+  struct RandomAccessor {
+    std::vector<const H2Matrix *> nearfield;
+    std::vector<std::vector<const H2Matrix *>> farfield;
+  };
+
   iterator begin() { return iterator(static_cast<H2Matrix *>(this), 0); }
   iterator end() { return iterator(nullptr, 0); }
   const_iterator cbegin() const {
@@ -38,11 +44,11 @@ public:
   //////////////////////////////////////////////////////////////////////////////
   // constructors
   //////////////////////////////////////////////////////////////////////////////
-  H2Matrix() : is_low_rank_(false) {}
+  H2Matrix() : is_low_rank_(false), dad_(nullptr), level_(0) {}
   template <typename Functor>
   H2Matrix(const eigenMatrix &P, const TreeBase<Derived> &CT,
            const Functor &fun, value_type eta = 0.8)
-      : is_low_rank_(false) {
+      : is_low_rank_(false), dad_(nullptr), level_(0) {
     init(P, CT, fun, eta);
   }
   //////////////////////////////////////////////////////////////////////////////
@@ -52,15 +58,33 @@ public:
   void init(const eigenMatrix &P, const TreeBase<Derived> &CT,
             const Functor &fun, value_type eta = 0.8) {
     computeH2Matrix(P, CT.derived(), CT.derived(), fun, eta);
+    // after setting up the actual H2Matrix, we now also fill the random
+    // access iterator, which allows levelwise traversal of the H2Matrix
+    // and random access to the nearfield
+    IndexType max_level = 0;
+    for (const auto &node : *this)
+      max_level = max_level < node.level() ? node.level() : max_level;
+    rnd_access_.farfield.resize(max_level + 1);
+    for (const auto &node : *this) {
+      if (!node.sons_.size()) {
+        // we are at a leaf store pointer to the leaf in the respective array
+        if (node.is_low_rank_)
+          rnd_access_.farfield[node.level()].push_back(std::addressof(node));
+        else
+          rnd_access_.nearfield.push_back(std::addressof(node));
+      }
+    }
     return;
   }
   IndexType rows() const { return row_cluster_->indices().size(); }
   IndexType cols() const { return col_cluster_->indices().size(); }
+  IndexType level() const { return level_; }
   const Derived *rcluster() const { return row_cluster_; }
   const Derived *ccluster() const { return col_cluster_; }
   const GenericMatrix<H2Matrix> &sons() const { return sons_; }
   bool is_low_rank() const { return is_low_rank_; }
   const eigenMatrix &matrixS() const { return S_; }
+  const RandomAccessor &rnd_accessor() const { return rnd_access_; }
   //////////////////////////////////////////////////////////////////////////////
   void get_statistics() const {
     IndexType low_rank_blocks = 0;
@@ -78,7 +102,6 @@ public:
               << FloatType(memory * sizeof(value_type)) / 1e9 << "GB"
               << std::endl;
   }
-
   //////////////////////////////////////////////////////////////////////////////
   eigenMatrix full() const {
     eigen_assert(row_cluster_->is_root() && col_cluster_->is_root() &&
@@ -88,7 +111,6 @@ public:
     computeFullMatrixRecursion(*row_cluster_, *row_cluster_, &retval);
     return retval;
   }
-
   //////////////////////////////////////////////////////////////////////////////
   template <typename otherDerived>
   eigenMatrix matrixProduct(const Eigen::MatrixBase<otherDerived> &mat) const {
@@ -99,7 +121,6 @@ public:
     computeMatrixProductRecursion(*row_cluster_, *row_cluster_, mat, &retval);
     return retval;
   }
-
   //////////////////////////////////////////////////////////////////////////////
   static value_type computeDistance(const Derived &cluster1,
                                     const Derived &cluster2) {
@@ -199,6 +220,7 @@ private:
                        const Derived &CT2, const Functor &fun, value_type eta) {
     row_cluster_ = &CT1;
     col_cluster_ = &CT2;
+    level_ = CT1.level();
     Admissibility adm = compareCluster(CT1, CT2, eta);
     if (adm == LowRank) {
       const eigenMatrix &Xi = CT1.Xi();
@@ -231,12 +253,14 @@ private:
   }
 
   //////////////////////////////////////////////////////////////////////////////
+  RandomAccessor rnd_access_;
   GenericMatrix<H2Matrix> sons_;
   H2Matrix *dad_;
   const Derived *row_cluster_;
   const Derived *col_cluster_;
   bool is_low_rank_;
   eigenMatrix S_;
+  IndexType level_;
 };
 
 } // namespace FMCA
