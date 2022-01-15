@@ -14,14 +14,16 @@ data_a = [cos(pi - theta + 2 * pi * i / NS) .* r_a,...
           sin(pi - theta + 2 * pi * i / NS) .* r_a];
 x_a = data_a + 1 * psi .* rand(N,2);
 pts = [pts; x_a];
+end
+%pts = rand(N,1);
+figure(12)
+plot(pts(:,1),pts(:,2),'k.')
 axis square;
 axis tight;
-end
-plot(pts(:,1),pts(:,2),'r.')
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 tic
-[T, I] = MEXsampletBasis(pts', 5, 10);
+[T, I] = MEXsampletBasis(pts', 4, 50);
 toc
 Q = sparse(T(:,1), T(:,2), T(:,3));
 clear T;
@@ -57,21 +59,25 @@ tic
 N = size(sPts,1);
 K = zeros(N,N);
 for i = 1:N
-     K(:,i) = exp(-1/9 * sqrt(sum((sPts - ones(N,1) * sPts(i,:)).^2,2))); 
+    nrm = sqrt(sum((sPts - ones(N,1) * sPts(i,:)).^2,2));
+    nonst = sqrt(sum((0.5 * sPts + 0.5 * ones(N,1) * sPts(i,:)).^2,2)) / 100;
+     K(:,i) = nonst .* exp(-nrm / 9);
      %K(:,i) = exp(-0.5 * sum((sPts - ones(N,1) * sPts(i,:)).^2,2)); 
 end
 toc;
-spy(abs(K)>5e-4);
-pause
 tic
 KSigma = Q * K * Q';
+figure(10)
+%surf(K);
+colormap('copper');
+shading interp;
 KSigma(find(abs(KSigma)<5e-4)) = 0;
 KSigma = sparse(KSigma);
 KSigma = 0.5 * (KSigma + KSigma');
-spy(KSigma)
 toc
 p = dissect(KSigma);
 L = chol(KSigma(p,p)+speye(N,N),'lower');
+figure(1)
 plotPattern(KSigma, 1000, 'Kmat_2D.eps');
 plotPattern(KSigma(p,p), 1000, 'KmatND_2D.eps');
 plotPattern(L, 1000, 'Lmat_2D.eps');
