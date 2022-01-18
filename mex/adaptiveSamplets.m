@@ -2,7 +2,7 @@ clear all;
 close all;
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-N = 40000;
+N = 80000;
 NS = 1;
 % spiral data set
 theta = sqrt(rand(N,1)) * 3 * pi;
@@ -28,7 +28,24 @@ Qerror = norm(Q * Q' - speye(size(Q)), 'fro') / norm(speye(size(Q)), 'fro')
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 sPts = pts(I, :);
 rotp = sPts * [1/sqrt(2), 1/sqrt(2); -1/sqrt(2),1/sqrt(2)];
-fun = exp(-0.05*abs(rotP(:,2)-2).^2).*(rotp(:,1) > -6)-0.5;
-fun = max(fun,0);
-scatter3(sPts(:,1),sPts(:,2),fun, 2 * ones(size(fun)),fun)
-view(-55,50)
+f = exp(-0.05*abs(rotp(:,2)-3).^2).*(rotp(:,1) > -6)-0.5;
+f = max(f,0);
+scatter(sPts(:,1),sPts(:,2), 2 * ones(size(f)),f)
+view(-90,90)
+axis square
+axis tight
+axis off
+
+ids = zeros(size(f));
+Tf = Q * f;
+for i=1:length(f)
+    if (abs(Tf(i))>1e-4)
+        ids(find(Q(i,:))) = ids(find(Q(i,:))) + 1;
+    end
+end
+figure(2)
+scatter(sPts(:,1),sPts(:,2), 4 * ones(size(f)),ids)
+view(-90,90)
+axis square
+axis tight
+axis off
