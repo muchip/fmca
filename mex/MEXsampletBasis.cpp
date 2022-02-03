@@ -1,7 +1,6 @@
-#include <iostream>
-
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
+#include <iostream>
 
 #include "FMCA/Samplets"
 #include "matrix.h"
@@ -45,7 +44,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   for (auto i = 0; i < trafo_triplets.size(); ++i)
     retT.row(i) << trafo_triplets[i].row() + 1, trafo_triplets[i].col() + 1,
         trafo_triplets[i].value();
-  for (auto i = 0; i < ST.indices().size(); ++i)
-    retI(i) = ST.indices()[i] + 1;
+  for (auto i = 0; i < ST.indices().size(); ++i) retI(i) = ST.indices()[i] + 1;
   return;
 }
