@@ -4,6 +4,7 @@ close all;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 N = 80000;
 NS = 1;
+rng(0);
 % spiral data set
 theta = sqrt(rand(N,1)) * 3 * pi;
 psi = 8 * (2 * rand(N,1) -1);
@@ -18,7 +19,7 @@ end
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 tic
-[T, I] = MEXsampletBasis(pts', 3, 10);
+[T, I] = MEXsampletBasis(pts', 4, 10);
 toc
 Q = sparse(T(:,1), T(:,2), T(:,3));
 clear T;
@@ -35,7 +36,8 @@ view(-90,90)
 axis square
 axis tight
 axis off
-
+colorbar;
+set(gca,'fontsize',20)
 ids = zeros(size(f));
 Tf = Q * f;
 for i=1:length(f)
@@ -44,8 +46,10 @@ for i=1:length(f)
     end
 end
 figure(2)
-scatter(sPts(:,1),sPts(:,2), 4 * ones(size(f)),ids)
+scatter(sPts(:,1),sPts(:,2), 2 * ones(size(f)),ids)
 view(-90,90)
 axis square
 axis tight
 axis off
+colorbar;
+set(gca,'fontsize',20)
