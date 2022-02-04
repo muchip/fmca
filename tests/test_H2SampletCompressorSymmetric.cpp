@@ -35,9 +35,9 @@ int main() {
       ST.sampletTransformMatrix(K);
       Eigen::SparseMatrix<double> S(K.rows(), K.cols());
       S.setFromTriplets(trips.begin(), trips.end());
-      std::cout << Eigen::MatrixXd(S) << std::endl;
-      //S += S.triangularView<Eigen::StrictlyUpper>().transpose();
-      std::cout << "compression error: " << (S - K).norm() / K.norm()
+      Eigen::MatrixXd K2 = S;
+      K2 += Eigen::MatrixXd(K2.triangularView<Eigen::StrictlyUpper>().transpose());
+      std::cout << "compression error: " << (K2 - K).norm() / K.norm()
                 << std::endl;
       std::cout << std::string(60, '-') << std::endl;
     }

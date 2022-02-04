@@ -39,6 +39,7 @@ template <typename Derived> struct symmetric_compressor_impl {
     setupColumn(ST.derived(), ST.derived(), e_gen);
 
     std::cout << std::endl;
+    std::cout << "compute calls: " << compute_block_calls_ << std::endl;
 #ifdef FMCA_COMPRESSOR_BUFSIZE_
     std::cout << "max buffer size: " << max_buff_size_ << std::endl;
     max_buff_size_ = 0;
@@ -97,10 +98,9 @@ private:
                                       const EntryGenerator &e_gen) {
     eigenMatrix buf(0, 0);
     eigenMatrix retval(0, 0);
+      ++compute_block_calls_;
     // check for admissibility
     if (compareCluster(TR, TC) == LowRank) {
-      ++compute_block_calls_;
-
       e_gen.interpolate_kernel(TR, TC, &buf);
 
       retval = TR.V().transpose() * buf * TC.V();
@@ -250,7 +250,7 @@ private:
     storage_size_ += ncols * nrows;
     for (auto k = 0; k < ncols; ++k)
       for (auto j = 0; j < nrows; ++j)
-        if (abs(block(j, k)) > threshold_)
+        if (abs(block(j, k)) > threshold_ && srow + j <= scol + k)
           triplet_list_.push_back(
               Eigen::Triplet<value_type>(srow + j, scol + k, block(j, k)));
   }

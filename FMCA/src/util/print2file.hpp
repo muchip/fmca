@@ -8,8 +8,13 @@
 #ifndef BEMBEL_IO_PRINT2DAT_H_
 #define BEMBEL_IO_PRINT2DAT_H_
 
+#include<fstream>
+#include<Eigen/Dense>
+#include<Eigen/Sparse>
+
 namespace Bembel {
 namespace IO {
+
 /**
  *  \brief write Eigen::Matrix into an ascii txt file.
  **/
