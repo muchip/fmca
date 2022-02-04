@@ -12,7 +12,7 @@
 #ifndef FMCA_TESTS_TESTPARAMETERS_H_
 #define FMCA_TESTS_TESTPARAMETERS_H_
 
-#define NPTS 2000
+#define NPTS 10
 #define DIM 2
 #define MPOLE_DEG 3
 #define LEAFSIZE 10

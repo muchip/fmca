@@ -35,4 +35,5 @@
 #include "src/Samplets/H2SampletTreeBase.h"
 #include "src/Samplets/H2SampletTree.h"
 #include "src/Samplets/unsymmetric_compressor_impl.h"
+#include "src/Samplets/symmetric_compressor_impl.h"
 #endif
