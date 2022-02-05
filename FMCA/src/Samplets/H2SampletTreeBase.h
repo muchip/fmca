@@ -88,7 +88,7 @@ struct H2SampletTreeBase : public SampletTreeBase<Derived> {
     // compute multiscale cluster bases of sons and update own
     for (auto i = 0; i < nSons(); ++i)
       sons(i).updateMultiscaleClusterBasis();
-    node().V_ = node().interp_->invV() * node().V_;
+    node().V_ = node().interp_->invV().transpose() * node().V_;
     return;
   }
 };

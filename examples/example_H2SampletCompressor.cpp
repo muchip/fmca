@@ -19,25 +19,25 @@
 
 #include <FMCA/Samplets>
 
-#define DIM 2
+#define DIM 3
 #define MPOLE_DEG 3
 #define DTILDE 3
-#define LEAFSIZE 100
+#define LEAFSIZE 32
 
 struct exponentialKernel {
   template <typename derived, typename otherDerived>
   double operator()(const Eigen::MatrixBase<derived> &x,
                     const Eigen::MatrixBase<otherDerived> &y) const {
-    return exp(-0.1 * (x - y).norm());
+    return exp(-5 * (x - y).norm() / sqrt(DIM));
   }
 };
 
 int main() {
   const auto function = exponentialKernel();
-  const double threshold = 1e-6;
+  const double threshold = 1e-4;
   const double eta = 0.8;
 
-  for (auto i = 15; i <= 15; ++i) {
+  for (auto i = 14; i <= 14; ++i) {
     auto npts = 1 << i;
     std::cout << npts << std::endl;
     const Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, npts);

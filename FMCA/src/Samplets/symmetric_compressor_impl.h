@@ -98,7 +98,7 @@ private:
                                       const EntryGenerator &e_gen) {
     eigenMatrix buf(0, 0);
     eigenMatrix retval(0, 0);
-      ++compute_block_calls_;
+    ++compute_block_calls_;
     // check for admissibility
     if (compareCluster(TR, TC) == LowRank) {
       e_gen.interpolate_kernel(TR, TC, &buf);
