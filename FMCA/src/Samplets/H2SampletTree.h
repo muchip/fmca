@@ -19,7 +19,7 @@ template <>
 struct traits<H2SampletTreeNode> {
   typedef FloatType value_type;
   typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
-  typedef TotalDegreeInterpolator<value_type> Interpolator;
+  typedef TensorProductInterpolator<value_type> Interpolator;
 };
 }  // namespace internal
 

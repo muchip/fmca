@@ -12,6 +12,9 @@
 #ifndef FMCA_UTIL_ERRORS_H_
 #define FMCA_UTIL_ERRORS_H_
 
+#include "Macros.h"
+#include <vector>
+
 namespace FMCA {
 
 template <typename Functor>

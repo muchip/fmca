@@ -9,31 +9,32 @@
 // any warranty, see <https://github.com/muchip/FMCA> for further
 // information.
 //
-//#define FMCA_CLUSTERSET_
+#define FMCA_CLUSTERSET_
 #include <Eigen/Dense>
 #include <iostream>
 
+#include "../FMCA/src/util/Errors.h"
 #include "../FMCA/src/util/print2file.hpp"
 #include "../FMCA/src/util/tictoc.hpp"
 
 #include <FMCA/Samplets>
 
-#define NPTS 100000
 #define DIM 2
 #define MPOLE_DEG 3
 #define DTILDE 3
-#define LEAFSIZE 40
+#define LEAFSIZE 100
 
 struct exponentialKernel {
-    template <typename derived, typename otherDerived>
-  double operator()(const Eigen::MatrixBase<derived> &x, const Eigen::MatrixBase<otherDerived> &y) const {
+  template <typename derived, typename otherDerived>
+  double operator()(const Eigen::MatrixBase<derived> &x,
+                    const Eigen::MatrixBase<otherDerived> &y) const {
     return exp(-0.1 * (x - y).norm());
   }
 };
 
 int main() {
   const auto function = exponentialKernel();
-  const double threshold = 1e-5;
+  const double threshold = 1e-6;
   const double eta = 0.8;
 
   for (auto i = 18; i <= 18; ++i) {
@@ -53,21 +54,48 @@ int main() {
     T.tic();
     symComp.compress(ST, nm_eval, eta, threshold);
     T.toc("symmetric compressor: ");
-    Eigen::SparseMatrix<double> S(NPTS, NPTS);
-    Eigen::SparseMatrix<double> Ssym(NPTS, NPTS);
+
     {
+      Eigen::SparseMatrix<double> S(npts, npts);
+      Eigen::VectorXd x(npts), y1(npts), y2(npts);
+      double err = 0;
       const auto &trips = Comp.pattern_triplets();
-      std::cout << trips.size() << std::endl;
+      std::cout << "nnz(S)=" << trips.size() << std::endl;
       S.setFromTriplets(trips.begin(), trips.end());
+      for (auto i = 0; i < 10; ++i) {
+        unsigned int index = rand() % P.cols();
+        x.setZero();
+        x(index) = 1;
+        y1 = FMCA::matrixColumnGetter(P, ST.indices(), function, index);
+        x = ST.sampletTransform(x);
+        y2 = S * x;
+        y2 = ST.inverseSampletTransform(y2);
+        err += (y1 - y2).norm() / y1.norm();
+      }
+      err /= 10;
+      std::cout << "compression error unsymmetric: " << err << std::endl;
     }
     {
+      Eigen::SparseMatrix<double> Ssym(npts, npts);
+      Eigen::VectorXd x(npts), y1(npts), y2(npts);
+      double err = 0;
       const auto &trips = symComp.pattern_triplets();
-      std::cout << trips.size() << std::endl;
+      std::cout << "nnz(S)=" << trips.size() << std::endl;
       Ssym.setFromTriplets(trips.begin(), trips.end());
+      for (auto i = 0; i < 10; ++i) {
+        unsigned int index = rand() % P.cols();
+        x.setZero();
+        x(index) = 1;
+        y1 = FMCA::matrixColumnGetter(P, ST.indices(), function, index);
+        x = ST.sampletTransform(x);
+        y2 = Ssym * x +
+             Ssym.triangularView<Eigen::StrictlyUpper>().transpose() * x;
+        y2 = ST.inverseSampletTransform(y2);
+        err += (y1 - y2).norm() / y1.norm();
+      }
+      err /= 10;
+      std::cout << "compression error symmetric: " << err << std::endl;
     }
-    std::cout << (S.triangularView<Eigen::Upper>() - Ssym).norm() /
-                     S.triangularView<Eigen::Upper>().norm()
-              << std::endl;
     std::cout << std::string(60, '-') << std::endl;
   }
   return 0;
