@@ -37,8 +37,9 @@ int main() {
   const double threshold = 1e-6;
   const double eta = 0.8;
 
-  for (auto i = 18; i <= 18; ++i) {
+  for (auto i = 15; i <= 15; ++i) {
     auto npts = 1 << i;
+    std::cout << npts << std::endl;
     const Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, npts);
     const FMCA::NystromMatrixEvaluator<FMCA::H2SampletTree, exponentialKernel>
         nm_eval(P, function);

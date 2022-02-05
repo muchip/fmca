@@ -84,6 +84,13 @@ struct H2SampletTreeBase : public SampletTreeBase<Derived> {
     }
     return;
   }
+  void updateMultiscaleClusterBasis() {
+    // compute multiscale cluster bases of sons and update own
+    for (auto i = 0; i < nSons(); ++i)
+      sons(i).updateMultiscaleClusterBasis();
+    node().V_ = node().interp_->invV() * node().V_;
+    return;
+  }
 };
 } // namespace FMCA
 #endif

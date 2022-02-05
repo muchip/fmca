@@ -19,7 +19,7 @@ template <>
 struct traits<H2SampletTreeNode> {
   typedef FloatType value_type;
   typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
-  typedef TensorProductInterpolator<value_type> Interpolator;
+  typedef TotalDegreeInterpolator<value_type> Interpolator;
 };
 }  // namespace internal
 
@@ -63,6 +63,7 @@ struct H2SampletTree : public H2SampletTreeBase<H2SampletTree> {
     computeSamplets(P, mom_comp);
 
     computeMultiscaleClusterBasis();
+    updateMultiscaleClusterBasis();
     sampletMapper();
     return;
   }
