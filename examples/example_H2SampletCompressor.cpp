@@ -19,13 +19,14 @@
 #include <FMCA/Samplets>
 
 #define NPTS 100000
-#define DIM 3
+#define DIM 2
 #define MPOLE_DEG 3
 #define DTILDE 3
 #define LEAFSIZE 40
 
 struct exponentialKernel {
-  double operator()(const Eigen::MatrixXd &x, const Eigen::MatrixXd &y) const {
+    template <typename derived, typename otherDerived>
+  double operator()(const Eigen::MatrixBase<derived> &x, const Eigen::MatrixBase<otherDerived> &y) const {
     return exp(-0.1 * (x - y).norm());
   }
 };
@@ -35,9 +36,9 @@ int main() {
   const double threshold = 1e-5;
   const double eta = 0.8;
 
-  for (auto i = 10; i <= 18; ++i) {
+  for (auto i = 18; i <= 18; ++i) {
     auto npts = 1 << i;
-    const Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, NPTS);
+    const Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, npts);
     const FMCA::NystromMatrixEvaluator<FMCA::H2SampletTree, exponentialKernel>
         nm_eval(P, function);
     tictoc T;
