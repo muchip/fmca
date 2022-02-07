@@ -27,19 +27,20 @@ void backward_transform_recursion(const H2ClusterTree &CT, Derived *tvec,
       backward_transform_recursion(CT.sons(i), tvec, vec);
     }
   } else {
-    tvec->middleRows(CT.indices_begin(), CT.V().cols()) =
+    tvec->middleRows(CT.indices_begin(), CT.V().cols()) +=
         CT.V().transpose() * vec[CT.block_id()];
   }
 }
 
 template <typename Derived>
-typename Derived::eigenMatrix backward_transform_impl(
-    const Derived &mat, std::vector<typename Derived::eigenMatrix> &vec) {
+typename Derived::eigenMatrix
+backward_transform_impl(const Derived &mat,
+                        std::vector<typename Derived::eigenMatrix> &vec) {
   typename Derived::eigenMatrix retval(mat.rcluster()->indices().size(),
                                        vec[0].cols());
   retval.setZero();
   backward_transform_recursion(*(mat.rcluster()), &retval, vec);
   return retval;
 };
-}  // namespace FMCA
+} // namespace FMCA
 #endif
