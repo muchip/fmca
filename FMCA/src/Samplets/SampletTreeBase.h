@@ -19,13 +19,13 @@ namespace FMCA {
  *  \brief SampletTreeNodeBase defines the basic fields required for an
  *         abstract SampletTree, i.e. the transformation matrices
  **/
-template <typename Derived> struct SampletTreeNodeDataFields {
+template <typename Derived>
+struct SampletTreeNodeDataFields {
   typename internal::traits<Derived>::eigenMatrix Q_;
   typename internal::traits<Derived>::eigenMatrix mom_buffer_;
   IndexType nscalfs_;
   IndexType nsamplets_;
   IndexType start_index_;
-  IndexType block_id_;
 };
 
 template <typename Derived>
@@ -44,6 +44,7 @@ struct SampletTreeBase : public ClusterTreeBase<Derived> {
   // make base class methods visible
   using TreeBase<Derived>::is_root;
   using Base::appendSons;
+  using Base::block_id;
   using Base::indices;
   using Base::indices_begin;
   using Base::init;
@@ -101,26 +102,22 @@ struct SampletTreeBase : public ClusterTreeBase<Derived> {
   //////////////////////////////////////////////////////////////////////////////
   IndexType nscalfs() const { return node().nscalfs_; }
   IndexType nsamplets() const { return node().nsamplets_; }
-  IndexType block_id() const { return node().block_id_; }
+
   IndexType start_index() const { return node().start_index_; }
   //////////////////////////////////////////////////////////////////////////////
   const eigenMatrix &Q() const { return node().Q_; }
 
-protected:
+ protected:
   //////////////////////////////////////////////////////////////////////////////
   void sampletMapper() {
     assert(is_root() &&
            "sampletMapper needs to be called from the root cluster");
-    IndexType i = 0;
     IndexType sum = 0;
     // assign vector start_index to each wavelet cluster
     for (auto &it : *this) {
       it.node().start_index_ = sum;
-      it.node().block_id_ = i;
       sum += it.derived().nsamplets();
-      if (it.is_root())
-        sum += it.derived().nscalfs();
-      ++i;
+      if (it.is_root()) sum += it.derived().nscalfs();
     }
     assert(sum == indices().size());
     return;
@@ -130,8 +127,7 @@ protected:
                                         eigenMatrix *svec) const {
     eigenMatrix retval(0, 0);
     IndexType scalf_shift = 0;
-    if (is_root())
-      scalf_shift = nscalfs();
+    if (is_root()) scalf_shift = nscalfs();
     if (nSons()) {
       for (auto i = 0; i < nSons(); ++i) {
         eigenMatrix scalf = sons(i).sampletTransformRecursion(data, svec);
@@ -146,8 +142,7 @@ protected:
           Q().rightCols(nsamplets()).transpose() * retval;
       retval = Q().leftCols(nscalfs()).transpose() * retval;
     }
-    if (is_root())
-      svec->middleRows(start_index(), nscalfs()) = retval;
+    if (is_root()) svec->middleRows(start_index(), nscalfs()) = retval;
     return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
@@ -180,5 +175,5 @@ protected:
     return;
   }
 };
-} // namespace FMCA
+}  // namespace FMCA
 #endif

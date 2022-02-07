@@ -44,6 +44,8 @@ struct H2ClusterTreeBase : public ClusterTreeBase<Derived> {
   typedef ClusterTreeBase<Derived> Base;
   // make base class methods visible
   using Base::appendSons;
+  using Base::block_id;
+  using Base::indices_begin;
   using Base::level;
   using Base::node;
   using Base::nSons;

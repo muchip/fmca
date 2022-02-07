@@ -29,6 +29,7 @@ struct ClusterTreeNodeBase : public NodeBase<Derived> {
   typename internal::traits<Derived>::eigenMatrix bb_;
   std::vector<IndexType> indices_;
   IndexType indices_begin_;
+  IndexType block_id_;
 };
 
 /**
@@ -56,6 +57,11 @@ struct ClusterTreeBase : public TreeBase<Derived> {
     std::iota(node().indices_.begin(), node().indices_.end(), 0u);
     internal::init_ClusterTree_impl(*this, P, min_cluster_size);
     internal::shrinkToFit_impl(*this, P);
+    IndexType i = 0;
+    for (auto &it : *this) {
+      it.node().block_id_ = i;
+      ++i;
+    }
   }
   //////////////////////////////////////////////////////////////////////////////
   // getter
@@ -65,6 +71,8 @@ struct ClusterTreeBase : public TreeBase<Derived> {
   const std::vector<IndexType> &indices() const { return node().indices_; }
 
   IndexType indices_begin() const { return node().indices_begin_; }
+
+  IndexType block_id() const { return node().block_id_; }
 };
 
 }  // namespace FMCA
