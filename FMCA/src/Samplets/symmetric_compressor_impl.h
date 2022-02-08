@@ -10,7 +10,7 @@
 // information.
 //
 #ifndef FMCA_SAMPLETS_SYMMETRICCOMPRESSORIMPL_H_
-#define FMCA_COMPRESSOR_BUFSIZE_
+//#define FMCA_COMPRESSOR_BUFSIZE_
 
 namespace FMCA {
 
@@ -39,8 +39,8 @@ template <typename Derived> struct symmetric_compressor_impl {
     setupColumn(ST.derived(), ST.derived(), e_gen);
 
     std::cout << std::endl;
-    std::cout << "compute calls: " << compute_block_calls_ << std::endl;
 #ifdef FMCA_COMPRESSOR_BUFSIZE_
+    std::cout << "compute calls: " << compute_block_calls_ << std::endl;
     std::cout << "max buffer size: " << max_buff_size_ << std::endl;
     max_buff_size_ = 0;
     for (const auto &it : buffer_)
