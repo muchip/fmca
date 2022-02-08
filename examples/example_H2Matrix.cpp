@@ -9,7 +9,11 @@
 // any warranty, see <https://github.com/muchip/FMCA> for further
 // information.
 //
+
+#include <fstream>
+#include <iomanip>
 #include <iostream>
+#include <string>
 
 #include <Eigen/Dense>
 #include <FMCA/H2Matrix>
@@ -20,43 +24,55 @@
 #include "../FMCA/src/H2Matrix/matrix_vector_product_impl.h"
 #include "../FMCA/src/util/Errors.h"
 
-#define DIM 2
-#define NPTS 500000
-
 struct exponentialKernel {
   template <typename derived, typename otherDerived>
   double operator()(const Eigen::MatrixBase<derived> &x,
                     const Eigen::MatrixBase<otherDerived> &y) const {
-    return exp(-5 * (x - y).norm() / sqrt(DIM)) * x(1);
+    return exp(-(x - y).norm());
   }
 };
 
-int main() {
+int main(int argc, char *argv[]) {
   const auto function = exponentialKernel();
-  const Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, NPTS);
-  const FMCA::H2ClusterTree H2CT(P, 20, 5);
-  const double eta = 0.4;
+  const double eta = 0.8;
+  const unsigned int mp_deg = 3;
+  const unsigned int dim = atoi(argv[1]);
   tictoc T;
-
-  T.tic();
-  FMCA::H2Matrix<FMCA::H2ClusterTree> H2mat(P, H2CT, function, eta);
-  T.toc("matrix setup: ");
-  {
-    Eigen::VectorXd x(NPTS), y1(NPTS), y2(NPTS);
-    double err = 0;
-    for (auto i = 0; i < 10; ++i) {
-      unsigned int index = rand() % P.cols();
-      x.setZero();
-      x(index) = 1;
-      y1 = FMCA::matrixColumnGetter(P, H2CT.indices(), function, index);
-      y2 = matrix_vector_product_impl(H2mat, x);
-      err += (y1 - y2).norm() / y1.norm();
+  std::fstream file;
+  file.open("output" + std::to_string(dim) + ".txt", std::ios::out);
+  file << "i          m           n     fblocks    lrblocks       nz(A)";
+  file << "         mem         err\n";
+  for (auto i = 2; i < 7; ++i) {
+    file << i << "\t";
+    const unsigned int npts = std::pow(10, i);
+    const Eigen::Matrix Xd P = Eigen::MatrixXd::Random(dim, npts);
+    const FMCA::H2ClusterTree H2CT(P, 1, mp_deg);
+    T.tic();
+    FMCA::H2Matrix<FMCA::H2ClusterTree> H2mat(P, H2CT, function, eta);
+    const double tset = T.toc("matrix setup: ");
+    {
+      Eigen::VectorXd x(npts), y1(npts), y2(npts);
+      double err = 0;
+      double nrm = 0;
+      for (auto i = 0; i < 10; ++i) {
+        unsigned int index = rand() % P.cols();
+        x.setZero();
+        x(index) = 1;
+        y1 = FMCA::matrixColumnGetter(P, H2CT.indices(), function, index);
+        y2 = matrix_vector_product_impl(H2mat, x);
+        err += (y1 - y2).squaredNorm();
+        nrm += y1.squaredNorm();
+      }
+      err = sqrt(err / nrm);
+      std::cout << "compression error: " << err << std::endl;
+      // (m, n, fblocks, lrblocks, nz(A), mem)
+      const std::vector<double> stats = H2mat.get_statistics();
+      for (const auto &it : stats)
+        file << std::setw(10) << std::setprecision(6) << it << "\t";
+      file << std::setw(10) << std::setprecision(6) << err << "\n";
     }
-    err /= 10;
-    std::cout << "compression error: " << err << std::endl;
-    H2mat.get_statistics();
+    std::cout << std::string(60, '-') << std::endl;
   }
-  std::cout << std::string(60, '-') << std::endl;
-
+  file.close();
   return 0;
 }

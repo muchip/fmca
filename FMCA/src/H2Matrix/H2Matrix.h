@@ -20,9 +20,8 @@ namespace FMCA {
  *         H2ClusterTree.
 
  */
-template <typename Derived>
-class H2Matrix {
- public:
+template <typename Derived> class H2Matrix {
+public:
   typedef typename internal::traits<Derived>::value_type value_type;
   typedef typename internal::traits<Derived>::eigenMatrix eigenMatrix;
   enum Admissibility { Refine = 0, LowRank = 1, Dense = 2 };
@@ -90,21 +89,32 @@ class H2Matrix {
   const eigenMatrix &matrixS() const { return S_; }
   const RandomAccessor &rnd_accessor() const { return rnd_access_; }
   //////////////////////////////////////////////////////////////////////////////
-  void get_statistics() const {
+  // (m, n, fblocks, lrblocks, nz(A), mem)
+  std::vector<double> get_statistics() const {
+    std::vector<double> retval;
     IndexType low_rank_blocks = 0;
     IndexType full_blocks = 0;
     IndexType memory = 0;
     getStatisticsRecursion(&low_rank_blocks, &full_blocks, &memory);
     std::cout << "matrix size: " << row_cluster_->indices().size() << " x "
               << col_cluster_->indices().size() << std::endl;
+    retval.push_back(row_cluster_->indices().size());
+    retval.push_back(col_cluster_->indices().size());
     std::cout << "number of low rank blocks: " << low_rank_blocks << std::endl;
+    retval.push_back(low_rank_blocks);
+
     std::cout << "number of full blocks: " << full_blocks << std::endl;
+    retval.push_back(full_blocks);
+
     std::cout << "nz per row: "
               << round(FloatType(memory) / col_cluster_->indices().size())
               << std::endl;
+    retval.push_back(round(FloatType(memory) / col_cluster_->indices().size()));
     std::cout << "storage size: "
               << FloatType(memory * sizeof(value_type)) / 1e9 << "GB"
               << std::endl;
+    retval.push_back(FloatType(memory * sizeof(value_type)) / 1e9);
+    return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
   eigenMatrix full() const {
@@ -156,7 +166,7 @@ class H2Matrix {
       return LowRank;
   }
   //////////////////////////////////////////////////////////////////////////////
- private:
+private:
   //////////////////////////////////////////////////////////////////////////////
   void getStatisticsRecursion(IndexType *low_rank_blocks,
                               IndexType *full_blocks, IndexType *memory) const {
@@ -268,5 +278,5 @@ class H2Matrix {
   IndexType nclusters_;
 };
 
-}  // namespace FMCA
+} // namespace FMCA
 #endif
