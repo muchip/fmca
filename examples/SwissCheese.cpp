@@ -1,6 +1,8 @@
+#include<iostream>
 #include <FMCA/Clustering>
 
 #include "../FMCA/src/util/IO.h"
+#include "../FMCA/src/util/print2file.hpp"
 #include "../FMCA/src/util/tictoc.hpp"
 #include "generateSwissCheese.h"
 
@@ -8,7 +10,9 @@ int main() {
   tictoc T;
   unsigned int npts = 1e6;
   T.tic();
-  Eigen::MatrixXd P = generateSwissCheese(3, npts);
+  Eigen::MatrixXd P = generateSwissCheese(1, npts);
+  Bembel::IO::print2m("d1c.m", "P", P, "w");
+  return 0;
   T.toc("pts... ");
   Eigen::MatrixXd Q(3, npts);
   //Q.topRows(2) = P;

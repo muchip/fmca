@@ -51,15 +51,17 @@ int main(int argc, char *argv[]) {
   const double threshold = 1e-4;
   tictoc T;
   std::fstream file;
-  file.open("output" + std::to_string(dim) + ".txt", std::ios::out);
+  file.open("s_output" + std::to_string(dim) + ".txt", std::ios::out);
   file << "i          m           n       nz(A)";
-  file << "         mem         err\n";
+  file << "         mem         err       time\n";
   for (auto i = 2; i < 8; ++i) {
     file << i << "\t";
     const unsigned npts = std::pow(10, i);
     std::cout << "N: " << npts << std::endl;
     // const Eigen::MatrixXd P = Eigen::MatrixXd::Random(dim, npts);
-    const Eigen::MatrixXd P = generateSwissCheese(dim, npts, 100);
+    T.tic();
+    const Eigen::MatrixXd P = generateSwissCheese(dim, npts);
+    T.toc("generation Swiss cheese: ");
 
     const FMCA::NystromMatrixEvaluator<FMCA::H2SampletTree, exponentialKernel>
         nm_eval(P, function);
@@ -69,7 +71,7 @@ int main(int argc, char *argv[]) {
     FMCA::symmetric_compressor_impl<FMCA::H2SampletTree> symComp;
     T.tic();
     symComp.compress(ST, nm_eval, eta, threshold);
-    T.toc("symmetric compressor: ");
+    const double tcomp = T.toc("symmetric compressor: ");
 
     {
       Eigen::SparseMatrix<double> Ssym(npts, npts);
@@ -81,8 +83,9 @@ int main(int argc, char *argv[]) {
       file << std::setw(10) << std::setprecision(6) << npts << "\t";
       file << std::setw(10) << std::setprecision(6)
            << 2 * std::ceil(double(trips.size()) / npts) - 1 << "\t";
+      file << std::flush;
       Ssym.setFromTriplets(trips.begin(), trips.end());
-      file << std::setw(10) << std::setprecision(6)
+      file << std::setw(10) << std::setprecision(5)
            << 3 * (2 * double(trips.size()) - npts) * sizeof(double) / 1e9
            << "\t";
       std::cout << "nz(S): " << 2 * std::ceil(double(trips.size()) / npts) - 1
@@ -104,9 +107,12 @@ int main(int argc, char *argv[]) {
       }
       err = sqrt(err / nrm);
       std::cout << "compression error: " << err << std::endl;
-      file << std::setw(10) << std::setprecision(6) << err << "\n";
+      file << std::setw(10) << std::setprecision(6) << err << "\t";
+      file << std::setw(10) << std::setprecision(6) << tcomp << "\n";
+      file << std::flush;
     }
     std::cout << std::string(60, '-') << std::endl;
   }
+  file.close();
   return 0;
 }

@@ -7,16 +7,21 @@ Eigen::MatrixXd generateSwissCheese(unsigned int dim, unsigned int npts) {
   double min_rad = 0;
   double max_rad = 0;
   switch (dim) {
-  case 2:
-    nholes = 3000;
-    min_rad = 0.009;
-    max_rad = 0.01;
-    break;
-  case 3:
-    nholes = 10000;
-    min_rad = 0.03;
-    max_rad = 0.034;
-    break;
+    case 1:
+      nholes = 100;
+      min_rad = 0.004;
+      max_rad = 0.006;
+      break;
+    case 2:
+      nholes = 3000;
+      min_rad = 0.009;
+      max_rad = 0.01;
+      break;
+    case 3:
+      nholes = 10000;
+      min_rad = 0.03;
+      max_rad = 0.034;
+      break;
   }
 
   srand(0);
@@ -40,8 +45,7 @@ Eigen::MatrixXd generateSwissCheese(unsigned int dim, unsigned int npts) {
           hit_hole = true;
           break;
         }
-      if (!hit_hole)
-        found_pt = true;
+      if (!hit_hole) found_pt = true;
     }
     retval.col(i) = cur_pt;
   }
