@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
       file << std::setw(10) << std::setprecision(6) << npts << "\t";
       file << std::setw(10) << std::setprecision(6) << npts << "\t";
       file << std::setw(10) << std::setprecision(6)
-           << 2 * std::ceil(double(trips.size()) / npts) - 1 << "\t";
+           << std::ceil(double(trips.size()) / npts) << "\t";
       file << std::flush;
       Ssym.setFromTriplets(trips.begin(), trips.end());
       file << std::setw(10) << std::setprecision(5)
