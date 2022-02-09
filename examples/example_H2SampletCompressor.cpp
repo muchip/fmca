@@ -86,12 +86,12 @@ int main(int argc, char *argv[]) {
       file << std::flush;
       Ssym.setFromTriplets(trips.begin(), trips.end());
       file << std::setw(10) << std::setprecision(5)
-           << 3 * (2 * double(trips.size()) - npts) * sizeof(double) / 1e9
+           << 3 * double(trips.size()) * sizeof(double) / 1e9
            << "\t";
-      std::cout << "nz(S): " << 2 * std::ceil(double(trips.size()) / npts) - 1
+      std::cout << "nz(S): " << std::ceil(double(trips.size()) / npts)
                 << std::endl;
       std::cout << "memory: "
-                << 3 * (2 * double(trips.size()) - npts) * sizeof(double) / 1e9
+                << 3 * double(trips.size()) * sizeof(double) / 1e9
                 << "GB\n";
       for (auto i = 0; i < 100; ++i) {
         unsigned int index = rand() % P.cols();
