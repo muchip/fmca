@@ -5,14 +5,15 @@
 #include "../FMCA/src/util/print2file.hpp"
 #include "../FMCA/src/util/tictoc.hpp"
 #include "generateSwissCheese.h"
+#include "generateSwissCheeseExp.h"
 
 int main() {
   tictoc T;
   unsigned int npts = 1e6;
   T.tic();
-  Eigen::MatrixXd P = generateSwissCheese(1, npts);
-  Bembel::IO::print2m("d1c.m", "P", P, "w");
-  return 0;
+  Eigen::MatrixXd P = generateSwissCheeseExp(3, npts);
+  //Bembel::IO::print2m("d1c.m", "P", P, "w");
+  //return 0;
   T.toc("pts... ");
   Eigen::MatrixXd Q(3, npts);
   //Q.topRows(2) = P;

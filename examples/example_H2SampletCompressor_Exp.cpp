@@ -21,6 +21,7 @@
 #include "../FMCA/src/util/Errors.h"
 #include "../FMCA/src/util/tictoc.hpp"
 #include "generateSwissCheese.h"
+#include "generateSwissCheeseExp.h"
 
 struct exponentialKernel {
   template <typename derived, typename otherDerived>
@@ -35,36 +36,42 @@ struct rationalQuadraticKernel {
   double operator()(const Eigen::MatrixBase<derived> &x,
                     const Eigen::MatrixBase<otherDerived> &y) const {
     const double r = (x - y).norm();
-    constexpr double alpha = 0.2;
-    constexpr double ell = 0.01;
-    constexpr double c = 0.5 / (alpha * ell * ell);
+    constexpr double alpha = 0.5;
+    constexpr double ell = 1.;
+    constexpr double c = 1. / (2. * alpha * ell * ell);
     return std::pow(1 + c * r * r, -alpha);
   }
 };
 
+using theKernel = exponentialKernel;
+
+const double parameters[4][3] = {
+    {2, 1, 1e-2}, {3, 2, 1e-3}, {4, 3, 1e-5}, {6, 4, 1e-5}};
+
 int main(int argc, char *argv[]) {
-  const auto function = exponentialKernel();
-  const double eta = 0.8;
-  const unsigned int mp_deg = 6;
-  const unsigned int dtilde = 4;
   const unsigned int dim = atoi(argv[1]);
-  const double threshold = 1e-6;
+  const unsigned int dtilde = atoi(argv[2]);
+  const auto function = theKernel();
+  const double eta = 0.8;
+  const unsigned int mp_deg = parameters[dtilde - 1][0];
+  const double threshold = parameters[dtilde - 1][2];
   tictoc T;
   std::fstream file;
-  file.open("s_output" + std::to_string(dim) + ".txt", std::ios::out);
-  file << "i          m           n       nz(A)";
+  file.open("s_output" + std::to_string(dim) + "_" + std::to_string(dtilde) +
+                ".txt",
+            std::ios::out);
+  file << "         m           n       nz(A)";
   file << "         mem         err       time\n";
-  for (auto i = 2; i < 8; ++i) {
-    file << i << "\t";
-    const unsigned npts = std::pow(10, i);
-    std::cout << "N: " << npts << std::endl;
-    // const Eigen::MatrixXd P = Eigen::MatrixXd::Random(dim, npts);
+  for (unsigned int npts : {1e3, 5e3, 1e4, 5e4, 1e5, 5e5, 1e6, 5e6}) {
+    std::cout << "N:" << npts << " dim:" << dim << " eta:" << eta
+              << " mpd:" << mp_deg << " dt:" << dtilde
+              << " thres: " << threshold << std::endl;
     T.tic();
     const Eigen::MatrixXd P = generateSwissCheese(dim, npts);
-    T.toc("generation Swiss cheese: ");
+    T.toc("geometry generation: ");
 
-    const FMCA::NystromMatrixEvaluator<FMCA::H2SampletTree, exponentialKernel>
-        nm_eval(P, function);
+    const FMCA::NystromMatrixEvaluator<FMCA::H2SampletTree, theKernel> nm_eval(
+        P, function);
     T.tic();
     FMCA::H2SampletTree ST(P, 1, dtilde, mp_deg);
     T.toc("tree setup: ");
@@ -86,12 +93,10 @@ int main(int argc, char *argv[]) {
       file << std::flush;
       Ssym.setFromTriplets(trips.begin(), trips.end());
       file << std::setw(10) << std::setprecision(5)
-           << 3 * double(trips.size()) * sizeof(double) / 1e9
-           << "\t";
+           << 3 * double(trips.size()) * sizeof(double) / 1e9 << "\t";
       std::cout << "nz(S): " << std::ceil(double(trips.size()) / npts)
                 << std::endl;
-      std::cout << "memory: "
-                << 3 * double(trips.size()) * sizeof(double) / 1e9
+      std::cout << "memory: " << 3 * double(trips.size()) * sizeof(double) / 1e9
                 << "GB\n";
       for (auto i = 0; i < 100; ++i) {
         unsigned int index = rand() % P.cols();
