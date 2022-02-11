@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
   tictoc T;
   std::fstream file;
   file.open("s_output" + std::to_string(dim) + "_" + std::to_string(dtilde) +
-                ".txt",
+                "_EXP.txt",
             std::ios::out);
   file << "         m           n       nz(A)";
   file << "         mem         err       time\n";
@@ -73,7 +73,7 @@ int main(int argc, char *argv[]) {
     const FMCA::NystromMatrixEvaluator<FMCA::H2SampletTree, theKernel> nm_eval(
         P, function);
     T.tic();
-    FMCA::H2SampletTree ST(P, 1, dtilde, mp_deg);
+    FMCA::H2SampletTree ST(P, 10, dtilde, mp_deg);
     T.toc("tree setup: ");
     FMCA::symmetric_compressor_impl<FMCA::H2SampletTree> symComp;
     T.tic();
