@@ -9,15 +9,16 @@
 
 int main() {
   tictoc T;
-  unsigned int npts = 1e6;
+  unsigned int npts = 1e5;
   T.tic();
-  Eigen::MatrixXd P = generateSwissCheeseExp(3, npts);
+  Eigen::MatrixXd P = generateSwissCheeseExp(2, npts);
   //Bembel::IO::print2m("d1c.m", "P", P, "w");
   //return 0;
   T.toc("pts... ");
   Eigen::MatrixXd Q(3, npts);
-  //Q.topRows(2) = P;
-  Q = P;
+  Q.setZero();
+  Q.topRows(2) = P;
+  //Q = P;
   FMCA::ClusterT CT(Q, 10);
   T.tic();
   std::vector<const FMCA::TreeBase<FMCA::ClusterT> *> leafs;

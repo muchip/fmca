@@ -181,8 +181,8 @@ private:
       block = (buf * TR.Q()).transpose();
       // we are at a leaf of the row cluster tree
     } else {
-      // if TR and TC are both leafs, we compute the corresponding matrix block
-      if (!TR.nSons() && !TC.nSons())
+      // if TC is a leaf, we compute the corresponding matrix block
+      if (!TC.nSons())
         block = recursivelyComputeBlock(TR, TC, e_gen);
       // if TC is not a leaf, we reuse the blocks of its children
       else {
