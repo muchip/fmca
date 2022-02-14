@@ -220,7 +220,7 @@ void plotPoints(const std::string &fileName, const ClusterTree &CT,
   myfile << "ASCII\n";
   myfile << "DATASET UNSTRUCTURED_GRID\n";
   // print point list
-  auto idcs = CT.get_indices();
+  auto idcs = CT.indices();
   myfile << "POINTS " << P.cols() << " FLOAT\n";
   for (auto i = 0; i < P.cols(); ++i)
     myfile << float(P(0, idcs[i])) << " " << float(P(1, idcs[i])) << " "
