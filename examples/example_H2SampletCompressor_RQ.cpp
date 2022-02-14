@@ -58,7 +58,7 @@ struct rationalQuadraticKernel {
 using theKernel = rationalQuadraticKernel;
 
 const double parameters[4][3] = {
-    {2, 1, 1e-2}, {3, 2, 1e-3}, {4, 3, 1e-5}, {6, 4, 1e-5}};
+    {2, 1, 1e-2}, {3, 2, 1e-3}, {4, 3, 1e-4}, {6, 4, 1e-5}};
 
 int main(int argc, char *argv[]) {
   const unsigned int dim = atoi(argv[1]);
@@ -79,7 +79,7 @@ int main(int argc, char *argv[]) {
               << " mpd:" << mp_deg << " dt:" << dtilde
               << " thres: " << threshold << std::endl;
     T.tic();
-    const Eigen::MatrixXd P = generateSwissCheeseExp(dim, npts);
+    const Eigen::MatrixXd P = generateSwissCheese(dim, npts);
     T.toc("geometry generation: ");
 
     const FMCA::NystromMatrixEvaluator<FMCA::H2SampletTree, theKernel> nm_eval(
