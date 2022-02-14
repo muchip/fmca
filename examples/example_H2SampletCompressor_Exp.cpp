@@ -59,15 +59,16 @@ int main(int argc, char *argv[]) {
   std::fstream file;
   file.open("s_output" + std::to_string(dim) + "_" + std::to_string(dtilde) +
                 "_EXP.txt",
-            std::ios::out);
+            std::ios::out | std::ios::app);
   file << "         m           n       nz(A)";
   file << "         mem         err       time\n";
-  for (unsigned int npts : {1e3, 5e3, 1e4, 5e4, 1e5, 5e5, 1e6, 5e6}) {
+  // for (unsigned int npts : {1e3, 5e3, 1e4, 5e4, 1e5, 5e5, 1e6, 5e6}) {
+  for (unsigned int npts : {5e6}) {
     std::cout << "N:" << npts << " dim:" << dim << " eta:" << eta
               << " mpd:" << mp_deg << " dt:" << dtilde
               << " thres: " << threshold << std::endl;
     T.tic();
-    const Eigen::MatrixXd P = generateSwissCheese(dim, npts);
+    const Eigen::MatrixXd P = generateSwissCheeseExp(dim, npts);
     T.toc("geometry generation: ");
 
     const FMCA::NystromMatrixEvaluator<FMCA::H2SampletTree, theKernel> nm_eval(
@@ -97,7 +98,7 @@ int main(int argc, char *argv[]) {
       std::cout << "nz(S): " << std::ceil(double(trips.size()) / npts)
                 << std::endl;
       std::cout << "memory: " << 3 * double(trips.size()) * sizeof(double) / 1e9
-                << "GB\n";
+                << "GB\n" << std::flush;
       for (auto i = 0; i < 100; ++i) {
         unsigned int index = rand() % P.cols();
         x.setZero();
