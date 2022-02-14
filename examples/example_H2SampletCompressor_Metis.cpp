@@ -73,7 +73,7 @@ const double parameters[4][3] = {
     {2, 1, 1e-2}, {3, 2, 1e-3}, {4, 3, 1e-4}, {6, 4, 1e-5}};
 
 int main(int argc, char *argv[]) {
-  constexpr double ridge_param = 1e-5;
+  constexpr double ridge_param = 1e-12;
   constexpr unsigned int dim = 4;
   constexpr unsigned int dtilde = 3;
   const auto function = theKernel();
@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
   std::fstream file;
 
   Eigen::MatrixXd theP;
-  Eigen::MatrixXd Pts = readMatrix("../Points/bunnyFine.txt");
+  Eigen::MatrixXd Pts = readMatrix("../../Points/bunnyFine.txt");
   if (4 == dim) {
     Eigen::MatrixXd Q(4, 4);
     Q << -0.174461059412466, 0.262091364616281, -0.730726716121948,
@@ -155,7 +155,7 @@ int main(int argc, char *argv[]) {
       }
       err = sqrt(err / nrm);
       std::cout << "compression error: " << err << std::endl;
-      if (1e5 == npts) Bembel::IO::print2m("bunnyMat.m", "bny", Ssym, "w");
+      if (1e5 == npts) Bembel::IO::print2spascii("bunnyMat.txt", Ssym, "w");
       file << std::setw(10) << std::setprecision(6) << err << "\t";
       file << std::setw(10) << std::setprecision(6) << tcomp << "\t";
       file << std::flush;
@@ -171,6 +171,7 @@ int main(int argc, char *argv[]) {
       std::cout << "nz(L): "
                 << solver.matrixL().nestedExpression().nonZeros() / P.cols()
                 << std::endl;
+      if (1e5 == npts) Bembel::IO::print2spascii("bunnyChol.txt", solver.matrixL().nestedExpression(), "w");
       err = 0;
       nrm = 0;
       for (auto i = 0; i < 10; ++i) {
