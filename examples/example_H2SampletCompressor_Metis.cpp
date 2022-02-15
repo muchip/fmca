@@ -70,10 +70,10 @@ struct rationalQuadraticKernel {
 using theKernel = exponentialKernel;
 
 const double parameters[4][3] = {
-    {2, 1, 1e-2}, {3, 2, 1e-3}, {4, 3, 1e-4}, {6, 4, 1e-5}};
+    {2, 1, 1e-2}, {3, 2, 1e-3}, {4, 3, 1e-3}, {6, 4, 1e-5}};
 
 int main(int argc, char *argv[]) {
-  constexpr double ridge_param = 1e-6;
+  constexpr double ridge_param = 1e-5;
   constexpr unsigned int dim = 4;
   constexpr unsigned int dtilde = 3;
   const auto function = theKernel();
@@ -171,7 +171,9 @@ int main(int argc, char *argv[]) {
       std::cout << "nz(L): "
                 << solver.matrixL().nestedExpression().nonZeros() / P.cols()
                 << std::endl;
-      if (1e5 == npts) Bembel::IO::print2spascii("bunnyChol.txt", solver.matrixL().nestedExpression(), "w");
+      if (1e5 == npts)
+        Bembel::IO::print2spascii("bunnyChol.txt",
+                                  solver.matrixL().nestedExpression(), "w");
       err = 0;
       nrm = 0;
       for (auto i = 0; i < 10; ++i) {
@@ -194,16 +196,17 @@ int main(int argc, char *argv[]) {
       file << std::setw(10) << std::setprecision(6)
            << solver.matrixL().nestedExpression().nonZeros() / P.cols() << "\n";
       file << std::flush;
-
-      FMCA::NormalDistribution ND(0, 1, 0);
-      Eigen::VectorXd data;
-      for (auto i = 0; i < 20; ++i) {
-        data = ND.get_randMat(P.cols(), 1);
-        data = ST.sampletTransform(data);
-        data = solver.permutationPinv() * (solver.matrixL() * data).eval();
-        data = ST.inverseSampletTransform(data);
-        FMCA::IO::plotPoints("points" + std::to_string(i) + ".vtk", ST,
-                             Pts.topRows(npts).transpose(), data);
+      if (npts <= 1e5) {
+        FMCA::NormalDistribution ND(0, 1, 0);
+        Eigen::VectorXd data;
+        for (auto i = 0; i < 20; ++i) {
+          data = ND.get_randMat(P.cols(), 1);
+          data = ST.sampletTransform(data);
+          data = solver.permutationPinv() * (solver.matrixL() * data).eval();
+          data = ST.inverseSampletTransform(data);
+          FMCA::IO::plotPoints("points" + std::to_string(i) + ".vtk", ST,
+                               Pts.topRows(npts).transpose(), data);
+        }
       }
     }
     std::cout << std::string(60, '-') << std::endl;
