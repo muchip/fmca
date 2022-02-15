@@ -61,6 +61,7 @@ class TensorProductInterpolator {
       }
       ++k;
     }
+    V_ = eigenMatrix::Identity(TP_xi_.cols(), TP_xi_.cols());
     return;
   }
 
@@ -86,10 +87,13 @@ class TensorProductInterpolator {
 
   //////////////////////////////////////////////////////////////////////////////
   const eigenMatrix &Xi() const { return TP_xi_; }
+  const eigenMatrix &invV() const { return V_; }
+  const eigenMatrix &V() const { return V_; }
 
  private:
   MultiIndexSet<TensorProduct> idcs_;
   eigenMatrix TP_xi_;
+  eigenMatrix V_;
   eigenVector xi_;
   eigenVector w_;
   IndexType dim_;
