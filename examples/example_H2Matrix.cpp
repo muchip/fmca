@@ -17,13 +17,10 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <Eigen/Dense>
-#include <FMCA/Samplets>
 #include <FMCA/H2Matrix>
+#include <FMCA/Samplets>
 #include <FMCA/src/util/tictoc.hpp>
 
-#include "../FMCA/src/H2Matrix/backward_transform_impl.h"
-#include "../FMCA/src/H2Matrix/forward_transform_impl.h"
-#include "../FMCA/src/H2Matrix/matrix_vector_product_impl.h"
 #include "../FMCA/src/util/Errors.h"
 
 struct exponentialKernel {
@@ -33,6 +30,7 @@ struct exponentialKernel {
     return exp(-(x - y).norm());
   }
 };
+using theH2Matrix = FMCA::H2Matrix<FMCA::H2ClusterTree>;
 
 int main(int argc, char *argv[]) {
   const auto function = exponentialKernel();
@@ -63,7 +61,7 @@ int main(int argc, char *argv[]) {
         x.setZero();
         x(index) = 1;
         y1 = FMCA::matrixColumnGetter(P, H2CT.indices(), function, index);
-        y2 = matrix_vector_product_impl(H2mat, x);
+        y2 = H2mat * x;
         err += (y1 - y2).squaredNorm();
         nrm += y1.squaredNorm();
       }

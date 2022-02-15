@@ -117,6 +117,11 @@ class H2Matrix {
     retval.push_back(FloatType(memory * sizeof(value_type)) / 1e9);
     return retval;
   }
+
+  template <typename otherDerived>
+  eigenMatrix operator*(const Eigen::MatrixBase<otherDerived> &rhs) {
+    return matrix_vector_product_impl(*this, rhs);
+  }
   //////////////////////////////////////////////////////////////////////////////
   eigenMatrix full() const {
     eigen_assert(row_cluster_->is_root() && col_cluster_->is_root() &&
