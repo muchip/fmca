@@ -107,7 +107,7 @@ int main(int argc, char *argv[]) {
   for (unsigned int npts : {1e3, 5e3, 1e4, 5e4, 1e5, 5e5, 1e6}) {
     std::cout << "N:" << npts << " dim:" << dim << " eta:" << eta
               << " mpd:" << mp_deg << " dt:" << dtilde
-              << " thres: " << threshold << std::endl;
+              << " thres: " << threshold << " rparam: " << ridge_param << std::endl;
     T.tic();
     const Eigen::MatrixXd P = theP.leftCols(npts);
     T.toc("geometry generation: ");
