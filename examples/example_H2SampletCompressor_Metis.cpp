@@ -73,7 +73,7 @@ const double parameters[4][3] = {
     {2, 1, 1e-2}, {3, 2, 1e-3}, {4, 3, 1e-3}, {6, 4, 1e-5}};
 
 int main(int argc, char *argv[]) {
-  constexpr double ridge_param = 1e-5;
+  constexpr double ridge_param = 1e-6;
   constexpr unsigned int dim = 4;
   constexpr unsigned int dtilde = 3;
   const auto function = theKernel();
