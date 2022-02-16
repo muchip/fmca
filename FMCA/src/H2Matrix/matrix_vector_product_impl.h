@@ -13,16 +13,14 @@
 #define FMCA_H2MATRIX_MATRIXVECTORPRODUCTIMPL_H_
 
 template <typename Derived, typename otherDerived>
-typename Derived::eigenMatrix
-matrix_vector_product_impl(Derived &H2,
-                           const Eigen::MatrixBase<otherDerived> &rhs) {
+typename Derived::eigenMatrix matrix_vector_product_impl(
+    Derived &H2, const Eigen::MatrixBase<otherDerived> &rhs) {
   typedef typename Derived::eigenMatrix eigenMatrix;
   eigenMatrix lhs(rhs.rows(), rhs.cols());
   lhs.setZero();
   std::vector<eigenMatrix> trhs = forward_transform_impl(H2, rhs);
   std::vector<eigenMatrix> tlhs = trhs;
-  for (auto &&it : tlhs)
-    it.setZero();
+  for (auto &&it : tlhs) it.setZero();
   for (auto &it : H2) {
     // there is something to multiply
     if (!it.sons().size()) {

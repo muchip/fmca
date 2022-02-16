@@ -14,14 +14,13 @@
 #include <iomanip>
 #include <iostream>
 #include <string>
+////////////////////////////////////////////////////////////////////////////////
 
 #include <Eigen/Dense>
 #include <FMCA/H2Matrix>
+#include <FMCA/Samplets>
 #include <FMCA/src/util/tictoc.hpp>
 
-#include "../FMCA/src/H2Matrix/backward_transform_impl.h"
-#include "../FMCA/src/H2Matrix/forward_transform_impl.h"
-#include "../FMCA/src/H2Matrix/matrix_vector_product_impl.h"
 #include "../FMCA/src/util/Errors.h"
 
 struct exponentialKernel {
@@ -31,6 +30,7 @@ struct exponentialKernel {
     return exp(-(x - y).norm());
   }
 };
+using theH2Matrix = FMCA::H2Matrix<FMCA::H2ClusterTree>;
 
 int main(int argc, char *argv[]) {
   const auto function = exponentialKernel();
@@ -45,10 +45,12 @@ int main(int argc, char *argv[]) {
   for (auto i = 2; i < 7; ++i) {
     file << i << "\t";
     const unsigned int npts = std::pow(10, i);
-    const Eigen::Matrix Xd P = Eigen::MatrixXd::Random(dim, npts);
+    const Eigen::MatrixXd P = Eigen::MatrixXd::Random(dim, npts);
     const FMCA::H2ClusterTree H2CT(P, 1, mp_deg);
     T.tic();
-    FMCA::H2Matrix<FMCA::H2ClusterTree> H2mat(P, H2CT, function, eta);
+    const FMCA::NystromMatrixEvaluator<FMCA::H2ClusterTree, exponentialKernel>
+        nm_eval(P, function);
+    FMCA::H2Matrix<FMCA::H2ClusterTree> H2mat(H2CT, nm_eval, eta);
     const double tset = T.toc("matrix setup: ");
     {
       Eigen::VectorXd x(npts), y1(npts), y2(npts);
@@ -59,7 +61,7 @@ int main(int argc, char *argv[]) {
         x.setZero();
         x(index) = 1;
         y1 = FMCA::matrixColumnGetter(P, H2CT.indices(), function, index);
-        y2 = matrix_vector_product_impl(H2mat, x);
+        y2 = H2mat * x;
         err += (y1 - y2).squaredNorm();
         nrm += y1.squaredNorm();
       }

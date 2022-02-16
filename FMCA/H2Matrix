@@ -26,6 +26,10 @@
 #include "src/H2Matrix/compute_cluster_bases_impl.h"
 #include "src/H2Matrix/H2ClusterTreeBase.h"
 #include "src/H2Matrix/H2ClusterTree.h"
+#include "src/H2Matrix/backward_transform_impl.h"
+#include "src/H2Matrix/forward_transform_impl.h"
+#include "src/H2Matrix/matrix_vector_product_impl.h"
 #include "src/H2Matrix/H2Matrix.h"
+#include "src/H2Matrix/EigenH2MatrixWrapper.h"
 
 #endif

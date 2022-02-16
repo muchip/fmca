@@ -20,8 +20,9 @@ namespace FMCA {
  *         H2ClusterTree.
 
  */
-template <typename Derived> class H2Matrix {
-public:
+template <typename Derived>
+class H2Matrix {
+ public:
   typedef typename internal::traits<Derived>::value_type value_type;
   typedef typename internal::traits<Derived>::eigenMatrix eigenMatrix;
   enum Admissibility { Refine = 0, LowRank = 1, Dense = 2 };
@@ -45,19 +46,19 @@ public:
   // constructors
   //////////////////////////////////////////////////////////////////////////////
   H2Matrix() : is_low_rank_(false), dad_(nullptr), level_(0) {}
-  template <typename Functor>
-  H2Matrix(const eigenMatrix &P, const TreeBase<Derived> &CT,
-           const Functor &fun, value_type eta = 0.8)
+  template <typename EntryGenerator>
+  H2Matrix(const TreeBase<Derived> &CT, const EntryGenerator &e_gen,
+           value_type eta = 0.8)
       : is_low_rank_(false), dad_(nullptr), level_(0) {
-    init(P, CT, fun, eta);
+    init(CT, e_gen, eta);
   }
   //////////////////////////////////////////////////////////////////////////////
   // init
   //////////////////////////////////////////////////////////////////////////////
-  template <typename Functor>
-  void init(const eigenMatrix &P, const TreeBase<Derived> &CT,
-            const Functor &fun, value_type eta = 0.8) {
-    computeH2Matrix(P, CT.derived(), CT.derived(), fun, eta);
+  template <typename EntryGenerator>
+  void init(const TreeBase<Derived> &CT, const EntryGenerator &e_gen,
+            value_type eta = 0.8) {
+    computeH2Matrix(CT.derived(), CT.derived(), e_gen, eta);
     // after setting up the actual H2Matrix, we now also fill the random
     // access iterator, which allows levelwise traversal of the H2Matrix
     // and random access to the nearfield
@@ -116,6 +117,11 @@ public:
     retval.push_back(FloatType(memory * sizeof(value_type)) / 1e9);
     return retval;
   }
+
+  template <typename otherDerived>
+  eigenMatrix operator*(const Eigen::MatrixBase<otherDerived> &rhs) {
+    return matrix_vector_product_impl(*this, rhs);
+  }
   //////////////////////////////////////////////////////////////////////////////
   eigenMatrix full() const {
     eigen_assert(row_cluster_->is_root() && col_cluster_->is_root() &&
@@ -123,16 +129,6 @@ public:
     eigenMatrix retval(row_cluster_->indices().size(),
                        row_cluster_->indices().size());
     computeFullMatrixRecursion(*row_cluster_, *row_cluster_, &retval);
-    return retval;
-  }
-  //////////////////////////////////////////////////////////////////////////////
-  template <typename otherDerived>
-  eigenMatrix matrixProduct(const Eigen::MatrixBase<otherDerived> &mat) const {
-    eigen_assert(row_cluster_->is_root() && col_cluster_->is_root() &&
-                 "method needs to be called from the root");
-    eigenMatrix retval(mat.rows(), mat.cols());
-    retval.setZero();
-    computeMatrixProductRecursion(*row_cluster_, *row_cluster_, mat, &retval);
     return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
@@ -166,7 +162,7 @@ public:
       return LowRank;
   }
   //////////////////////////////////////////////////////////////////////////////
-private:
+ private:
   //////////////////////////////////////////////////////////////////////////////
   void getStatisticsRecursion(IndexType *low_rank_blocks,
                               IndexType *full_blocks, IndexType *memory) const {
@@ -204,34 +200,10 @@ private:
     }
     return;
   }
-  template <typename otherDerived>
-  void computeMatrixProductRecursion(const Derived &CR, const Derived &CS,
-                                     const Eigen::MatrixBase<otherDerived> mat,
-                                     eigenMatrix *target) const {
-    if (sons_.size()) {
-      for (auto i = 0; i < sons_.rows(); ++i)
-        for (auto j = 0; j < sons_.cols(); ++j)
-          sons_(i, j).computeMatrixProductRecursion(*(sons_(i, j).row_cluster_),
-                                                    *(sons_(i, j).col_cluster_),
-                                                    mat, target);
-    } else {
-      if (is_low_rank_)
-        target->block(
-            row_cluster_->indices_begin(), col_cluster_->indices_begin(),
-            row_cluster_->indices().size(), col_cluster_->indices().size()) =
-            row_cluster_->V().transpose() * S_ * col_cluster_->V();
-      else
-        target->block(row_cluster_->indices_begin(),
-                      col_cluster_->indices_begin(),
-                      row_cluster_->indices().size(),
-                      col_cluster_->indices().size()) = S_;
-    }
-    return;
-  }
 
-  template <typename Functor>
-  void computeH2Matrix(const eigenMatrix &P, const Derived &CT1,
-                       const Derived &CT2, const Functor &fun, value_type eta) {
+  template <typename EntryGenerator>
+  void computeH2Matrix(const Derived &CT1, const Derived &CT2,
+                       const EntryGenerator &e_gen, value_type eta) {
     row_cluster_ = &CT1;
     col_cluster_ = &CT2;
     level_ = CT1.level();
@@ -240,14 +212,7 @@ private:
       const eigenMatrix &Xi = CT1.Xi();
       S_.resize(Xi.cols(), Xi.cols());
       is_low_rank_ = true;
-      for (auto j = 0; j < S_.cols(); ++j)
-        for (auto i = 0; i < S_.rows(); ++i)
-          S_(i, j) = fun((CT1.bb().col(2).array() * Xi.col(i).array() +
-                          CT1.bb().col(0).array())
-                             .matrix(),
-                         (CT2.bb().col(2).array() * Xi.col(j).array() +
-                          CT2.bb().col(0).array())
-                             .matrix());
+      e_gen.interpolate_kernel(CT1, CT2, &S_);
       S_ = CT1.node().interp_->invV() * S_ *
            CT1.node().interp_->invV().transpose();
     } else if (adm == Refine) {
@@ -255,13 +220,10 @@ private:
       for (auto j = 0; j < CT2.nSons(); ++j)
         for (auto i = 0; i < CT1.nSons(); ++i) {
           sons_(i, j).dad_ = this;
-          sons_(i, j).computeH2Matrix(P, CT1.sons(i), CT2.sons(j), fun, eta);
+          sons_(i, j).computeH2Matrix(CT1.sons(i), CT2.sons(j), e_gen, eta);
         }
     } else {
-      S_.resize(CT1.indices().size(), CT2.indices().size());
-      for (auto j = 0; j < CT2.indices().size(); ++j)
-        for (auto i = 0; i < CT1.indices().size(); ++i)
-          S_(i, j) = fun(P.col(CT1.indices()[i]), P.col(CT2.indices()[j]));
+      e_gen.compute_dense_block(CT1, CT2, &S_);
     }
     return;
   }
@@ -278,5 +240,5 @@ private:
   IndexType nclusters_;
 };
 
-} // namespace FMCA
+}  // namespace FMCA
 #endif
