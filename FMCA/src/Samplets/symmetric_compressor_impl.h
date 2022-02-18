@@ -26,7 +26,8 @@ template <typename Derived> struct symmetric_compressor_impl {
     eta_ = eta;
     threshold_ = threshold;
     triplet_list_.clear();
-    triplet_list_.reserve(2000 * ST.derived().indices().size());
+    triplet_list_.reserve(1230 * ST.derived().indices().size());
+    std::cout << "trips reserved\n" << std::flush;
     buffer_.clear();
     const IndexType n_samplet_blocks = std::distance(ST.cbegin(), ST.cend());
     buffer_.resize(n_samplet_blocks);

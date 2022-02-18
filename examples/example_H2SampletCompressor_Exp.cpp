@@ -23,7 +23,7 @@
 #include "generateSwissCheese.h"
 #include "generateSwissCheeseExp.h"
 
-struct exponentialKernel {
+    struct exponentialKernel {
   template <typename derived, typename otherDerived>
   double operator()(const Eigen::MatrixBase<derived> &x,
                     const Eigen::MatrixBase<otherDerived> &y) const {
@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
   tictoc T;
   std::fstream file;
   file.open("s_output" + std::to_string(dim) + "_" + std::to_string(dtilde) +
-                "_EXP.txt",
+                "_EXPEXP.txt",
             std::ios::out | std::ios::app);
   file << "         m           n       nz(A)";
   file << "         mem         err       time\n";
@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
               << " mpd:" << mp_deg << " dt:" << dtilde
               << " thres: " << threshold << std::endl;
     T.tic();
-    const Eigen::MatrixXd P = generateSwissCheese(dim, npts);
+    const Eigen::MatrixXd P = generateSwissCheeseExp(dim, npts);
     T.toc("geometry generation: ");
 
     const FMCA::NystromMatrixEvaluator<FMCA::H2SampletTree, theKernel> nm_eval(
@@ -95,7 +95,6 @@ int main(int argc, char *argv[]) {
       file << std::setw(10) << std::setprecision(6)
            << std::ceil(double(trips.size()) / npts) << "\t";
       file << std::flush;
-      Ssym.setFromTriplets(trips.begin(), trips.end());
       file << std::setw(10) << std::setprecision(5)
            << 3 * double(trips.size()) * sizeof(double) / 1e9 << "\t";
       std::cout << "nz(S): " << std::ceil(double(trips.size()) / npts)
@@ -110,8 +109,13 @@ int main(int argc, char *argv[]) {
         x(index) = 1;
         y1 = FMCA::matrixColumnGetter(P, ST.indices(), function, index);
         x = ST.sampletTransform(x);
-        y2 = Ssym * x +
-             Ssym.triangularView<Eigen::StrictlyUpper>().transpose() * x;
+        y2.setZero();
+        for (const auto &i : trips) {
+          y2(i.row()) += i.value() * x(i.col());
+          if (i.row() != i.col()) y2(i.col()) += i.value() * x(i.row());
+        }
+        //y2 = Ssym * x +
+          //   Ssym.triangularView<Eigen::StrictlyUpper>().transpose() * x;
         y2 = ST.inverseSampletTransform(y2);
         err += (y1 - y2).squaredNorm();
         nrm += y1.squaredNorm();
