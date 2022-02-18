@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
   tictoc T;
   std::fstream file;
   file.open(
-      "H2_output" + std::to_string(dim) + "_" + std::to_string(mp_deg) + ".txt",
+      "H2_output_SC_" + std::to_string(dim) + "_" + std::to_string(mp_deg) + ".txt",
       std::ios::out);
   file << "m           n     fblocks    lrblocks       nz(A)";
   file << "         mem         err\n" << std::flush;
@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
               << " thres: " << threshold << std::endl
               << std::flush;
     T.tic();
-    const Eigen::MatrixXd P = generateSwissCheeseExp(dim, npts);
+    const Eigen::MatrixXd P = generateSwissCheese(dim, npts);
     T.toc("geometry generation: ");
     T.tic();
     const FMCA::H2ClusterTree H2CT(P, 1, mp_deg);
@@ -90,7 +90,8 @@ int main(int argc, char *argv[]) {
       Eigen::VectorXd x(npts), y1(npts), y2(npts);
       double err = 0;
       double nrm = 0;
-      for (auto i = 0; i < 10; ++i) {
+      T.tic();
+      for (auto i = 0; i < 100; ++i) {
         unsigned int index = rand() % P.cols();
         x.setZero();
         x(index) = 1;
@@ -99,6 +100,8 @@ int main(int argc, char *argv[]) {
         err += (y1 - y2).squaredNorm();
         nrm += y1.squaredNorm();
       }
+      const double thet = T.toc("time matrix vector: ");
+      std::cout << thet / 100 << std::endl;
       err = sqrt(err / nrm);
       std::cout << "compression error: " << err << std::endl;
 

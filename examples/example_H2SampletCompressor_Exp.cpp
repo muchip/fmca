@@ -62,8 +62,8 @@ int main(int argc, char *argv[]) {
             std::ios::out | std::ios::app);
   file << "         m           n       nz(A)";
   file << "         mem         err       time\n";
-  //for (unsigned int npts : {1e3, 5e3, 1e4, 5e4, 1e5, 5e5, 1e6, 5e6}) {
-  for (unsigned int npts : {5e6}) {
+  for (unsigned int npts : {1e3, 5e3, 1e4, 5e4, 1e5, 5e5, 1e6, 5e6}) {
+  //for (unsigned int npts : {5e6}) {
     std::cout << "N:" << npts << " dim:" << dim << " eta:" << eta
               << " mpd:" << mp_deg << " dt:" << dtilde
               << " thres: " << threshold << std::endl;
@@ -76,10 +76,12 @@ int main(int argc, char *argv[]) {
     T.tic();
     FMCA::H2SampletTree ST(P, 10, dtilde, mp_deg);
     T.toc("tree setup: ");
+std::cout << std::flush;
     FMCA::symmetric_compressor_impl<FMCA::H2SampletTree> symComp;
     T.tic();
     symComp.compress(ST, nm_eval, eta, threshold);
     const double tcomp = T.toc("symmetric compressor: ");
+std::cout << std::flush;
 
     {
       Eigen::SparseMatrix<double> Ssym(npts, npts);
@@ -99,6 +101,7 @@ int main(int argc, char *argv[]) {
                 << std::endl;
       std::cout << "memory: " << 3 * double(trips.size()) * sizeof(double) / 1e9
                 << "GB\n" << std::flush;
+      T.tic();
       for (auto i = 0; i < 100; ++i) {
         unsigned int index = rand() % P.cols();
         x.setZero();
@@ -111,6 +114,8 @@ int main(int argc, char *argv[]) {
         err += (y1 - y2).squaredNorm();
         nrm += y1.squaredNorm();
       }
+      const double thet = T.toc("matrix vector time: ");
+      std::cout << thet/ 100 << std::endl;
       err = sqrt(err / nrm);
       std::cout << "compression error: " << err << std::endl;
       file << std::setw(10) << std::setprecision(6) << err << "\t";
