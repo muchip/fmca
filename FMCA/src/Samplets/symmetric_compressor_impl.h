@@ -26,6 +26,8 @@ template <typename Derived> struct symmetric_compressor_impl {
     eta_ = eta;
     threshold_ = threshold;
     triplet_list_.clear();
+    triplet_list_.reserve(1230 * ST.derived().indices().size());
+    std::cout << "trips reserved\n" << std::flush;
     buffer_.clear();
     const IndexType n_samplet_blocks = std::distance(ST.cbegin(), ST.cend());
     buffer_.resize(n_samplet_blocks);
@@ -37,7 +39,7 @@ template <typename Derived> struct symmetric_compressor_impl {
     compute_block_calls_ = 0;
 
     setupColumn(ST.derived(), ST.derived(), e_gen);
-
+    triplet_list_.shrink_to_fit();
     std::cout << std::endl;
 #ifdef FMCA_COMPRESSOR_BUFSIZE_
     std::cout << "compute calls: " << compute_block_calls_ << std::endl;
