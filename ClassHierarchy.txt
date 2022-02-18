@@ -1,0 +1,9 @@
+TreeBase<Derived>
+   <-- ClusterTreeBase<Derived>
+      <-- ClusterTree
+      <-- H2ClusterTreeBase<Derived>
+         <-- H2ClusterTree
+      <-- SampletTreeBase<Derived>
+         <-- H2SampletTreeBase<Derived>
+            <-- H2SampletTree
+         <-- SampletTreeQR
