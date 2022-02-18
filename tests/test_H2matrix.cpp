@@ -13,16 +13,18 @@
 #include <iostream>
 
 #include "../FMCA/H2Matrix"
+#include "../FMCA/Samplets"
 #include "TestParameters.h"
 
 int main() {
   const auto function = exponentialKernel();
   const Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, NPTS);
   const FMCA::H2ClusterTree H2CT(P, LEAFSIZE, MPOLE_DEG);
-
+  const FMCA::NystromMatrixEvaluator<FMCA::H2ClusterTree, exponentialKernel>
+      nm_eval(P, function);
   for (double eta = 0.8; eta >= 0; eta -= 0.2) {
     std::cout << "eta= " << eta << std::endl;
-    FMCA::H2Matrix<FMCA::H2ClusterTree> H2mat(P, H2CT, function, eta);
+    FMCA::H2Matrix<FMCA::H2ClusterTree> H2mat(H2CT, nm_eval, eta);
     H2mat.get_statistics();
     Eigen::MatrixXd K(P.cols(), P.cols());
     for (auto j = 0; j < P.cols(); ++j)

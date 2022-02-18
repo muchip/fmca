@@ -23,11 +23,16 @@ struct H2ClusterTreeBase;
 template <typename Derived>
 struct H2SampletTreeBase;
 
+namespace internal {
+template <typename Derived>
+struct ClusterTreeInitializer;
+}
+
 class ClusterTree;
 
 class H2ClusterTree;
 
-class SampletTreeQR;
+class SampletTree;
 
 class H2SampletTree;
 

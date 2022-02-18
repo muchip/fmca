@@ -51,14 +51,21 @@ struct H2ClusterTree : public H2ClusterTreeBase<H2ClusterTree> {
   typedef typename internal::traits<H2ClusterTree>::eigenMatrix eigenMatrix;
   typedef typename internal::traits<H2ClusterTree>::Interpolator Interpolator;
   typedef H2ClusterTreeBase<H2ClusterTree> Base;
+  // make base class methods visible
   using Base::appendSons;
+  using Base::bb;
   using Base::block_id;
-  using Base::init;
+  using Base::derived;
+  using Base::Es;
+  using Base::indices;
+  using Base::indices_begin;
+  using Base::is_root;
   using Base::level;
   using Base::node;
   using Base::nSons;
   using Base::sons;
-  using Base::indices_begin;
+  using Base::V;
+  using Base::Xi;
   //////////////////////////////////////////////////////////////////////////////
   // constructors
   //////////////////////////////////////////////////////////////////////////////
@@ -66,6 +73,21 @@ struct H2ClusterTree : public H2ClusterTreeBase<H2ClusterTree> {
   H2ClusterTree(const eigenMatrix &P, IndexType min_cluster_size = 1,
                 IndexType polynomial_degree = 3) {
     init(P, min_cluster_size, polynomial_degree);
+  }
+  //////////////////////////////////////////////////////////////////////////////
+  void init(const eigenMatrix &P, IndexType min_cluster_size = 1,
+            IndexType polynomial_degree = 3) {
+    // init interpolation routines
+    node().interp_ = std::make_shared<Interpolator>();
+    node().interp_->init(P.rows(), polynomial_degree);
+    // init cluster tree first
+    const IndexType mincsize = min_cluster_size > node().interp_->Xi().cols()
+                                   ? min_cluster_size
+                                   : node().interp_->Xi().cols();
+    internal::ClusterTreeInitializer<ClusterTree>::init(*this, P, mincsize);
+
+    internal::compute_cluster_bases_impl<Interpolator, H2ClusterTree, eigenMatrix>(
+        *this, P);
   }
 };
 

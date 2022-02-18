@@ -26,7 +26,7 @@ struct SampletTreeNode : public SampletTreeNodeBase<SampletTreeNode> {};
 
 namespace internal {
 template <>
-struct traits<SampletTreeQR> : public traits<ClusterTree> {
+struct traits<SampletTree> : public traits<ClusterTree> {
   typedef SampletTreeNode node_type;
 };
 }  // namespace internal
@@ -35,18 +35,35 @@ struct traits<SampletTreeQR> : public traits<ClusterTree> {
  *  \ingroup Samplets
  *  \brief The SampletTree class manages samplets constructed on a cluster tree.
  */
-struct SampletTreeQR : public SampletTreeBase<SampletTreeQR> {
+struct SampletTree : public SampletTreeBase<SampletTree> {
  public:
-  typedef typename internal::traits<SampletTreeQR>::value_type value_type;
-  typedef typename internal::traits<SampletTreeQR>::node_type node_type;
-  typedef typename internal::traits<SampletTreeQR>::eigenMatrix eigenMatrix;
-  typedef SampletTreeBase<SampletTreeQR> Base;
+  typedef typename internal::traits<SampletTree>::value_type value_type;
+  typedef typename internal::traits<SampletTree>::node_type node_type;
+  typedef typename internal::traits<SampletTree>::eigenMatrix eigenMatrix;
+  typedef SampletTreeBase<SampletTree> Base;
+  // make base class methods visible
+  using Base::appendSons;
+  using Base::bb;
+  using Base::block_id;
+  using Base::derived;
+  using Base::indices;
+  using Base::indices_begin;
+  using Base::is_root;
+  using Base::level;
+  using Base::node;
+  using Base::nsamplets;
+  using Base::nscalfs;
+  using Base::nSons;
+  using Base::Q;
+  using Base::sons;
+  using Base::start_index;
+
   //////////////////////////////////////////////////////////////////////////////
   // constructors
   //////////////////////////////////////////////////////////////////////////////
-  SampletTreeQR() {}
-  SampletTreeQR(const eigenMatrix &P, IndexType min_cluster_size = 1,
-                IndexType dtilde = 1) {
+  SampletTree() {}
+  SampletTree(const eigenMatrix &P, IndexType min_cluster_size = 1,
+              IndexType dtilde = 1) {
     init(P, min_cluster_size, dtilde);
   }
   //////////////////////////////////////////////////////////////////////////////
@@ -54,12 +71,12 @@ struct SampletTreeQR : public SampletTreeBase<SampletTreeQR> {
   //////////////////////////////////////////////////////////////////////////////
   void init(const eigenMatrix &P, IndexType min_cluster_size = 1,
             IndexType dtilde = 1) {
-    // init moment computer
-    ClusterTreeBase<SampletTreeQR>::init(P, min_cluster_size);
-    SampleMomentComputer<SampletTreeQR, MultiIndexSet<TotalDegree>> mom_comp;
+    internal::ClusterTreeInitializer<ClusterTree>::init(*this, P,
+                                                        min_cluster_size);
+    SampleMomentComputer<SampletTree, MultiIndexSet<TotalDegree>> mom_comp;
     mom_comp.init(P.rows(), dtilde);
     computeSamplets(P, mom_comp);
-    sampletMapper();
+    internal::sampletMapper<SampletTree>(*this);
     return;
   }
 

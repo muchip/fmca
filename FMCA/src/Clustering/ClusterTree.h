@@ -45,7 +45,12 @@ struct ClusterTree : public ClusterTreeBase<ClusterTree> {
   typedef ClusterTreeBase<ClusterTree> Base;
   // make base class methods visible
   using Base::appendSons;
-  using Base::init;
+  using Base::bb;
+  using Base::block_id;
+  using Base::derived;
+  using Base::indices;
+  using Base::indices_begin;
+  using Base::is_root;
   using Base::level;
   using Base::node;
   using Base::nSons;
@@ -56,6 +61,13 @@ struct ClusterTree : public ClusterTreeBase<ClusterTree> {
   ClusterTree() {}
   ClusterTree(const eigenMatrix &P, IndexType min_cluster_size = 1) {
     init(P, min_cluster_size);
+  }
+  //////////////////////////////////////////////////////////////////////////////
+  // implementation of init
+  //////////////////////////////////////////////////////////////////////////////
+  void init(const eigenMatrix &P, IndexType min_cluster_size = 1) {
+    internal::ClusterTreeInitializer<ClusterTree>::init(*this, P,
+                                                        min_cluster_size);
   }
 };
 

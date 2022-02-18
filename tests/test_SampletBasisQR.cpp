@@ -21,8 +21,8 @@ int main() {
 
   for (double dtilde = 1; dtilde <= 10; ++dtilde) {
     std::cout << "dtilde= " << dtilde << std::endl;
-    const FMCA::SampletTreeQR ST(P, LEAFSIZE, dtilde);
-    FMCA::SampleMomentComputer<FMCA::SampletTreeQR,
+    const FMCA::SampletTree ST(P, LEAFSIZE, dtilde);
+    FMCA::SampleMomentComputer<FMCA::SampletTree,
                                FMCA::MultiIndexSet<FMCA::TotalDegree>>
         mom_comp;
     mom_comp.init(P.rows(), dtilde);

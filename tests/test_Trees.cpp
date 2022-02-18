@@ -28,7 +28,7 @@ int main() {
     FMCA::H2ClusterTree H2CT(P, LEAFSIZE, MPOLE_DEG);
     T.toc("H2-cluster tree: ");
     T.tic();
-    const FMCA::SampletTreeQR ST(P, LEAFSIZE, DTILDE);
+    const FMCA::SampletTree ST(P, LEAFSIZE, DTILDE);
     T.toc("samplet tree: ");
     T.tic();
     FMCA::H2SampletTree H2ST(P, LEAFSIZE, DTILDE, MPOLE_DEG);

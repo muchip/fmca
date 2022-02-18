@@ -17,8 +17,8 @@ namespace FMCA {
 /**
  *  \ingroup Clustering
  *  \brief ClusterTreeNodeBase defines the basic fields required for an
- *         abstract ClusterTree, i.e. bounding box and indices and global
- *         index position
+ *         abstract ClusterTree, i.e. bounding box and indices, global
+ *         index position and block id
  **/
 template <typename Derived>
 struct ClusterTreeNodeBase : public NodeBase<Derived> {
@@ -45,24 +45,13 @@ struct ClusterTreeBase : public TreeBase<Derived> {
   typedef TreeBase<Derived> Base;
   // make base class methods visible
   using Base::appendSons;
+  using Base::derived;
+  using Base::init;
+  using Base::is_root;
   using Base::level;
   using Base::node;
   using Base::nSons;
   using Base::sons;
-
-  void init(const eigenMatrix &P, IndexType min_cluster_size = 1) {
-    internal::init_BoundingBox_impl(*this, P, min_cluster_size);
-    node().indices_begin_ = 0;
-    node().indices_.resize(P.cols());
-    std::iota(node().indices_.begin(), node().indices_.end(), 0u);
-    internal::init_ClusterTree_impl(*this, P, min_cluster_size);
-    internal::shrinkToFit_impl(*this, P);
-    IndexType i = 0;
-    for (auto &it : *this) {
-      it.node().block_id_ = i;
-      ++i;
-    }
-  }
   //////////////////////////////////////////////////////////////////////////////
   // getter
   //////////////////////////////////////////////////////////////////////////////

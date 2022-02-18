@@ -42,17 +42,18 @@ struct SampletTreeBase : public ClusterTreeBase<Derived> {
   typedef typename internal::traits<Derived>::value_type value_type;
   typedef ClusterTreeBase<Derived> Base;
   // make base class methods visible
-  using TreeBase<Derived>::is_root;
   using Base::appendSons;
+  using Base::bb;
   using Base::block_id;
+  using Base::derived;
   using Base::indices;
   using Base::indices_begin;
   using Base::init;
+  using Base::is_root;
   using Base::level;
   using Base::node;
   using Base::nSons;
   using Base::sons;
-
   //////////////////////////////////////////////////////////////////////////////
   void sampletTransformMatrix(eigenMatrix &M) {
     M = sampletTransform(M);
@@ -107,21 +108,9 @@ struct SampletTreeBase : public ClusterTreeBase<Derived> {
   //////////////////////////////////////////////////////////////////////////////
   const eigenMatrix &Q() const { return node().Q_; }
 
- protected:
+ private:
   //////////////////////////////////////////////////////////////////////////////
-  void sampletMapper() {
-    assert(is_root() &&
-           "sampletMapper needs to be called from the root cluster");
-    IndexType sum = 0;
-    // assign vector start_index to each wavelet cluster
-    for (auto &it : *this) {
-      it.node().start_index_ = sum;
-      sum += it.derived().nsamplets();
-      if (it.is_root()) sum += it.derived().nscalfs();
-    }
-    assert(sum == indices().size());
-    return;
-  }
+
   //////////////////////////////////////////////////////////////////////////////
   eigenMatrix sampletTransformRecursion(const eigenMatrix &data,
                                         eigenMatrix *svec) const {

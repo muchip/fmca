@@ -37,28 +37,23 @@ struct H2SampletTreeBase : public SampletTreeBase<Derived> {
   typedef typename internal::traits<Derived>::value_type value_type;
   typedef typename internal::traits<Derived>::Interpolator Interpolator;
   typedef SampletTreeBase<Derived> Base;
-  // make base class methods explicitly visible
-  using TreeBase<Derived>::is_root;
+  // make base class methods visible
   using Base::appendSons;
+  using Base::bb;
+  using Base::block_id;
+  using Base::derived;
   using Base::indices;
   using Base::indices_begin;
+  using Base::init;
+  using Base::is_root;
   using Base::level;
   using Base::node;
+  using Base::nsamplets;
+  using Base::nscalfs;
   using Base::nSons;
+  using Base::Q;
   using Base::sons;
-
-  void init(const eigenMatrix &P, IndexType min_cluster_size = 1,
-            IndexType polynomial_degree = 3) {
-    // init interpolation routines
-    node().interp_ = std::make_shared<Interpolator>();
-    node().interp_->init(P.rows(), polynomial_degree);
-    // init cluster tree first
-    Base::init(P, min_cluster_size > node().interp_->Xi().cols()
-                      ? min_cluster_size
-                      : node().interp_->Xi().cols());
-    internal::compute_cluster_bases_impl<Interpolator, Derived, eigenMatrix>(
-        *this, P);
-  }
+  using Base::start_index;
 
   const eigenMatrix &V() const { return node().V_; }
   eigenMatrix &V() { return node().V_; }
