@@ -12,7 +12,7 @@
 #ifndef FMCA_UTIL_IO_H_
 #define FMCA_UTIL_IO_H_
 
-#include<fstream>
+#include <fstream>
 
 namespace FMCA {
 namespace IO {
@@ -225,6 +225,51 @@ void plotPoints(const std::string &fileName, const ClusterTree &CT,
   for (auto i = 0; i < P.cols(); ++i)
     myfile << float(P(0, idcs[i])) << " " << float(P(1, idcs[i])) << " "
            << float(P(2, idcs[i])) << "\n";
+  myfile << "\n";
+
+  // print element list
+  auto nvertices = 1;
+  myfile << "CELLS " << P.cols() << " " << (nvertices + 1) * P.cols() << "\n";
+  for (auto i = 0; i < P.cols(); ++i) {
+    myfile << int(nvertices);
+    for (auto j = 0; j < nvertices; ++j) myfile << " " << int(i);
+    myfile << "\n";
+  }
+  myfile << "\n";
+
+  myfile << "CELL_TYPES " << P.cols() << "\n";
+  for (auto i = 0; i < P.cols(); ++i) myfile << int(1) << "\n";
+  myfile << "\n";
+
+  /* print z-values of the geometry and solved density for visualization */
+  myfile << "POINT_DATA " << fdat.size() << "\n";
+  myfile << "SCALARS f_values FLOAT\n";
+  myfile << "LOOKUP_TABLE default\n";
+  for (auto i = 0; i < fdat.size(); ++i) myfile << fdat(i) << "\n";
+  myfile.close();
+
+  return;
+}
+
+/**
+ *  \brief exports a list of points in vtk
+ **/
+template <typename ClusterTree, typename Derived, typename otherDerived>
+void plotPoints(const std::string &fileName,
+                const Eigen::MatrixBase<Derived> &P,
+                const Eigen::MatrixBase<otherDerived> &fdat) {
+  std::ofstream myfile;
+  myfile.open(fileName);
+  myfile << "# vtk DataFile Version 3.1\n";
+  myfile << "this file hopefully represents my surface now\n";
+  myfile << "ASCII\n";
+  myfile << "DATASET UNSTRUCTURED_GRID\n";
+  // print point list
+  auto idcs = CT.indices();
+  myfile << "POINTS " << P.cols() << " FLOAT\n";
+  for (auto i = 0; i < P.cols(); ++i)
+    myfile << float(P(0, i)) << " " << float(P(1, i)) << " " << float(P(2, i))
+           << "\n";
   myfile << "\n";
 
   // print element list
