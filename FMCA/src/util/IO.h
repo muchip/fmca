@@ -254,8 +254,8 @@ void plotPoints(const std::string &fileName, const ClusterTree &CT,
 /**
  *  \brief exports a list of points in vtk
  **/
-template <typename ClusterTree, typename Derived, typename otherDerived>
-void plotPoints(const std::string &fileName,
+template <typename Derived, typename otherDerived>
+void plotPointsColor(const std::string &fileName,
                 const Eigen::MatrixBase<Derived> &P,
                 const Eigen::MatrixBase<otherDerived> &fdat) {
   std::ofstream myfile;
@@ -265,7 +265,6 @@ void plotPoints(const std::string &fileName,
   myfile << "ASCII\n";
   myfile << "DATASET UNSTRUCTURED_GRID\n";
   // print point list
-  auto idcs = CT.indices();
   myfile << "POINTS " << P.cols() << " FLOAT\n";
   for (auto i = 0; i < P.cols(); ++i)
     myfile << float(P(0, i)) << " " << float(P(1, i)) << " " << float(P(2, i))
