@@ -5,6 +5,9 @@
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <iostream>
+#include <random>
+
+#include "../FMCA/src/util/IO.h"
 
 using namespace std;
 
@@ -41,17 +44,24 @@ int main(int argc, char *argv[]) {
   int ret = METIS_PartGraphKway(&nvtxs, &ncon, &xadj[0], &adjncy[0], NULL, NULL,
                                 NULL, &nParts, NULL, NULL, NULL, &objval, part);
   // Step 3: Visualization
-  cout << "\n";
-  cout << "  Return code = " << ret << "\n";
-  cout << "  Edge cuts for partition = " << objval << "\n";
-
-  cout << "\n";
-  cout << "  Partition vector:\n";
-  cout << "\n";
-  cout << "  Node  Part\n";
-  cout << "\n";
+  Eigen::MatrixXd ids;
+  ids.resize(nvtxs, 1);
   for (unsigned part_i = 0; part_i < nvtxs; part_i++) {
-    std::cout << "     " << part_i << "     " << part[part_i] << std::endl;
+    ids(part_i, 0) = part[part_i];
   }
+  // Random permutation
+  std::vector<int> map;
+  for (int i = 0; i < nParts; i++) {
+    map.push_back(i);
+  }
+  std::random_device rd;
+  std::mt19937 g(rd());
+  std::shuffle(std::begin(map), std::end(map), g);
+
+  for (unsigned part_i = 0; part_i < nvtxs; part_i++) {
+    int temp = (int)ids(part_i, 0);
+    ids(part_i, 0) = (double)map[temp];
+  }
+  FMCA::IO::plotPointsColor("bunny.vtk", V.transpose(), ids);
   return 0;
 }
