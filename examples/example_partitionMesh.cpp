@@ -62,6 +62,6 @@ int main(int argc, char *argv[]) {
     int temp = (int)ids(part_i, 0);
     ids(part_i, 0) = (double)map[temp];
   }
-  FMCA::IO::plotPointsColor("bunny.vtk", V.transpose(), ids);
+  FMCA::IO::plotTriMeshColor("bunny.vtk", V.transpose(), F, ids);
   return 0;
 }
