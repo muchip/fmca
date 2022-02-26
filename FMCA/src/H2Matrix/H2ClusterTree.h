@@ -15,23 +15,22 @@
 namespace FMCA {
 
 namespace internal {
-template <>
-struct traits<H2ClusterTreeNode> {
+template <> struct traits<H2ClusterTreeNode> {
   typedef FloatType value_type;
   typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
   typedef TotalDegreeInterpolator<value_type> Interpolator;
 };
-}  // namespace internal
+} // namespace internal
 
 struct H2ClusterTreeNode : public H2ClusterTreeNodeBase<H2ClusterTreeNode> {};
 
 namespace internal {
-template <>
-struct traits<H2ClusterTree> : public traits<ClusterTree> {
+template <typename ClusterTreeType>
+struct traits<H2ClusterTree<ClusterTreeType>> : public traits<ClusterTreeType> {
   typedef H2ClusterTreeNode node_type;
   typedef traits<H2ClusterTreeNode>::Interpolator Interpolator;
 };
-}  // namespace internal
+} // namespace internal
 
 /**
  *  \ingroup H2Matrix
@@ -44,8 +43,9 @@ struct traits<H2ClusterTree> : public traits<ClusterTree> {
  *         Thus, if the cluster tree is mutated or goes out of scope, we get
  *         dangeling pointers!
  */
-struct H2ClusterTree : public H2ClusterTreeBase<H2ClusterTree> {
- public:
+template <typename ClusterTreeType>
+class H2ClusterTree : public H2ClusterTreeBase<H2ClusterTree<ClusterTreeType>> {
+public:
   typedef typename internal::traits<H2ClusterTree>::value_type value_type;
   typedef typename internal::traits<H2ClusterTree>::node_type node_type;
   typedef typename internal::traits<H2ClusterTree>::eigenMatrix eigenMatrix;
@@ -70,26 +70,29 @@ struct H2ClusterTree : public H2ClusterTreeBase<H2ClusterTree> {
   // constructors
   //////////////////////////////////////////////////////////////////////////////
   H2ClusterTree() {}
-  H2ClusterTree(const eigenMatrix &P, IndexType min_cluster_size = 1,
+  template <typename... Ts, typename MomentComputer>
+  H2ClusterTree(Ts &&...ts, const MomentComputer &mom_comp,
+                IndexType min_cluster_size = 1,
                 IndexType polynomial_degree = 3) {
-    init(P, min_cluster_size, polynomial_degree);
+    init(std::forward<Ts>(ts)..., min_cluster_size, polynomial_degree);
   }
   //////////////////////////////////////////////////////////////////////////////
-  void init(const eigenMatrix &P, IndexType min_cluster_size = 1,
-            IndexType polynomial_degree = 3) {
+  template <typename... Ts, typename MomentComputer>
+  void init(Ts &&...ts, const MomentComputer &mom_comp,
+            IndexType min_cluster_size = 1, IndexType polynomial_degree = 3) {
     // init interpolation routines
     node().interp_ = std::make_shared<Interpolator>();
-    node().interp_->init(P.rows(), polynomial_degree);
+    node().interp_->init(mom_comp.dim(), polynomial_degree);
     // init cluster tree first
     const IndexType mincsize = min_cluster_size > node().interp_->Xi().cols()
                                    ? min_cluster_size
                                    : node().interp_->Xi().cols();
     internal::ClusterTreeInitializer<ClusterTree>::init(*this, P, mincsize);
 
-    internal::compute_cluster_bases_impl<Interpolator, H2ClusterTree, eigenMatrix>(
-        *this, P);
+    internal::compute_cluster_bases_impl<Interpolator, H2ClusterTree,
+                                         eigenMatrix>(*this, mom_comp);
   }
 };
 
-}  // namespace FMCA
+} // namespace FMCA
 #endif

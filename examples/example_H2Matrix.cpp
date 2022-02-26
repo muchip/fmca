@@ -18,9 +18,10 @@
 
 #include <Eigen/Dense>
 #include <FMCA/H2Matrix>
-#include <FMCA/Samplets>
+//#include <FMCA/Samplets>
 #include <FMCA/src/util/tictoc.hpp>
 
+#include "../FMCA/src/H2Matrix/MomentComputer_Nystrom.h"
 #include "../FMCA/src/util/Errors.h"
 
 struct exponentialKernel {
@@ -30,7 +31,7 @@ struct exponentialKernel {
     return exp(-(x - y).norm());
   }
 };
-using theH2Matrix = FMCA::H2Matrix<FMCA::H2ClusterTree>;
+// using theH2Matrix = FMCA::H2Matrix<FMCA::H2ClusterTree>;
 
 int main(int argc, char *argv[]) {
   const auto function = exponentialKernel();
@@ -46,7 +47,9 @@ int main(int argc, char *argv[]) {
     file << i << "\t";
     const unsigned int npts = std::pow(10, i);
     const Eigen::MatrixXd P = Eigen::MatrixXd::Random(dim, npts);
-    const FMCA::H2ClusterTree H2CT(P, 1, mp_deg);
+    const FMCA::MomentComputer_Nystrom<const Eigen::MatrixXd> mom_comp(P);
+    const FMCA::H2ClusterTree<FMCA::ClusterTree> H2CT(P, mom_comp, 1, mp_deg);
+#if 0
     T.tic();
     const FMCA::NystromMatrixEvaluator<FMCA::H2ClusterTree, exponentialKernel>
         nm_eval(P, function);
@@ -74,7 +77,9 @@ int main(int argc, char *argv[]) {
       file << std::setw(10) << std::setprecision(6) << err << "\n";
     }
     std::cout << std::string(60, '-') << std::endl;
+#endif
   }
   file.close();
+
   return 0;
 }

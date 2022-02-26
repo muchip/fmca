@@ -23,17 +23,15 @@ namespace internal {
  *        moment there is no more elegant solution to avoid the diamond
  *        when inheriting from H2ClusterTreeBase and SampletTreeBase
  **/
-template <typename Interpolator, typename Derived, typename eigenMatrix>
-struct compute_cluster_bases_impl;
+template <typename MomentComputer, typename Derived>
+struct compute_cluster_bases_impl {
+  typedef typename Derived::eigenMatrix eigenMatrix;
 
-template <typename Derived, typename eigenMatrix>
-struct compute_cluster_bases_impl<
-    TensorProductInterpolator<typename Derived::value_type>, Derived,
-    eigenMatrix> {
-  compute_cluster_bases_impl(TreeBase<Derived> &CT, const eigenMatrix &P) {
-    compute(CT, P);
+  compute_cluster_bases_impl(TreeBase<Derived> &CT,
+                             const MomentComputer &mom_comp) {
+    compute(CT, mom_comp);
   }
-  void compute(TreeBase<Derived> &CT, const eigenMatrix &P) {
+  void compute(TreeBase<Derived> &CT, const MomentComputer &mom_comp) {
     Derived &H2T = CT.derived();
     H2T.V().resize(0, 0);
     H2T.Es().clear();
@@ -42,79 +40,14 @@ struct compute_cluster_bases_impl<
       for (auto i = 0; i < H2T.nSons(); ++i) {
         // give also the son access to the interpolation routines ...
         H2T.sons(i).node().interp_ = H2T.node().interp_;
-        compute_cluster_bases_impl(H2T.sons(i), P);
+        compute_cluster_bases_impl(H2T.sons(i), mom_comp);
       }
       // compute transfer matrices
       const eigenMatrix &Xi = H2T.Xi();
       for (auto i = 0; i < H2T.nSons(); ++i) {
         eigenMatrix E(Xi.cols(), Xi.cols());
         for (auto j = 0; j < E.cols(); ++j)
-          E.col(j) = H2T.node().interp_->evalLagrangePolynomials(
-              (Xi.col(j).array() * H2T.sons(i).bb().col(2).array() /
-                   H2T.bb().col(2).array() +
-               (H2T.sons(i).bb().col(0).array() - H2T.bb().col(0).array()) /
-                   H2T.bb().col(2).array())
-                  .matrix());
-        H2T.Es().emplace_back(std::move(E));
-      }
-    } else {
-      // compute leaf bases
-      H2T.V().resize(H2T.Xi().cols(), H2T.indices().size());
-      for (auto i = 0; i < H2T.indices().size(); ++i)
-        H2T.V().col(i) = H2T.node().interp_->evalLagrangePolynomials(
-            ((P.col(H2T.indices()[i]) - H2T.bb().col(0)).array() /
-             H2T.bb().col(2).array())
-                .matrix());
-    }
-#ifdef CHECK_TRANSFER_MATRICES_
-    if (H2T.node().E_.size()) {
-      eigenMatrix V;
-      H2T.node().V_.resize(H2T.node().interp_->Xi().cols(),
-                           H2T.indices().size());
-      for (auto i = 0; i < H2T.indices().size(); ++i)
-        H2T.node().V_.col(i) = H2T.node().interp_->evalLagrangePolynomials(
-            ((P.col(H2T.indices()[i]) - H2T.bb().col(0)).array() /
-             H2T.bb().col(2).array())
-                .matrix());
-
-      for (auto i = 0; i < H2T.nSons(); ++i) {
-        V.conservativeResize(H2T.sons(i).node().V_.rows(),
-                             V.cols() + H2T.sons(i).node().V_.cols());
-        V.rightCols(H2T.sons(i).node().V_.cols()) =
-            H2T.node().E_[i] * H2T.sons(i).node().V_;
-      }
-      FloatType nrm = (V - H2T.node().V_).norm() / H2T.node().V_.norm();
-      eigen_assert(nrm < 1e-14 && "the H2 cluster basis is faulty");
-    }
-#endif
-    return;
-  }
-};
-
-template <typename Derived, typename eigenMatrix>
-struct compute_cluster_bases_impl<
-    TotalDegreeInterpolator<typename Derived::value_type>, Derived,
-    eigenMatrix> {
-  compute_cluster_bases_impl(TreeBase<Derived> &CT, const eigenMatrix &P) {
-    compute(CT, P);
-  }
-  void compute(TreeBase<Derived> &CT, const eigenMatrix &P) {
-    Derived &H2T = CT.derived();
-    H2T.V().resize(0, 0);
-    H2T.Es().clear();
-
-    if (H2T.nSons()) {
-      for (auto i = 0; i < H2T.nSons(); ++i) {
-        // give also the son access to the interpolation routines ...
-        H2T.sons(i).node().interp_ = H2T.node().interp_;
-        compute_cluster_bases_impl(H2T.sons(i), P);
-      }
-      // compute transfer matrices
-      const eigenMatrix &Xi = H2T.Xi();
-      for (auto i = 0; i < H2T.nSons(); ++i) {
-        eigenMatrix E(Xi.cols(), Xi.cols());
-        for (auto j = 0; j < E.cols(); ++j)
-          E.col(j) = H2T.node().interp_->evalLegendrePolynomials(
+          E.col(j) = H2T.node().interp_->evalPolynomials(
               (Xi.col(j).array() * H2T.sons(i).bb().col(2).array() /
                    H2T.bb().col(2).array() +
                (H2T.sons(i).bb().col(0).array() - H2T.bb().col(0).array()) /
@@ -123,42 +56,38 @@ struct compute_cluster_bases_impl<
         E = E * H2T.node().interp_->invV().transpose();
         H2T.Es().emplace_back(std::move(E));
       }
-    } else {
+    } else
       // compute leaf bases
-      H2T.V().resize(H2T.Xi().cols(), H2T.indices().size());
-      for (auto i = 0; i < H2T.indices().size(); ++i)
-        H2T.V().col(i) = H2T.node().interp_->evalLegendrePolynomials(
-            ((P.col(H2T.indices()[i]) - H2T.bb().col(0)).array() /
-             H2T.bb().col(2).array())
-                .matrix());
-    }
-#ifdef CHECK_TRANSFER_MATRICES_
-    if (H2T.node().E_.size()) {
-      eigenMatrix V;
-      H2T.node().V_.resize(H2T.node().interp_->Xi().cols(),
-                           H2T.indices().size());
-      for (auto i = 0; i < H2T.indices().size(); ++i)
-        H2T.node().V_.col(i) = H2T.node().interp_->evalLegendrePolynomials(
-            ((P.col(H2T.indices()[i]) - H2T.bb().col(0)).array() /
-             H2T.bb().col(2).array())
-                .matrix());
+      H2T.V() = mom_comp.moment_matrix(*(H2T.node().interp_), H2T);
 
+    return;
+  }
+  //////////////////////////////////////////////////////////////////////////////
+  int check_transfer_matrices(TreeBase<Derived> &CT,
+                              const MomentComputer &mom_comp) {
+    Derived &H2T = CT.derived();
+
+    if (H2T.nSons()) {
+      // check transfer matrices of sons first
+      for (auto i = 0; i < H2T.nSons(); ++i)
+        check_transfer_matrices(H2T.sons(i), mom_comp);
+      // now check own transfer matrix using sons transfer matrices
+      eigenMatrix V = mom_comp.moment_matrix(*(H2T.node().interp_), H2T);
       for (auto i = 0; i < H2T.nSons(); ++i) {
-        V.conservativeResize(H2T.sons(i).node().V_.rows(),
-                             V.cols() + H2T.sons(i).node().V_.cols());
-        V.rightCols(H2T.sons(i).node().V_.cols()) =
-            H2T.node().E_[i] * H2T.sons(i).node().V_;
+        H2T.V().conservativeResize(H2T.sons(i).V().rows(),
+                                   H2T.V().cols() + H2T.sons(i).V().cols());
+        H2T.V().rightCols(H2T.sons(i).V().cols()) =
+            H2T.Es()[i] * H2T.sons(i).V();
       }
-      FloatType nrm = (V - H2T.node().V_).norm() / H2T.node().V_.norm();
+      FloatType nrm = (V - H2T.V()).norm() / V.norm();
       eigen_assert(nrm < 1e-12 && "the H2 cluster basis is faulty");
     }
-#endif
-    return;
+    return 0;
   }
 };
 
-}  // namespace internal
+} // namespace internal
 
-}  // namespace FMCA
+} // namespace FMCA
 
 #endif
