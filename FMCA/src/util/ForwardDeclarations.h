@@ -30,6 +30,8 @@ struct ClusterTreeInitializer;
 
 class ClusterTree;
 
+class ClusterTreeMesh;
+
 class H2ClusterTree;
 
 class SampletTree;
