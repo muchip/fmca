@@ -13,24 +13,27 @@
 #define FMCA_H2MATRIX_MATRIXVECTORPRODUCTIMPL_H_
 
 template <typename Derived, typename otherDerived>
-typename Derived::eigenMatrix matrix_vector_product_impl(
-    Derived &H2, const Eigen::MatrixBase<otherDerived> &rhs) {
+typename Derived::eigenMatrix
+matrix_vector_product_impl(const Derived &H2,
+                           const Eigen::MatrixBase<otherDerived> &rhs) {
   typedef typename Derived::eigenMatrix eigenMatrix;
   eigenMatrix lhs(rhs.rows(), rhs.cols());
   lhs.setZero();
   std::vector<eigenMatrix> trhs = forward_transform_impl(H2, rhs);
   std::vector<eigenMatrix> tlhs = trhs;
-  for (auto &&it : tlhs) it.setZero();
-  for (auto &it : H2) {
+  for (auto &&it : tlhs)
+    it.setZero();
+  for (auto it = H2.cbegin(); it != H2.cend(); ++it) {
     // there is something to multiply
-    if (!it.sons().size()) {
-      if (it.is_low_rank())
-        tlhs[it.rcluster()->block_id()] +=
-            it.matrixS() * trhs[it.ccluster()->block_id()];
+    if (!it->sons().size()) {
+      if (it->is_low_rank())
+        tlhs[it->rcluster()->block_id()] +=
+            it->matrixS() * trhs[it->ccluster()->block_id()];
       else
-        lhs.middleRows((it.rcluster())->indices_begin(), it.matrixS().rows()) +=
-            it.matrixS() * rhs.middleRows((it.ccluster())->indices_begin(),
-                                          it.matrixS().cols());
+        lhs.middleRows((it->rcluster())->indices_begin(),
+                       it->matrixS().rows()) +=
+            it->matrixS() * rhs.middleRows((it->ccluster())->indices_begin(),
+                                           it->matrixS().cols());
     }
   }
   backward_transform_recursion(*(H2.rcluster()), &lhs, tlhs);

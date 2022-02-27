@@ -69,6 +69,5 @@ struct ClusterTree : public ClusterTreeBase<ClusterTree> {
   }
 };
 
-using ClusterT = ClusterTree;
 } // namespace FMCA
 #endif

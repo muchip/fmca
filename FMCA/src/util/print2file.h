@@ -1,11 +1,22 @@
-#ifndef RRCA_IO_PRINT2DAT_H_
-#define RRCA_IO_PRINT2DAT_H_
+// This file is part of FMCA, the Fast Multiresolution Covariance Analysis
+// package.
+//
+// Copyright (c) 2020, Michael Multerer
+//
+// All rights reserved.
+//
+// This source code is subject to the BSD 3-clause license and without
+// any warranty, see <https://github.com/muchip/FMCA> for further
+// information.
+//
+#ifndef FMCA_UTIL_IO_PRINT2FILE_H_
+#define FMCA_UTIL_IO_PRINT2FILE_H_
 
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <fstream>
 
-namespace RRCA {
+namespace FMCA {
 namespace IO {
 
 /**
@@ -218,6 +229,6 @@ int bin2Mat(const std::string &fileName,
   return 0;
 }
 } // namespace IO
-} // namespace RRCA
+} // namespace FMCA
 
 #endif

@@ -49,6 +49,7 @@ public:
   rowIndex rows() const { return rows_; }
 
   rowIndex size() const { return rows_ * cols_; }
+  const T &front() const { return m_data_.front(); }
   const T &back() const { return m_data_.back(); }
   T &back() { return m_data_.back(); }
   T &front() { return m_data_.front(); }

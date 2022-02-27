@@ -12,6 +12,8 @@
 #ifndef FMCA_MOMENTS_MODULE_
 #define FMCA_MOMENTS_MODULE_
 
+#include <Eigen/Dense>
+
 #include "Interpolators"
 
 #include "src/util/Macros.h"

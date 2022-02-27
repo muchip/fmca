@@ -1,12 +1,24 @@
-#ifndef __TICTOC__
-#define __TICTOC__
+// This file is part of FMCA, the Fast Multiresolution Covariance Analysis
+// package.
+//
+// Copyright (c) 2020, Michael Multerer
+//
+// All rights reserved.
+//
+// This source code is subject to the BSD 3-clause license and without
+// any warranty, see <https://github.com/muchip/FMCA> for further
+// information.
+//
+#ifndef FMCA_UTIL_TICTOC__
+#define FMCA_UTIL_TICTOC__
 
-#include <sys/time.h>
 #include <iostream>
 #include <string>
+#include <sys/time.h>
 
-class tictoc {
- public:
+namespace FMCA {
+class Tictoc {
+public:
   void tic(void) { gettimeofday(&start, NULL); }
   double toc(void) {
     gettimeofday(&stop, NULL);
@@ -22,9 +34,9 @@ class tictoc {
     return dtime;
   }
 
- private:
+private:
   struct timeval start; /* variables for timing */
   struct timeval stop;
 };
-
+} // namespace FMCA
 #endif

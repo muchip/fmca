@@ -118,7 +118,7 @@ public:
   }
 
   template <typename otherDerived>
-  eigenMatrix operator*(const Eigen::MatrixBase<otherDerived> &rhs) {
+  eigenMatrix operator*(const Eigen::MatrixBase<otherDerived> &rhs) const {
     return matrix_vector_product_impl(*this, rhs);
   }
   //////////////////////////////////////////////////////////////////////////////
