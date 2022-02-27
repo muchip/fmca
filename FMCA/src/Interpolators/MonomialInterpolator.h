@@ -9,21 +9,19 @@
 // any warranty, see <https://github.com/muchip/FMCA> for further
 // information.
 //
-#ifndef FMCA_INTERPOLATORS_TOTALDEGREEINTERPOLATOR_H_
-#define FMCA_INTERPOLATORS_TOTALDEGREEINTERPOLATOR_H_
+#ifndef FMCA_INTERPOLATORS_MONOMIALINTERPOLATOR_H_
+#define FMCA_INTERPOLATORS_MONOMIALINTERPOLATOR_H_
 
 namespace FMCA {
 
-template <typename ValueType> class TotalDegreeInterpolator {
+/**
+ *  \brief Multivariate total degree monomial interpolator
+ **/
+template <typename ValueType> class MonomialInterpolator {
 public:
   typedef Eigen::Matrix<ValueType, Eigen::Dynamic, 1> eigenVector;
   typedef Eigen::Matrix<ValueType, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
-  /**
-   *  \brief These are the corresponding weights of the Chebyshev nodes
-   *         for barycentric interpolation. see [1]. Note: The scaling is wrong
-   *         as the nodes are on [0,1]. However, this does not matter as
-   *         the factor cancels.
-   **/
+
   void init(IndexType dim, IndexType deg) {
     dim_ = dim;
     deg_ = deg;
@@ -45,36 +43,14 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
   template <typename Derived>
-  eigenMatrix
-  evalLegendrePolynomials1D(const Eigen::MatrixBase<Derived> &pt) const {
-    eigenMatrix retval(pt.rows(), deg_ + 1);
-    eigenVector P0, P1;
-    P0.resize(pt.rows());
-    P1.resize(pt.rows());
-    P0.setZero();
-    P1.setOnes();
-    retval.col(0) = P1;
-    for (auto i = 1; i <= deg_; ++i) {
-      retval.col(i) = ValueType(2 * i - 1) / ValueType(i) *
-                          (2 * pt.array() - 1) * P1.array() -
-                      ValueType(i - 1) / ValueType(i) * P0.array();
-      P0 = P1;
-      P1 = retval.col(i);
-      // L2-normalize
-      retval.col(i) *= sqrt(2 * i + 1);
-    }
-    return retval;
-  }
-  //////////////////////////////////////////////////////////////////////////////
-  template <typename Derived>
   eigenMatrix evalPolynomials(const Eigen::MatrixBase<Derived> &pt) const {
     eigenVector retval(idcs_.get_MultiIndexSet().size());
-    eigenMatrix p_values = evalLegendrePolynomials1D(pt);
     retval.setOnes();
     IndexType k = 0;
     for (const auto &it : idcs_.get_MultiIndexSet()) {
       for (auto i = 0; i < dim_; ++i)
-        retval(k) *= p_values(i, it[i]);
+        if (it[i])
+          retval(k) *= std::pow(pt(i), it[i]);
       ++k;
     }
     return retval;

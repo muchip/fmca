@@ -16,6 +16,7 @@
 
 #include "src/util/MultiIndexSet.h"
 
+#include "src/Interpolators/LejaPoints.h"
 #include "src/Interpolators/TensorProductInterpolator.h"
 #include "src/Interpolators/TotalDegreeInterpolator.h"
 
