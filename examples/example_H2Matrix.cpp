@@ -44,6 +44,7 @@ int main(int argc, char *argv[]) {
   file.open("output" + std::to_string(dim) + ".txt", std::ios::out);
   file << "i          m           n     fblocks    lrblocks       nz(A)";
   file << "         mem         err\n";
+  std::cout << std::string(60, '-') << std::endl;
   for (auto i = 2; i < 7; ++i) {
     file << i << "\t";
     const unsigned int npts = std::pow(10, i);
