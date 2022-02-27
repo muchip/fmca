@@ -20,11 +20,9 @@ namespace FMCA {
  *         H2ClusterTree, i.e. fields for a ClusterTree plus transfer matrices
  *         and cluster bases
  **/
-template <typename Derived>
-struct H2ClusterTreeNodeDataFields {
+template <typename Derived> struct H2ClusterTreeNodeDataFields {
   std::vector<typename internal::traits<Derived>::eigenMatrix> E_;
   typename internal::traits<Derived>::eigenMatrix V_;
-  std::shared_ptr<typename internal::traits<Derived>::Interpolator> interp_;
 };
 
 template <typename Derived>
@@ -40,7 +38,6 @@ template <typename Derived>
 struct H2ClusterTreeBase : public ClusterTreeBase<Derived> {
   typedef typename internal::traits<Derived>::eigenMatrix eigenMatrix;
   typedef typename internal::traits<Derived>::node_type node_type;
-  typedef typename internal::traits<Derived>::Interpolator Interpolator;
   typedef ClusterTreeBase<Derived> Base;
   // make base class methods visible
   using Base::appendSons;
@@ -56,16 +53,12 @@ struct H2ClusterTreeBase : public ClusterTreeBase<Derived> {
   using Base::nSons;
   using Base::sons;
 
-
   const eigenMatrix &V() const { return node().V_; }
   eigenMatrix &V() { return node().V_; }
 
   const std::vector<eigenMatrix> &Es() const { return node().E_; }
   std::vector<eigenMatrix> &Es() { return node().E_; }
-
-  const eigenMatrix &Xi() const { return node().interp_->Xi(); }
-  //////////////////////////////////////////////////////////////////////////////
 };
 
-}  // namespace FMCA
+} // namespace FMCA
 #endif

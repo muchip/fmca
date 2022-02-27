@@ -20,9 +20,8 @@ namespace FMCA {
  *         H2ClusterTree.
 
  */
-template <typename Derived>
-class H2Matrix {
- public:
+template <typename Derived> class H2Matrix {
+public:
   typedef typename internal::traits<Derived>::value_type value_type;
   typedef typename internal::traits<Derived>::eigenMatrix eigenMatrix;
   enum Admissibility { Refine = 0, LowRank = 1, Dense = 2 };
@@ -47,7 +46,7 @@ class H2Matrix {
   //////////////////////////////////////////////////////////////////////////////
   H2Matrix() : is_low_rank_(false), dad_(nullptr), level_(0) {}
   template <typename EntryGenerator>
-  H2Matrix(const TreeBase<Derived> &CT, const EntryGenerator &e_gen,
+  H2Matrix(const H2ClusterTreeBase<Derived> &CT, const EntryGenerator &e_gen,
            value_type eta = 0.8)
       : is_low_rank_(false), dad_(nullptr), level_(0) {
     init(CT, e_gen, eta);
@@ -55,10 +54,10 @@ class H2Matrix {
   //////////////////////////////////////////////////////////////////////////////
   // init
   //////////////////////////////////////////////////////////////////////////////
-  template <typename EntryGenerator>
-  void init(const TreeBase<Derived> &CT, const EntryGenerator &e_gen,
-            value_type eta = 0.8) {
-    computeH2Matrix(CT.derived(), CT.derived(), e_gen, eta);
+  template <typename MatrixEvaluator>
+  void init(const H2ClusterTreeBase<Derived> &CT,
+            const MatrixEvaluator &mat_eval, value_type eta = 0.8) {
+    computeH2Matrix(CT.derived(), CT.derived(), mat_eval, eta);
     // after setting up the actual H2Matrix, we now also fill the random
     // access iterator, which allows levelwise traversal of the H2Matrix
     // and random access to the nearfield
@@ -162,7 +161,7 @@ class H2Matrix {
       return LowRank;
   }
   //////////////////////////////////////////////////////////////////////////////
- private:
+private:
   //////////////////////////////////////////////////////////////////////////////
   void getStatisticsRecursion(IndexType *low_rank_blocks,
                               IndexType *full_blocks, IndexType *memory) const {
@@ -201,29 +200,25 @@ class H2Matrix {
     return;
   }
 
-  template <typename EntryGenerator>
+  template <typename MatrixEvaluator>
   void computeH2Matrix(const Derived &CT1, const Derived &CT2,
-                       const EntryGenerator &e_gen, value_type eta) {
+                       const MatrixEvaluator &mat_eval, value_type eta) {
     row_cluster_ = &CT1;
     col_cluster_ = &CT2;
     level_ = CT1.level();
     Admissibility adm = compareCluster(CT1, CT2, eta);
     if (adm == LowRank) {
-      const eigenMatrix &Xi = CT1.Xi();
-      S_.resize(Xi.cols(), Xi.cols());
       is_low_rank_ = true;
-      e_gen.interpolate_kernel(CT1, CT2, &S_);
-      S_ = CT1.node().interp_->invV() * S_ *
-           CT1.node().interp_->invV().transpose();
+      mat_eval.interpolate_kernel(CT1, CT2, &S_);
     } else if (adm == Refine) {
       sons_.resize(CT1.nSons(), CT2.nSons());
       for (auto j = 0; j < CT2.nSons(); ++j)
         for (auto i = 0; i < CT1.nSons(); ++i) {
           sons_(i, j).dad_ = this;
-          sons_(i, j).computeH2Matrix(CT1.sons(i), CT2.sons(j), e_gen, eta);
+          sons_(i, j).computeH2Matrix(CT1.sons(i), CT2.sons(j), mat_eval, eta);
         }
     } else {
-      e_gen.compute_dense_block(CT1, CT2, &S_);
+      mat_eval.compute_dense_block(CT1, CT2, &S_);
     }
     return;
   }
@@ -240,5 +235,5 @@ class H2Matrix {
   IndexType nclusters_;
 };
 
-}  // namespace FMCA
+} // namespace FMCA
 #endif

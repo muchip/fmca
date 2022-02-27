@@ -9,8 +9,8 @@
 // any warranty, see <https://github.com/muchip/FMCA> for further
 // information.
 //
-#ifndef FMCA_H2MATRIX_TOTALDEGREEINTERPOLATION_H_
-#define FMCA_H2MATRIX_TOTALDEGREEINTERPOLATION_H_
+#ifndef FMCA_H2MATRIX_TOTALDEGREEINTERPOLATOR_H_
+#define FMCA_H2MATRIX_TOTALDEGREEINTERPOLATOR_H_
 
 namespace FMCA {
 
@@ -33,9 +33,8 @@ const double LejaPoints[50] = {
     0.325638738643865, 0.998719486196507, 0.075661046964471, 0.806873625853102,
     0.440350654950455, 0.001046782061681};
 
-template <typename ValueType>
-class TotalDegreeInterpolator {
- public:
+template <typename ValueType> class TotalDegreeInterpolator {
+public:
   typedef Eigen::Matrix<ValueType, Eigen::Dynamic, 1> eigenVector;
   typedef Eigen::Matrix<ValueType, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
   /**
@@ -54,8 +53,9 @@ class TotalDegreeInterpolator {
     // determine tensor product interpolation points
     IndexType k = 0;
     for (const auto &it : idcs_.get_MultiIndexSet()) {
-      for (auto i = 0; i < it.size(); ++i) TD_xi_(i, k) = LejaPoints[it[i]];
-      V_.row(k) = evalLegendrePolynomials(TD_xi_.col(k)).transpose();
+      for (auto i = 0; i < it.size(); ++i)
+        TD_xi_(i, k) = LejaPoints[it[i]];
+      V_.row(k) = evalPolynomials(TD_xi_.col(k)).transpose();
       ++k;
     }
     invV_ = V_.inverse();
@@ -64,19 +64,21 @@ class TotalDegreeInterpolator {
 
   //////////////////////////////////////////////////////////////////////////////
   template <typename Derived>
-  eigenMatrix evalLegendrePolynomials1D(const Eigen::MatrixBase<Derived> &pt) {
+  eigenMatrix
+  evalLegendrePolynomials1D(const Eigen::MatrixBase<Derived> &pt) const {
     eigenMatrix retval(pt.rows(), deg_ + 1);
-    P0_.resize(pt.rows());
-    P1_.resize(pt.rows());
-    P0_.setZero();
-    P1_.setOnes();
-    retval.col(0) = P1_;
+    eigenVector P0, P1;
+    P0.resize(pt.rows());
+    P1.resize(pt.rows());
+    P0.setZero();
+    P1.setOnes();
+    retval.col(0) = P1;
     for (auto i = 1; i <= deg_; ++i) {
       retval.col(i) = ValueType(2 * i - 1) / ValueType(i) *
-                          (2 * pt.array() - 1) * P1_.array() -
-                      ValueType(i - 1) / ValueType(i) * P0_.array();
-      P0_ = P1_;
-      P1_ = retval.col(i);
+                          (2 * pt.array() - 1) * P1.array() -
+                      ValueType(i - 1) / ValueType(i) * P0.array();
+      P0 = P1;
+      P1 = retval.col(i);
       // L2-normalize
       retval.col(i) *= sqrt(2 * i + 1);
     }
@@ -84,13 +86,14 @@ class TotalDegreeInterpolator {
   }
   //////////////////////////////////////////////////////////////////////////////
   template <typename Derived>
-  eigenMatrix evalLegendrePolynomials(const Eigen::MatrixBase<Derived> &pt) {
+  eigenMatrix evalPolynomials(const Eigen::MatrixBase<Derived> &pt) const {
     eigenVector retval(idcs_.get_MultiIndexSet().size());
     eigenMatrix p_values = evalLegendrePolynomials1D(pt);
     retval.setOnes();
     IndexType k = 0;
     for (const auto &it : idcs_.get_MultiIndexSet()) {
-      for (auto i = 0; i < dim_; ++i) retval(k) *= p_values(i, it[i]);
+      for (auto i = 0; i < dim_; ++i)
+        retval(k) *= p_values(i, it[i]);
       ++k;
     }
     return retval;
@@ -100,15 +103,13 @@ class TotalDegreeInterpolator {
   const eigenMatrix &invV() const { return invV_; }
   const eigenMatrix &V() const { return V_; }
 
- private:
+private:
   MultiIndexSet<TotalDegree> idcs_;
   eigenMatrix TD_xi_;
   eigenMatrix invV_;
   eigenMatrix V_;
-  eigenVector P0_;
-  eigenVector P1_;
   IndexType dim_;
   IndexType deg_;
 };
-}  // namespace FMCA
+} // namespace FMCA
 #endif

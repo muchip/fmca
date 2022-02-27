@@ -9,8 +9,8 @@
 // any warranty, see <https://github.com/muchip/FMCA> for further
 // information.
 //
-#ifndef FMCA_H2MATRIX_TENSORPRODUCTINTERPOLATION_H_
-#define FMCA_H2MATRIX_TENSORPRODUCTINTERPOLATION_H_
+#ifndef FMCA_INTERPOLATORS_TENSORPRODUCTINTERPOLATOR_H_
+#define FMCA_INTERPOLATORS_TENSORPRODUCTINTERPOLATOR_H_
 
 namespace FMCA {
 /**
@@ -28,9 +28,8 @@ namespace FMCA {
 /**
  *  \brief These are the classical Chebyshev nodes rescaled to [0,1]
  **/
-template <typename ValueType>
-class TensorProductInterpolator {
- public:
+template <typename ValueType> class TensorProductInterpolator {
+public:
   typedef Eigen::Matrix<ValueType, Eigen::Dynamic, 1> eigenVector;
   typedef Eigen::Matrix<ValueType, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
   /**
@@ -50,7 +49,8 @@ class TensorProductInterpolator {
     // univariate barycentric weights
     w_ = (weight * (eigenVector::LinSpaced(deg + 1, 0, deg).array() + 0.5))
              .sin();
-    for (auto i = 1; i < w_.size(); i += 2) w_(i) *= -1.;
+    for (auto i = 1; i < w_.size(); i += 2)
+      w_(i) *= -1.;
     idcs_.init(dim, deg);
     TP_xi_.resize(dim, idcs_.get_MultiIndexSet().size());
     // determine tensor product interpolation points
@@ -67,7 +67,7 @@ class TensorProductInterpolator {
 
   //////////////////////////////////////////////////////////////////////////////
   template <typename Derived>
-  eigenVector evalLagrangePolynomials(const Eigen::MatrixBase<Derived> &pt) {
+  eigenVector evalPolynomials(const Eigen::MatrixBase<Derived> &pt) const {
     eigenVector retval(idcs_.get_MultiIndexSet().size());
     eigenVector weight(dim_);
     eigenVector my_pt = pt.col(0);
@@ -84,13 +84,12 @@ class TensorProductInterpolator {
     }
     return retval;
   }
-
   //////////////////////////////////////////////////////////////////////////////
   const eigenMatrix &Xi() const { return TP_xi_; }
   const eigenMatrix &invV() const { return V_; }
   const eigenMatrix &V() const { return V_; }
 
- private:
+private:
   MultiIndexSet<TensorProduct> idcs_;
   eigenMatrix TP_xi_;
   eigenMatrix V_;
@@ -99,5 +98,5 @@ class TensorProductInterpolator {
   IndexType dim_;
   IndexType deg_;
 };
-}  // namespace FMCA
+} // namespace FMCA
 #endif

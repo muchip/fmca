@@ -1,0 +1,22 @@
+// This file is part of FMCA, the Fast Multiresolution Covariance Analysis
+// package.
+//
+// Copyright (c) 2021, Michael Multerer
+//
+// All rights reserved.
+//
+// This source code is subject to the BSD 3-clause license and without
+// any warranty, see <https://github.com/muchip/FMCA> for further
+// information.
+//
+#ifndef FMCA_MOMENTS_MODULE_
+#define FMCA_MOMENTS_MODULE_
+
+#include "Interpolators"
+
+#include "src/util/Macros.h"
+#include "src/util/TreeBase.h"
+
+#include "src/Moments/NystromMoments.h"
+
+#endif

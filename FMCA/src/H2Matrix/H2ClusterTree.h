@@ -18,7 +18,6 @@ namespace internal {
 template <> struct traits<H2ClusterTreeNode> {
   typedef FloatType value_type;
   typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
-  typedef TotalDegreeInterpolator<value_type> Interpolator;
 };
 } // namespace internal
 
@@ -28,7 +27,6 @@ namespace internal {
 template <typename ClusterTreeType>
 struct traits<H2ClusterTree<ClusterTreeType>> : public traits<ClusterTreeType> {
   typedef H2ClusterTreeNode node_type;
-  typedef traits<H2ClusterTreeNode>::Interpolator Interpolator;
 };
 } // namespace internal
 
@@ -49,8 +47,7 @@ public:
   typedef typename internal::traits<H2ClusterTree>::value_type value_type;
   typedef typename internal::traits<H2ClusterTree>::node_type node_type;
   typedef typename internal::traits<H2ClusterTree>::eigenMatrix eigenMatrix;
-  typedef typename internal::traits<H2ClusterTree>::Interpolator Interpolator;
-  typedef H2ClusterTreeBase<H2ClusterTree> Base;
+  typedef H2ClusterTreeBase<H2ClusterTree<ClusterTreeType>> Base;
   // make base class methods visible
   using Base::appendSons;
   using Base::bb;
@@ -65,32 +62,26 @@ public:
   using Base::nSons;
   using Base::sons;
   using Base::V;
-  using Base::Xi;
   //////////////////////////////////////////////////////////////////////////////
   // constructors
   //////////////////////////////////////////////////////////////////////////////
   H2ClusterTree() {}
-  template <typename... Ts, typename MomentComputer>
-  H2ClusterTree(Ts &&...ts, const MomentComputer &mom_comp,
-                IndexType min_cluster_size = 1,
-                IndexType polynomial_degree = 3) {
-    init(std::forward<Ts>(ts)..., min_cluster_size, polynomial_degree);
+  template <typename Moments, typename... Ts>
+  H2ClusterTree(const Moments &mom, IndexType min_cluster_size, Ts &&...ts) {
+    init(mom, min_cluster_size, std::forward<Ts>(ts)...);
   }
   //////////////////////////////////////////////////////////////////////////////
-  template <typename... Ts, typename MomentComputer>
-  void init(Ts &&...ts, const MomentComputer &mom_comp,
-            IndexType min_cluster_size = 1, IndexType polynomial_degree = 3) {
-    // init interpolation routines
-    node().interp_ = std::make_shared<Interpolator>();
-    node().interp_->init(mom_comp.dim(), polynomial_degree);
+  template <typename Moments, typename... Ts>
+  void init(const Moments &mom, IndexType min_cluster_size, Ts &&...ts) {
     // init cluster tree first
-    const IndexType mincsize = min_cluster_size > node().interp_->Xi().cols()
+    const IndexType mincsize = min_cluster_size > mom.interp().Xi().cols()
                                    ? min_cluster_size
-                                   : node().interp_->Xi().cols();
-    internal::ClusterTreeInitializer<ClusterTree>::init(*this, P, mincsize);
-
-    internal::compute_cluster_bases_impl<Interpolator, H2ClusterTree,
-                                         eigenMatrix>(*this, mom_comp);
+                                   : mom.interp().Xi().cols();
+    internal::ClusterTreeInitializer<ClusterTreeType>::init(
+        *this, mincsize, std::forward<Ts>(ts)...);
+    internal::compute_cluster_bases_impl::compute(*this, mom);
+    // internal::compute_cluster_bases_impl::check_transfer_matrices(*this,
+    // mom);
   }
 };
 

@@ -67,8 +67,8 @@ struct ClusterTreeMesh : public ClusterTreeBase<ClusterTreeMesh> {
     for (auto i = 0; i < P.cols(); ++i)
       for (auto j = 0; j < F.cols(); ++j)
         P.col(i) += V.row(F(i, j)).transpose() / F.cols();
-    internal::ClusterTreeInitializer<ClusterTree>::init(*this, P,
-                                                        min_cluster_size);
+    internal::ClusterTreeInitializer<ClusterTree>::init(*this, min_cluster_size,
+                                                        P);
   }
 };
 

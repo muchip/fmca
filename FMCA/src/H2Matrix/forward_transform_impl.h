@@ -18,9 +18,10 @@ namespace FMCA {
  *  \ingroup H2Matrix
  *  \brief implements the forward transform for the matrix times vector product
  */
-template <typename Derived, typename otherDerived>
-void forward_transform_recursion(const H2ClusterTree &CT, Derived *tvec,
-                                 const Eigen::MatrixBase<otherDerived> &vec) {
+template <typename Derived1, typename Derived2, typename Derived3>
+void forward_transform_recursion(const H2ClusterTree<Derived1> &CT,
+                                 Derived2 *tvec,
+                                 const Eigen::MatrixBase<Derived3> &vec) {
   if (CT.nSons()) {
     (*tvec)[CT.block_id()].resize(CT.Es()[0].rows(), vec.cols());
     (*tvec)[CT.block_id()].setZero();
@@ -35,11 +36,12 @@ void forward_transform_recursion(const H2ClusterTree &CT, Derived *tvec,
 }
 
 template <typename Derived, typename otherDerived>
-std::vector<typename Derived::eigenMatrix> forward_transform_impl(
-    const Derived &mat, const Eigen::MatrixBase<otherDerived> &vec) {
+std::vector<typename Derived::eigenMatrix>
+forward_transform_impl(const Derived &mat,
+                       const Eigen::MatrixBase<otherDerived> &vec) {
   std::vector<typename Derived::eigenMatrix> retval(mat.nclusters());
   forward_transform_recursion(*(mat.ccluster()), &retval, vec);
   return retval;
 };
-}  // namespace FMCA
+} // namespace FMCA
 #endif

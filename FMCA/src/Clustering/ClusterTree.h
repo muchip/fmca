@@ -15,24 +15,22 @@
 namespace FMCA {
 
 namespace internal {
-template <>
-struct traits<ClusterTreeNode> {
+template <> struct traits<ClusterTreeNode> {
   typedef FloatType value_type;
   typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
 };
-}  // namespace internal
+} // namespace internal
 
 struct ClusterTreeNode : public ClusterTreeNodeBase<ClusterTreeNode> {};
 
 namespace internal {
-template <>
-struct traits<ClusterTree> {
+template <> struct traits<ClusterTree> {
   typedef FloatType value_type;
   typedef ClusterTreeNode node_type;
   typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
   typedef ClusterSplitter::CardinalityBisection<value_type> Splitter;
 };
-}  // namespace internal
+} // namespace internal
 
 /**
  *  \ingroup Clustering
@@ -66,11 +64,11 @@ struct ClusterTree : public ClusterTreeBase<ClusterTree> {
   // implementation of init
   //////////////////////////////////////////////////////////////////////////////
   void init(const eigenMatrix &P, IndexType min_cluster_size = 1) {
-    internal::ClusterTreeInitializer<ClusterTree>::init(*this, P,
-                                                        min_cluster_size);
+    internal::ClusterTreeInitializer<ClusterTree>::init(*this, min_cluster_size,
+                                                        P);
   }
 };
 
 using ClusterT = ClusterTree;
-}  // namespace FMCA
+} // namespace FMCA
 #endif
