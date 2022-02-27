@@ -9,10 +9,29 @@
 // any warranty, see <https://github.com/muchip/FMCA> for further
 // information.
 //
-#ifndef FMCA_MOMENTS_MONOMIALMOMENTSHIFTER_H_
-#define FMCA_MOMENTS_MONOMIALMOMENTSHIFTER_H_
+#ifndef FMCA_MOMENTS_SAMPLETHELPER_H_
+#define FMCA_MOMENTS_SAMPLETHELPER_H_
 
 namespace FMCA {
+
+namespace SampletHelper {
+
+/**
+ *  \ingroup Moments
+ *  \brief computes the internal polynomial degree for the vanishing moments
+ **/
+inline IndexType internal_q(IndexType q, IndexType dim) {
+  IndexType retval = q;
+  IndexType mq = binomialCoefficient(dim + q, dim);
+  IndexType mq2 = mq;
+
+  while (2 * mq > mq2) {
+    ++retval;
+    mq2 = binomialCoefficient(dim + retval, dim);
+  }
+  return retval;
+}
+
 /**
  *  \ingroup Moments
  *  \brief computes the transformation matrix from the son cluster moments
@@ -21,8 +40,8 @@ namespace FMCA {
  *         procedure
  **/
 template <typename Matrix, typename MultiIndexSet>
-Matrix monomialMomentShifter(Matrix &shift, const MultiIndexSet &idcs,
-                             Matrix &mult_coeffs) {
+inline Matrix monomialMomentShifter(Matrix &shift, const MultiIndexSet &idcs,
+                                    Matrix &mult_coeffs) {
   Matrix retval = mult_coeffs;
   if (shift.norm() < FMCA_ZERO_TOLERANCE)
     return Matrix::Identity(retval.rows(), retval.cols());
@@ -45,5 +64,28 @@ Matrix monomialMomentShifter(Matrix &shift, const MultiIndexSet &idcs,
   }
   return retval;
 }
+
+/**
+ *  \ingroup Moments
+ *  \brief computes a matrix containing all possible multinomial
+ *         combinations for a given multi index set
+ **/
+template <typename Matrix, typename MultiIndexSet>
+inline Matrix multinomialCoefficientMatrix(const MultiIndexSet &idcs) {
+  Matrix retval(idcs.get_MultiIndexSet().size(),
+                idcs.get_MultiIndexSet().size());
+  IndexType i = 0;
+  IndexType j = 0;
+  for (const auto &beta : idcs.get_MultiIndexSet()) {
+    for (const auto &alpha : idcs.get_MultiIndexSet()) {
+      retval(j, i) = multinomialCoefficient(alpha, beta);
+      ++j;
+    }
+    ++i;
+    j = 0;
+  }
+  return retval;
+}
+} // namespace SampletHelpers
 } // namespace FMCA
 #endif
