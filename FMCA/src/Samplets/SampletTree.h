@@ -15,11 +15,12 @@
 namespace FMCA {
 
 namespace internal {
-template <> struct traits<SampletTreeNode> {
+template <>
+struct traits<SampletTreeNode> {
   typedef FloatType value_type;
   typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
 };
-} // namespace internal
+}  // namespace internal
 
 struct SampletTreeNode : public SampletTreeNodeBase<SampletTreeNode> {};
 
@@ -28,7 +29,7 @@ template <typename ClusterTreeType>
 struct traits<SampletTree<ClusterTreeType>> : public traits<ClusterTreeType> {
   typedef SampletTreeNode node_type;
 };
-} // namespace internal
+}  // namespace internal
 
 /**
  *  \ingroup Samplets
@@ -36,7 +37,7 @@ struct traits<SampletTree<ClusterTreeType>> : public traits<ClusterTreeType> {
  */
 template <typename ClusterTreeType>
 struct SampletTree : public SampletTreeBase<SampletTree<ClusterTreeType>> {
-public:
+ public:
   typedef typename internal::traits<SampletTree>::value_type value_type;
   typedef typename internal::traits<SampletTree>::node_type node_type;
   typedef typename internal::traits<SampletTree>::eigenMatrix eigenMatrix;
@@ -75,14 +76,15 @@ public:
                                    ? min_cluster_size
                                    : mom.interp().Xi().cols();
     internal::ClusterTreeInitializer<ClusterTreeType>::init(
-        *this, min_cluster_size, std::forward<Ts>(ts)...);
+        *this, mincsize, std::forward<Ts>(ts)...);
     computeSamplets(mom);
     internal::sampletMapper<SampletTree>(*this);
     return;
   }
 
-private:
-  template <typename Moments> void computeSamplets(const Moments &mom) {
+ private:
+  template <typename Moments>
+  void computeSamplets(const Moments &mom) {
     if (nSons()) {
       IndexType offset = 0;
       for (auto i = 0; i < nSons(); ++i) {
@@ -123,7 +125,7 @@ private:
     return;
   }
 };
-} // namespace FMCA
+}  // namespace FMCA
 #endif
 
 #if 0

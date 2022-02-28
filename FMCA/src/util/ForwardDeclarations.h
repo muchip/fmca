@@ -32,7 +32,7 @@ template <typename ClusterTreeType> class H2ClusterTree;
 
 template <typename ClusterTreeType> class SampletTree;
 
-class H2SampletTree;
+template <typename ClusterTreeType> class H2SampletTree;
 
 struct ClusterTreeNode;
 

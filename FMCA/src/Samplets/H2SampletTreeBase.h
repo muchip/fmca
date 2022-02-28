@@ -12,6 +12,8 @@
 #ifndef FMCA_SAMPLETS_H2SAMPLETTREEBASE_H_
 #define FMCA_SAMPLETS_H2SAMPLETTREEBASE_H_
 
+#include "../H2Matrix/H2ClusterTreeBase.h"
+
 namespace FMCA {
 
 /**
@@ -35,7 +37,6 @@ struct H2SampletTreeBase : public SampletTreeBase<Derived> {
   typedef typename internal::traits<Derived>::eigenMatrix eigenMatrix;
   typedef typename internal::traits<Derived>::node_type node_type;
   typedef typename internal::traits<Derived>::value_type value_type;
-  typedef typename internal::traits<Derived>::Interpolator Interpolator;
   typedef SampletTreeBase<Derived> Base;
   // make base class methods visible
   using Base::appendSons;
@@ -81,10 +82,11 @@ struct H2SampletTreeBase : public SampletTreeBase<Derived> {
     }
     return;
   }
-  void updateMultiscaleClusterBasis() {
+  template <typename Moments>
+  void updateMultiscaleClusterBasis(const Moments &mom) {
     // compute multiscale cluster bases of sons and update own
-    for (auto i = 0; i < nSons(); ++i) sons(i).updateMultiscaleClusterBasis();
-    node().V_ = node().interp_->invV().transpose() * node().V_;
+    for (auto i = 0; i < nSons(); ++i) sons(i).updateMultiscaleClusterBasis(mom);
+    node().V_ = mom.interp().invV().transpose() * node().V_;
     return;
   }
 };
