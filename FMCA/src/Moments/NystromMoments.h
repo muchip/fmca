@@ -25,8 +25,8 @@ public:
   //////////////////////////////////////////////////////////////////////////////
   template <typename otherDerived>
   typename otherDerived::eigenMatrix
-  moment_matrix(ClusterTreeBase<otherDerived> &CT) const {
-    otherDerived &H2T = CT.derived();
+  moment_matrix(const ClusterTreeBase<otherDerived> &CT) const {
+    const otherDerived &H2T = CT.derived();
     typename otherDerived::eigenMatrix retval(interp_.Xi().cols(),
                                               H2T.indices().size());
     for (auto i = 0; i < H2T.indices().size(); ++i)

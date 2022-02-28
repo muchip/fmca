@@ -20,7 +20,7 @@ template <typename Derived> struct symmetric_compressor_impl {
   typedef typename internal::traits<Derived>::eigenMatrix eigenMatrix;
 
   template <typename EntryGenerator>
-  void compress(TreeBase<Derived> &ST, const EntryGenerator &e_gen,
+  void compress(const SampletTreeBase<Derived> &ST, const EntryGenerator &e_gen,
                 value_type eta = 0.8, value_type threshold = 1e-6) {
     eigen_assert(ST.is_root() && "compress needs to be called from root");
     eta_ = eta;
