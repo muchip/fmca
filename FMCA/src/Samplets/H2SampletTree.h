@@ -87,12 +87,12 @@ class H2SampletTree : public H2SampletTreeBase<H2SampletTree<ClusterTreeType>> {
         *this, mincsize, std::forward<Ts>(ts)...);
     // init hierarchical cluster basis
     internal::compute_cluster_bases_impl::compute(*this, mom);
+    //internal::compute_cluster_bases_impl::check_transfer_matrices(*this, mom);
     // init samplet basis
     computeSamplets(smom);
     internal::sampletMapper<H2SampletTree>(*this);
 
     Base::computeMultiscaleClusterBasis();
-    Base::updateMultiscaleClusterBasis(mom);
 
     return;
   }
