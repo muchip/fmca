@@ -30,7 +30,7 @@ class ClusterTreeMesh;
 
 template <typename ClusterTreeType> class H2ClusterTree;
 
-class SampletTree;
+template <typename ClusterTreeType> class SampletTree;
 
 class H2SampletTree;
 

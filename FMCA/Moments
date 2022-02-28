@@ -14,6 +14,7 @@
 
 #include <Eigen/Dense>
 
+#include "Clustering"
 #include "Interpolators"
 
 #include "src/util/Macros.h"
@@ -22,5 +23,6 @@
 
 #include "src/Moments/NystromMoments.h"
 #include "src/Moments/SampletHelper.h"
+#include "src/Moments/NystromSampletMoments.h"
 
 #endif

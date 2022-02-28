@@ -39,15 +39,20 @@ inline IndexType internal_q(IndexType q, IndexType dim) {
  *         interpolation and hence agnostic to the particular moment generation
  *         procedure
  **/
-template <typename Matrix, typename MultiIndexSet>
-inline Matrix monomialMomentShifter(Matrix &shift, const MultiIndexSet &idcs,
-                                    Matrix &mult_coeffs) {
-  Matrix retval = mult_coeffs;
+template <typename Derived, typename MultiIndexSet, typename Derived2>
+inline Eigen::Matrix<typename Derived::Scalar, Eigen::Dynamic, Eigen::Dynamic>
+monomialMomentShifter(const Eigen::MatrixBase<Derived> &shift,
+                      const MultiIndexSet &idcs,
+                      const Eigen::MatrixBase<Derived2> &mult_coeffs) {
+  Eigen::Matrix<typename Derived::Scalar, Eigen::Dynamic, Eigen::Dynamic>
+      retval = mult_coeffs;
   if (shift.norm() < FMCA_ZERO_TOLERANCE)
-    return Matrix::Identity(retval.rows(), retval.cols());
+    return Eigen::Matrix<typename Derived::Scalar, Eigen::Dynamic,
+                         Eigen::Dynamic>::Identity(retval.rows(),
+                                                   retval.cols());
   IndexType i = 0;
   IndexType j = 0;
-  typename Matrix::Scalar weight;
+  typename Derived::Scalar weight;
   for (const auto &it1 : idcs.get_MultiIndexSet()) {
     j = 0;
     for (const auto &it2 : idcs.get_MultiIndexSet()) {
@@ -86,6 +91,6 @@ inline Matrix multinomialCoefficientMatrix(const MultiIndexSet &idcs) {
   }
   return retval;
 }
-} // namespace SampletHelpers
+} // namespace SampletHelper
 } // namespace FMCA
 #endif

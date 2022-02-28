@@ -59,6 +59,7 @@ public:
   const eigenMatrix &Xi() const { return TD_xi_; }
   const eigenMatrix &invV() const { return invV_; }
   const eigenMatrix &V() const { return V_; }
+  const MultiIndexSet<TotalDegree> &idcs() const { return idcs_; }
 
 private:
   MultiIndexSet<TotalDegree> idcs_;

@@ -13,39 +13,43 @@
 #define FMCA_MOMENTS_MOMENTCOMPUTER_NYSTROMSAMPLET_H_
 
 namespace FMCA {
-template <typename Interpolator> class NystromSampletMoments {
+template <typename Interpolator>
+class NystromSampletMoments : public NystromMoments<Interpolator> {
 
 public:
-  typedef typename Interpolator::eigenVector eigenVector;
-  typedef typename Interpolator::eigenMatrix eigenMatrix;
-  NystromMoments(const eigenMatrix &P, IndexType polynomial_degree = 3)
-      : P_(P), polynomial_degree_(polynomial_degree) {
-    interp_.init(P_.rows(), polynomial_degree_);
+  using Base = NystromMoments<Interpolator>;
+  using Base::interp;
+  using Base::moment_matrix;
+  using Base::P;
+  typedef typename Base::eigenVector eigenVector;
+  typedef typename Base::eigenMatrix eigenMatrix;
+
+  NystromSampletMoments(const eigenMatrix &P, IndexType polynomial_degree = 2)
+      : Base(P, SampletHelper::internal_q(polynomial_degree, P.rows())),
+        polynomial_degree_(polynomial_degree) {
+    multinomial_coeffs_ = SampletHelper::multinomialCoefficientMatrix<
+        eigenMatrix, MultiIndexSet<TotalDegree>>(Base::interp().idcs());
+    mq_ = binomialCoefficient(P.rows() + polynomial_degree_, P.rows());
+    mq2_ = binomialCoefficient(P.rows() + Base::polynomial_degree(), P.rows());
   }
   //////////////////////////////////////////////////////////////////////////////
-  template <typename otherDerived>
-  typename otherDerived::eigenMatrix
-  moment_matrix(TreeBase<otherDerived> &CT) const {
-    otherDerived &H2T = CT.derived();
-    typename otherDerived::eigenMatrix retval(interp_.Xi().cols(),
-                                              H2T.indices().size());
-    for (auto i = 0; i < H2T.indices().size(); ++i)
-      retval.col(i) = interp_.evalPolynomials(
-          ((P_.col(H2T.indices()[i]) - H2T.bb().col(0)).array() /
-           H2T.bb().col(2).array())
-              .matrix());
-    return retval;
+  IndexType polynomial_degree() const { return polynomial_degree_; }
+  IndexType mdtilde() const { return mq_; }
+  IndexType mdtilde2() const { return mq2_; }
+  const eigenMatrix &multinomial_coeffs() const { return multinomial_coeffs_; }
+  IndexType internal_polynomial_degree() const {
+    return Base::polynomial_degree();
+  }
+  eigenMatrix shift_matrix(const eigenMatrix &shift) const {
+    return SampletHelper::monomialMomentShifter(shift, Base::interp().idcs(),
+                                                multinomial_coeffs_);
   }
 
-  IndexType polynomial_degree() const { return polynomial_degree_; }
-  const Interpolator &interp() const { return interp_; }
-  const eigenMatrix &P() const { return P_; }
-
 private:
-  const eigenMatrix &P_;
   IndexType polynomial_degree_;
-  Interpolator interp_;
+  IndexType mq_;
+  IndexType mq2_;
+  eigenMatrix multinomial_coeffs_;
 };
-
 } // namespace FMCA
 #endif

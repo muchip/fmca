@@ -64,15 +64,18 @@ public:
   SampletTree() {}
   template <typename Moments, typename... Ts>
   SampletTree(const Moments &mom, IndexType min_cluster_size, Ts &&...ts) {
-    init(mom, min_cluster_size, dtilde, std::forward<Ts>(ts)...);
+    init(mom, min_cluster_size, std::forward<Ts>(ts)...);
   }
   //////////////////////////////////////////////////////////////////////////////
   // init
   //////////////////////////////////////////////////////////////////////////////
   template <typename Moments, typename... Ts>
   void init(const Moments &mom, IndexType min_cluster_size, Ts &&...ts) {
+    const IndexType mincsize = min_cluster_size > mom.interp().Xi().cols()
+                                   ? min_cluster_size
+                                   : mom.interp().Xi().cols();
     internal::ClusterTreeInitializer<ClusterTreeType>::init(
-        *this, mincsize, std::forward<Ts>(ts)...);
+        *this, min_cluster_size, std::forward<Ts>(ts)...);
     computeSamplets(mom);
     internal::sampletMapper<SampletTree>(*this);
     return;
@@ -92,26 +95,25 @@ private:
             offset + sons(i).node().mom_buffer_.cols());
         node().mom_buffer_.block(0, offset, sons(i).node().mom_buffer_.rows(),
                                  sons(i).node().mom_buffer_.cols()) =
-            mom_comp.shift_matrix(shift) * sons(i).node().mom_buffer_;
+            mom.shift_matrix(shift) * sons(i).node().mom_buffer_;
         offset += sons(i).node().mom_buffer_.cols();
         // clear moment buffer of the children
         sons(i).node().mom_buffer_.resize(0, 0);
       }
     } else
       // compute cluster basis of the leaf
-      node().mom_buffer_ = mom_comp.moment_matrix(P, *this);
+      node().mom_buffer_ = mom.moment_matrix(*this);
     // are there samplets?
-    if (mom_comp.mdtilde() < node().mom_buffer_.cols()) {
+    if (mom.mdtilde() < node().mom_buffer_.cols()) {
       Eigen::HouseholderQR<eigenMatrix> qr(node().mom_buffer_.transpose());
       node().Q_ = qr.householderQ();
-      node().nscalfs_ = mom_comp.mdtilde();
+      node().nscalfs_ = mom.mdtilde();
       node().nsamplets_ = node().Q_.cols() - node().nscalfs_;
       // this is the moment for the dad cluster
-      node().mom_buffer_ =
-          qr.matrixQR()
-              .block(0, 0, mom_comp.mdtilde(), mom_comp.mdtilde2())
-              .template triangularView<Eigen::Upper>()
-              .transpose();
+      node().mom_buffer_ = qr.matrixQR()
+                               .block(0, 0, mom.mdtilde(), mom.mdtilde2())
+                               .template triangularView<Eigen::Upper>()
+                               .transpose();
     } else {
       node().Q_ = eigenMatrix::Identity(node().mom_buffer_.cols(),
                                         node().mom_buffer_.cols());
