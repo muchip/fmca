@@ -22,6 +22,7 @@
 #include "src/util/TreeBase.h"
 
 #include "src/Clustering/ClusterTreeInitializer_ClusterTree.h"
+#include "src/Clustering/ClusterTreeInitializer_ClusterTreeMesh.h"
 #include "src/Clustering/ClusterTreeSplitter.h"
 #include "src/Clustering/ClusterTreeBase.h"
 #include "src/Clustering/ClusterTree.h"

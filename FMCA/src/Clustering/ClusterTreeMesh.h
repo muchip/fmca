@@ -15,13 +15,14 @@
 namespace FMCA {
 
 namespace internal {
-template <> struct traits<ClusterTreeMesh> {
+template <>
+struct traits<ClusterTreeMesh> {
   typedef FloatType value_type;
   typedef ClusterTreeNode node_type;
   typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
-  typedef ClusterSplitter::CardinalityBisection<value_type> Splitter;
+  typedef ClusterSplitter::GeometricBisection<value_type> Splitter;
 };
-} // namespace internal
+}  // namespace internal
 
 /**
  *  \ingroup Clustering
@@ -67,10 +68,10 @@ struct ClusterTreeMesh : public ClusterTreeBase<ClusterTreeMesh> {
     for (auto i = 0; i < P.cols(); ++i)
       for (auto j = 0; j < F.cols(); ++j)
         P.col(i) += V.row(F(i, j)).transpose() / F.cols();
-    internal::ClusterTreeInitializer<ClusterTree>::init(*this, min_cluster_size,
-                                                        P);
+    internal::ClusterTreeInitializer<ClusterTreeMesh>::init(
+        *this, min_cluster_size, V, F);
   }
 };
 
-} // namespace FMCA
+}  // namespace FMCA
 #endif
