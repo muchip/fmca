@@ -8,11 +8,8 @@
 // This source code is subject to the BSD 3-clause license and without
 // any warranty, see <https://github.com/muchip/FMCA> for further
 // information.
-//
-#include <fstream>
-#include <iomanip>
+#define FMCA_CLUSTERSET
 #include <iostream>
-#include <string>
 ////////////////////////////////////////////////////////////////////////////////
 #include <FMCA/MatrixEvaluators>
 #include <FMCA/Samplets>
@@ -37,18 +34,12 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
 int main(int argc, char *argv[]) {
   const unsigned int dim = atoi(argv[1]);
-  const unsigned int dtilde = 4;
+  const unsigned int dtilde = 6;
   const auto function = expKernel();
   const double eta = 0.8;
-  const unsigned int mp_deg = 6;
-  const double threshold = 1e-5;
+  const unsigned int mp_deg = 10;
+  const double threshold = 1e-8;
   FMCA::Tictoc T;
-  std::fstream file;
-  file.open("s_output" + std::to_string(dim) + "_" + std::to_string(dtilde) +
-                "_EXPEXP.txt",
-            std::ios::out | std::ios::app);
-  file << "         m           n       nz(A)";
-  file << "         mem         err       time\n";
   for (unsigned int npts : {1e3, 5e3, 1e4, 5e4, 1e5, 5e5, 1e6, 5e6}) {
     // for (unsigned int npts : {5e6}) {
     std::cout << "N:" << npts << " dim:" << dim << " eta:" << eta
@@ -76,13 +67,6 @@ int main(int argc, char *argv[]) {
       double nrm = 0;
       const double tripSize = sizeof(Eigen::Triplet<double>);
       const double nTrips = symComp.pattern_triplets().size();
-      file << std::setw(10) << std::setprecision(6) << npts << "\t";
-      file << std::setw(10) << std::setprecision(6) << npts << "\t";
-      file << std::setw(10) << std::setprecision(6) << std::ceil(nTrips / npts)
-           << "\t";
-      file << std::flush;
-      file << std::setw(10) << std::setprecision(5) << nTrips * tripSize / 1e9
-           << "\t";
       std::cout << "nz(S): " << std::ceil(nTrips / npts) << std::endl;
       std::cout << "memory: " << nTrips * tripSize / 1e9 << "GB\n"
                 << std::flush;
@@ -103,15 +87,12 @@ int main(int argc, char *argv[]) {
         nrm += y1.squaredNorm();
       }
       const double thet = T.toc("matrix vector time: ");
-      std::cout << thet / 100 << std::endl;
+      std::cout << "average matrix vector time " << thet / 100 << "sec."
+                << std::endl;
       err = sqrt(err / nrm);
       std::cout << "compression error: " << err << std::endl << std::flush;
-      file << std::setw(10) << std::setprecision(6) << err << "\t";
-      file << std::setw(10) << std::setprecision(6) << tcomp << "\n";
-      file << std::flush;
     }
     std::cout << std::string(60, '-') << std::endl;
   }
-  file.close();
   return 0;
 }

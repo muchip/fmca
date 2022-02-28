@@ -15,11 +15,9 @@
 namespace FMCA {
 template <typename Interpolator>
 class NystromSampletMoments : public NystromMoments<Interpolator> {
-
-public:
+ public:
   using Base = NystromMoments<Interpolator>;
   using Base::interp;
-  using Base::moment_matrix;
   using Base::P;
   typedef typename Base::eigenVector eigenVector;
   typedef typename Base::eigenMatrix eigenMatrix;
@@ -45,11 +43,22 @@ public:
                                                 multinomial_coeffs_);
   }
 
-private:
+  template <typename otherDerived>
+  typename otherDerived::eigenMatrix moment_matrix(
+      const ClusterTreeBase<otherDerived> &CT) const {
+    typedef typename otherDerived::eigenMatrix eigenMatrix;
+    eigenMatrix mp = 0.5 * (CT.bb().col(0) + CT.bb().col(1));
+    eigenMatrix retval(interp().Xi().cols(), CT.indices().size());
+    for (auto i = 0; i < CT.indices().size(); ++i)
+      retval.col(i) = interp().evalPolynomials(P().col(CT.indices()[i]) - mp);
+    return retval;
+  }
+
+ private:
   IndexType polynomial_degree_;
   IndexType mq_;
   IndexType mq2_;
   eigenMatrix multinomial_coeffs_;
 };
-} // namespace FMCA
+}  // namespace FMCA
 #endif
