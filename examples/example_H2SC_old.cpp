@@ -17,7 +17,10 @@
 #include <FMCA/src/util/Errors.h>
 #include <FMCA/src/util/Tictoc.h>
 
-struct expKernel {
+#include "stash/generateSwissCheese.h"
+#include "stash/generateSwissCheeseExp.h"
+
+struct exponentialKernel {
   template <typename derived, typename otherDerived>
   double operator()(const Eigen::MatrixBase<derived> &x,
                     const Eigen::MatrixBase<otherDerived> &y) const {
@@ -25,28 +28,33 @@ struct expKernel {
   }
 };
 
+using theKernel = exponentialKernel;
+
 using Interpolator = FMCA::TotalDegreeInterpolator<FMCA::FloatType>;
 using SampletInterpolator = FMCA::MonomialInterpolator<FMCA::FloatType>;
 using Moments = FMCA::NystromMoments<Interpolator>;
 using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
-using MatrixEvaluator = FMCA::NystromMatrixEvaluator<Moments, expKernel>;
+using MatrixEvaluator = FMCA::NystromMatrixEvaluator<Moments, theKernel>;
 using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
+
+const double parameters[4][3] = {
+    {2, 1, 1e-2}, {3, 2, 1e-3}, {4, 3, 1e-4}, {6, 4, 1e-5}};
 
 int main(int argc, char *argv[]) {
   const unsigned int dim = atoi(argv[1]);
-  const unsigned int dtilde = 6;
-  const auto function = expKernel();
+  const unsigned int dtilde = atoi(argv[2]);
+  const auto function = theKernel();
   const double eta = 0.8;
-  const unsigned int mp_deg = 10;
-  const double threshold = 1e-8;
+  const unsigned int mp_deg = parameters[dtilde - 1][0];
+  const double threshold = parameters[dtilde - 1][2];
   FMCA::Tictoc T;
-  for (unsigned int npts : {1e3, 5e3, 1e4, 5e4, 1e5, 5e5, 1e6, 5e6}) {
+  for (unsigned int npts : {1e3, 5e3, 1e4, 5e4, 1e5, 5e5}) {
     // for (unsigned int npts : {5e6}) {
     std::cout << "N:" << npts << " dim:" << dim << " eta:" << eta
               << " mpd:" << mp_deg << " dt:" << dtilde
               << " thres: " << threshold << std::endl;
     T.tic();
-    const Eigen::MatrixXd P = Eigen::MatrixXd::Random(dim, npts);
+    const Eigen::MatrixXd P = generateSwissCheeseExp(dim, npts);
     T.toc("geometry generation: ");
     const Moments mom(P, mp_deg);
     const MatrixEvaluator mat_eval(mom, function);
