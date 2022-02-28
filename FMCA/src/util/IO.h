@@ -58,13 +58,15 @@ void plotBoxes(const std::string &fileName,
   myfile << "CELLS " << bb.size() << " " << 9 * bb.size() << "\n";
   for (auto i = 0; i < bb.size(); ++i) {
     myfile << 8;
-    for (auto j = 0; j < 8; ++j) myfile << " " << int(8 * i + j);
+    for (auto j = 0; j < 8; ++j)
+      myfile << " " << int(8 * i + j);
     myfile << "\n";
   }
   myfile << "\n";
 
   myfile << "CELL_TYPES " << bb.size() << "\n";
-  for (auto i = 0; i < bb.size(); ++i) myfile << int(11) << "\n";
+  for (auto i = 0; i < bb.size(); ++i)
+    myfile << int(11) << "\n";
   myfile << "\n";
 
   myfile.close();
@@ -99,13 +101,15 @@ void plotBoxes2D(const std::string &fileName, Bbvec &bb) {
   myfile << "CELLS " << bb.size() << " " << 5 * bb.size() << "\n";
   for (auto i = 0; i < bb.size(); ++i) {
     myfile << 4;
-    for (auto j = 0; j < 4; ++j) myfile << " " << int(4 * i + j);
+    for (auto j = 0; j < 4; ++j)
+      myfile << " " << int(4 * i + j);
     myfile << "\n";
   }
   myfile << "\n";
 
   myfile << "CELL_TYPES " << bb.size() << "\n";
-  for (auto i = 0; i < bb.size(); ++i) myfile << int(8) << "\n";
+  for (auto i = 0; i < bb.size(); ++i)
+    myfile << int(8) << "\n";
   myfile << "\n";
 
   myfile.close();
@@ -156,18 +160,21 @@ void plotBoxes(const std::string &fileName,
   myfile << "CELLS " << bb.size() << " " << 9 * bb.size() << "\n";
   for (auto i = 0; i < bb.size(); ++i) {
     myfile << 8;
-    for (auto j = 0; j < 8; ++j) myfile << " " << int(8 * i + j);
+    for (auto j = 0; j < 8; ++j)
+      myfile << " " << int(8 * i + j);
     myfile << "\n";
   }
   myfile << "\n";
 
   myfile << "CELL_TYPES " << bb.size() << "\n";
-  for (auto i = 0; i < bb.size(); ++i) myfile << int(11) << "\n";
+  for (auto i = 0; i < bb.size(); ++i)
+    myfile << int(11) << "\n";
   myfile << "\n";
   myfile << "CELL_DATA " << cvec.size() << "\n";
   myfile << "SCALARS coefficients FLOAT\n";
   myfile << "LOOKUP_TABLE default\n";
-  for (auto i = 0; i < cvec.size(); ++i) myfile << cvec[i] << "\n";
+  for (auto i = 0; i < cvec.size(); ++i)
+    myfile << cvec[i] << "\n";
   myfile.close();
   return;
 }
@@ -195,13 +202,15 @@ void plotPoints(const std::string &fileName,
   myfile << "CELLS " << P.cols() << " " << (nvertices + 1) * P.cols() << "\n";
   for (auto i = 0; i < P.cols(); ++i) {
     myfile << int(nvertices);
-    for (auto j = 0; j < nvertices; ++j) myfile << " " << int(i);
+    for (auto j = 0; j < nvertices; ++j)
+      myfile << " " << int(i);
     myfile << "\n";
   }
   myfile << "\n";
 
   myfile << "CELL_TYPES " << P.cols() << "\n";
-  for (auto i = 0; i < P.cols(); ++i) myfile << int(1) << "\n";
+  for (auto i = 0; i < P.cols(); ++i)
+    myfile << int(1) << "\n";
   myfile << "\n";
   myfile.close();
   return;
@@ -232,20 +241,23 @@ void plotPoints(const std::string &fileName, const ClusterTree &CT,
   myfile << "CELLS " << P.cols() << " " << (nvertices + 1) * P.cols() << "\n";
   for (auto i = 0; i < P.cols(); ++i) {
     myfile << int(nvertices);
-    for (auto j = 0; j < nvertices; ++j) myfile << " " << int(i);
+    for (auto j = 0; j < nvertices; ++j)
+      myfile << " " << int(i);
     myfile << "\n";
   }
   myfile << "\n";
 
   myfile << "CELL_TYPES " << P.cols() << "\n";
-  for (auto i = 0; i < P.cols(); ++i) myfile << int(1) << "\n";
+  for (auto i = 0; i < P.cols(); ++i)
+    myfile << int(1) << "\n";
   myfile << "\n";
 
   /* print z-values of the geometry and solved density for visualization */
   myfile << "POINT_DATA " << fdat.size() << "\n";
   myfile << "SCALARS f_values FLOAT\n";
   myfile << "LOOKUP_TABLE default\n";
-  for (auto i = 0; i < fdat.size(); ++i) myfile << fdat(i) << "\n";
+  for (auto i = 0; i < fdat.size(); ++i)
+    myfile << fdat(i) << "\n";
   myfile.close();
 
   return;
@@ -256,8 +268,8 @@ void plotPoints(const std::string &fileName, const ClusterTree &CT,
  **/
 template <typename Derived, typename otherDerived>
 void plotPointsColor(const std::string &fileName,
-                const Eigen::MatrixBase<Derived> &P,
-                const Eigen::MatrixBase<otherDerived> &fdat) {
+                     const Eigen::MatrixBase<Derived> &P,
+                     const Eigen::MatrixBase<otherDerived> &fdat) {
   std::ofstream myfile;
   myfile.open(fileName);
   myfile << "# vtk DataFile Version 3.1\n";
@@ -276,20 +288,23 @@ void plotPointsColor(const std::string &fileName,
   myfile << "CELLS " << P.cols() << " " << (nvertices + 1) * P.cols() << "\n";
   for (auto i = 0; i < P.cols(); ++i) {
     myfile << int(nvertices);
-    for (auto j = 0; j < nvertices; ++j) myfile << " " << int(i);
+    for (auto j = 0; j < nvertices; ++j)
+      myfile << " " << int(i);
     myfile << "\n";
   }
   myfile << "\n";
 
   myfile << "CELL_TYPES " << P.cols() << "\n";
-  for (auto i = 0; i < P.cols(); ++i) myfile << int(1) << "\n";
+  for (auto i = 0; i < P.cols(); ++i)
+    myfile << int(1) << "\n";
   myfile << "\n";
 
   /* print z-values of the geometry and solved density for visualization */
   myfile << "POINT_DATA " << fdat.size() << "\n";
   myfile << "SCALARS f_values FLOAT\n";
   myfile << "LOOKUP_TABLE default\n";
-  for (auto i = 0; i < fdat.size(); ++i) myfile << fdat(i) << "\n";
+  for (auto i = 0; i < fdat.size(); ++i)
+    myfile << fdat(i) << "\n";
   myfile.close();
 
   return;
@@ -298,10 +313,11 @@ void plotPointsColor(const std::string &fileName,
 /**
  *  \brief exports a list of points in vtk
  **/
-template <typename Derived, typename otherDerived>
+template <typename Derived1, typename Derived2, typename Derived3>
 void plotTriMeshColor(const std::string &fileName,
-                const Eigen::MatrixBase<Derived> &P, const Eigen::MatrixXi &F,
-                const Eigen::MatrixBase<otherDerived> &fdat) {
+                      const Eigen::MatrixBase<Derived1> &P,
+                      const Eigen::MatrixBase<Derived2> &F,
+                      const Eigen::MatrixBase<Derived3> &fdat) {
   std::ofstream myfile;
   myfile.open(fileName);
   myfile << "# vtk DataFile Version 3.1\n";
@@ -320,24 +336,27 @@ void plotTriMeshColor(const std::string &fileName,
   myfile << "CELLS " << F.rows() << " " << (nvertices + 1) * F.rows() << "\n";
   for (auto i = 0; i < F.rows(); ++i) {
     myfile << int(nvertices);
-    for (auto j = 0; j < nvertices; ++j) myfile << " " << int(F(i,j));
+    for (auto j = 0; j < nvertices; ++j)
+      myfile << " " << int(F(i, j));
     myfile << "\n";
   }
   myfile << "\n";
 
   myfile << "CELL_TYPES " << F.rows() << "\n";
-  for (auto i = 0; i < F.rows(); ++i) myfile << int(5) << "\n";
+  for (auto i = 0; i < F.rows(); ++i)
+    myfile << int(5) << "\n";
   myfile << "\n";
 
   /* print z-values of the geometry and solved density for visualization */
   myfile << "POINT_DATA " << fdat.size() << "\n";
   myfile << "SCALARS f_values FLOAT\n";
   myfile << "LOOKUP_TABLE default\n";
-  for (auto i = 0; i < fdat.size(); ++i) myfile << fdat(i) << "\n";
+  for (auto i = 0; i < fdat.size(); ++i)
+    myfile << fdat(i) << "\n";
   myfile.close();
 
   return;
 }
-}  // namespace IO
-}  // namespace FMCA
+} // namespace IO
+} // namespace FMCA
 #endif

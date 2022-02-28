@@ -20,8 +20,11 @@
 #include "src/util/Macros.h"
 #include "src/util/TreeBase.h"
 #include "src/util/BinomialCoefficient.h"
+#include "src/BEM/NumericalQuadrature.h"
+
 
 #include "src/Moments/NystromMoments.h"
+#include "src/Moments/GalerkinMoments.h"
 #include "src/Moments/SampletHelper.h"
 #include "src/Moments/NystromSampletMoments.h"
 

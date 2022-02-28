@@ -16,36 +16,33 @@
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <FMCA/Clustering>
-#include <FMCA/MatrixEvaluators>
 #include <FMCA/H2Matrix>
+#include <FMCA/MatrixEvaluators>
 #include <algorithm>
 #include <iostream>
 #include <random>
 ////////////////////////////////////////////////////////////////////////////////
-#include <FMCA/src/BEM/NumericalQuadrature.h>
+#include <FMCA/Moments>
 #include <FMCA/src/util/Errors.h>
 #include <FMCA/src/util/IO.h>
 #include <FMCA/src/util/Tictoc.h>
 ////////////////////////////////////////////////////////////////////////////////
 using Interpolator = FMCA::TotalDegreeInterpolator<FMCA::FloatType>;
-using Moments = FMCA::NystromMoments<Interpolator>;
+using Moments = FMCA::GalerkinMoments<Interpolator>;
 using H2ClusterTree = FMCA::H2ClusterTree<FMCA::ClusterTreeMesh>;
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
   Eigen::MatrixXd V;
   Eigen::MatrixXi F;
-  FMCA::Quad::Quadrature<FMCA::Quad::Trapezoidal> Rq;
-  std::cout << Rq.w.transpose() << std::endl;
-  std::cout << Rq.w.sum() << std::endl;
-  std::cout << Rq.xi << std::endl;
   // read mesh
   igl::readOBJ("bunny.obj", V, F);
   FMCA::ClusterTreeMesh CT(V, F, 10);
-
+  Moments gal_mom(V, F, 3);
   for (auto level = 0; level < 16; ++level) {
     std::vector<Eigen::MatrixXd> bbvec;
     for (auto &node : CT) {
-      if (node.level() == level) bbvec.push_back(node.derived().bb());
+      if (node.level() == level)
+        bbvec.push_back(node.derived().bb());
     }
     FMCA::IO::plotBoxes("boxes" + std::to_string(level) + ".vtk", bbvec);
   }
