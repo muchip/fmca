@@ -17,7 +17,7 @@ template <typename Interpolator> class GalerkinMoments {
 public:
   typedef typename Interpolator::eigenVector eigenVector;
   typedef typename Interpolator::eigenMatrix eigenMatrix;
-  GalerkinMoments(const eigenMatrix &V, const eigenMatrix &F,
+  GalerkinMoments(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F,
                   IndexType polynomial_degree = 3)
       : V_(V), F_(F), polynomial_degree_(polynomial_degree) {
     interp_.init(V_.cols(), polynomial_degree_);
@@ -54,8 +54,8 @@ public:
   const eigenMatrix &F() const { return F_; }
 
 private:
-  const eigenMatrix &V_;
-  const eigenMatrix &F_;
+  const Eigen::MatrixXd &V_;
+  const Eigen::MatrixXi &F_;
   const Quad::Quadrature<Quad::Radon> Rq_;
   IndexType polynomial_degree_;
   Interpolator interp_;
