@@ -15,5 +15,6 @@
 #include "Moments"
 
 #include "src/MatrixEvaluators/NystromMatrixEvaluator.h"
+#include "src/MatrixEvaluators/GalerkinMatrixEvaluator.h"
 
 #endif

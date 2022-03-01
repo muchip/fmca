@@ -24,20 +24,26 @@
 ////////////////////////////////////////////////////////////////////////////////
 #include <FMCA/Moments>
 #include <FMCA/src/util/Errors.h>
+#include <FMCA/src/util/print2file.h>
 #include <FMCA/src/util/IO.h>
 #include <FMCA/src/util/Tictoc.h>
 ////////////////////////////////////////////////////////////////////////////////
 using Interpolator = FMCA::TotalDegreeInterpolator<FMCA::FloatType>;
 using Moments = FMCA::GalerkinMoments<Interpolator>;
 using H2ClusterTree = FMCA::H2ClusterTree<FMCA::ClusterTreeMesh>;
+using MatrixEvaluator = FMCA::GalerkinMatrixEvaluatorSL<Moments>;
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
   Eigen::MatrixXd V;
   Eigen::MatrixXi F;
   // read mesh
-  igl::readOBJ("bunny.obj", V, F);
+  igl::readOBJ("sphere2.obj", V, F);
   FMCA::ClusterTreeMesh CT(V, F, 10);
   Moments gal_mom(V, F, 3);
+  MatrixEvaluator mat_eval(gal_mom);
+  Eigen::MatrixXd S;
+  mat_eval.compute_dense_block(CT, CT, &S);
+  FMCA::IO::print2m("SL.m", "S", S, "w");
   for (auto level = 0; level < 16; ++level) {
     std::vector<Eigen::MatrixXd> bbvec;
     for (auto &node : CT) {
@@ -46,7 +52,6 @@ int main(int argc, char *argv[]) {
     }
     FMCA::IO::plotBoxes("boxes" + std::to_string(level) + ".vtk", bbvec);
   }
-
   std::vector<int> map(CT.indices().size());
   std::iota(map.begin(), map.end(), 0);
   std::shuffle(map.begin(), map.end(), std::default_random_engine(0));

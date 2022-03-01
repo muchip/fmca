@@ -50,8 +50,8 @@ public:
 
   IndexType polynomial_degree() const { return polynomial_degree_; }
   const Interpolator &interp() const { return interp_; }
-  const eigenMatrix &V() const { return V_; }
-  const eigenMatrix &F() const { return F_; }
+  const Eigen::MatrixXd &V() const { return V_; }
+  const Eigen::MatrixXi &F() const { return F_; }
 
 private:
   const Eigen::MatrixXd &V_;
