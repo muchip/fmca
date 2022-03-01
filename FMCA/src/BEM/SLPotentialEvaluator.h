@@ -14,12 +14,10 @@
 
 namespace FMCA {
 
-template <typename Moments>
-struct SLPotentialEvaluator {
+template <typename Moments> struct SLPotentialEvaluator {
   typedef typename Moments::eigenVector eigenVector;
   typedef typename Moments::eigenMatrix eigenMatrix;
-  typedef typename eigenMatrix::Scalar value_type;
-  const value_type cnst = 0.25 / FMCA_PI;
+  const double cnst = 0.25 / FMCA_PI;
   SLPotentialEvaluator(const Moments &mom) : mom_(mom) {}
 
   template <typename Derived1, typename Derived2, typename Derived3>
@@ -32,14 +30,18 @@ struct SLPotentialEvaluator {
       for (auto j = 0; j < TR.indices().size(); ++j) {
         // set up element
         const TriangularPanel &el = mom_.elements()[TR.indices()[j]];
+#if 0
+        double r = (P.col(i) - el.mp_).norm();
+        pot(i) += cnst * 0.5 * rho(j) / r / sqrt(0.5 * el.volel_) * el.volel_;
+
+#endif
         // perform quadrature
         for (auto k = 0; k < Rq_.xi.cols(); ++k) {
           const Eigen::Vector3d qp =
               el.affmap_.col(0) + el.affmap_.rightCols(2) * Rq_.xi.col(k);
-          value_type r = (P.col(i) - qp).norm();
-          pot(i) += Rq_.w(k) * rho(j) / r;
+          double r = (P.col(i) - qp).norm();
+          pot(i) += Rq_.w(k) * rho(j) / r * cnst * sqrt(2 * el.volel_);
         }
-        pot(i) *= cnst * el.volel_;
       }
     return pot;
   }
@@ -48,5 +50,5 @@ struct SLPotentialEvaluator {
   const Quad::Quadrature<Quad::Radon> Rq_;
 };
 
-}  // namespace FMCA
+} // namespace FMCA
 #endif

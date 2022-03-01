@@ -15,7 +15,12 @@
 #include <igl/readOBJ.h>
 ////////////////////////////////////////////////////////////////////////////////
 #include <Eigen/Dense>
+#include <Eigen/MetisSupport>
 #include <Eigen/Sparse>
+#include <Eigen/SparseCholesky>
+using EigenCholesky =
+    Eigen::SimplicialLLT<Eigen::SparseMatrix<double>, Eigen::Upper,
+                         Eigen::MetisOrdering<int>>;
 #include <FMCA/Clustering>
 #include <FMCA/H2Matrix>
 #include <FMCA/MatrixEvaluators>
@@ -30,6 +35,7 @@
 
 #include <FMCA/BEM>
 #include <FMCA/Moments>
+#include <FMCA/Samplets>
 
 struct harmonicfun {
   template <typename Derived>
@@ -39,53 +45,72 @@ struct harmonicfun {
 };
 ////////////////////////////////////////////////////////////////////////////////
 using Interpolator = FMCA::TotalDegreeInterpolator<FMCA::FloatType>;
+using SampletInterpolator = FMCA::MonomialInterpolator<FMCA::FloatType>;
 using Moments = FMCA::GalerkinMoments<Interpolator>;
-using H2ClusterTree = FMCA::H2ClusterTree<FMCA::ClusterTreeMesh>;
+using SampletMoments = FMCA::GalerkinSampletMoments<SampletInterpolator>;
 using MatrixEvaluator = FMCA::GalerkinMatrixEvaluatorSL<Moments>;
+using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTreeMesh>;
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
   const unsigned int level = atoi(argv[1]);
   const std::string fname = "sphere" + std::to_string(level) + ".obj";
   const auto fun = harmonicfun();
+  const unsigned int dtilde = 3;
+  const double eta = 0.8;
+  const unsigned int mp_deg = 4;
+  const double threshold = 1e-4;
   FMCA::Tictoc T;
   Eigen::MatrixXd V;
   Eigen::MatrixXi F;
   std::cout << std::string(60, '-') << std::endl;
-  std::cout << fname << std::endl;
-  // read mesh
+  std::cout << "mesh file: " << fname << std::endl;
   igl::readOBJ("sphere" + std::to_string(level) + ".obj", V, F);
-  FMCA::ClusterTreeMesh CT(V, F, 10);
-  Moments gal_mom(V, F, 3);
-  FMCA::GalerkinRHSEvaluator<Moments> rhs_eval(gal_mom);
-  FMCA::SLPotentialEvaluator<Moments> pot_eval(gal_mom);
-  MatrixEvaluator mat_eval(gal_mom);
-  Eigen::MatrixXd S;
+  std::cout << "number of elements: " << F.rows() << std::endl;
+  const Moments mom(V, F, mp_deg);
+  const MatrixEvaluator mat_eval(mom);
+  const SampletMoments samp_mom(V, F, dtilde - 1);
   T.tic();
-  mat_eval.compute_dense_block(CT, CT, &S);
-  T.toc("matrix assembly: ");
-  rhs_eval.compute_rhs(CT, fun);
+  const H2SampletTree hst(mom, samp_mom, 0, V, F);
+  T.toc("tree setup: ");
+  std::cout << std::flush;
+  FMCA::symmetric_compressor_impl<H2SampletTree> symComp;
+  T.tic();
+  symComp.compress(hst, mat_eval, eta, threshold);
+  T.toc("symmetric compressor: ");
+  std::cout << std::flush;
+  FMCA::GalerkinRHSEvaluator<Moments> rhs_eval(mom);
+  FMCA::SLPotentialEvaluator<Moments> pot_eval(mom);
+  rhs_eval.compute_rhs(hst, fun);
+  Eigen::VectorXd srhs = hst.sampletTransform(rhs_eval.rhs_);
 
-  Eigen::VectorXd rho = S.lu().solve(rhs_eval.rhs_);
-  std::cout << "coeff rho: " << (S * rho - rhs_eval.rhs_).norm() << std::endl;
+  Eigen::SparseMatrix<double> S(F.rows(), F.rows());
+  const auto &trips = symComp.pattern_triplets();
+  S.setFromTriplets(trips.begin(), trips.end());
+  EigenCholesky solver;
+  T.tic();
+  solver.compute(S);
+  T.toc("time factorization: ");
+  std::cout << "sinfo: " << solver.info() << std::endl;
+  Eigen::VectorXd srho = solver.solve(srhs);
+  Eigen::VectorXd rho = hst.inverseSampletTransform(srho);
+
   std::cout << "norm rho: " << rho.norm() << " " << rho.sum() << std::endl;
   Eigen::MatrixXd pot_pts = Eigen::MatrixXd::Random(V.cols(), 100) * 0.25;
-  Eigen::VectorXd pot = pot_eval.compute(CT, rho, pot_pts);
+  Eigen::VectorXd pot = pot_eval.compute(hst, rho, pot_pts);
   Eigen::VectorXd exact_vals = pot;
   for (auto i = 0; i < exact_vals.size(); ++i)
     exact_vals(i) = fun(pot_pts.col(i));
-  std::cout << "error: " << (pot - exact_vals).norm() << std::endl;
+  std::cout << "error: " << (pot - exact_vals).cwiseAbs().maxCoeff() << std::endl;
 
   Eigen::VectorXd colrs(V.rows());
   for (auto i = 0; i < V.rows(); ++i)
     colrs(i) = fun(V.row(i));
-  Eigen::VectorXd srho(rho.size());
-  for (auto i = 0; i < srho.size(); ++i)
-    srho(CT.indices()[i]) =
-        rho(i) / sqrt(0.5 * gal_mom.elements()[CT.indices()[i]].volel_)
-
-        ;
+  Eigen::VectorXd srho2(rho.size());
+  for (auto i = 0; i < srho2.size(); ++i)
+    srho2(hst.indices()[i]) =
+        rho(i) / sqrt(0.5 * mom.elements()[hst.indices()[i]].volel_);
   FMCA::IO::plotTriMeshColor("rhs.vtk", V.transpose(), F, colrs);
-  FMCA::IO::plotTriMeshColor2("result.vtk", V.transpose(), F, srho);
+  FMCA::IO::plotTriMeshColor2("result.vtk", V.transpose(), F, srho2);
   std::cout << std::string(60, '-') << std::endl;
   return 0;
 }

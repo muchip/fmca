@@ -14,8 +14,7 @@
 
 namespace FMCA {
 
-template <typename Moments>
-struct GalerkinRHSEvaluator {
+template <typename Moments> struct GalerkinRHSEvaluator {
   typedef typename Moments::eigenVector eigenVector;
   typedef typename Moments::eigenMatrix eigenMatrix;
   typedef typename eigenMatrix::Scalar value_type;
@@ -35,7 +34,7 @@ struct GalerkinRHSEvaluator {
             el.affmap_.col(0) + el.affmap_.rightCols(2) * Rq_.xi.col(k);
         rhs_(i) += Rq_.w(k) * fun(qp);
       }
-      rhs_(i) *= el.volel_;
+      rhs_(i) *= sqrt(2 * el.volel_);
     }
     return;
   }
@@ -45,5 +44,5 @@ struct GalerkinRHSEvaluator {
   eigenVector rhs_;
 };
 
-}  // namespace FMCA
+} // namespace FMCA
 #endif

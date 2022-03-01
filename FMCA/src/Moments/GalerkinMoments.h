@@ -93,7 +93,7 @@ class GalerkinMoments {
                                                 H2T.bb().col(2).array())
                                                    .matrix());
       }
-      retval.col(i) *= sqrt(el.volel_);
+      retval.col(i) *= sqrt(2 * el.volel_);
     }
     return retval;
   }

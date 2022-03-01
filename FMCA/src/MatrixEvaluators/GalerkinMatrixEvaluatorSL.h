@@ -21,8 +21,7 @@ namespace FMCA {
  *         a given Nystrom matrix that is fully described by these
  *         two routines.
  **/
-template <typename Moments>
-struct GalerkinMatrixEvaluatorSL {
+template <typename Moments> struct GalerkinMatrixEvaluatorSL {
   typedef typename Moments::eigenVector eigenVector;
   typedef typename Moments::eigenMatrix eigenMatrix;
   typedef typename eigenMatrix::Scalar value_type;
@@ -69,31 +68,22 @@ struct GalerkinMatrixEvaluatorSL {
         // set up second element
         const TriangularPanel &el2 = mom_.elements()[TR.indices()[i]];
         // if two elements are not identical, we use a midpoint rule for
-        // integration (we use a quasi L2 normalization by the sqrt of the
+        // integration (we use an L2 normalization by the sqrt of the
         // volume element)
-        if (is_admissible(el1, el2)) {
+        if (TC.indices()[j] != TR.indices()[i]) {
           value_type r = (el1.mp_ - el2.mp_).norm();
-          (*retval)(i, j) = 0.25 * el1.volel_ * el2.volel_ * cnst / r;
-
-          double val = 0;
-          for (auto k = 0; k < Rq_.xi.cols(); ++k) {
-            const Eigen::Vector3d qp =
-                el2.affmap_.col(0) + el2.affmap_.rightCols(2) * Rq_.xi.col(k);
-            val += Rq_.w(k) * analyticIntS(el1, qp);
-          }
-          val *= cnst * el2.volel_;
-          std::cout << abs((*retval)(i, j) - val) / val << std::endl;
-
+          (*retval)(i, j) =
+              0.5 * sqrt(el1.volel_) * sqrt(el2.volel_) * cnst / r;
         } else {
           // if the elements are identical, we use the semi-analytic rule
           // from Steinbach and Rjasanow
           (*retval)(i, j) = 0;
-          for (auto k = 0; k < Rq_.xi.cols(); ++k) {
+          for (auto k = 0; k < Mq_.xi.cols(); ++k) {
             const Eigen::Vector3d qp =
-                el2.affmap_.col(0) + el2.affmap_.rightCols(2) * Rq_.xi.col(k);
-            (*retval)(i, j) += Rq_.w(k) * analyticIntS(el1, qp);
+                el2.affmap_.col(0) + el2.affmap_.rightCols(2) * Mq_.xi.col(k);
+            (*retval)(i, j) += Mq_.w(k) * analyticIntS(el1, qp);
           }
-          (*retval)(i, j) *= cnst * el2.volel_;
+          (*retval)(i, j) *= 2 * cnst * sqrt(el2.volel_) / sqrt(el1.volel_);
         }
       }
     }
@@ -104,5 +94,26 @@ struct GalerkinMatrixEvaluatorSL {
   const Quad::Quadrature<Quad::Radon> Rq_;
 };
 
-}  // namespace FMCA
+} // namespace FMCA
 #endif
+
+          //////////////////////////////////////////////////////////////////////
+#if 0
+          double val = 0;
+          double val2 = 0;
+          for (auto k = 0; k < Rq_.xi.cols(); ++k) {
+            const Eigen::Vector3d qp =
+                el2.affmap_.col(0) + el2.affmap_.rightCols(2) * Rq_.xi.col(k);
+            val += Rq_.w(k) * analyticIntS(el1, qp);
+            for (auto l = 0; l < Rq_.xi.cols(); ++l) {
+              const Eigen::Vector3d qp2 =
+                  el1.affmap_.col(0) + el1.affmap_.rightCols(2) * Rq_.xi.col(k);
+              val2 += Rq_.w(k) * Rq_.w(l) / (qp - qp2).norm();
+            }
+          }
+          val2 *= 2 * cnst * sqrt(el1.volel_) * sqrt(el2.volel_);
+          val *= 2 * cnst * sqrt(el2.volel_) / sqrt(el1.volel_);
+          max_err = (max_err < abs(val2 - val) / val) ? abs(val2 - val) / val
+                                                      : max_err;
+#endif
+          //////////////////////////////////////////////////////////////////////
