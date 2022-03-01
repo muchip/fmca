@@ -357,6 +357,55 @@ void plotTriMeshColor(const std::string &fileName,
 
   return;
 }
+
+/**
+ *  \brief exports a list of points in vtk
+ **/
+template <typename Derived1, typename Derived2, typename Derived3>
+void plotTriMeshColor2(const std::string &fileName,
+                      const Eigen::MatrixBase<Derived1> &P,
+                      const Eigen::MatrixBase<Derived2> &F,
+                      const Eigen::MatrixBase<Derived3> &fdat) {
+  std::ofstream myfile;
+  myfile.open(fileName);
+  myfile << "# vtk DataFile Version 3.1\n";
+  myfile << "this file hopefully represents my surface now\n";
+  myfile << "ASCII\n";
+  myfile << "DATASET UNSTRUCTURED_GRID\n";
+  // print point list
+  myfile << "POINTS " << P.cols() << " FLOAT\n";
+  for (auto i = 0; i < P.cols(); ++i)
+    myfile << float(P(0, i)) << " " << float(P(1, i)) << " " << float(P(2, i))
+           << "\n";
+  myfile << "\n";
+
+  // print element list
+  auto nvertices = 3;
+  myfile << "CELLS " << F.rows() << " " << (nvertices + 1) * F.rows() << "\n";
+  for (auto i = 0; i < F.rows(); ++i) {
+    myfile << int(nvertices);
+    for (auto j = 0; j < nvertices; ++j)
+      myfile << " " << int(F(i, j));
+    myfile << "\n";
+  }
+  myfile << "\n";
+
+  myfile << "CELL_TYPES " << F.rows() << "\n";
+  for (auto i = 0; i < F.rows(); ++i)
+    myfile << int(5) << "\n";
+  myfile << "\n";
+
+  /* print z-values of the geometry and solved density for visualization */
+  myfile << "CELL_DATA " << fdat.size() << "\n";
+  myfile << "SCALARS rho FLOAT\n";
+  myfile << "LOOKUP_TABLE default\n";
+  for (auto i = 0; i < fdat.size(); ++i)
+    myfile << fdat(i) << "\n";
+  myfile.close();
+
+  return;
+}
+
 } // namespace IO
 } // namespace FMCA
 #endif

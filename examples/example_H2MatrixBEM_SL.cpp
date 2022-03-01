@@ -10,6 +10,7 @@
 // information.
 #define FMCA_CLUSTERSET_
 #include <iostream>
+#include <string>
 ////////////////////////////////////////////////////////////////////////////////
 #include <igl/readOBJ.h>
 ////////////////////////////////////////////////////////////////////////////////
@@ -22,11 +23,20 @@
 #include <iostream>
 #include <random>
 ////////////////////////////////////////////////////////////////////////////////
-#include <FMCA/Moments>
 #include <FMCA/src/util/Errors.h>
-#include <FMCA/src/util/print2file.h>
 #include <FMCA/src/util/IO.h>
 #include <FMCA/src/util/Tictoc.h>
+#include <FMCA/src/util/print2file.h>
+
+#include <FMCA/BEM>
+#include <FMCA/Moments>
+
+struct harmonicfun {
+  template <typename Derived>
+  double operator()(const Eigen::MatrixBase<Derived> &x) const {
+    return x(0) * x(0) - x(1) * x(1);
+  }
+};
 ////////////////////////////////////////////////////////////////////////////////
 using Interpolator = FMCA::TotalDegreeInterpolator<FMCA::FloatType>;
 using Moments = FMCA::GalerkinMoments<Interpolator>;
@@ -34,37 +44,39 @@ using H2ClusterTree = FMCA::H2ClusterTree<FMCA::ClusterTreeMesh>;
 using MatrixEvaluator = FMCA::GalerkinMatrixEvaluatorSL<Moments>;
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
+  const unsigned int level = atoi(argv[1]);
+  const std::string fname = "sphere" + std::to_string(level) + ".obj";
+  const auto fun = harmonicfun();
+  FMCA::Tictoc T;
   Eigen::MatrixXd V;
   Eigen::MatrixXi F;
+  std::cout << std::string(60, '-') << std::endl;
+  std::cout << fname << std::endl;
   // read mesh
-  igl::readOBJ("sphere2.obj", V, F);
+  igl::readOBJ("sphere" + std::to_string(level) + ".obj", V, F);
   FMCA::ClusterTreeMesh CT(V, F, 10);
   Moments gal_mom(V, F, 3);
+  FMCA::GalerkinRHSEvaluator<Moments> rhs_eval(gal_mom);
+  FMCA::SLPotentialEvaluator<Moments> pot_eval(gal_mom);
   MatrixEvaluator mat_eval(gal_mom);
   Eigen::MatrixXd S;
+  T.tic();
   mat_eval.compute_dense_block(CT, CT, &S);
-  FMCA::IO::print2m("SL.m", "S", S, "w");
-  for (auto level = 0; level < 16; ++level) {
-    std::vector<Eigen::MatrixXd> bbvec;
-    for (auto &node : CT) {
-      if (node.level() == level)
-        bbvec.push_back(node.derived().bb());
-    }
-    FMCA::IO::plotBoxes("boxes" + std::to_string(level) + ".vtk", bbvec);
-  }
-  std::vector<int> map(CT.indices().size());
-  std::iota(map.begin(), map.end(), 0);
-  std::shuffle(map.begin(), map.end(), std::default_random_engine(0));
+  T.toc("matrix assembly: ");
+  rhs_eval.compute_rhs(CT, fun);
+
+  Eigen::VectorXd rho = S.lu().solve(rhs_eval.rhs_);
+  Eigen::VectorXd pot =
+      pot_eval.compute(CT, rho, Eigen::Vector3d({0.1, 0.2, 0.0}));
+  std::cout << "error: " <<
+    abs(pot(0) - fun(Eigen::Vector3d({0.1, 0.2, 0.0}))) << std::endl;
 
   Eigen::VectorXd colrs(V.rows());
-  for (auto &node : CT) {
-    if (!node.nSons()) {
-      for (auto it = node.indices().begin(); it != node.indices().end(); ++it)
-        for (auto j = 0; j < F.cols(); ++j)
-          colrs(F(*it, j)) = map[node.block_id()];
-    }
-  }
-
-  FMCA::IO::plotTriMeshColor("bunny.vtk", V.transpose(), F, colrs);
+  for (auto i = 0; i < V.rows(); ++i) colrs(i) = fun(V.row(i));
+  Eigen::VectorXd srho(rho.size());
+  for (auto i = 0; i < srho.size(); ++i) srho(CT.indices()[i]) = rho(i);
+  // FMCA::IO::plotTriMeshColor("bunny.vtk", V.transpose(), F, colrs);
+  FMCA::IO::plotTriMeshColor2("result.vtk", V.transpose(), F, srho);
+  std::cout << std::string(60, '-') << std::endl;
   return 0;
 }
