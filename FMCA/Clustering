@@ -16,6 +16,11 @@
 #include <numeric>
 
 #include <Eigen/Dense>
+#include <igl/adjacency_list.h>
+#include <igl/adjacency_matrix.h>
+#include <igl/facet_adjacency_matrix.h>
+#include <igl/slice.h>
+#include <metis.h>
 
 #include "src/util/ForwardDeclarations.h"
 #include "src/util/Macros.h"
@@ -23,10 +28,13 @@
 
 #include "src/Clustering/ClusterTreeInitializer_ClusterTree.h"
 #include "src/Clustering/ClusterTreeInitializer_ClusterTreeMesh.h"
+#include "src/Clustering/ClusterTreeInitializer_ClusterTreeGraph.h"
 #include "src/Clustering/ClusterTreeSplitter.h"
 #include "src/Clustering/ClusterTreeBase.h"
 #include "src/Clustering/ClusterTree.h"
 #include "src/Clustering/ClusterTreeMesh.h"
+#include "src/Clustering/ClusterTreeGraph.h"
+
 
 
 #endif

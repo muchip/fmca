@@ -28,6 +28,8 @@ class ClusterTree;
 
 class ClusterTreeMesh;
 
+class ClusterTreeGraph;
+
 template <typename ClusterTreeType> class H2ClusterTree;
 
 template <typename ClusterTreeType> class SampletTree;

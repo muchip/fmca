@@ -49,7 +49,7 @@ using SampletInterpolator = FMCA::MonomialInterpolator<FMCA::FloatType>;
 using Moments = FMCA::CollocationMoments<Interpolator>;
 using SampletMoments = FMCA::CollocationSampletMoments<SampletInterpolator>;
 using MatrixEvaluator = FMCA::CollocationMatrixEvaluatorSL<Moments>;
-using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTreeMesh>;
+using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTreeGraph>;
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
   const unsigned int level = atoi(argv[1]);
@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
   const MatrixEvaluator mat_eval(mom);
   const SampletMoments samp_mom(V, F, dtilde - 1);
   T.tic();
-  const H2SampletTree hst(mom, samp_mom, 0, V, F);
+  const H2SampletTree hst(mom, samp_mom, 0, V, F, true);
   T.toc("tree setup: ");
   std::cout << std::flush;
   FMCA::symmetric_compressor_impl<H2SampletTree> symComp;

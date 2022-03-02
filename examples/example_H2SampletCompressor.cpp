@@ -34,11 +34,11 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
 int main(int argc, char *argv[]) {
   const unsigned int dim = atoi(argv[1]);
-  const unsigned int dtilde = 6;
+  const unsigned int dtilde = 3;
   const auto function = expKernel();
   const double eta = 0.8;
-  const unsigned int mp_deg = 10;
-  const double threshold = 1e-8;
+  const unsigned int mp_deg = 4;
+  const double threshold = 1e-5;
   FMCA::Tictoc T;
   for (unsigned int npts : {1e3, 5e3, 1e4, 5e4, 1e5, 5e5, 1e6, 5e6}) {
     // for (unsigned int npts : {5e6}) {
