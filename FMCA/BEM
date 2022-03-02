@@ -20,4 +20,7 @@
 
 #include "src/BEM/GalerkinRHSEvaluator.h"
 #include "src/BEM/SLPotentialEvaluator.h"
+#include "src/BEM/CollocationRHSEvaluator.h"
+#include "src/BEM/SLCollocationPotentialEvaluator.h"
+
 #endif
