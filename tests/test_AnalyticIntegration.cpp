@@ -45,8 +45,8 @@ int main(int argc, char *argv[]) {
   const FMCA::Quad::Quadrature<FMCA::Quad::Radon> Rq;
   const FMCA::Quad::Quadrature<FMCA::Quad::Radon> Mq;
   FMCA::Quad::Quadrature<FMCA::Quad::Trapezoidal> Tq;
-  Tq.xi = Q[20].xi_;
-  Tq.w = Q[20].w_;
+  Tq.xi = Rq.xi;
+  Tq.w = Rq.w;
   std::cout << std::string(60, '-') << std::endl;
   std::cout << "mesh file: " << fname << std::endl;
   igl::readOBJ("sphere" + std::to_string(level) + ".obj", V, F);
@@ -126,7 +126,7 @@ int main(int argc, char *argv[]) {
       Eigen::Vector3d({0.05, 0.05, 0}));
   const FMCA::TriangularPanel el2 = FMCA::TriangularPanel(
       Eigen::Vector3d({2, 0, 0}), Eigen::Vector3d({2.05, 0, 0}),
-      Eigen::Vector3d({2.05, 0, 0.05}));
+      Eigen::Vector3d({2.05, 0.05, 0.0}));
   std::cout << el1.mp_ - el2.mp_ << std::endl;
   dist = (el1.mp_ - el2.mp_).norm();
   std::cout << el1.cs_ << std::endl;
@@ -175,7 +175,7 @@ int main(int argc, char *argv[]) {
   std::cout << "res quad Gauss: " << val3 << std::endl;
   err = abs(val3 - analytic_value) / abs(val3);
   dist = (el1.mp_ - el2.mp_).norm();
-  std::cout << abs(val3-val4) / abs(val3) << std::endl;
+  std::cout << abs(val3 - val4) / abs(val3) << std::endl;
   std::cout << "dist: " << dist << std::endl;
   std::cout << "error DL formula same plane: " << err << std::endl;
 

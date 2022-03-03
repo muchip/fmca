@@ -57,23 +57,13 @@ double analyticIntFD(double s, double alpha, double stau, double sx, double tx,
   const double ABfac2m = txmalphasx / onepalpha2 - q;
   const double ABfac1denom = (ux * ux + alpha * alpha * q * q);
   const double Afac1 = -(2 * alpha * sqrtonepalpha2 * q) / ABfac1denom;
-  const double Bfac1 = onepalpha2 / ABfac1denom;
   const double A1 = Afac1 * ABfac2p;
   const double A2 = Afac1 * ABfac2m;
-  const double B1 = Bfac1 * ABfac2p * ABfac2p;
-  const double B2 = Bfac1 * ABfac2m * ABfac2m;
   const double G1 = sqrtonepalpha2 * abs(ux) / ABfac1denom * ABfac2p;
   const double G2 = -sqrtonepalpha2 * abs(ux) / ABfac1denom * ABfac2m;
   const double sgnux = ux > 0 ? 1 : -1;
-  // comput actual integrals
-  const double firstexp =
-      -ux * alpha / sqrtonepalpha2 *
-      log(sqrtonepalpha2 * smp + sqrt(onepalpha2 * smp * smp + q * q));
-  const double I1 = -0.5 * ux * log(v * v + A1 * v + B1) +
-                    (stau - sx) * sgnux * atan((v + 0.5 * A1) / G1);
-  const double I2 = 0.5 * ux * log(v * v + A2 * v + B2) -
-                    (stau - sx) * sgnux * atan((v + 0.5 * A2) / G2);
-  return firstexp + I1 + I2;
+
+  return sgnux * (atan((v + 0.5 * A1) / G1) - atan((v + 0.5 * A2) / G2));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -98,13 +88,12 @@ double analyticIntD(const TriangularPanel &el, Eigen::Vector3d x) {
   const double tstar = -el.affmap_.col(1).dot(el.cs_.col(1));
   const double alpha1 = -tstar / stau;
   const double alpha2 = (ttau - tstar) / stau;
-  if (abs(sxtxux(2)) < FMCA_ZERO_TOLERANCE) return double(0);
-  return 3. *
-         (analyticIntFD(stau, alpha2, stau, sxtxux(0), sxtxux(1), sxtxux(2)) -
-          analyticIntFD(0, alpha2, stau, sxtxux(0), sxtxux(1), sxtxux(2)) -
-          analyticIntFD(stau, alpha1, stau, sxtxux(0), sxtxux(1), sxtxux(2)) +
-          analyticIntFD(0, alpha1, stau, sxtxux(0), sxtxux(1), sxtxux(2))) /
-         stau;
+  if (abs(sxtxux(2)) < FMCA_ZERO_TOLERANCE)
+    return double(0);
+  return analyticIntFD(stau, alpha2, stau, sxtxux(0), sxtxux(1), sxtxux(2)) -
+         analyticIntFD(0, alpha2, stau, sxtxux(0), sxtxux(1), sxtxux(2)) -
+         analyticIntFD(stau, alpha1, stau, sxtxux(0), sxtxux(1), sxtxux(2)) +
+         analyticIntFD(0, alpha1, stau, sxtxux(0), sxtxux(1), sxtxux(2));
 }
-}  // namespace FMCA
+} // namespace FMCA
 #endif

@@ -28,6 +28,7 @@
 #include "src/Moments/NystromMoments.h"
 #include "src/Moments/NystromSampletMoments.h"
 #include "src/Moments/CollocationMoments.h"
+#include "src/Moments/GalerkinMoments.h"
 #include "src/Moments/CollocationSampletMoments.h"
 
 #endif
