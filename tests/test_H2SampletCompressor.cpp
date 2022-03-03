@@ -37,13 +37,13 @@ int main() {
       std::cout << "dtilde= " << dtilde << " eta= " << eta << std::endl;
       const SampletMoments samp_mom(P, dtilde - 1);
       H2SampletTree hst(mom, samp_mom, 0, P);
-      FMCA::symmetric_compressor_impl<H2SampletTree> Scomp;
+      FMCA::unsymmetric_compressor_impl<H2SampletTree> Scomp;
       Scomp.compress(hst, mat_eval, eta, threshold);
       const auto &trips = Scomp.pattern_triplets();
       Eigen::MatrixXd K;
       mat_eval.compute_dense_block(hst, hst, &K);
       hst.sampletTransformMatrix(K);
-      K.triangularView<Eigen::StrictlyLower>().setZero();
+      //K.triangularView<Eigen::StrictlyLower>().setZero();
       Eigen::SparseMatrix<double> S(K.rows(), K.cols());
       S.setFromTriplets(trips.begin(), trips.end());
       std::cout << "compression error: " << (S - K).norm() / K.norm()
