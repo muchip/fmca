@@ -20,6 +20,7 @@ namespace FMCA {
  **/
 namespace ClusterSplitter {
 
+#if 0
 template <typename Derived1, typename Derived2, typename Derived3,
           typename logicType>
 struct MetisBisection {
@@ -113,7 +114,7 @@ struct MetisBisection {
     c2.bb_.col(2) = c2.bb_.col(1) - c2.bb_.col(0);
   }
 };
-
+#endif
 template <typename ValueType>
 struct GeometricBisection {
   typedef Eigen::Matrix<ValueType, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;

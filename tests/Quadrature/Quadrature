@@ -1,0 +1,13 @@
+#ifndef Quadrature_Module
+#define Quadrature_Module
+
+#include "GaussLegendreRule.hpp"
+#include "Quadrature.hpp"
+#include "QuadratureVector.hpp"
+#include "GaussLegendre.hpp"
+#include "Cubature.hpp"
+#include "Quadrature.hpp"
+#include "TensorProductQuadratureVector.hpp"
+#include "GaussSquare.hpp"
+
+#endif

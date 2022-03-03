@@ -40,16 +40,16 @@ using EigenCholesky =
 struct harmonicfun {
   template <typename Derived>
   double operator()(const Eigen::MatrixBase<Derived> &x) const {
-    return exp(x(0)) * sin(x(1));
+    return exp(FMCA_PI * x(0)) * sin(FMCA_PI * x(1));
   }
 };
 ////////////////////////////////////////////////////////////////////////////////
 using Interpolator = FMCA::TotalDegreeInterpolator<FMCA::FloatType>;
 using SampletInterpolator = FMCA::MonomialInterpolator<FMCA::FloatType>;
-using Moments = FMCA::GalerkinMoments<Interpolator>;
-using SampletMoments = FMCA::GalerkinSampletMoments<SampletInterpolator>;
-using MatrixEvaluator = FMCA::GalerkinMatrixEvaluatorSL<Moments>;
-using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTreeMesh>;
+using Moments = FMCA::CollocationMoments<Interpolator>;
+using SampletMoments = FMCA::CollocationSampletMoments<SampletInterpolator>;
+using MatrixEvaluator = FMCA::CollocationMatrixEvaluatorSL<Moments>;
+using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTreeGraph>;
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
   const unsigned int level = atoi(argv[1]);
@@ -58,34 +58,40 @@ int main(int argc, char *argv[]) {
   const unsigned int dtilde = 3;
   const double eta = 0.8;
   const unsigned int mp_deg = 4;
-  const double threshold = 1e-4;
+  const double threshold = 1e-5;
   FMCA::Tictoc T;
   Eigen::MatrixXd V;
   Eigen::MatrixXi F;
   std::cout << std::string(60, '-') << std::endl;
   std::cout << "mesh file: " << fname << std::endl;
   igl::readOBJ("sphere" + std::to_string(level) + ".obj", V, F);
+  // igl::readOBJ("bunny.obj", V, F);
   std::cout << "number of elements: " << F.rows() << std::endl;
   const Moments mom(V, F, mp_deg);
   const MatrixEvaluator mat_eval(mom);
   const SampletMoments samp_mom(V, F, dtilde - 1);
   T.tic();
-  const H2SampletTree hst(mom, samp_mom, 0, V, F);
+  const H2SampletTree hst(mom, samp_mom, 0, V, F, true);
   T.toc("tree setup: ");
   std::cout << std::flush;
   FMCA::symmetric_compressor_impl<H2SampletTree> symComp;
   T.tic();
   symComp.compress(hst, mat_eval, eta, threshold);
   T.toc("symmetric compressor: ");
+  const double tripSize = sizeof(Eigen::Triplet<double>);
+  const double nTrips = symComp.pattern_triplets().size();
+  std::cout << "nz(S): " << std::ceil(nTrips / V.rows()) << std::endl;
+  std::cout << "memory: " << nTrips * tripSize / 1e9 << "GB\n" << std::flush;
   std::cout << std::flush;
-  FMCA::GalerkinRHSEvaluator<Moments> rhs_eval(mom);
-  FMCA::SLPotentialEvaluator<Moments> pot_eval(mom);
+  FMCA::CollocationRHSEvaluator<Moments> rhs_eval(mom);
+  FMCA::SLCollocationPotentialEvaluator<Moments> pot_eval(mom);
   rhs_eval.compute_rhs(hst, fun);
   Eigen::VectorXd srhs = hst.sampletTransform(rhs_eval.rhs_);
 
   Eigen::SparseMatrix<double> S(F.rows(), F.rows());
   const auto &trips = symComp.pattern_triplets();
   S.setFromTriplets(trips.begin(), trips.end());
+  FMCA::IO::print2m("stiff.m", "S", S, "w");
   EigenCholesky solver;
   T.tic();
   solver.compute(S);
@@ -100,11 +106,11 @@ int main(int argc, char *argv[]) {
   Eigen::VectorXd exact_vals = pot;
   for (auto i = 0; i < exact_vals.size(); ++i)
     exact_vals(i) = fun(pot_pts.col(i));
-  std::cout << "error: " << (pot - exact_vals).cwiseAbs().maxCoeff() << std::endl;
+  std::cout << "error: " << (pot - exact_vals).cwiseAbs().maxCoeff()
+            << std::endl;
 
   Eigen::VectorXd colrs(V.rows());
-  for (auto i = 0; i < V.rows(); ++i)
-    colrs(i) = fun(V.row(i));
+  for (auto i = 0; i < V.rows(); ++i) colrs(i) = fun(V.row(i));
   Eigen::VectorXd srho2(rho.size());
   for (auto i = 0; i < srho2.size(); ++i)
     srho2(hst.indices()[i]) =
