@@ -18,5 +18,6 @@
 #include "src/MatrixEvaluators/GalerkinHelper.h"
 #include "src/MatrixEvaluators/CollocationMatrixEvaluatorSL.h"
 #include "src/MatrixEvaluators/GalerkinMatrixEvaluatorSL.h"
+#include "src/MatrixEvaluators/GalerkinMatrixEvaluatorDL.h"
 
 #endif
