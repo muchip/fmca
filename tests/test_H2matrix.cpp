@@ -13,25 +13,32 @@
 #include <iostream>
 
 #include "../FMCA/H2Matrix"
-#include "../FMCA/Samplets"
 #include "TestParameters.h"
+
+using Interpolator = FMCA::TotalDegreeInterpolator<FMCA::FloatType>;
+using Moments = FMCA::NystromMoments<Interpolator>;
+using MatrixEvaluator =
+    FMCA::NystromMatrixEvaluator<Moments, exponentialKernel>;
+using H2ClusterTree = FMCA::H2ClusterTree<FMCA::ClusterTree>;
+using H2Matrix = FMCA::H2Matrix<H2ClusterTree>;
 
 int main() {
   const auto function = exponentialKernel();
   const Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, NPTS);
-  const FMCA::H2ClusterTree H2CT(P, LEAFSIZE, MPOLE_DEG);
-  const FMCA::NystromMatrixEvaluator<FMCA::H2ClusterTree, exponentialKernel>
-      nm_eval(P, function);
+  const Moments mom(P, MPOLE_DEG);
+  H2ClusterTree ct(mom, 0, P);
+  FMCA::internal::compute_cluster_bases_impl::check_transfer_matrices(ct, mom);
+  const MatrixEvaluator mat_eval(mom, function);
   for (double eta = 0.8; eta >= 0; eta -= 0.2) {
     std::cout << "eta= " << eta << std::endl;
-    FMCA::H2Matrix<FMCA::H2ClusterTree> H2mat(H2CT, nm_eval, eta);
-    H2mat.get_statistics();
+    const H2Matrix hmat(ct, mat_eval, eta);
+    hmat.get_statistics();
     Eigen::MatrixXd K(P.cols(), P.cols());
     for (auto j = 0; j < P.cols(); ++j)
       for (auto i = 0; i < P.cols(); ++i)
-        K(i, j) = function(P.col(H2CT.indices()[i]), P.col(H2CT.indices()[j]));
+        K(i, j) = function(P.col(ct.indices()[i]), P.col(ct.indices()[j]));
     std::cout << "H2-matrix compression error: "
-              << (K - H2mat.full()).norm() / K.norm() << std::endl;
+              << (K - hmat.full()).norm() / K.norm() << std::endl;
     std::cout << std::string(60, '-') << std::endl;
   }
 
