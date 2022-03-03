@@ -30,7 +30,7 @@ template <typename Moments> struct DLCollocationPotentialEvaluator {
       for (auto j = 0; j < TR.indices().size(); ++j) {
         // set up element
         const TriangularPanel &el = mom_.elements()[TR.indices()[j]];
-        double r = r = std::pow((P.col(i) - el.mp_).norm(), 3.);
+        double r = std::pow((P.col(i) - el.mp_).norm(), 3.);
         double num = (P.col(i) - el.mp_).dot(el.cs_.col(2));
         pot(i) += 0.5 * rho(j) * num / r * cnst * sqrt(2 * el.volel_);
       }

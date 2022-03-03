@@ -61,7 +61,7 @@ double analyticIntFD(double s, double alpha, double stau, double sx, double tx,
   const double A2 = Afac1 * ABfac2m;
   const double G1 = sqrtonepalpha2 * abs(ux) / ABfac1denom * ABfac2p;
   const double G2 = -sqrtonepalpha2 * abs(ux) / ABfac1denom * ABfac2m;
-  const double sgnux = ux > 0 ? 1 : -1;
+  const double sgnux = ux >= 0 ? 1 : -1;
 
   return sgnux * (atan((v + 0.5 * A1) / G1) - atan((v + 0.5 * A2) / G2));
 }

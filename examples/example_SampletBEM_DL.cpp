@@ -90,7 +90,11 @@ int main(int argc, char *argv[]) {
   Eigen::SparseMatrix<double> S(F.rows(), F.rows());
   const auto &trips = Comp.pattern_triplets();
   S.setFromTriplets(trips.begin(), trips.end());
-  S = 0.5 * Eigen::MatrixXd::Identity(F.rows(), F.rows()) - S;
+  S = 0.5 * Eigen::MatrixXd::Identity(F.rows(), F.rows()) - S.transpose();
+  Eigen::MatrixXd K;
+  mat_eval.compute_dense_block(hst, hst, &K);
+  K = 0.5 * Eigen::MatrixXd::Identity(F.rows(), F.rows()) - K;
+  Eigen::VectorXd sol2 = K.lu().solve(rhs_eval.rhs_);
   EigenSparseLU solver;
   T.tic();
   solver.compute(S);
@@ -99,9 +103,10 @@ int main(int argc, char *argv[]) {
   Eigen::VectorXd srho = solver.solve(srhs);
   Eigen::VectorXd rho = hst.inverseSampletTransform(srho);
 
-  std::cout << "norm rho: " << rho.norm() << " " << rho.sum() << std::endl;
+  std::cout << "norm rho: " << (rho - sol2).norm() / sol2.norm() << " "
+            << rho.sum() << std::endl;
   Eigen::MatrixXd pot_pts = Eigen::MatrixXd::Random(V.cols(), 100) * 0.25;
-  Eigen::VectorXd pot = pot_eval.compute(hst, rho, pot_pts);
+  Eigen::VectorXd pot = pot_eval.compute(hst, sol2, pot_pts);
   Eigen::VectorXd exact_vals = pot;
   for (auto i = 0; i < exact_vals.size(); ++i)
     exact_vals(i) = fun(pot_pts.col(i));
@@ -114,7 +119,8 @@ int main(int argc, char *argv[]) {
   Eigen::VectorXd srho2(rho.size());
   for (auto i = 0; i < srho2.size(); ++i)
     srho2(hst.indices()[i]) =
-        rho(i) / sqrt(0.5 * mom.elements()[hst.indices()[i]].volel_);
+        abs(rho(i) - sol2(i)) /
+        sqrt(0.5 * mom.elements()[hst.indices()[i]].volel_);
   FMCA::IO::plotTriMeshColor("rhs.vtk", V.transpose(), F, colrs);
   FMCA::IO::plotTriMeshColor2("result.vtk", V.transpose(), F, srho2);
   std::cout << std::string(60, '-') << std::endl;
