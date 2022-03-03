@@ -19,6 +19,7 @@
 #include "Moments"
 
 #include "src/BEM/CollocationRHSEvaluator.h"
+#include "src/BEM/DLCollocationPotentialEvaluator.h"
 #include "src/BEM/SLCollocationPotentialEvaluator.h"
 
 #endif

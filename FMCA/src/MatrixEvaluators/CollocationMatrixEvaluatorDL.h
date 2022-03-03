@@ -9,8 +9,8 @@
 // any warranty, see <https://github.com/muchip/FMCA> for further
 // information.
 //
-#ifndef FMCA_MATRIXEVALUATORS_COLLOCATIONMATRIXEVALUATORSL_H_
-#define FMCA_MATRIXEVALUATORS_COLLOCATIONMATRIXEVALUATORSL_H_
+#ifndef FMCA_MATRIXEVALUATORS_COLLOCATIONMATRIXEVALUATORDL_H_
+#define FMCA_MATRIXEVALUATORS_COLLOCATIONMATRIXEVALUATORDL_H_
 
 namespace FMCA {
 /**
@@ -20,12 +20,12 @@ namespace FMCA {
  *         a given Nystrom matrix that is fully described by these
  *         two routines.
  **/
-template <typename Moments> struct CollocationMatrixEvaluatorSL {
+template <typename Moments> struct CollocationMatrixEvaluatorDL {
   typedef typename Moments::eigenVector eigenVector;
   typedef typename Moments::eigenMatrix eigenMatrix;
   typedef typename eigenMatrix::Scalar value_type;
   const value_type cnst = 0.25 / FMCA_PI;
-  CollocationMatrixEvaluatorSL(const Moments &mom) : mom_(mom) {}
+  CollocationMatrixEvaluatorDL(const Moments &mom) : mom_(mom) {}
   /**
    *  \brief provides the kernel evaluation for the H2-matrix, in principle
    *         this method could also be used to return the desired block from
@@ -70,12 +70,14 @@ template <typename Moments> struct CollocationMatrixEvaluatorSL {
         // integration (we use an L2 normalization by the sqrt of the
         // volume element)
         if (TC.indices()[j] != TR.indices()[i]) {
-          const value_type r = (el1.mp_ - el2.mp_).norm();
-          (*retval)(i, j) = 0.5 * cnst / r * sqrt(el1.volel_ * el2.volel_);
+          const value_type r = std::pow((el2.mp_ - el1.mp_).norm(), 3.);
+          const value_type num = (el2.mp_ - el1.mp_).dot(el1.cs_.col(2));
+          (*retval)(i, j) =
+              0.5 * cnst * num / r * sqrt(el1.volel_ * el2.volel_);
         } else {
           // if the elements are identical, we use the semi-analytic rule
           // from Zapletal/Of/Merta 2018
-          (*retval)(i, j) = cnst * analyticIntS(el1, el2.mp_);
+          (*retval)(i, j) = cnst * analyticIntD(el1, el2.mp_);
         }
       }
     }
