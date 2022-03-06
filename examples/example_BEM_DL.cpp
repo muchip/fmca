@@ -67,8 +67,8 @@ int main(int argc, char *argv[]) {
   std::cout << std::string(60, '-') << std::endl;
   std::cout << "mesh file: " << fname << std::endl;
   igl::readOBJ(fname, V, F);
-  V.col(2).array() += 0.05 * (2 * FMCA_PI * V.col(2)).array().cos();
-  V.col(1).array() *= 1.4;
+  // V.col(2).array() += 0.05 * (2 * FMCA_PI * V.col(2)).array().cos();
+  // V.col(1).array() *= 1.4;
 
   std::cout << "number of elements: " << F.rows() << std::endl;
   const Moments mom(V, F, 1);
@@ -89,10 +89,11 @@ int main(int argc, char *argv[]) {
   Eigen::VectorXd rhs = rhs_eval.rhs_;
   rhs_eval.compute_rhs(ct, one);
   Eigen::VectorXd one_rhs = rhs_eval.rhs_;
+  std::cout << ((K + 0.5 * I) * one_rhs).norm() << std::endl;
   FMCA::DLCollocationPotentialEvaluator<Moments> pot_eval(mom);
   Eigen::VectorXd rho = (K - 0.5 * I).householderQr().solve(rhs);
-  // FMCA::IO::print2m("wtf.m", "M", K, "w");
-  std::cout << ((K + 0.5 * I) * one_rhs).norm() << std::endl;
+
+
   Eigen::VectorXd rho2 = S.householderQr().solve((K + 0.5 * I) * rhs_eval.rhs_);
   //////////////////////////////////////////////////////////////////////////////
   std::cout << "norm rho: " << rho.norm() << " " << rho.sum() << std::endl;
