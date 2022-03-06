@@ -50,10 +50,11 @@ using H2Matrix = FMCA::H2Matrix<H2ClusterTree>;
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
   const unsigned int level = atoi(argv[1]);
-  const std::string fname = "sphere" + std::to_string(level) + ".obj";
+  // const std::string fname = "sphere" + std::to_string(level) + ".obj";
+  const std::string fname = "bunny.obj";
   const auto fun = harmonicfun();
   const double eta = 0.8;
-  const unsigned int mp_deg = 4;
+  const unsigned int mp_deg = 3;
   FMCA::Tictoc T;
   Eigen::MatrixXd V;
   Eigen::MatrixXi F;
@@ -88,49 +89,14 @@ int main(int argc, char *argv[]) {
     exact_vals(i) = fun(pot_pts.col(i));
   std::cout << "potential error: " << (pot - exact_vals).cwiseAbs().maxCoeff()
             << std::endl;
-
-#if 0
-  const double tripSize = sizeof(Eigen::Triplet<double>);
-  const double nTrips = symComp.pattern_triplets().size();
-  std::cout << "nz(S): " << std::ceil(nTrips / V.rows()) << std::endl;
-  std::cout << "memory: " << nTrips * tripSize / 1e9 << "GB\n" << std::flush;
-  std::cout << std::flush;
-  FMCA::CollocationRHSEvaluator<Moments> rhs_eval(mom);
-  FMCA::SLCollocationPotentialEvaluator<Moments> pot_eval(mom);
-  rhs_eval.compute_rhs(hst, fun);
-  Eigen::VectorXd srhs = hst.sampletTransform(rhs_eval.rhs_);
-
-  Eigen::SparseMatrix<double> S(F.rows(), F.rows());
-  const auto &trips = symComp.pattern_triplets();
-  S.setFromTriplets(trips.begin(), trips.end());
-  FMCA::IO::print2m("stiff.m", "S", S, "w");
-  EigenCholesky solver;
-  T.tic();
-  solver.compute(S);
-  T.toc("time factorization: ");
-  std::cout << "sinfo: " << solver.info() << std::endl;
-  Eigen::VectorXd srho = solver.solve(srhs);
-  Eigen::VectorXd rho = hst.inverseSampletTransform(srho);
-
-  std::cout << "norm rho: " << rho.norm() << " " << rho.sum() << std::endl;
-  Eigen::MatrixXd pot_pts = Eigen::MatrixXd::Random(V.cols(), 100) * 0.25;
-  Eigen::VectorXd pot = pot_eval.compute(hst, rho, pot_pts);
-  Eigen::VectorXd exact_vals = pot;
-  for (auto i = 0; i < exact_vals.size(); ++i)
-    exact_vals(i) = fun(pot_pts.col(i));
-  std::cout << "error: " << (pot - exact_vals).cwiseAbs().maxCoeff()
-            << std::endl;
-
   Eigen::VectorXd colrs(V.rows());
   for (auto i = 0; i < V.rows(); ++i)
     colrs(i) = fun(V.row(i));
-  Eigen::VectorXd srho2(rho.size());
-  for (auto i = 0; i < srho2.size(); ++i)
-    srho2(hst.indices()[i]) =
-        rho(i) / sqrt(0.5 * mom.elements()[hst.indices()[i]].volel_);
+  Eigen::VectorXd srho(rho.size());
+  for (auto i = 0; i < srho.size(); ++i)
+    srho(ct.indices()[i]) =
+        rho(i) / sqrt(0.5 * mom.elements()[ct.indices()[i]].volel_);
   FMCA::IO::plotTriMeshColor("rhs.vtk", V.transpose(), F, colrs);
-  FMCA::IO::plotTriMeshColor2("result.vtk", V.transpose(), F, srho2);
-  std::cout << std::string(60, '-') << std::endl;
-#endif
+  FMCA::IO::plotTriMeshColor2("result.vtk", V.transpose(), F, srho);
   return 0;
 }
