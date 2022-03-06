@@ -17,6 +17,7 @@
 #include "Clustering"
 #include "Interpolators"
 #include "Moments"
+#include "MatrixEvaluators"
 
 #include "src/BEM/CollocationRHSEvaluator.h"
 #include "src/BEM/DLCollocationPotentialEvaluator.h"

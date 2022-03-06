@@ -62,15 +62,15 @@ template <typename Moments> struct CollocationMatrixEvaluatorSL {
     retval->resize(TR.indices().size(), TC.indices().size());
     for (auto j = 0; j < TC.indices().size(); ++j) {
       // set up first element
-      const TriangularPanel &el1 = mom_.elements()[TC.indices()[j]];
+      const TriangularPanel &el2 = mom_.elements()[TC.indices()[j]];
       for (auto i = 0; i < TR.indices().size(); ++i) {
         // set up second element
-        const TriangularPanel &el2 = mom_.elements()[TR.indices()[i]];
+        const TriangularPanel &el1 = mom_.elements()[TR.indices()[i]];
         // if two elements are not identical, we use a midpoint rule for
         // integration (we use an L2 normalization by the sqrt of the
         // volume element)
         if (TC.indices()[j] != TR.indices()[i]) {
-          const value_type r = (el1.mp_ - el2.mp_).norm();
+          const value_type r = (el2.mp_ - el1.mp_).norm();
           (*retval)(i, j) = 0.5 * cnst / r * sqrt(el1.volel_ * el2.volel_);
         } else {
           // if the elements are identical, we use the semi-analytic rule

@@ -45,7 +45,7 @@ template <typename Moments> struct CollocationMatrixEvaluatorDL {
     mat->resize(XiX.cols(), XiX.cols());
     for (auto j = 0; j < mat->cols(); ++j)
       for (auto i = 0; i < mat->rows(); ++i) {
-        value_type r = (XiX.col(i) - XiY.col(j)).norm();
+        const value_type r = (XiX.col(i) - XiY.col(j)).norm();
         (*mat)(i, j) = cnst / r;
       }
     *mat = mom_.interp().invV() * (*mat) * mom_.interp().invV().transpose();
@@ -59,8 +59,6 @@ template <typename Moments> struct CollocationMatrixEvaluatorDL {
   void compute_dense_block(const ClusterTreeBase<Derived> &TR,
                            const ClusterTreeBase<Derived> &TC,
                            eigenMatrix *retval) const {
-    double min_err = 10;
-    double max_err = 0;
     retval->resize(TR.indices().size(), TC.indices().size());
     for (auto j = 0; j < TC.indices().size(); ++j) {
       // set up first element
@@ -76,6 +74,22 @@ template <typename Moments> struct CollocationMatrixEvaluatorDL {
           const value_type num = (el2.mp_ - el1.mp_).dot(el1.cs_.col(2));
           (*retval)(i, j) =
               0.5 * cnst * num / r * sqrt(el1.volel_ * el2.volel_);
+        } else {
+          // if the elements are identical, we use the semi-analytic rule
+          // from Zapletal/Of/Merta 2018
+          (*retval)(i, j) = 0;//cnst * analyticIntD(el1, el2.mp_);
+        }
+      }
+    }
+    return;
+  }
+  const Moments &mom_;
+};
+
+} // namespace FMCA
+#endif
+
+#if 0
           if (is_admissible(el1, el2)) {
             double val = 0;
             double val2 = 0;
@@ -102,19 +116,4 @@ template <typename Moments> struct CollocationMatrixEvaluatorDL {
                           ? abs(val2 - val) / abs(val)
                           : max_err;
           }
-        } else {
-          // if the elements are identical, we use the semi-analytic rule
-          // from Zapletal/Of/Merta 2018
-          (*retval)(i, j) = cnst * analyticIntD(el1, el2.mp_);
-        }
-      }
-    }
-    std::cout << "min_err: " << min_err << " max_err: " << max_err << std::endl;
-    return;
-  }
-  const Moments &mom_;
-  const Quad::Quadrature<Quad::Radon> Rq_;
-};
-
-} // namespace FMCA
 #endif

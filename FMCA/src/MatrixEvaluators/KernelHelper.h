@@ -9,8 +9,8 @@
 // any warranty, see <https://github.com/muchip/FMCA> for further
 // information.
 //
-#ifndef FMCA_MATRIXEVALUATORS_GALERKINHELPER_H_
-#define FMCA_MATRIXEVALUATORS_GALERKINHELPER_H_
+#ifndef FMCA_MATRIXEVALUATORS_KERNELHELPER_H_
+#define FMCA_MATRIXEVALUATORS_KERNELHELPER_H_
 
 namespace FMCA {
 bool is_admissible(const TriangularPanel &el1, const TriangularPanel &el2) {
