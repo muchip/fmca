@@ -21,8 +21,7 @@ namespace FMCA {
  *         a given Nystrom matrix that is fully described by these
  *         two routines.
  **/
-template <typename Moments>
-struct GalerkinMatrixEvaluatorDL {
+template <typename Moments> struct GalerkinMatrixEvaluatorDL {
   typedef typename Moments::eigenVector eigenVector;
   typedef typename Moments::eigenMatrix eigenMatrix;
   typedef typename eigenMatrix::Scalar value_type;
@@ -80,14 +79,6 @@ struct GalerkinMatrixEvaluatorDL {
           (*retval)(i, j) =
               0.5 * sqrt(el1.volel_) * sqrt(el2.volel_) * cnst * nom / r;
           if (is_admissible(el1, el2)) {
-#if 0
-            const TriangularPanel el1 = TriangularPanel(
-                Eigen::Vector3d({0, 0, 0}), Eigen::Vector3d({1, 0, 0}),
-                Eigen::Vector3d({0, 1, 0}));
-            const TriangularPanel el2 = TriangularPanel(
-                Eigen::Vector3d({10, 0, 0}), Eigen::Vector3d({11, 0, 0}),
-                Eigen::Vector3d({10, 1, 0}));
-#endif
             double val = 0;
             double val2 = 0;
             for (auto k = 0; k < Rq_.xi.cols(); ++k) {
@@ -104,7 +95,6 @@ struct GalerkinMatrixEvaluatorDL {
                         sqrt(2 * el2.volel_) * cnst * nom / r;
               }
             }
-            val2 = (*retval)(i, j);
             val *= 2 * cnst * sqrt(el2.volel_) / sqrt(el1.volel_);
             min_err = min_err > abs(val2 - val) / abs(val)
                           ? abs(val2 - val) / abs(val)
@@ -137,7 +127,7 @@ struct GalerkinMatrixEvaluatorDL {
   const Quad::Quadrature<Quad::Radon> Rq_;
 };
 
-}  // namespace FMCA
+} // namespace FMCA
 #endif
 
 //////////////////////////////////////////////////////////////////////
@@ -159,4 +149,4 @@ struct GalerkinMatrixEvaluatorDL {
           max_err = (max_err < abs(val2 - val) / val) ? abs(val2 - val) / val
                                                       : max_err;
 #endif
-   //////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////

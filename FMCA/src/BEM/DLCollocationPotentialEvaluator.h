@@ -26,14 +26,17 @@ template <typename Moments> struct DLCollocationPotentialEvaluator {
                       const Eigen::MatrixBase<Derived3> &P) {
     eigenVector pot(P.cols());
     pot.setZero();
-    for (auto i = 0; i < P.cols(); ++i)
+
+    for (auto i = 0; i < P.cols(); ++i) {
       for (auto j = 0; j < TR.indices().size(); ++j) {
         // set up element
         const TriangularPanel &el = mom_.elements()[TR.indices()[j]];
         double r = std::pow((P.col(i) - el.mp_).norm(), 3.);
         double num = (P.col(i) - el.mp_).dot(el.cs_.col(2));
-        pot(i) += 0.5 * rho(j) * num / r * cnst * sqrt(2 * el.volel_);
+        pot(i) += 0.5 * num / r * cnst * rho(j) * sqrt(2 * el.volel_);
       }
+    }
+
     return pot;
   }
   //////////////////////////////////////////////////////////////////////////////

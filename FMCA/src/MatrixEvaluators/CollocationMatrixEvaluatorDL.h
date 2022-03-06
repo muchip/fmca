@@ -59,13 +59,15 @@ template <typename Moments> struct CollocationMatrixEvaluatorDL {
   void compute_dense_block(const ClusterTreeBase<Derived> &TR,
                            const ClusterTreeBase<Derived> &TC,
                            eigenMatrix *retval) const {
+    double min_err = 10;
+    double max_err = 0;
     retval->resize(TR.indices().size(), TC.indices().size());
     for (auto j = 0; j < TC.indices().size(); ++j) {
       // set up first element
-      const TriangularPanel &el1 = mom_.elements()[TC.indices()[j]];
+      const TriangularPanel &el2 = mom_.elements()[TC.indices()[j]];
       for (auto i = 0; i < TR.indices().size(); ++i) {
         // set up second element
-        const TriangularPanel &el2 = mom_.elements()[TR.indices()[i]];
+        const TriangularPanel &el1 = mom_.elements()[TR.indices()[i]];
         // if two elements are not identical, we use a midpoint rule for
         // integration (we use an L2 normalization by the sqrt of the
         // volume element)
@@ -74,6 +76,32 @@ template <typename Moments> struct CollocationMatrixEvaluatorDL {
           const value_type num = (el2.mp_ - el1.mp_).dot(el1.cs_.col(2));
           (*retval)(i, j) =
               0.5 * cnst * num / r * sqrt(el1.volel_ * el2.volel_);
+          if (is_admissible(el1, el2)) {
+            double val = 0;
+            double val2 = 0;
+            for (auto k = 0; k < Rq_.xi.cols(); ++k) {
+              const Eigen::Vector3d qp2 =
+                  el2.affmap_.col(0) + el2.affmap_.rightCols(2) * Rq_.xi.col(k);
+              val += Rq_.w(k) * analyticIntD(el1, qp2);
+              for (auto l = 0; l < Rq_.xi.cols(); ++l) {
+                const Eigen::Vector3d qp1 =
+                    el1.affmap_.col(0) +
+                    el1.affmap_.rightCols(2) * Rq_.xi.col(k);
+                value_type nom = (qp2 - qp1).dot(el1.cs_.col(2));
+                value_type r = std::pow((qp2 - qp1).norm(), 3.);
+                val2 += Rq_.w(k) * Rq_.w(l) * sqrt(2 * el1.volel_) *
+                        sqrt(2 * el2.volel_) * cnst * nom / r;
+              }
+            }
+            val *= 2 * cnst * sqrt(el2.volel_) / sqrt(el1.volel_);
+            val2 = (*retval)(i, j);
+            min_err = min_err > abs(val2 - val) / abs(val)
+                          ? abs(val2 - val) / abs(val)
+                          : min_err;
+            max_err = max_err < abs(val2 - val) / abs(val)
+                          ? abs(val2 - val) / abs(val)
+                          : max_err;
+          }
         } else {
           // if the elements are identical, we use the semi-analytic rule
           // from Zapletal/Of/Merta 2018
@@ -81,9 +109,11 @@ template <typename Moments> struct CollocationMatrixEvaluatorDL {
         }
       }
     }
+    std::cout << "min_err: " << min_err << " max_err: " << max_err << std::endl;
     return;
   }
   const Moments &mom_;
+  const Quad::Quadrature<Quad::Radon> Rq_;
 };
 
 } // namespace FMCA

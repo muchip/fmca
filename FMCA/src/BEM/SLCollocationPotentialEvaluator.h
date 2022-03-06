@@ -14,8 +14,7 @@
 
 namespace FMCA {
 
-template <typename Moments>
-struct SLCollocationPotentialEvaluator {
+template <typename Moments> struct SLCollocationPotentialEvaluator {
   typedef typename Moments::eigenVector eigenVector;
   typedef typename Moments::eigenMatrix eigenMatrix;
   const double cnst = 0.25 / FMCA_PI;
@@ -40,5 +39,5 @@ struct SLCollocationPotentialEvaluator {
   const Moments &mom_;
 };
 
-}  // namespace FMCA
+} // namespace FMCA
 #endif

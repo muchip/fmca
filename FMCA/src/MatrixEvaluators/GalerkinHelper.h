@@ -16,7 +16,7 @@ namespace FMCA {
 bool is_admissible(const TriangularPanel &el1, const TriangularPanel &el2) {
   double dist = (el1.mp_ - el2.mp_).norm() - el1.radius_ - el2.radius_;
   // dist /= (el1.radius_ > el2.radius_ ? el1.radius_ : el2.radius_);
-  return (dist > 1.9);
+  return (dist > 1.5);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
