@@ -1,6 +1,7 @@
 #ifndef FMCA_UTIL_SPARSEMATRIX_H_
 #define FMCA_UTIL_SPARSEMATRIX_H_
 
+#include "Macros.h"
 #include <Eigen/Dense>
 #include <vector>
 
@@ -22,6 +23,8 @@ public:
     typedef S value_type;
     typedef typename std::vector<Cell<S>>::size_type index_type;
     Cell() = delete;
+    Cell(const value_type &thevalue, index_type theindex)
+        : value(thevalue), index(theindex) {}
     Cell(value_type &&thevalue, index_type theindex)
         : value(thevalue), index(theindex) {}
 
@@ -29,15 +32,18 @@ public:
     index_type index;
   };
   typedef T value_type;
-  typedef typename std::vector<std::vector<Cell<T>>>::size_type size_type;
+  typedef typename std::vector<Cell<T>> SparseVector;
+  typedef typename std::vector<SparseVector>::size_type size_type;
   //////////////////////////////////////////////////////////////////////////////
   /*
    *  class constructors
    */
   SparseMatrix() : m_(0), n_(0) {}
+
   SparseMatrix(size_type m, size_type n) : m_(m), n_(n) { S_.resize(m_); }
-  SparseMatrix(
-      const Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> &M) {
+
+  template <typename Derived>
+  SparseMatrix(const Eigen::MatrixBase<Derived> &M) {
     resize(M.rows(), M.cols());
     for (auto j = 0; j < M.cols(); ++j)
       for (auto i = 0; i < M.rows(); ++i)
@@ -48,7 +54,7 @@ public:
   SparseMatrix(SparseMatrix<value_type> &&S) {
     m_ = S.m_;
     n_ = S.n_;
-    S.swap(S.S_);
+    S_.swap(S.S_);
   }
   // deep copy constructor, exploits deep copy of std::vector
   SparseMatrix(const SparseMatrix<value_type> &S) {
@@ -67,7 +73,7 @@ public:
    *  return row of the sparse matrix col is not implemented since this would
    *  be really painful...
    */
-  const std::vector<Cell<value_type>> &row(size_type i) const { return S_[i]; }
+  const SparseVector &row(size_type i) const { return S_[i]; }
   /*
    *  returns number of rows
    */
@@ -104,6 +110,7 @@ public:
     S_.clear();
     m_ = 0;
     n_ = 0;
+    return *this;
   }
   /*
    *  function for insertion returns reference to element (i,j),
@@ -137,6 +144,11 @@ public:
     return getVal(i, j);
   }
 
+  const value_type &operator()(size_type i, size_type j) const {
+    return coeffRef(i, j);
+  }
+
+  value_type &operator()(size_type i, size_type j) { return coeffRef(i, j); }
   /*
    *  return full matrix
    */
@@ -151,6 +163,12 @@ public:
     return retVal;
   }
 
+  size_type nnz() const {
+    size_type retval = 0;
+    for (auto &&it : S_)
+      retval += it.size();
+    return retval;
+  }
   /*
    *  multiply sparse matrix with a dense matrix
    */
@@ -166,6 +184,94 @@ public:
         for (auto k = 0; k < S_[i].size(); ++k)
           retVal(i, j) += S_[i][k].value * M(S_[i][k].index, j);
     return retVal;
+  }
+
+  SparseMatrix<value_type> operator*(const SparseMatrix<value_type> &M) const {
+    eigen_assert(cols() == M.rows());
+    const size_type ssize = S_.size();
+    const size_type msize = M.S_.size();
+    SparseMatrix<value_type> retval(rows(), M.cols());
+    for (auto i = 0; i < ssize; ++i) {
+      if (S_[i].size())
+        for (auto j = 0; j < msize; ++j) {
+          value_type entry = 0;
+          if (M.S_[j].size()) {
+            entry = dotProduct(S_[i], M.S_[j]);
+            if (abs(entry) > FMCA_ZERO_TOLERANCE)
+              retval(i, j) = entry;
+          }
+        }
+    }
+    return retval;
+  }
+
+  // careful, this is a formated matrix product
+  SparseMatrix<value_type> &operator*=(const SparseMatrix<value_type> &M) {
+    eigen_assert(cols() == M.rows());
+    std::vector<SparseVector> temp = *this;
+    const size_type ssize = S_.size();
+    for (auto i = 0; i < ssize; ++i)
+      for (auto j = 0; j < temp[i].size(); ++j)
+        temp[i][j].value = dotProduct(S_[i], M.S_[temp[i][j].index]);
+    S_.swap(temp);
+    return *this;
+  }
+
+  SparseMatrix<value_type> &operator+=(const SparseMatrix<value_type> &M) {
+    eigen_assert(rows() == M.rows() && cols() == M.cols() &&
+                 "dimension mismatch");
+    const size_type msize = M.S_.size();
+
+    for (auto i = 0; i < msize; ++i)
+      S_[i] = sparse_vector_addition(S_[i], M.S_[i]);
+    return *this;
+  }
+
+  static value_type dotProduct(const SparseVector &v1, const SparseVector &v2) {
+    const size_type v1size = v1.size();
+    const size_type v2size = v2.size();
+    value_type retval = 0;
+    for (auto i = 0, j = 0; i < v1size && j < v2size;) {
+      if (v1[i].index < v2[j].index)
+        ++i;
+      else if (v1[i].index > v2[j].index)
+        ++j;
+      else {
+        retval += v1[i].value * v2[j].value;
+        ++i;
+        ++j;
+      }
+    }
+    return retval;
+  }
+
+  static SparseVector sparse_vector_addition(const SparseVector &v1,
+                                             const SparseVector &v2) {
+    const size_type v1size = v1.size();
+    const size_type v2size = v2.size();
+    SparseVector retval;
+    retval.reserve(v1size + v2size);
+    size_type i = 0;
+    size_type j = 0;
+    while (i < v1size && j < v2size)
+      if (v1[i].index < v2[j].index) {
+        retval.push_back(Cell<value_type>(v1[i].value, v1[i].index));
+        ++i;
+      } else if (v1[i].index > v2[j].index) {
+        retval.push_back(Cell<value_type>(v2[j].value, v2[j].index));
+        ++j;
+      } else {
+        retval.push_back(Cell<value_type>(v1[i].value, v1[i].index));
+        retval.back().value += v2[j].value;
+        ++i;
+        ++j;
+      }
+    if (i == v1size)
+      retval.insert(retval.end(), v2.begin() + j, v2.end());
+    else
+      retval.insert(retval.end(), v1.begin() + i, v1.end());
+    retval.shrink_to_fit();
+    return retval;
   }
 
 private:
@@ -217,7 +323,7 @@ private:
   /*
    *  private member variables
    */
-  std::vector<std::vector<Cell<value_type>>> S_;
+  std::vector<SparseVector> S_;
   size_type m_;
   size_type n_;
 };
