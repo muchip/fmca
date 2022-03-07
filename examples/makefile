@@ -21,7 +21,7 @@ EIGENPATH= /usr/local/include/eigen3/
 INCLUDE= -I/Users/mmulterer/Desktop/Repos/github/libigl/include -I$(EIGENPATH) -I../
 #
 #
-OBJ = example_H2BEM.o
+OBJ = example_SampletArithmetic.o
 all:	$(OBJ)
 			$(CPP) $(OBJ)				
 

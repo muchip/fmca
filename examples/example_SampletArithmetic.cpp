@@ -16,6 +16,7 @@
 #include <FMCA/src/Samplets/samplet_matrix_multiplier.h>
 ////////////////////////////////////////////////////////////////////////////////
 #include <FMCA/src/util/Errors.h>
+#include <FMCA/src/util/SparseMatrix.h>
 #include <FMCA/src/util/Tictoc.h>
 #include <FMCA/src/util/print2file.h>
 
@@ -56,17 +57,24 @@ int main(int argc, char *argv[]) {
     T.tic();
     H2SampletTree hst(mom, samp_mom, 0, P);
     T.toc("tree setup: ");
-    std::cout << std::flush;
     FMCA::unsymmetric_compressor_impl<H2SampletTree> comp;
     T.tic();
     comp.compress(hst, mat_eval, eta, threshold);
-    const double tcomp = T.toc("symmetric compressor: ");
-    std::cout << std::flush;
+    const double tcomp = T.toc("compressor: ");
     const auto &trips = comp.pattern_triplets();
+    FMCA::SparseMatrix<double> S3(P.cols(), P.cols());
+    FMCA::SparseMatrix<double> S4(P.cols(), P.cols());
     Eigen::SparseMatrix<double> S1(P.cols(), P.cols());
     Eigen::SparseMatrix<double> S2(P.cols(), P.cols());
+    T.tic();
     S1.setFromTriplets(trips.begin(), trips.end());
+    T.toc("eigen sparse: ");
+    T.tic();
+    S3.setFromTriplets(trips.begin(), trips.end());
+    T.toc("FMCA sparse: ");
+
     S2 = S1;
+    S4 = S3;
     T.tic();
     // Eigen::SparseMatrix<double> T1 = S1.transpose() * S2;
     T.toc("matrix product: ");
@@ -74,6 +82,10 @@ int main(int argc, char *argv[]) {
     FMCA::samplet_matrix_multiplier<H2SampletTree> multip;
     multip.multiply(hst, S1, S2, eta, 1e-5);
     T.toc("matrix multiplier: ");
+    T.tic();
+    S3 *= S4;
+    std::cout << S3.nnz() / P.cols() << std::endl;
+    T.toc("fmca multiplier: ");
     const auto &trips2 = multip.pattern_triplets();
     // Eigen::SparseMatrix<double> T2(P.cols(), P.cols());
     // T2.setFromTriplets(trips2.begin(), trips2.end());

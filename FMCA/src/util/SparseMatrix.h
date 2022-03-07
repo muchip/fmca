@@ -169,6 +169,15 @@ public:
       retval += it.size();
     return retval;
   }
+
+  template <typename Derived>
+  void setFromTriplets(const Derived &begin, const Derived &end) {
+    S_.clear();
+    S_.resize(m_);
+    for (auto it = begin; it != end; ++it)
+      coeffRef(it->row(), it->col()) = it->value();
+    return;
+  }
   /*
    *  multiply sparse matrix with a dense matrix
    */
@@ -208,7 +217,7 @@ public:
   // careful, this is a formated matrix product
   SparseMatrix<value_type> &operator*=(const SparseMatrix<value_type> &M) {
     eigen_assert(cols() == M.rows());
-    std::vector<SparseVector> temp = *this;
+    std::vector<SparseVector> temp = S_;
     const size_type ssize = S_.size();
     for (auto i = 0; i < ssize; ++i)
       for (auto j = 0; j < temp[i].size(); ++j)
