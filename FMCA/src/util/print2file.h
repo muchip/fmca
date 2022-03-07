@@ -125,7 +125,8 @@ int print2m(const std::string &fileName, const std::string &varName,
   myfile << varName << " = sparse("
          << "rows_" + varName << ","
          << "cols_" + varName << ","
-         << "values_" + varName << ");\n";
+         << "values_" + varName << "," << var.rows() << "," << var.cols()
+         << ");\n";
   myfile.close();
 
   return 0;

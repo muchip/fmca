@@ -49,11 +49,12 @@ using SampletInterpolator = FMCA::MonomialInterpolator<FMCA::FloatType>;
 using Moments = FMCA::CollocationMoments<Interpolator>;
 using SampletMoments = FMCA::CollocationSampletMoments<SampletInterpolator>;
 using MatrixEvaluator = FMCA::CollocationMatrixEvaluatorSL<Moments>;
-using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTreeGraph>;
+using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTreeMesh>;
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
   const unsigned int level = atoi(argv[1]);
-  const std::string fname = "sphere" + std::to_string(level) + ".obj";
+  //const std::string fname = "sphere" + std::to_string(level) + ".obj";
+  const std::string fname = "./mesh/bunny.obj";
   const auto fun = harmonicfun();
   const unsigned int dtilde = 3;
   const double eta = 0.8;
@@ -64,14 +65,14 @@ int main(int argc, char *argv[]) {
   Eigen::MatrixXi F;
   std::cout << std::string(60, '-') << std::endl;
   std::cout << "mesh file: " << fname << std::endl;
-  igl::readOBJ("sphere" + std::to_string(level) + ".obj", V, F);
+  igl::readOBJ(fname, V, F);
   // igl::readOBJ("bunny.obj", V, F);
   std::cout << "number of elements: " << F.rows() << std::endl;
   const Moments mom(V, F, mp_deg);
   const MatrixEvaluator mat_eval(mom);
   const SampletMoments samp_mom(V, F, dtilde - 1);
   T.tic();
-  const H2SampletTree hst(mom, samp_mom, 0, V, F, true);
+  const H2SampletTree hst(mom, samp_mom, 0, V, F);
   T.toc("tree setup: ");
   std::cout << std::flush;
   FMCA::symmetric_compressor_impl<H2SampletTree> symComp;
