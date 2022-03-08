@@ -11,15 +11,15 @@
 #define FMCA_CLUSTERSET_
 #include <iostream>
 ////////////////////////////////////////////////////////////////////////////////
+
 #include <FMCA/MatrixEvaluators>
 #include <FMCA/Samplets>
-#include <FMCA/src/Samplets/samplet_matrix_multiplier.h>
 ////////////////////////////////////////////////////////////////////////////////
+#include <FMCA/src/Samplets/samplet_matrix_multiplier.h>
 #include <FMCA/src/util/Errors.h>
 #include <FMCA/src/util/SparseMatrix.h>
 #include <FMCA/src/util/Tictoc.h>
 #include <FMCA/src/util/print2file.h>
-
 struct expKernel {
   template <typename derived, typename otherDerived>
   double operator()(const Eigen::MatrixBase<derived> &x,
@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
   const unsigned int mp_deg = 4;
   const double threshold = 1e-5;
   FMCA::Tictoc T;
-  for (unsigned int npts : {1e3, 5e3, 1e4, 5e4, 1e5}) {
+  for (unsigned int npts : {1e3}) {
     // for (unsigned int npts : {5e6}) {
     std::cout << "N:" << npts << " dim:" << dim << " eta:" << eta
               << " mpd:" << mp_deg << " dt:" << dtilde
@@ -62,40 +62,34 @@ int main(int argc, char *argv[]) {
     comp.compress(hst, mat_eval, eta, threshold);
     const double tcomp = T.toc("compressor: ");
     const auto &trips = comp.pattern_triplets();
-    FMCA::SparseMatrix<double> S3(P.cols(), P.cols());
-    FMCA::SparseMatrix<double> S4(P.cols(), P.cols());
-    Eigen::SparseMatrix<double> S1(P.cols(), P.cols());
-    Eigen::SparseMatrix<double> S2(P.cols(), P.cols());
-    T.tic();
-    S1.setFromTriplets(trips.begin(), trips.end());
-    T.toc("eigen sparse: ");
-    T.tic();
-    S3.setFromTriplets(trips.begin(), trips.end());
-    T.toc("FMCA sparse: ");
+    Eigen::SparseMatrix<double> S(P.cols(), P.cols());
+    Eigen::SparseMatrix<double> X(P.cols(), P.cols());
+    Eigen::SparseMatrix<double> AX(P.cols(), P.cols());
+    Eigen::SparseMatrix<double> I(P.cols(), P.cols());
+    I.setIdentity();
+    I *= 2;
+    S.setFromTriplets(trips.begin(), trips.end());
+    S = 0.5 * (S + Eigen::SparseMatrix<double>(S.transpose()));
 
-    S2 = S1;
-    S4 = S3;
-    T.tic();
-    // Eigen::SparseMatrix<double> T1 = S1.transpose() * S2;
-    T.toc("matrix product: ");
-    T.tic();
+    X.setIdentity();
+    X *= 1e-6;
+    // X.diagonal().array() = 1. / (S.diagonal().array() + 1e-6);
+    FMCA::IO::print2m("samp_mult.m", "S", S, "w");
+    FMCA::IO::print2m("samp_mult.m", "X0", X, "a");
+
     FMCA::samplet_matrix_multiplier<H2SampletTree> multip;
-    multip.multiply(hst, S1, S2, eta, 1e-5);
+    T.tic();
+    for (auto i = 0; i < 30; ++i) {
+      AX = multip.multiply(hst, S, X, eta, 0);
+      AX = I - AX;
+      X = multip.multiply(hst, X, AX, eta, 0);
+      X = 0.5 * (X + Eigen::SparseMatrix<double>(X.transpose()));
+    }
+    FMCA::IO::print2m("samp_mult.m", "XAX", X, "a");
+
     T.toc("matrix multiplier: ");
     T.tic();
-    S3 *= S4;
-    std::cout << S3.nnz() / P.cols() << std::endl;
-    T.toc("fmca multiplier: ");
-    const auto &trips2 = multip.pattern_triplets();
-    // Eigen::SparseMatrix<double> T2(P.cols(), P.cols());
-    // T2.setFromTriplets(trips2.begin(), trips2.end());
-    // std::cout << "mult error: " << (T1 - T2).norm() / T1.norm() << std::endl;
-    std::cout << "nzs: " << trips.size() / P.cols() << " "
-              << trips2.size() / P.cols() << std::endl;
     std::cout << "------------------------------------------------------\n";
-    std::cout << "------------------------------------------------------\n";
-    // FMCA::IO::print2m("samp_mult.m", "T1", T1, "w");
-    // FMCA::IO::print2m("samp_mult.m", "T2", T2, "a");
   }
   return 0;
 }

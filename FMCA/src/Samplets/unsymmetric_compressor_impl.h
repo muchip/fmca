@@ -15,7 +15,8 @@
 //#define FMCA_SYMMETRIC_STORAGE_
 namespace FMCA {
 
-template <typename Derived> struct unsymmetric_compressor_impl {
+template <typename Derived>
+struct unsymmetric_compressor_impl {
   enum Admissibility { Refine = 0, LowRank = 1, Dense = 2 };
   typedef typename internal::traits<Derived>::value_type value_type;
   typedef typename internal::traits<Derived>::eigenMatrix eigenMatrix;
@@ -35,7 +36,6 @@ template <typename Derived> struct unsymmetric_compressor_impl {
     ////////////////////////////////////////////////////////////////////////////
     // set up the compressed matrix
     PB_.reset(n_samplet_blocks);
-    compute_block_calls_ = 0;
 
     setupColumn(ST.derived(), ST.derived(), e_gen);
     // set up remainder of the first column
@@ -53,13 +53,10 @@ template <typename Derived> struct unsymmetric_compressor_impl {
         buffer_[block_id].erase(it);
       }
     }
-    std::cout << std::endl;
-    std::cout << "compute calls: " << compute_block_calls_ << std::endl;
 #ifdef FMCA_COMPRESSOR_BUFSIZE_
     std::cout << "max buffer size: " << max_buff_size_ << std::endl;
     max_buff_size_ = 0;
-    for (const auto &it : buffer_)
-      max_buff_size_ += it.size();
+    for (const auto &it : buffer_) max_buff_size_ += it.size();
     std::cout << "final buffer size: " << max_buff_size_ << std::endl;
 #endif
   }
@@ -103,7 +100,7 @@ template <typename Derived> struct unsymmetric_compressor_impl {
     return eigenMatrix(S);
   }
 
-private:
+ private:
   /**
    *  \brief recursively computes for a given pair of row and column clusters
    *         the four blocks [A^PhiPhi, A^PhiSigma; A^SigmaPhi, A^SigmaSigma]
@@ -113,10 +110,8 @@ private:
                                       const EntryGenerator &e_gen) {
     eigenMatrix buf(0, 0);
     eigenMatrix retval(0, 0);
-    ++compute_block_calls_;
     // check for admissibility
     if (compareCluster(TR, TC) == LowRank) {
-
       e_gen.interpolate_kernel(TR, TC, &buf);
 
       retval = TR.V().transpose() * buf * TC.V();
@@ -185,8 +180,7 @@ private:
                                  buf.cols() + TR.sons(i).nscalfs());
           buf.rightCols(TR.sons(i).nscalfs()) =
               (it->second).transpose().leftCols(TR.sons(i).nscalfs());
-          if (it->first != 0)
-            buffer_[TR.sons(i).block_id()].erase(it);
+          if (it->first != 0) buffer_[TR.sons(i).block_id()].erase(it);
         } else {
           eigenMatrix ret = recursivelyComputeBlock(TR.sons(i), TC, e_gen);
           buf.conservativeResize(ret.cols(), buf.cols() + TR.sons(i).nscalfs());
@@ -198,8 +192,7 @@ private:
       // we are at a leaf of the row cluster tree
     } else {
       // if TR and TC are both leafs, we compute the corresponding matrix block
-      if (!TC.nSons())
-        block = recursivelyComputeBlock(TR, TC, e_gen);
+      if (!TC.nSons()) block = recursivelyComputeBlock(TR, TC, e_gen);
       // if TC is not a leaf, we reuse the blocks of its children
       else {
         for (auto j = 0; j < TC.nSons(); ++j) {
@@ -229,8 +222,7 @@ private:
     buffer_[TR.block_id()].emplace(std::make_pair(TC.block_id(), block));
 #ifdef FMCA_COMPRESSOR_BUFSIZE_
     IndexType buff_size = 0;
-    for (const auto &it : buffer_)
-      buff_size += it.size();
+    for (const auto &it : buffer_) buff_size += it.size();
     max_buff_size_ = max_buff_size_ < buff_size ? buff_size : max_buff_size_;
     return;
 #endif
@@ -241,8 +233,7 @@ private:
                    const EntryGenerator &e_gen) {
     eigenMatrix retval;
     if (TC.nSons())
-      for (auto i = 0; i < TC.nSons(); ++i)
-        setupColumn(TR, TC.sons(i), e_gen);
+      for (auto i = 0; i < TC.nSons(); ++i) setupColumn(TR, TC.sons(i), e_gen);
     setupRow(TR, TC, e_gen);
     auto it = buffer_[TR.block_id()].find(TC.block_id());
     eigen_assert(it != buffer_[TR.block_id()].end() &&
@@ -287,7 +278,6 @@ private:
   IndexType N_;
   size_t storage_size_;
   size_t max_buff_size_;
-  IndexType compute_block_calls_;
 };
-} // namespace FMCA
+}  // namespace FMCA
 #endif

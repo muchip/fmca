@@ -13,28 +13,32 @@
 #define FMCA_SAMPLETS_SAMPLETMATRIXMULTIPLIER_H_
 namespace FMCA {
 
-template <typename Derived> struct samplet_matrix_multiplier {
+template <typename Derived>
+struct samplet_matrix_multiplier {
   enum Admissibility { Refine = 0, LowRank = 1, Dense = 2 };
   typedef typename internal::traits<Derived>::value_type value_type;
   typedef typename internal::traits<Derived>::eigenMatrix eigenMatrix;
 
-  void multiply(SampletTreeBase<Derived> &ST,
-                const Eigen::SparseMatrix<value_type> &M1,
-                const Eigen::SparseMatrix<value_type> &M2, value_type eta = 0.8,
-                value_type threshold = 1e-6) {
+  Eigen::SparseMatrix<value_type> multiply(
+      SampletTreeBase<Derived> &ST, const Eigen::SparseMatrix<value_type> &M1,
+      const Eigen::SparseMatrix<value_type> &M2, value_type eta = 0.8,
+      value_type threshold = 1e-6) {
+    Eigen::SparseMatrix<value_type> retval(M1.rows(), M1.cols());
     eigen_assert(ST.is_root() && "compress needs to be called from root");
     N_ = ST.indices().size();
     threshold_ = threshold;
     eta_ = eta;
     setupColumn(ST.derived(), ST.derived(), M1, M2);
     // set up remainder of the first column
-    for (const auto &cluster : ST) {
-      if (!cluster.is_root()) {
-        storeBlock(cluster.derived().start_index(), ST.derived().start_index(),
-                   cluster.derived().nsamplets(), ST.derived().Q().cols(), M1,
-                   M2);
+    for (const auto &it : ST) {
+      if (!it.is_root()) {
+        storeBlock(it.derived().start_index(), ST.derived().start_index(),
+                   it.derived().nsamplets(), ST.derived().Q().cols(), M1, M2);
       }
     }
+    retval.setFromTriplets(triplet_list_.begin(), triplet_list_.end());
+    triplet_list_.clear();
+    return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
   value_type computeDistance(const Derived &TR, const Derived &TC) {
@@ -75,7 +79,7 @@ template <typename Derived> struct samplet_matrix_multiplier {
     return eigenMatrix(S);
   }
 
-private:
+ private:
   //////////////////////////////////////////////////////////////////////////////
   void setupRow(const Derived &TR, const Derived &TC,
                 const Eigen::SparseMatrix<value_type> &M1,
@@ -95,8 +99,7 @@ private:
                    const Eigen::SparseMatrix<value_type> &M1,
                    const Eigen::SparseMatrix<value_type> &M2) {
     if (TC.nSons())
-      for (auto i = 0; i < TC.nSons(); ++i)
-        setupColumn(TR, TC.sons(i), M1, M2);
+      for (auto i = 0; i < TC.nSons(); ++i) setupColumn(TR, TC.sons(i), M1, M2);
     setupRow(TR, TC, M1, M2);
     if (TC.is_root())
       storeBlock(TR.start_index(), TC.start_index(), TR.Q().cols(),
@@ -112,8 +115,8 @@ private:
                   IndexType ncols, const Eigen::SparseMatrix<value_type> &M1,
                   const Eigen::SparseMatrix<value_type> &M2) {
     Eigen::SparseMatrix<value_type> block =
-        M1.middleCols(srow, nrows).transpose() * M1.middleCols(scol, ncols);
-    for (auto i = 0; i < block.outerSize(); i++)
+        M1.middleCols(srow, nrows).transpose() * M2.middleCols(scol, ncols);
+    for (auto i = 0; i < block.outerSize(); ++i)
       for (typename Eigen::SparseMatrix<value_type>::InnerIterator it(block, i);
            it; ++it) {
         if (abs(it.value()) > threshold_)
@@ -130,5 +133,5 @@ private:
   value_type threshold_;
   IndexType N_;
 };
-} // namespace FMCA
+}  // namespace FMCA
 #endif
