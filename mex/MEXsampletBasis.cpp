@@ -43,25 +43,17 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   plhs[0] = mxCreateDoubleMatrix(trafo_triplets.size(), 3, mxREAL);
   plhs[1] = mxCreateDoubleMatrix(P.cols(), 1, mxREAL);
   plhs[2] = mxCreateDoubleMatrix(P.cols(), 1, mxREAL);
-  plhs[3] = mxCreateDoubleMatrix(P.cols(), P.cols(), mxREAL);
   Eigen::Map<Eigen::MatrixXd> retT(mxGetPr(plhs[0]), trafo_triplets.size(), 3);
   Eigen::Map<Eigen::MatrixXd> retI(mxGetPr(plhs[1]), P.cols(), 1);
   Eigen::Map<Eigen::MatrixXd> retL(mxGetPr(plhs[2]), P.cols(), 1);
-  Eigen::Map<Eigen::MatrixXd> retR(mxGetPr(plhs[3]), P.cols(), P.cols());
   for (auto i = 0; i < trafo_triplets.size(); ++i)
     retT.row(i) << trafo_triplets[i].row() + 1, trafo_triplets[i].col() + 1,
         trafo_triplets[i].value();
   auto lvls = FMCA::internal::sampletLevelMapper(hst);
   for (auto i = 0; i < hst.indices().size(); ++i)
     retI(i) = hst.indices()[i] + 1;
-  for (auto i = 0; i < lvls.size(); ++i) retL(i) = lvls[i];
-  retR.setZero();
-  for (auto &&it : hst)
-    if (!it.nSons()) {
-      double w = 1. / it.indices().size();
-      for (auto i = 0; i < it.indices().size(); ++i)
-        retR(it.indices_begin(), it.indices_begin() + i) = w;
-    }
+  for (auto i = 0; i < lvls.size(); ++i)
+    retL(i) = lvls[i];
 
   return;
 }
