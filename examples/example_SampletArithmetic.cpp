@@ -80,9 +80,9 @@ int main(int argc, char *argv[]) {
     FMCA::samplet_matrix_multiplier<H2SampletTree> multip;
     T.tic();
     for (auto i = 0; i < 30; ++i) {
-      AX = multip.multiply(hst, S, X, eta, 0);
+      AX = multip.multiply(hst, S, X, 0, 0);
       AX = I - AX;
-      X = multip.multiply(hst, X, AX, eta, 0);
+      X = multip.multiply(hst, X, AX, 0, 0);
       X = 0.5 * (X + Eigen::SparseMatrix<double>(X.transpose()));
     }
     FMCA::IO::print2m("samp_mult.m", "XAX", X, "a");
