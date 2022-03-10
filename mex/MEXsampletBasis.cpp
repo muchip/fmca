@@ -52,7 +52,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   auto lvls = FMCA::internal::sampletLevelMapper(hst);
   for (auto i = 0; i < hst.indices().size(); ++i)
     retI(i) = hst.indices()[i] + 1;
-  for (auto i = 0; i < lvls.size(); ++i) retT(i) = lvls[i];
+  for (auto i = 0; i < lvls.size(); ++i) retL(i) = lvls[i];
 
   return;
 }
