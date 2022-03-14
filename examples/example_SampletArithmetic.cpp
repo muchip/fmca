@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
   const unsigned int mp_deg = 4;
   const double threshold = 1e-5;
   FMCA::Tictoc T;
-  for (unsigned int npts : {1e3}) {
+  for (unsigned int npts : {1e4}) {
     // for (unsigned int npts : {5e6}) {
     std::cout << "N:" << npts << " dim:" << dim << " eta:" << eta
               << " mpd:" << mp_deg << " dt:" << dtilde
@@ -72,23 +72,54 @@ int main(int argc, char *argv[]) {
     S = 0.5 * (S + Eigen::SparseMatrix<double>(S.transpose()));
 
     X.setIdentity();
-    X *= 1e-6;
-    // X.diagonal().array() = 1. / (S.diagonal().array() + 1e-6);
-    FMCA::IO::print2m("samp_mult.m", "S", S, "w");
-    FMCA::IO::print2m("samp_mult.m", "X0", X, "a");
-
+    X.diagonal().array() = 0.8 / (S.diagonal().array() + 1e-6) /
+                           S.diagonal().cwiseAbs().maxCoeff();
+    auto lvls = FMCA::internal::sampletLevelMapper(hst);
     FMCA::samplet_matrix_multiplier<H2SampletTree> multip;
+    Eigen::MatrixXd S0;
+    Eigen::MatrixXd X0;
+    Eigen::MatrixXd AX0;
+    Eigen::MatrixXd X0old;
+    Eigen::MatrixXd I0;
+
+    for (auto i = 0; i < 5; ++i) {
+      FMCA::IndexType level_index = 0;
+
+      while (lvls[level_index] <= i)
+        ++level_index;
+      --level_index;
+
+      S0 = S.block(0, 0, level_index, level_index);
+      X0 = X.block(0, 0, level_index, level_index);
+      I0 = I.block(0, 0, level_index, level_index);
+      //if (i > 0)
+      //  X0.block(0, 0, X0old.rows(), X0old.cols()) = X0old;
+      double err = (X0 * S0 - 0.5 * I0).norm() / (0.5 * I0).norm();
+      unsigned int iter = 0;
+      while (err > 1e-6) {
+        AX0 = S0 * X0;
+        AX0 = I0 - AX0;
+        X0 = (X0 * AX0);
+        X0 = 0.5 * (X0 + X0.transpose());
+        err = (X0 * S0 - 0.5 * I0).norm() / (0.5 * I0).norm();
+        ++iter;
+      }
+      std::cout << X0.rows() << " " << X0.cols() << " "
+                << X0.nonZeros() / X0.cols() << std::endl;
+      std::cout << "iter: " << iter << "err " << err << std::endl;
+      X0old = X0;
+    }
+#if 0
     T.tic();
     for (auto i = 0; i < 30; ++i) {
-      AX = multip.multiply(hst, S, X, 0, 0);
-      AX = I - AX;
-      X = multip.multiply(hst, X, AX, 0, 0);
-      X = 0.5 * (X + Eigen::SparseMatrix<double>(X.transpose()));
+      AX0 = multip.multiply(hst, S0, X0, eta, 1e-4);
+      AX0 = I0 - AX0;
+      X0 = multip.multiply(hst, X0, AX, eta, 1e-4);
+      X0 = 0.5 * (X0 + Eigen::SparseMatrix<double>(X0.transpose()));
+      std::cout << (X0.transpose() * S0 - 0.5 * I0).norm() / sqrt(P.cols())
+                << std::endl;
     }
-    FMCA::IO::print2m("samp_mult.m", "XAX", X, "a");
-
-    T.toc("matrix multiplier: ");
-    T.tic();
+#endif
     std::cout << "------------------------------------------------------\n";
   }
   return 0;

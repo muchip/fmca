@@ -17,8 +17,8 @@ CPP= clang++ -std=c++11
 # set C++ compile flags
 CPPFLAGS= -O3
 # set Eigen include path
-#EIGENPATH= /usr/local/include/eigen3/
-EIGENPATH= /opt/homebrew/include/eigen3/
+EIGENPATH= /usr/local/include/eigen3/
+#EIGENPATH= /opt/homebrew/include/eigen3/
 INCLUDE= -I/Users/mmulterer/Desktop/Repos/github/libigl/include -I$(EIGENPATH) -I../
 #
 #
