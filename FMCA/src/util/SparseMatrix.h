@@ -1,9 +1,10 @@
 #ifndef FMCA_UTIL_SPARSEMATRIX_H_
 #define FMCA_UTIL_SPARSEMATRIX_H_
 
-#include "Macros.h"
 #include <Eigen/Dense>
 #include <vector>
+
+#include "Macros.h"
 
 namespace FMCA {
 /*
@@ -16,10 +17,12 @@ namespace FMCA {
  *         is log_2(_Srows[i].size()).
  */
 
-template <typename T> class SparseMatrix {
-public:
+template <typename T>
+class SparseMatrix {
+ public:
   //////////////////////////////////////////////////////////////////////////////
-  template <typename S> struct Cell {
+  template <typename S>
+  struct Cell {
     typedef S value_type;
     typedef typename std::vector<Cell<S>>::size_type index_type;
     Cell() = delete;
@@ -47,8 +50,7 @@ public:
     resize(M.rows(), M.cols());
     for (auto j = 0; j < M.cols(); ++j)
       for (auto i = 0; i < M.rows(); ++i)
-        if (M(i, j))
-          insert(i, j) = M(i, j);
+        if (M(i, j)) insert(i, j) = M(i, j);
   }
   // move constructor
   SparseMatrix(SparseMatrix<value_type> &&S) {
@@ -101,8 +103,7 @@ public:
   }
 
   SparseMatrix<value_type> &setZero() {
-    for (auto &&it : S_)
-      it.clear();
+    for (auto &&it : S_) it.clear();
     return *this;
   }
 
@@ -165,8 +166,7 @@ public:
 
   size_type nnz() const {
     size_type retval = 0;
-    for (auto &&it : S_)
-      retval += it.size();
+    for (auto &&it : S_) retval += it.size();
     return retval;
   }
 
@@ -181,8 +181,8 @@ public:
   /*
    *  multiply sparse matrix with a dense matrix
    */
-  Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic>
-  operator*(const Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> &M)
+  Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> operator*(
+      const Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> &M)
       const {
     eigen_assert(cols() == M.rows());
     Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> retVal;
@@ -200,14 +200,14 @@ public:
     const size_type ssize = S_.size();
     const size_type msize = M.S_.size();
     SparseMatrix<value_type> retval(rows(), M.cols());
+#pragma omp parallel for
     for (auto i = 0; i < ssize; ++i) {
       if (S_[i].size())
         for (auto j = 0; j < msize; ++j) {
           value_type entry = 0;
           if (M.S_[j].size()) {
             entry = dotProduct(S_[i], M.S_[j]);
-            if (abs(entry) > FMCA_ZERO_TOLERANCE)
-              retval(i, j) = entry;
+            if (abs(entry) > FMCA_ZERO_TOLERANCE) retval(i, j) = entry;
           }
         }
     }
@@ -219,6 +219,7 @@ public:
     eigen_assert(cols() == M.rows());
     std::vector<SparseVector> temp = S_;
     const size_type ssize = S_.size();
+#pragma omp parallel for
     for (auto i = 0; i < ssize; ++i)
       for (auto j = 0; j < temp[i].size(); ++j)
         temp[i][j].value = dotProduct(S_[i], M.S_[temp[i][j].index]);
@@ -283,7 +284,7 @@ public:
     return retval;
   }
 
-private:
+ private:
   /*
    *  performs a binary search for the ind array and returns iterators
    *  to the respective position j if the element is present or to j + 1 if
@@ -337,5 +338,5 @@ private:
   size_type n_;
 };
 
-} // namespace FMCA
+}  // namespace FMCA
 #endif
