@@ -17,12 +17,10 @@ namespace FMCA {
  *         is log_2(_Srows[i].size()).
  */
 
-template <typename T>
-class SparseMatrix {
- public:
+template <typename T> class SparseMatrix {
+public:
   //////////////////////////////////////////////////////////////////////////////
-  template <typename S>
-  struct Cell {
+  template <typename S> struct Cell {
     typedef S value_type;
     typedef typename std::vector<Cell<S>>::size_type index_type;
     Cell() = delete;
@@ -50,7 +48,8 @@ class SparseMatrix {
     resize(M.rows(), M.cols());
     for (auto j = 0; j < M.cols(); ++j)
       for (auto i = 0; i < M.rows(); ++i)
-        if (M(i, j)) insert(i, j) = M(i, j);
+        if (M(i, j))
+          insert(i, j) = M(i, j);
   }
   // move constructor
   SparseMatrix(SparseMatrix<value_type> &&S) {
@@ -103,7 +102,8 @@ class SparseMatrix {
   }
 
   SparseMatrix<value_type> &setZero() {
-    for (auto &&it : S_) it.clear();
+    for (auto &&it : S_)
+      it.clear();
     return *this;
   }
 
@@ -149,6 +149,16 @@ class SparseMatrix {
     return coeffRef(i, j);
   }
 
+  void symmetrize() {
+    for (auto i = 0; i < S_.size(); ++i)
+      for (auto j = 0; j < S_[i].size(); ++j) {
+        value_type val = 0.5 * (S_[i][j].value + coeffRef(S_[i][j].index, i));
+        S_[i][j].value = val;
+        coeffRef(S_[i][j].index, i) = val;
+      }
+    return;
+  }
+
   value_type &operator()(size_type i, size_type j) { return coeffRef(i, j); }
   /*
    *  return full matrix
@@ -166,7 +176,8 @@ class SparseMatrix {
 
   size_type nnz() const {
     size_type retval = 0;
-    for (auto &&it : S_) retval += it.size();
+    for (auto &&it : S_)
+      retval += it.size();
     return retval;
   }
 
@@ -178,16 +189,25 @@ class SparseMatrix {
       coeffRef(it->row(), it->col()) = it->value();
     return;
   }
+
+  std::vector<Eigen::Triplet<value_type>> toTriplets() const {
+    std::vector<Eigen::Triplet<value_type>> triplets;
+    for (auto i = 0; i < S_.size(); ++i)
+      for (auto &&j : S_[i])
+        triplets.push_back(Eigen::Triplet<value_type>(i, j.index, j.value));
+    return triplets;
+  }
   /*
    *  multiply sparse matrix with a dense matrix
    */
-  Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> operator*(
-      const Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> &M)
+  Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic>
+  operator*(const Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> &M)
       const {
     eigen_assert(cols() == M.rows());
     Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> retVal;
     retVal.resize(rows(), M.cols());
     retVal.setZero();
+#pragma omp parallel for
     for (auto j = 0; j < M.cols(); ++j)
       for (auto i = 0; i < m_; ++i)
         for (auto k = 0; k < S_[i].size(); ++k)
@@ -207,7 +227,8 @@ class SparseMatrix {
           value_type entry = 0;
           if (M.S_[j].size()) {
             entry = dotProduct(S_[i], M.S_[j]);
-            if (abs(entry) > FMCA_ZERO_TOLERANCE) retval(i, j) = entry;
+            if (abs(entry) > 0)
+              retval(i, j) = entry;
           }
         }
     }
@@ -215,32 +236,62 @@ class SparseMatrix {
   }
 
   // careful, this is a formated matrix product
-  SparseMatrix<value_type> &operator*=(const SparseMatrix<value_type> &M) {
+  SparseMatrix<value_type> formatted_mult(const SparseMatrix<value_type> &M) {
     eigen_assert(cols() == M.rows());
-    std::vector<SparseVector> temp = S_;
+    SparseMatrix<value_type> temp = *this;
     const size_type ssize = S_.size();
 #pragma omp parallel for
     for (auto i = 0; i < ssize; ++i)
-      for (auto j = 0; j < temp[i].size(); ++j)
-        temp[i][j].value = dotProduct(S_[i], M.S_[temp[i][j].index]);
-    S_.swap(temp);
-    return *this;
+      for (auto j = 0; j < temp.S_[i].size(); ++j)
+        temp.S_[i][j].value = dotProduct(S_[i], M.S_[S_[i][j].index]);
+    return temp;
   }
 
   SparseMatrix<value_type> &operator+=(const SparseMatrix<value_type> &M) {
     eigen_assert(rows() == M.rows() && cols() == M.cols() &&
                  "dimension mismatch");
     const size_type msize = M.S_.size();
-
+#pragma omp parallel for
     for (auto i = 0; i < msize; ++i)
       S_[i] = sparse_vector_addition(S_[i], M.S_[i]);
     return *this;
+  }
+
+  SparseMatrix<value_type> &operator-=(const SparseMatrix<value_type> &M) {
+    eigen_assert(rows() == M.rows() && cols() == M.cols() &&
+                 "dimension mismatch");
+    const size_type msize = M.S_.size();
+#pragma omp parallel for
+    for (auto i = 0; i < msize; ++i)
+      S_[i] = sparse_vector_subtraction(S_[i], M.S_[i]);
+    return *this;
+  }
+
+  SparseMatrix<value_type> operator+(const SparseMatrix<value_type> &M) {
+    eigen_assert(rows() == M.rows() && cols() == M.cols() &&
+                 "dimension mismatch");
+    const size_type msize = M.S_.size();
+    SparseMatrix<value_type> temp = *this;
+    temp += M;
+    return temp;
+  }
+
+  SparseMatrix<value_type> operator-(const SparseMatrix<value_type> &M) {
+    eigen_assert(rows() == M.rows() && cols() == M.cols() &&
+                 "dimension mismatch");
+    const size_type msize = M.S_.size();
+    SparseMatrix<value_type> temp = *this;
+    temp -= M;
+    return temp;
   }
 
   static value_type dotProduct(const SparseVector &v1, const SparseVector &v2) {
     const size_type v1size = v1.size();
     const size_type v2size = v2.size();
     value_type retval = 0;
+    if (v2.back().index < v1.front().index ||
+        v1.back().index < v2.front().index)
+      return retval;
     for (auto i = 0, j = 0; i < v1size && j < v2size;) {
       if (v1[i].index < v2[j].index)
         ++i;
@@ -284,7 +335,43 @@ class SparseMatrix {
     return retval;
   }
 
- private:
+  static SparseVector sparse_vector_subtraction(const SparseVector &v1,
+                                                const SparseVector &v2) {
+    const size_type v1size = v1.size();
+    const size_type v2size = v2.size();
+    SparseVector retval;
+    retval.reserve(v1size + v2size);
+    size_type i = 0;
+    size_type j = 0;
+    while (i < v1size && j < v2size)
+      if (v1[i].index < v2[j].index) {
+        retval.push_back(Cell<value_type>(v1[i].value, v1[i].index));
+        ++i;
+      } else if (v1[i].index > v2[j].index) {
+        retval.push_back(Cell<value_type>(-v2[j].value, v2[j].index));
+        ++j;
+      } else {
+        retval.push_back(Cell<value_type>(v1[i].value, v1[i].index));
+        retval.back().value -= v2[j].value;
+        ++i;
+        ++j;
+      }
+    if (i == v1size)
+      while (j < v2size) {
+        retval.push_back(Cell<value_type>(-v2[j].value, v2[j].index));
+        ++j;
+      }
+
+    else
+      while (i < v1size) {
+        retval.push_back(Cell<value_type>(v1[i].value, v1[i].index));
+        ++i;
+      }
+    retval.shrink_to_fit();
+    return retval;
+  }
+
+private:
   /*
    *  performs a binary search for the ind array and returns iterators
    *  to the respective position j if the element is present or to j + 1 if
@@ -338,5 +425,5 @@ class SparseMatrix {
   size_type n_;
 };
 
-}  // namespace FMCA
+} // namespace FMCA
 #endif

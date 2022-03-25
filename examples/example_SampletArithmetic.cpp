@@ -9,6 +9,7 @@
 // any warranty, see <https://github.com/muchip/FMCA> for further
 // information.
 #define FMCA_CLUSTERSET_
+#include <iomanip>
 #include <iostream>
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -54,6 +55,7 @@ int main(int argc, char *argv[]) {
     const Moments mom(P, mp_deg);
     const MatrixEvaluator mat_eval(mom, function);
     const SampletMoments samp_mom(P, dtilde - 1);
+    FMCA::samplet_matrix_multiplier<H2SampletTree> multip;
     T.tic();
     H2SampletTree hst(mom, samp_mom, 0, P);
     T.toc("tree setup: ");
@@ -66,16 +68,29 @@ int main(int argc, char *argv[]) {
     Eigen::SparseMatrix<double> X(P.cols(), P.cols());
     Eigen::SparseMatrix<double> AX(P.cols(), P.cols());
     Eigen::SparseMatrix<double> I(P.cols(), P.cols());
+    FMCA::SparseMatrix<double> Sfast(P.cols(), P.cols());
     I.setIdentity();
     I *= 2;
+    T.tic();
     S.setFromTriplets(trips.begin(), trips.end());
+    T.toc("Eigen::Sparse ");
+    T.tic();
+    Sfast.setFromTriplets(trips.begin(), trips.end());
+    T.toc("FMCA::Sparse ");
     S = 0.5 * (S + Eigen::SparseMatrix<double>(S.transpose()));
-
+    T.tic();
+    X = S.transpose() * S;
+    T.toc("Eigen::Sparse mult");
+    T.tic();
+    FMCA::SparseMatrix<double> SS = Sfast * Sfast;
+    T.toc("FMCA::Sparse mult");
+    auto t2 = SS.toTriplets();
+    AX.setFromTriplets(t2.begin(), t2.end());
+    std::cout << "err: " << (X - AX).norm() / X.norm() << std::endl;
     X.setIdentity();
     X.diagonal().array() = 0.8 / (S.diagonal().array() + 1e-6) /
                            S.diagonal().cwiseAbs().maxCoeff();
     auto lvls = FMCA::internal::sampletLevelMapper(hst);
-    FMCA::samplet_matrix_multiplier<H2SampletTree> multip;
     Eigen::MatrixXd S0;
     Eigen::MatrixXd X0;
     Eigen::MatrixXd AX0;
@@ -85,15 +100,14 @@ int main(int argc, char *argv[]) {
     for (auto i = 0; i < 5; ++i) {
       FMCA::IndexType level_index = 0;
 
-      while (lvls[level_index] <= i)
-        ++level_index;
+      while (lvls[level_index] <= i) ++level_index;
       --level_index;
 
       S0 = S.block(0, 0, level_index, level_index);
       X0 = X.block(0, 0, level_index, level_index);
       I0 = I.block(0, 0, level_index, level_index);
-      //if (i > 0)
-      //  X0.block(0, 0, X0old.rows(), X0old.cols()) = X0old;
+      // if (i > 0)
+      //   X0.block(0, 0, X0old.rows(), X0old.cols()) = X0old;
       double err = (X0 * S0 - 0.5 * I0).norm() / (0.5 * I0).norm();
       unsigned int iter = 0;
       while (err > 1e-6) {
