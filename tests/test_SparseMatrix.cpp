@@ -18,7 +18,7 @@ int main(int argc, char *argv[]) {
   FMCA::Tictoc T;
   // small matrix tests
   {
-    const unsigned int npts = 1000;
+    const unsigned int npts = 100;
     const Eigen::MatrixXd M = Eigen::MatrixXd::Random(npts, npts);
     Eigen::MatrixXd Sfull;
     FMCA::SparseMatrix<double> S(npts, npts);
@@ -53,18 +53,19 @@ int main(int argc, char *argv[]) {
     const unsigned int npts = 100000;
     FMCA::SparseMatrix<double> S(npts, npts);
     FMCA::SparseMatrix<double> S2(npts, npts);
+    FMCA::SparseMatrix<double> Sf(npts, npts);
     S.setZero();
-    for (auto i = 0; i < 4000; ++i)
-      for (auto j = 0; j < 4000; ++j)
+    for (auto i = 0; i < 1000; ++i)
+      for (auto j = 0; j < 1000; ++j)
         S(rand() % npts, rand() % npts) = double(rand()) / double(RAND_MAX);
+    S.symmetrize();
     std::cout << "nnz of sparse matrix: " << S.nnz() << std::endl;
-    T.tic();
-    S2 = S.formatted_mult(S);
-    T.toc("sparse multiplication time formatted");
     Eigen::SparseMatrix<double> eigenS(npts, npts);
     Eigen::SparseMatrix<double> eigenT(npts, npts);
     auto trips = S.toTriplets();
     eigenS.setFromTriplets(trips.begin(), trips.end());
+    eigenT = eigenS.transpose();
+    std::cout << "sym error: " << (eigenS - eigenT).norm() << std::endl;
     T.tic();
     S2 = S * S;
     T.toc("sparse multiplication time");
@@ -72,6 +73,13 @@ int main(int argc, char *argv[]) {
     eigenT = eigenS * eigenS;
     T.toc("Eigen::sparse multiplication time");
     trips = S2.toTriplets();
+    eigenS.setFromTriplets(trips.begin(), trips.end());
+    std::cout << "error: " << (eigenS - eigenT).norm() / eigenT.norm()
+              << std::endl;
+    T.tic();
+    Sf = FMCA::SparseMatrix<double>::formatted_AtBT(S2, S, S);
+    T.toc("sparse multiplication time formatted");
+    trips = Sf.toTriplets();
     eigenS.setFromTriplets(trips.begin(), trips.end());
     std::cout << "error: " << (eigenS - eigenT).norm() / eigenT.norm()
               << std::endl;

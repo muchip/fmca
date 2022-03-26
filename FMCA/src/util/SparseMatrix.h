@@ -211,8 +211,9 @@ public:
   //////////////////////////////////////////////////////////////////////////////
   // parallel methods
   void symmetrize() {
+    // first sweep catches all entries below the diagonal
 #pragma omp parallel for
-    for (auto i = 0; i < m_; ++i)
+    for (auto i = 0; i < m_; ++i) {
       for (auto j = 0; j < idx_[i].size(); ++j) {
         if (idx_[i][j] < i) {
           value_type &other_val = coeffRef(idx_[i][j], i);
@@ -222,6 +223,25 @@ public:
         } else
           break;
       }
+    }
+    // second sweep catches all entries above the diagonal
+    // that have not been found so far
+#pragma omp parallel for
+    for (auto i = 0; i < m_; ++i) {
+      if (idx_[i].size())
+        for (int j = idx_[i].size() - 1; j >= 0; --j) {
+          if (idx_[i][j] > i) {
+            const size_type pos = binarySearch(idx_[idx_[i][j]], i);
+            if (pos == idx_[idx_[i][j]].size() || idx_[idx_[i][j]][pos] != i) {
+              value_type &other_val = coeffRef(idx_[i][j], i);
+              value_type val = 0.5 * (val_[i][j] + other_val);
+              val_[i][j] = val;
+              other_val = val;
+            }
+          } else
+            break;
+        }
+    }
     return;
   }
 
@@ -267,14 +287,17 @@ public:
     return retval;
   }
 
-  // careful, this is a formated matrix product
-  SparseMatrix<value_type> formatted_mult(const SparseMatrix<value_type> &M) {
-    eigen_assert(cols() == M.rows());
-    SparseMatrix<value_type> temp = *this;
+  static SparseMatrix<value_type>
+  formatted_AtBT(const SparseMatrix<value_type> &P,
+                 const SparseMatrix<value_type> &M1,
+                 const SparseMatrix<value_type> &M2) {
+    SparseMatrix<value_type> temp = P;
 #pragma omp parallel for
     for (auto i = 0; i < temp.m_; ++i)
       for (auto j = 0; j < temp.idx_[i].size(); ++j)
-        temp.val_[i][j] = dotProduct(idx_[i], val_[i], M.idx_[i], M.val_[i]);
+        temp.val_[i][j] =
+            dotProduct(M1.idx_[i], M1.val_[i], M2.idx_[temp.idx_[i][j]],
+                       M2.val_[temp.idx_[i][j]]);
     return temp;
   }
 
@@ -283,7 +306,16 @@ public:
                  "dimension mismatch");
 #pragma omp parallel for
     for (auto i = 0; i < m_; ++i)
-      xpy(&(idx_[i]), &(val_[i]), M.idx_[i], M.val_[i]);
+      axpy(1, &(idx_[i]), &(val_[i]), M.idx_[i], M.val_[i]);
+    return *this;
+  }
+
+  SparseMatrix<value_type> &operator-=(const SparseMatrix<value_type> &M) {
+    eigen_assert(rows() == M.rows() && cols() == M.cols() &&
+                 "dimension mismatch");
+#pragma omp parallel for
+    for (auto i = 0; i < m_; ++i)
+      axpy(-1, &(idx_[i]), &(val_[i]), M.idx_[i], M.val_[i]);
     return *this;
   }
 
@@ -295,6 +327,14 @@ public:
     return temp;
   }
 
+  SparseMatrix<value_type> operator-(const SparseMatrix<value_type> &M) {
+    eigen_assert(rows() == M.rows() && cols() == M.cols() &&
+                 "dimension mismatch");
+    SparseMatrix<value_type> temp = *this;
+    temp -= M;
+    return temp;
+  }
+
   //////////////////////////////////////////////////////////////////////////////
   // low level linear algebra (atomic)
   static value_type dotProduct(const index_vector &iv1, const value_vector &vv1,
@@ -303,7 +343,8 @@ public:
     const size_type v1size = iv1.size();
     const size_type v2size = iv2.size();
     value_type retval = 0;
-    if (iv2.back() < iv1.front() || iv1.back() < iv2.front())
+    if (!v1size || !v2size || iv2.back() < iv1.front() ||
+        iv1.back() < iv2.front())
       return retval;
     for (auto i = 0, j = 0; i < v1size && j < v2size;) {
       if (iv1[i] < iv2[j])
@@ -361,45 +402,6 @@ public:
     }
     iretval.resize(k);
     vretval.resize(k);
-    iv1->swap(iretval);
-    vv1->swap(vretval);
-    return;
-  }
-
-  static void xpy(index_vector *iv1, value_vector *vv1, const index_vector &iv2,
-                  const value_vector &vv2) {
-    const size_type v1size = iv1->size();
-    const size_type v2size = iv2.size();
-    index_vector iretval;
-    value_vector vretval;
-    iretval.reserve(v1size + v2size);
-    vretval.reserve(v1size + v2size);
-    size_type i = 0;
-    size_type j = 0;
-    while (i < v1size && j < v2size)
-      if ((*iv1)[i] < iv2[j]) {
-        iretval.push_back((*iv1)[i]);
-        vretval.push_back((*vv1)[i]);
-        ++i;
-      } else if ((*iv1)[i] > iv2[j]) {
-        iretval.push_back(iv2[j]);
-        vretval.push_back(vv2[j]);
-        ++j;
-      } else {
-        iretval.push_back((*iv1)[i]);
-        vretval.push_back((*vv1)[i] + vv2[j]);
-        ++i;
-        ++j;
-      }
-    if (i == v1size) {
-      iretval.insert(iretval.end(), iv2.begin() + j, iv2.end());
-      vretval.insert(vretval.end(), vv2.begin() + j, vv2.end());
-    } else {
-      iretval.insert(iretval.end(), (*iv1).begin() + i, (*iv1).end());
-      vretval.insert(vretval.end(), (*vv1).begin() + i, (*vv1).end());
-    }
-    iretval.shrink_to_fit();
-    vretval.shrink_to_fit();
     iv1->swap(iretval);
     vv1->swap(vretval);
     return;
