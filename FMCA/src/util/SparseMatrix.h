@@ -1,10 +1,19 @@
+// This file is part of FMCA, the Fast Multiresolution Covariance Analysis
+// package.
+//
+// Copyright (c) 2021, Michael Multerer
+//
+// All rights reserved.
+//
+// This source code is subject to the BSD 3-clause license and without
+// any warranty, see <https://github.com/muchip/FMCA> for further
 #ifndef FMCA_UTIL_SPARSEMATRIX_H_
 #define FMCA_UTIL_SPARSEMATRIX_H_
 
-#include <Eigen/Dense>
 #include <vector>
 
-#include "Macros.h"
+#include <Eigen/Dense>
+#include <Eigen/Sparse>
 
 namespace FMCA {
 /*
@@ -20,28 +29,20 @@ namespace FMCA {
 template <typename T> class SparseMatrix {
 public:
   //////////////////////////////////////////////////////////////////////////////
-  template <typename S> struct Cell {
-    typedef S value_type;
-    typedef typename std::vector<Cell<S>>::size_type index_type;
-    Cell() = delete;
-    Cell(const value_type &thevalue, index_type theindex)
-        : value(thevalue), index(theindex) {}
-    Cell(value_type &&thevalue, index_type theindex)
-        : value(thevalue), index(theindex) {}
-
-    value_type value;
-    index_type index;
-  };
   typedef T value_type;
-  typedef typename std::vector<Cell<T>> SparseVector;
-  typedef typename std::vector<SparseVector>::size_type size_type;
+  typedef typename std::vector<value_type> value_vector;
+  typedef typename value_vector::size_type size_type;
+  typedef typename std::vector<size_type> index_vector;
   //////////////////////////////////////////////////////////////////////////////
   /*
    *  class constructors
    */
   SparseMatrix() : m_(0), n_(0) {}
 
-  SparseMatrix(size_type m, size_type n) : m_(m), n_(n) { S_.resize(m_); }
+  SparseMatrix(size_type m, size_type n) : m_(m), n_(n) {
+    val_.resize(m_);
+    idx_.resize(m_);
+  }
 
   template <typename Derived>
   SparseMatrix(const Eigen::MatrixBase<Derived> &M) {
@@ -55,26 +56,25 @@ public:
   SparseMatrix(SparseMatrix<value_type> &&S) {
     m_ = S.m_;
     n_ = S.n_;
-    S_.swap(S.S_);
+    val_.swap(S.val_);
+    idx_.swap(S.idx_);
   }
   // deep copy constructor, exploits deep copy of std::vector
   SparseMatrix(const SparseMatrix<value_type> &S) {
     m_ = S.m_;
     n_ = S.n_;
-    S_ = S.S_;
+    val_ = S.val_;
+    idx_ = S.idx_;
   }
   // assignment operator based on copy and swap idiom
   SparseMatrix<value_type> &operator=(SparseMatrix<value_type> S) {
     std::swap(m_, S.m_);
     std::swap(n_, S.n_);
-    S_.swap(S.S_);
+    val_.swap(S.val_);
+    idx_.swap(S.idx_);
     return *this;
   }
-  /*
-   *  return row of the sparse matrix col is not implemented since this would
-   *  be really painful...
-   */
-  const SparseVector &row(size_type i) const { return S_[i]; }
+  //////////////////////////////////////////////////////////////////////////////
   /*
    *  returns number of rows
    */
@@ -90,25 +90,32 @@ public:
   SparseMatrix<value_type> &resize(size_type m, size_type n) {
     m_ = m;
     n_ = n;
-    S_.resize(m_);
+    val_.resize(m_);
+    idx_.resize(m_);
     if (n_ == 0) {
       setZero();
     } else {
-      for (auto &&it : S_)
-        if (it.size() && (it.back()).index >= n_)
-          it.erase(binarySearch(it, n), it.end());
+      for (auto i = 0; i < m_; ++i)
+        if (idx_[i].size() && idx_[i].back() >= n_) {
+          const size_type pos = binarySearch(idx_[i], n);
+          idx_[i].erase(idx_[i].begin() + pos, idx_[i].end());
+          val_[i].erase(val_[i].begin() + pos, val_[i].end());
+        }
     }
     return *this;
   }
 
   SparseMatrix<value_type> &setZero() {
-    for (auto &&it : S_)
-      it.clear();
+    for (auto i = 0; i < m_; ++i) {
+      val_[i].clear();
+      idx_[i].clear();
+    }
     return *this;
   }
 
   SparseMatrix<value_type> &reset() {
-    S_.clear();
+    val_.clear();
+    idx_.clear();
     m_ = 0;
     n_ = 0;
     return *this;
@@ -119,22 +126,23 @@ public:
    */
   value_type &insert(size_type i, size_type j) {
     assert(i < m_ && j < n_ && "insert out of bounds");
-    auto itCol = binarySearch(S_[i], j);
-    if (itCol == S_[i].end() || itCol->index != j)
-      itCol = S_[i].insert(itCol, Cell<value_type>(value_type(0), j));
-    return itCol->value;
+    const size_type pos = binarySearch(idx_[i], j);
+    if (pos == idx_[i].size() || idx_[i][pos] != j) {
+      val_[i].insert(val_[i].begin() + pos, 0);
+      idx_[i].insert(idx_[i].begin() + pos, j);
+    }
+    return val_[i][pos];
   }
   /*
-   *  function for insertion returns reference to element (i,j),
-   *  which is created if it does not already exist
+   *  function for read only returns value of element (i,j)
    */
   const value_type &getVal(size_type i, size_type j) const {
     assert(i < m_ && j < n_ && "index out of bounds");
-    auto itCol = binarySearch(S_[i], j);
-    if (itCol == S_[i].end() || itCol->index != j)
+    const size_type pos = binarySearch(idx_[i], j);
+    if (pos == idx_[i].size() || idx_[i][pos] != j)
       return value_type(0);
     else
-      return itCol->value;
+      return val_[i][pos];
   }
 
   /*
@@ -149,17 +157,8 @@ public:
     return coeffRef(i, j);
   }
 
-  void symmetrize() {
-    for (auto i = 0; i < S_.size(); ++i)
-      for (auto j = 0; j < S_[i].size(); ++j) {
-        value_type val = 0.5 * (S_[i][j].value + coeffRef(S_[i][j].index, i));
-        S_[i][j].value = val;
-        coeffRef(S_[i][j].index, i) = val;
-      }
-    return;
-  }
-
   value_type &operator()(size_type i, size_type j) { return coeffRef(i, j); }
+
   /*
    *  return full matrix
    */
@@ -168,23 +167,25 @@ public:
     retVal.resize(m_, n_);
     retVal.setZero();
     for (auto i = 0; i < m_; ++i)
-      for (auto j = 0; j < S_[i].size(); ++j) {
-        retVal(i, S_[i][j].index) = S_[i][j].value;
-      }
+      for (auto j = 0; j < idx_[i].size(); ++j)
+        retVal(i, idx_[i][j]) = val_[i][j];
+
     return retVal;
   }
 
   size_type nnz() const {
     size_type retval = 0;
-    for (auto &&it : S_)
+    for (auto &&it : idx_)
       retval += it.size();
     return retval;
   }
 
   template <typename Derived>
   void setFromTriplets(const Derived &begin, const Derived &end) {
-    S_.clear();
-    S_.resize(m_);
+    val_.clear();
+    idx_.clear();
+    val_.resize(m_);
+    idx_.resize(m_);
     for (auto it = begin; it != end; ++it)
       coeffRef(it->row(), it->col()) = it->value();
     return;
@@ -192,11 +193,39 @@ public:
 
   std::vector<Eigen::Triplet<value_type>> toTriplets() const {
     std::vector<Eigen::Triplet<value_type>> triplets;
-    for (auto i = 0; i < S_.size(); ++i)
-      for (auto &&j : S_[i])
-        triplets.push_back(Eigen::Triplet<value_type>(i, j.index, j.value));
+    for (auto i = 0; i < m_; ++i)
+      for (auto j = 0; j < idx_[i].size(); ++j)
+        triplets.push_back(
+            Eigen::Triplet<value_type>(i, idx_[i][j], val_[i][j]));
     return triplets;
   }
+
+  void symmetrize() {
+    for (auto i = 0; i < m_; ++i)
+      for (auto j = 0; j < idx_[i].size(); ++j) {
+        if (idx_[i][j] < i) {
+          value_type &other_val = coeffRef(idx_[i][j], i);
+          value_type val = 0.5 * (val_[i][j] + other_val);
+          val_[i][j] = val;
+          other_val = val;
+        } else
+          break;
+      }
+    return;
+  }
+
+  void transpose() {
+    for (auto i = 0; i < m_; ++i)
+      for (auto j = 0; j < idx_[i].size(); ++j) {
+        if (idx_[i][j] < i) {
+          value_type &other_val = coeffRef(idx_[i][j], i);
+          std::swap(val_[i][j], other_val);
+        } else
+          break;
+      }
+    return;
+  }
+
   /*
    *  multiply sparse matrix with a dense matrix
    */
@@ -210,23 +239,21 @@ public:
 #pragma omp parallel for
     for (auto j = 0; j < M.cols(); ++j)
       for (auto i = 0; i < m_; ++i)
-        for (auto k = 0; k < S_[i].size(); ++k)
-          retVal(i, j) += S_[i][k].value * M(S_[i][k].index, j);
+        for (auto k = 0; k < idx_[i].size(); ++k)
+          retVal(i, j) += val_[i][k] * M(idx_[i][k], j);
     return retVal;
   }
 
   SparseMatrix<value_type> operator*(const SparseMatrix<value_type> &M) const {
     eigen_assert(cols() == M.rows());
-    const size_type ssize = S_.size();
-    const size_type msize = M.S_.size();
-    SparseMatrix<value_type> retval(rows(), M.cols());
+    SparseMatrix<value_type> retval(m_, M.n_);
 #pragma omp parallel for
-    for (auto i = 0; i < ssize; ++i) {
-      if (S_[i].size())
-        for (auto j = 0; j < msize; ++j) {
+    for (auto i = 0; i < m_; ++i) {
+      if (idx_[i].size())
+        for (auto j = 0; j < M.n_; ++j) {
           value_type entry = 0;
-          if (M.S_[j].size()) {
-            entry = dotProduct(S_[i], M.S_[j]);
+          if (M.idx_[j].size()) {
+            entry = dotProduct(idx_[i], val_[i], M.idx_[j], M.val_[j]);
             if (abs(entry) > 0)
               retval(i, j) = entry;
           }
@@ -239,66 +266,45 @@ public:
   SparseMatrix<value_type> formatted_mult(const SparseMatrix<value_type> &M) {
     eigen_assert(cols() == M.rows());
     SparseMatrix<value_type> temp = *this;
-    const size_type ssize = S_.size();
 #pragma omp parallel for
-    for (auto i = 0; i < ssize; ++i)
-      for (auto j = 0; j < temp.S_[i].size(); ++j)
-        temp.S_[i][j].value = dotProduct(S_[i], M.S_[S_[i][j].index]);
+    for (auto i = 0; i < temp.m_; ++i)
+      for (auto j = 0; j < temp.idx_[i].size(); ++j)
+        temp.val_[i][j] = dotProduct(idx_[i], val_[i], M.idx_[i], M.val_[i]);
     return temp;
   }
 
   SparseMatrix<value_type> &operator+=(const SparseMatrix<value_type> &M) {
     eigen_assert(rows() == M.rows() && cols() == M.cols() &&
                  "dimension mismatch");
-    const size_type msize = M.S_.size();
 #pragma omp parallel for
-    for (auto i = 0; i < msize; ++i)
-      S_[i] = sparse_vector_addition(S_[i], M.S_[i]);
-    return *this;
-  }
-
-  SparseMatrix<value_type> &operator-=(const SparseMatrix<value_type> &M) {
-    eigen_assert(rows() == M.rows() && cols() == M.cols() &&
-                 "dimension mismatch");
-    const size_type msize = M.S_.size();
-#pragma omp parallel for
-    for (auto i = 0; i < msize; ++i)
-      S_[i] = sparse_vector_subtraction(S_[i], M.S_[i]);
+    for (auto i = 0; i < m_; ++i)
+      vectorAddition(&(idx_[i]), &(val_[i]), M.idx_[i], M.val_[i]);
     return *this;
   }
 
   SparseMatrix<value_type> operator+(const SparseMatrix<value_type> &M) {
     eigen_assert(rows() == M.rows() && cols() == M.cols() &&
                  "dimension mismatch");
-    const size_type msize = M.S_.size();
     SparseMatrix<value_type> temp = *this;
     temp += M;
     return temp;
   }
 
-  SparseMatrix<value_type> operator-(const SparseMatrix<value_type> &M) {
-    eigen_assert(rows() == M.rows() && cols() == M.cols() &&
-                 "dimension mismatch");
-    const size_type msize = M.S_.size();
-    SparseMatrix<value_type> temp = *this;
-    temp -= M;
-    return temp;
-  }
-
-  static value_type dotProduct(const SparseVector &v1, const SparseVector &v2) {
-    const size_type v1size = v1.size();
-    const size_type v2size = v2.size();
+  static value_type dotProduct(const index_vector &iv1, const value_vector &vv1,
+                               const index_vector &iv2,
+                               const value_vector &vv2) {
+    const size_type v1size = iv1.size();
+    const size_type v2size = iv2.size();
     value_type retval = 0;
-    if (v2.back().index < v1.front().index ||
-        v1.back().index < v2.front().index)
+    if (iv2.back() < iv1.front() || iv1.back() < iv2.front())
       return retval;
     for (auto i = 0, j = 0; i < v1size && j < v2size;) {
-      if (v1[i].index < v2[j].index)
+      if (iv1[i] < iv2[j])
         ++i;
-      else if (v1[i].index > v2[j].index)
+      else if (iv1[i] > iv2[j])
         ++j;
       else {
-        retval += v1[i].value * v2[j].value;
+        retval += vv1[i] * vv2[j];
         ++i;
         ++j;
       }
@@ -306,121 +312,74 @@ public:
     return retval;
   }
 
-  static SparseVector sparse_vector_addition(const SparseVector &v1,
-                                             const SparseVector &v2) {
-    const size_type v1size = v1.size();
-    const size_type v2size = v2.size();
-    SparseVector retval;
-    retval.reserve(v1size + v2size);
+  static void vectorAddition(index_vector *iv1, value_vector *vv1,
+                             const index_vector &iv2, const value_vector &vv2) {
+    const size_type v1size = iv1->size();
+    const size_type v2size = iv2.size();
+    index_vector iretval;
+    value_vector vretval;
+    iretval.reserve(v1size + v2size);
+    vretval.reserve(v1size + v2size);
     size_type i = 0;
     size_type j = 0;
     while (i < v1size && j < v2size)
-      if (v1[i].index < v2[j].index) {
-        retval.push_back(Cell<value_type>(v1[i].value, v1[i].index));
+      if ((*iv1)[i] < iv2[j]) {
+        iretval.push_back((*iv1)[i]);
+        vretval.push_back((*vv1)[i]);
         ++i;
-      } else if (v1[i].index > v2[j].index) {
-        retval.push_back(Cell<value_type>(v2[j].value, v2[j].index));
+      } else if ((*iv1)[i] > iv2[j]) {
+        iretval.push_back(iv2[j]);
+        vretval.push_back(vv2[j]);
         ++j;
       } else {
-        retval.push_back(Cell<value_type>(v1[i].value, v1[i].index));
-        retval.back().value += v2[j].value;
+        iretval.push_back((*iv1)[i]);
+        vretval.push_back((*vv1)[i] + vv2[j]);
         ++i;
         ++j;
       }
-    if (i == v1size)
-      retval.insert(retval.end(), v2.begin() + j, v2.end());
-    else
-      retval.insert(retval.end(), v1.begin() + i, v1.end());
-    retval.shrink_to_fit();
-    return retval;
+    if (i == v1size) {
+      iretval.insert(iretval.end(), iv2.begin() + j, iv2.end());
+      vretval.insert(vretval.end(), vv2.begin() + j, vv2.end());
+    } else {
+      iretval.insert(iretval.end(), (*iv1).begin() + i, (*iv1).end());
+      vretval.insert(vretval.end(), (*vv1).begin() + i, (*vv1).end());
+    }
+    iretval.shrink_to_fit();
+    vretval.shrink_to_fit();
+    iv1->swap(iretval);
+    vv1->swap(vretval);
+    return;
   }
 
-  static SparseVector sparse_vector_subtraction(const SparseVector &v1,
-                                                const SparseVector &v2) {
-    const size_type v1size = v1.size();
-    const size_type v2size = v2.size();
-    SparseVector retval;
-    retval.reserve(v1size + v2size);
+  /*
+   *  performs a binary search for the index array and returns the position
+   *  j if the element is present or j + 1 if it is not present
+   *  (implementation is similar to std::lower_bound, cf. cppreference.com)
+   */
+  static size_type binarySearch(const index_vector &row, size_type j) {
+    size_type pos = 0;
     size_type i = 0;
-    size_type j = 0;
-    while (i < v1size && j < v2size)
-      if (v1[i].index < v2[j].index) {
-        retval.push_back(Cell<value_type>(v1[i].value, v1[i].index));
-        ++i;
-      } else if (v1[i].index > v2[j].index) {
-        retval.push_back(Cell<value_type>(-v2[j].value, v2[j].index));
-        ++j;
-      } else {
-        retval.push_back(Cell<value_type>(v1[i].value, v1[i].index));
-        retval.back().value -= v2[j].value;
-        ++i;
-        ++j;
-      }
-    if (i == v1size)
-      while (j < v2size) {
-        retval.push_back(Cell<value_type>(-v2[j].value, v2[j].index));
-        ++j;
-      }
-
-    else
-      while (i < v1size) {
-        retval.push_back(Cell<value_type>(v1[i].value, v1[i].index));
-        ++i;
-      }
-    retval.shrink_to_fit();
-    return retval;
+    size_type dist = row.size();
+    size_type step = dist;
+    while (dist > 0) {
+      i = pos;
+      step = dist / 2;
+      i += step;
+      if (row[i] < j) {
+        pos = ++i;
+        dist -= step + 1;
+      } else
+        dist = step;
+    }
+    return pos;
   }
 
 private:
   /*
-   *  performs a binary search for the ind array and returns iterators
-   *  to the respective position j if the element is present or to j + 1 if
-   *  it is not present (implementation is similar to std::lower_bound, cf.
-   *  cppreference.com)
-   */
-  template <class S>
-  typename S::const_iterator binarySearch(const S &row,
-                                          typename S::size_type j) const {
-    typename S::const_iterator itCol = row.begin();
-    typename S::const_iterator it = itCol;
-    auto dist = std::distance(row.begin(), row.end());
-    auto step = dist;
-    while (dist > 0) {
-      it = itCol;
-      step = dist / 2;
-      std::advance(it, step);
-      if (it->index < j) {
-        itCol = ++it;
-        dist -= step + 1;
-      } else
-        dist = step;
-    }
-    return itCol;
-  }
-
-  template <class S>
-  typename S::iterator binarySearch(S &row, typename S::size_type j) {
-    typename S::iterator itCol = row.begin();
-    typename S::iterator it = itCol;
-    auto dist = std::distance(row.begin(), row.end());
-    auto step = dist;
-    while (dist > 0) {
-      it = itCol;
-      step = dist / 2;
-      std::advance(it, step);
-      if (it->index < j) {
-        itCol = ++it;
-        dist -= step + 1;
-      } else
-        dist = step;
-    }
-    return itCol;
-  }
-
-  /*
    *  private member variables
    */
-  std::vector<SparseVector> S_;
+  std::vector<value_vector> val_;
+  std::vector<index_vector> idx_;
   size_type m_;
   size_type n_;
 };
