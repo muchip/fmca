@@ -15,48 +15,66 @@
 #include "../FMCA/src/util/Tictoc.h"
 
 int main(int argc, char *argv[]) {
-  const unsigned int npts = 2000;
-  const Eigen::MatrixXd M = Eigen::MatrixXd::Random(npts, npts);
-  Eigen::MatrixXd Sfull;
   FMCA::Tictoc T;
-  FMCA::SparseMatrix<double> S(npts, npts);
-  S.setZero();
-  T.tic();
-  S = FMCA::SparseMatrix<double>(M);
-  T.toc("set matrix time: ");
-  std::cout << "error: " << (S.full() - M).norm() << std::endl;
-  T.tic();
-  S.symmetrize();
-  T.toc("symmetrize time: ");
-  Sfull = S.full();
-  std::cout << "error: " << (Sfull - Sfull.transpose()).norm() << std::endl;
-  S = FMCA::SparseMatrix<double>(M);
-  T.tic();
-  S = FMCA::SparseMatrix<double>(S * M);
-  T.toc("multiplication time");
-  std::cout << "error: " << (S.full() - M * M).norm() << std::endl;
-  S = FMCA::SparseMatrix<double>(M);
-  T.tic();
-  S = S + S;
-  T.toc("addition time");
-  std::cout << "error: " << (S.full() - 2 * M).norm() << std::endl;
-  S = FMCA::SparseMatrix<double>(M);
-  T.tic();
-  S.transpose();
-  T.toc("transposition time");
-  std::cout << "error: " << (S.full() - M.transpose()).norm() << std::endl;
-
-  S.setZero();
-  for (auto i = 0; i < 500; ++i)
-    for (auto j = 0; j < 500; ++j)
-      S(rand() % npts, rand() % npts) = double(rand()) / double(RAND_MAX);
-  std::cout << S.nnz() << std::endl;
-  Sfull = S.full();
-  T.tic();
-  S = S.formatted_mult(S);
-  T.toc("sparse multiplication time");
-  std::cout << "error: " << (S.full() - Sfull * Sfull.transpose()).norm()
-            << std::endl;
-
+  // small matrix tests
+  {
+    const unsigned int npts = 1000;
+    const Eigen::MatrixXd M = Eigen::MatrixXd::Random(npts, npts);
+    Eigen::MatrixXd Sfull;
+    FMCA::SparseMatrix<double> S(npts, npts);
+    S.setZero();
+    T.tic();
+    S = FMCA::SparseMatrix<double>(M);
+    T.toc("set matrix time: ");
+    std::cout << "error: " << (S.full() - M).norm() << std::endl;
+    T.tic();
+    S.symmetrize();
+    T.toc("symmetrize time: ");
+    Sfull = S.full();
+    std::cout << "error: " << (Sfull - Sfull.transpose()).norm() << std::endl;
+    S = FMCA::SparseMatrix<double>(M);
+    T.tic();
+    S = FMCA::SparseMatrix<double>(S * M);
+    T.toc("multiplication time full");
+    std::cout << "error: " << (S.full() - M * M).norm() << std::endl;
+    S = FMCA::SparseMatrix<double>(M);
+    T.tic();
+    S = S + S;
+    T.toc("addition time");
+    std::cout << "error: " << (S.full() - 2 * M).norm() << std::endl;
+    S = FMCA::SparseMatrix<double>(M);
+    T.tic();
+    S.transpose();
+    T.toc("transposition time");
+    std::cout << "error: " << (S.full() - M.transpose()).norm() << std::endl;
+  }
+  // large matrix tests
+  {
+    const unsigned int npts = 100000;
+    FMCA::SparseMatrix<double> S(npts, npts);
+    FMCA::SparseMatrix<double> S2(npts, npts);
+    S.setZero();
+    for (auto i = 0; i < 4000; ++i)
+      for (auto j = 0; j < 4000; ++j)
+        S(rand() % npts, rand() % npts) = double(rand()) / double(RAND_MAX);
+    std::cout << "nnz of sparse matrix: " << S.nnz() << std::endl;
+    T.tic();
+    S2 = S.formatted_mult(S);
+    T.toc("sparse multiplication time formatted");
+    Eigen::SparseMatrix<double> eigenS(npts, npts);
+    Eigen::SparseMatrix<double> eigenT(npts, npts);
+    auto trips = S.toTriplets();
+    eigenS.setFromTriplets(trips.begin(), trips.end());
+    T.tic();
+    S2 = S * S;
+    T.toc("sparse multiplication time");
+    T.tic();
+    eigenT = eigenS * eigenS;
+    T.toc("Eigen::sparse multiplication time");
+    trips = S2.toTriplets();
+    eigenS.setFromTriplets(trips.begin(), trips.end());
+    std::cout << "error: " << (eigenS - eigenT).norm() / eigenT.norm()
+              << std::endl;
+  }
   return 0;
 }

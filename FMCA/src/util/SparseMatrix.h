@@ -113,6 +113,14 @@ public:
     return *this;
   }
 
+  SparseMatrix<value_type> &setIdentity() {
+    setZero();
+    const size_type dlength = m_ > n_ ? n_ : m_;
+    for (auto i = 0; i < dlength; ++i)
+      coeffRef(i, i) = 1;
+    return *this;
+  }
+
   SparseMatrix<value_type> &reset() {
     val_.clear();
     idx_.clear();
@@ -200,7 +208,10 @@ public:
     return triplets;
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+  // parallel methods
   void symmetrize() {
+#pragma omp parallel for
     for (auto i = 0; i < m_; ++i)
       for (auto j = 0; j < idx_[i].size(); ++j) {
         if (idx_[i][j] < i) {
@@ -215,6 +226,7 @@ public:
   }
 
   void transpose() {
+#pragma omp parallel for
     for (auto i = 0; i < m_; ++i)
       for (auto j = 0; j < idx_[i].size(); ++j) {
         if (idx_[i][j] < i) {
@@ -248,17 +260,10 @@ public:
     eigen_assert(cols() == M.rows());
     SparseMatrix<value_type> retval(m_, M.n_);
 #pragma omp parallel for
-    for (auto i = 0; i < m_; ++i) {
-      if (idx_[i].size())
-        for (auto j = 0; j < M.n_; ++j) {
-          value_type entry = 0;
-          if (M.idx_[j].size()) {
-            entry = dotProduct(idx_[i], val_[i], M.idx_[j], M.val_[j]);
-            if (abs(entry) > 0)
-              retval(i, j) = entry;
-          }
-        }
-    }
+    for (auto i = 0; i < m_; ++i)
+      for (auto j = 0; j < idx_[i].size(); ++j)
+        axpy(val_[i][j], &(retval.idx_[i]), &(retval.val_[i]),
+             M.idx_[idx_[i][j]], M.val_[idx_[i][j]]);
     return retval;
   }
 
@@ -278,7 +283,7 @@ public:
                  "dimension mismatch");
 #pragma omp parallel for
     for (auto i = 0; i < m_; ++i)
-      vectorAddition(&(idx_[i]), &(val_[i]), M.idx_[i], M.val_[i]);
+      xpy(&(idx_[i]), &(val_[i]), M.idx_[i], M.val_[i]);
     return *this;
   }
 
@@ -290,6 +295,8 @@ public:
     return temp;
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+  // low level linear algebra (atomic)
   static value_type dotProduct(const index_vector &iv1, const value_vector &vv1,
                                const index_vector &iv2,
                                const value_vector &vv2) {
@@ -312,8 +319,55 @@ public:
     return retval;
   }
 
-  static void vectorAddition(index_vector *iv1, value_vector *vv1,
-                             const index_vector &iv2, const value_vector &vv2) {
+  static void axpy(value_type a, index_vector *iv1, value_vector *vv1,
+                   const index_vector &iv2, const value_vector &vv2) {
+    const size_type v1size = iv1->size();
+    const size_type v2size = iv2.size();
+    index_vector iretval(v1size + v2size);
+    value_vector vretval(v1size + v2size);
+    size_type i = 0;
+    size_type j = 0;
+    size_type k = 0;
+    while (i < v1size && j < v2size)
+      if ((*iv1)[i] < iv2[j]) {
+        iretval[k] = (*iv1)[i];
+        vretval[k] = (*vv1)[i];
+        ++i;
+        ++k;
+      } else if ((*iv1)[i] > iv2[j]) {
+        iretval[k] = iv2[j];
+        vretval[k] = a * vv2[j];
+        ++j;
+        ++k;
+      } else {
+        iretval[k] = (*iv1)[i];
+        vretval[k] = (*vv1)[i] + a * vv2[j];
+        ++i;
+        ++j;
+        ++k;
+      }
+    if (i == v1size) {
+      for (; j < v2size; ++j) {
+        iretval[k] = iv2[j];
+        vretval[k] = a * vv2[j];
+        ++k;
+      }
+    } else {
+      for (; i < v1size; ++i) {
+        iretval[k] = (*iv1)[i];
+        vretval[k] = (*vv1)[i];
+        ++k;
+      }
+    }
+    iretval.resize(k);
+    vretval.resize(k);
+    iv1->swap(iretval);
+    vv1->swap(vretval);
+    return;
+  }
+
+  static void xpy(index_vector *iv1, value_vector *vv1, const index_vector &iv2,
+                  const value_vector &vv2) {
     const size_type v1size = iv1->size();
     const size_type v2size = iv2.size();
     index_vector iretval;
