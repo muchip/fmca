@@ -208,26 +208,36 @@ public:
     return triplets;
   }
 
+  template <typename Derived>
+  SparseMatrix<value_type> &setDiagonal(const Derived &diag) {
+    {
+      const size_type dlength = m_ > n_ ? n_ : m_;
+      assert(diag.size() == dlength && "dimension mismatch");
+      for (auto i = 0; i < dlength; ++i)
+        coeffRef(i, i) = diag[i];
+      return *this;
+    }
+  }
+
   //////////////////////////////////////////////////////////////////////////////
   // parallel methods
-  SparseMatrix<value_type> symmetrize() {
+  SparseMatrix<value_type> &symmetrize() {
     // first sweep catches all entries below the diagonal
-#pragma omp parallel for
     for (auto i = 0; i < m_; ++i) {
       for (auto j = 0; j < idx_[i].size(); ++j) {
         if (idx_[i][j] < i) {
-          value_type &other_val = coeffRef(idx_[i][j], i);
-          value_type val = 0.5 * (val_[i][j] + other_val);
-          val_[i][j] = val;
-          other_val = val;
+          {
+            value_type &other_val = coeffRef(idx_[i][j], i);
+            value_type val = 0.5 * (val_[i][j] + other_val);
+            val_[i][j] = val;
+            other_val = val;
+          }
         } else
           break;
       }
     }
-#pragma omp barrier
     // second sweep catches all entries above the diagonal
     // that have not been found so far
-#pragma omp parallel for
     for (auto i = 0; i < m_; ++i) {
       for (int j = idx_[i].size() - 1; j >= 0; --j) {
         if (idx_[i][j] > i) {
@@ -251,7 +261,6 @@ public:
    **/
   SparseMatrix<value_type> &transpose() {
     // first sweep catches all entries below the diagonal
-#pragma omp parallel for
     for (auto i = 0; i < m_; ++i)
       for (auto j = 0; j < idx_[i].size(); ++j) {
         if (idx_[i][j] < i) {
@@ -260,10 +269,8 @@ public:
         } else
           break;
       }
-#pragma omp barrier
-      // second sweep catches all entries above the diagonal
-      // that have not been found so far
-#pragma omp parallel for
+    // second sweep catches all entries above the diagonal
+    // that have not been found so far
     for (auto i = 0; i < m_; ++i) {
       for (int j = idx_[i].size() - 1; j >= 0; --j) {
         if (idx_[i][j] > i) {

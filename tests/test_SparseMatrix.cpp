@@ -58,7 +58,9 @@ int main(int argc, char *argv[]) {
     for (auto i = 0; i < 2000; ++i)
       for (auto j = 0; j < 2000; ++j)
         S(rand() % npts, rand() % npts) = double(rand()) / double(RAND_MAX);
+    T.tic();
     S.symmetrize();
+    T.toc("sym time: ");
     std::cout << "nnz of sparse matrix: " << S.nnz() << std::endl;
     Eigen::SparseMatrix<double> eigenS(npts, npts);
     Eigen::SparseMatrix<double> eigenT(npts, npts);
