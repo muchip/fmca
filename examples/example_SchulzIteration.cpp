@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
   const double eta = 0.8;
   const unsigned int mp_deg = 4;
   const double threshold = 1e-5;
-  const unsigned int npts = 1e3;
+  const unsigned int npts = 1e4;
   FMCA::Tictoc T;
   std::cout << "N:" << npts << " dim:" << dim << " eta:" << eta
             << " mpd:" << mp_deg << " dt:" << dtilde << " thres: " << threshold
@@ -62,11 +62,8 @@ int main(int argc, char *argv[]) {
   T.tic();
   comp.compress(hst, mat_eval, eta, threshold);
   const double tcomp = T.toc("compressor: ");
-  auto trips = comp.pattern_triplets();
+  const auto &trips = comp.pattern_triplets();
   FMCA::SparseMatrix<double> S(P.cols(), P.cols());
-  Eigen::SparseMatrix<double> eigenS(P.cols(), P.cols());
-  Eigen::SparseMatrix<double> eigenX(P.cols(), P.cols());
-  Eigen::SparseMatrix<double> eigenI(P.cols(), P.cols());
   FMCA::SparseMatrix<double> X(P.cols(), P.cols());
   FMCA::SparseMatrix<double> SX(P.cols(), P.cols());
   FMCA::SparseMatrix<double> I(P.cols(), P.cols());
@@ -78,15 +75,8 @@ int main(int argc, char *argv[]) {
   Eigen::VectorXd init(P.cols());
   for (auto i = 0; i < init.size(); ++i)
     init(i) = 0.25 / (S(i, i) + 1);
-  Eigen::VectorXd twos = 2 * Eigen::VectorXd::Ones(P.cols());
-  I2.setDiagonal(twos);
   X.setDiagonal(init);
-  trips = S.toTriplets();
-  eigenS.setFromTriplets(trips.begin(), trips.end());
-  eigenI.setIdentity();
-  // std::cout << I.full() << "\n----\n";
-  // std::cout << X.full() << "\n----\n";
-  // std::cout << S.full() << "\n----\n";
+  I2.setDiagonal(2 * Eigen::VectorXd::Ones(P.cols()));
   Eigen::MatrixXd randFilter = Eigen::MatrixXd::Random(P.cols(), 20);
   T.tic();
   for (auto i = 0; i < 20; ++i) {
@@ -94,12 +84,10 @@ int main(int argc, char *argv[]) {
     I2mSX = I2 - SX;
     X = X * I2mSX;
     X.symmetrize();
-    trips = X.toTriplets();
-    eigenX.setFromTriplets(trips.begin(), trips.end());
     std::cout << "err: "
               << ((X * (S * randFilter)) - randFilter).norm() /
                      randFilter.norm()
-              << std::endl;
+              << " anz: " << X.nnz() / npts << std::endl;
   }
   T.toc("Schulz time: ");
 #if 0
