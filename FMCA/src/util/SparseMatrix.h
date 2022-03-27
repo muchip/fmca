@@ -224,6 +224,7 @@ public:
           break;
       }
     }
+#pragma omp barrier
     // second sweep catches all entries above the diagonal
     // that have not been found so far
 #pragma omp parallel for
@@ -259,6 +260,7 @@ public:
         } else
           break;
       }
+#pragma omp barrier
       // second sweep catches all entries above the diagonal
       // that have not been found so far
 #pragma omp parallel for

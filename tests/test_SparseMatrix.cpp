@@ -55,8 +55,8 @@ int main(int argc, char *argv[]) {
     FMCA::SparseMatrix<double> S2(npts, npts);
     FMCA::SparseMatrix<double> Sf(npts, npts);
     S.setZero();
-    for (auto i = 0; i < 4000; ++i)
-      for (auto j = 0; j < 4000; ++j)
+    for (auto i = 0; i < 2000; ++i)
+      for (auto j = 0; j < 2000; ++j)
         S(rand() % npts, rand() % npts) = double(rand()) / double(RAND_MAX);
     S.symmetrize();
     std::cout << "nnz of sparse matrix: " << S.nnz() << std::endl;
@@ -84,8 +84,8 @@ int main(int argc, char *argv[]) {
     std::cout << "error: " << (eigenS - eigenT).norm() / eigenT.norm()
               << std::endl;
     S.setZero();
-    for (auto i = 0; i < 4000; ++i)
-      for (auto j = 0; j < 4000; ++j)
+    for (auto i = 0; i < 2000; ++i)
+      for (auto j = 0; j < 2000; ++j)
         S(rand() % npts, rand() % npts) = double(rand()) / double(RAND_MAX);
     trips = S.toTriplets();
     eigenS.setFromTriplets(trips.begin(), trips.end());
