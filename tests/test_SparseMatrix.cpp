@@ -50,13 +50,13 @@ int main(int argc, char *argv[]) {
   }
   // large matrix tests
   {
-    const unsigned int npts = 100000;
+    const unsigned int npts = 1000000;
     FMCA::SparseMatrix<double> S(npts, npts);
     FMCA::SparseMatrix<double> S2(npts, npts);
     FMCA::SparseMatrix<double> Sf(npts, npts);
     S.setZero();
-    for (auto i = 0; i < 1000; ++i)
-      for (auto j = 0; j < 1000; ++j)
+    for (auto i = 0; i < 4000; ++i)
+      for (auto j = 0; j < 4000; ++j)
         S(rand() % npts, rand() % npts) = double(rand()) / double(RAND_MAX);
     S.symmetrize();
     std::cout << "nnz of sparse matrix: " << S.nnz() << std::endl;
@@ -82,6 +82,27 @@ int main(int argc, char *argv[]) {
     trips = Sf.toTriplets();
     eigenS.setFromTriplets(trips.begin(), trips.end());
     std::cout << "error: " << (eigenS - eigenT).norm() / eigenT.norm()
+              << std::endl;
+    S.setZero();
+    for (auto i = 0; i < 4000; ++i)
+      for (auto j = 0; j < 4000; ++j)
+        S(rand() % npts, rand() % npts) = double(rand()) / double(RAND_MAX);
+    trips = S.toTriplets();
+    eigenS.setFromTriplets(trips.begin(), trips.end());
+    T.tic();
+    S2 = S.transpose();
+    T.toc("transposition: ");
+    trips = S2.toTriplets();
+    eigenT.setFromTriplets(trips.begin(), trips.end());
+    eigenS = eigenS.transpose();
+    std::cout << "error: " << (eigenS - eigenT).norm() / eigenS.norm()
+              << std::endl;
+    T.tic();
+    S2 = S + S;
+    T.toc("addition: ");
+    trips = S2.toTriplets();
+    eigenT.setFromTriplets(trips.begin(), trips.end());
+    std::cout << "error: " << (2 * eigenS - eigenT).norm() / eigenS.norm()
               << std::endl;
   }
   return 0;

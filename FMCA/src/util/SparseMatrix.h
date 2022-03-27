@@ -154,7 +154,7 @@ public:
   }
 
   /*
-   *  dummy reference function to make it look like EigenSparse
+   *  reference function to make it look like EigenSparse
    */
   value_type &coeffRef(size_type i, size_type j) { return insert(i, j); }
   const value_type &coeffRef(size_type i, size_type j) const {
@@ -210,7 +210,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
   // parallel methods
-  void symmetrize() {
+  SparseMatrix<value_type> symmetrize() {
     // first sweep catches all entries below the diagonal
 #pragma omp parallel for
     for (auto i = 0; i < m_; ++i) {
@@ -228,24 +228,28 @@ public:
     // that have not been found so far
 #pragma omp parallel for
     for (auto i = 0; i < m_; ++i) {
-      if (idx_[i].size())
-        for (int j = idx_[i].size() - 1; j >= 0; --j) {
-          if (idx_[i][j] > i) {
-            const size_type pos = binarySearch(idx_[idx_[i][j]], i);
-            if (pos == idx_[idx_[i][j]].size() || idx_[idx_[i][j]][pos] != i) {
-              value_type &other_val = coeffRef(idx_[i][j], i);
-              value_type val = 0.5 * (val_[i][j] + other_val);
-              val_[i][j] = val;
-              other_val = val;
-            }
-          } else
-            break;
-        }
+      for (int j = idx_[i].size() - 1; j >= 0; --j) {
+        if (idx_[i][j] > i) {
+          const size_type pos = binarySearch(idx_[idx_[i][j]], i);
+          if (pos == idx_[idx_[i][j]].size() || idx_[idx_[i][j]][pos] != i) {
+            value_type &other_val = coeffRef(idx_[i][j], i);
+            value_type val = 0.5 * (val_[i][j] + other_val);
+            val_[i][j] = val;
+            other_val = val;
+          }
+        } else
+          break;
+      }
     }
-    return;
+    return *this;
   }
 
-  void transpose() {
+  /**
+   *  transposition symmetrizes the pattern, i.e. additional zeros are
+   *  introduced if either a_ij or a_ji exists and the other does not.
+   **/
+  SparseMatrix<value_type> &transpose() {
+    // first sweep catches all entries below the diagonal
 #pragma omp parallel for
     for (auto i = 0; i < m_; ++i)
       for (auto j = 0; j < idx_[i].size(); ++j) {
@@ -255,7 +259,22 @@ public:
         } else
           break;
       }
-    return;
+      // second sweep catches all entries above the diagonal
+      // that have not been found so far
+#pragma omp parallel for
+    for (auto i = 0; i < m_; ++i) {
+      for (int j = idx_[i].size() - 1; j >= 0; --j) {
+        if (idx_[i][j] > i) {
+          const size_type pos = binarySearch(idx_[idx_[i][j]], i);
+          if (pos == idx_[idx_[i][j]].size() || idx_[idx_[i][j]][pos] != i) {
+            value_type &other_val = coeffRef(idx_[i][j], i);
+            std::swap(val_[i][j], other_val);
+          }
+        } else
+          break;
+      }
+    }
+    return *this;
   }
 
   /*
@@ -336,7 +355,7 @@ public:
   }
 
   //////////////////////////////////////////////////////////////////////////////
-  // low level linear algebra (atomic)
+  // low level linear algebra (serial)
   static value_type dotProduct(const index_vector &iv1, const value_vector &vv1,
                                const index_vector &iv2,
                                const value_vector &vv2) {
