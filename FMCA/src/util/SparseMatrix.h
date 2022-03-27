@@ -33,6 +33,8 @@ public:
   typedef typename std::vector<value_type> value_vector;
   typedef typename value_vector::size_type size_type;
   typedef typename std::vector<size_type> index_vector;
+  typedef typename Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic>
+      eigenMatrix;
   //////////////////////////////////////////////////////////////////////////////
   /*
    *  class constructors
@@ -170,8 +172,8 @@ public:
   /*
    *  return full matrix
    */
-  Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> full() const {
-    Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> retVal;
+  eigenMatrix full() const {
+    eigenMatrix retVal;
     retVal.resize(m_, n_);
     retVal.setZero();
     for (auto i = 0; i < m_; ++i)
@@ -307,9 +309,7 @@ public:
   /*
    *  multiply sparse matrix with a dense matrix
    */
-  Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic>
-  operator*(const Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> &M)
-      const {
+  eigenMatrix operator*(const eigenMatrix &M) const {
     eigen_assert(cols() == M.rows());
     Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> retVal;
     retVal.resize(rows(), M.cols());
@@ -344,6 +344,38 @@ public:
         temp.val_[i][j] =
             dotProduct(M1.idx_[i], M1.val_[i], M2.idx_[temp.idx_[i][j]],
                        M2.val_[temp.idx_[i][j]]);
+    return temp;
+  }
+
+  static SparseMatrix<value_type>
+  formatted_BABT(const SparseMatrix<value_type> &P,
+                 const SparseMatrix<value_type> &A,
+                 const SparseMatrix<value_type> &B) {
+    SparseMatrix<value_type> temp = P;
+#pragma omp parallel for
+    for (auto i = 0; i < temp.m_; ++i)
+      for (auto j = 0; j < temp.idx_[i].size(); ++j) {
+        if (B.idx_[temp.idx_[i][j]].size() && B.idx_[i].size()) {
+          index_vector tidx(A.m_);
+          value_vector tval(A.m_);
+          // multiply by A
+          size_type k = 0;
+          for (auto l = 0; l < A.m_; ++l) {
+            const value_type entry =
+                dotProduct(A.idx_[l], A.val_[l], B.idx_[temp.idx_[i][j]],
+                           B.val_[temp.idx_[i][j]]);
+            if (abs(entry) > 1e-14) {
+              tidx[k] = l;
+              tval[k] = entry;
+              ++k;
+            }
+          }
+          tidx.resize(k);
+          tval.resize(k);
+          temp.val_[i][j] = dotProduct(tidx, tval, B.idx_[i], B.val_[i]);
+        } else
+          temp.val_[i][j] = 0;
+      }
     return temp;
   }
 

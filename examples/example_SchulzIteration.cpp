@@ -68,23 +68,27 @@ int main(int argc, char *argv[]) {
   FMCA::SparseMatrix<double> SX(P.cols(), P.cols());
   FMCA::SparseMatrix<double> I(P.cols(), P.cols());
   FMCA::SparseMatrix<double> I2(P.cols(), P.cols());
-  FMCA::SparseMatrix<double> I2mSX(P.cols(), P.cols());
+  //FMCA::SparseMatrix<double> Pat(Eigen::MatrixXd::Ones(P.cols(), P.cols()));
   I.setIdentity();
   S.setFromTriplets(trips.begin(), trips.end());
   S.symmetrize();
   Eigen::VectorXd init(P.cols());
   for (auto i = 0; i < init.size(); ++i)
-    init(i) = 0.25 / (S(i, i) + 1);
+    init(i) = 1. / sqrt(S(i, i) + 1e-6);
+  X.setDiagonal(init);
+  S = (X * S) * X;
+  for (auto i = 0; i < init.size(); ++i)
+    init(i) = 0.25;
   X.setDiagonal(init);
   I2.setDiagonal(2 * Eigen::VectorXd::Ones(P.cols()));
   Eigen::MatrixXd randFilter = Eigen::MatrixXd::Random(P.cols(), 20);
   T.tic();
   for (auto i = 0; i < 20; ++i) {
-    SX = S * X;
-    I2mSX = I2 - SX;
-    X = X * I2mSX;
+    // SX = S * X;
+    // I2mSX = I2 - SX;
+    // X = (I2 * X) - (X * (S * X));
+    X = (I2 * X) - FMCA::SparseMatrix<double>::formatted_BABT(S, S, X);
     std::cout << "a priori anz: " << X.nnz() / npts;
-    X.compress(1e-10);
     X.symmetrize();
     std::cout << "  a post anz: " << X.nnz() / npts;
     std::cout << "  err: "
