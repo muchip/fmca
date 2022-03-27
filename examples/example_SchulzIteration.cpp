@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
   const double eta = 0.8;
   const unsigned int mp_deg = 4;
   const double threshold = 1e-5;
-  const unsigned int npts = 1e3;
+  const unsigned int npts = 1e4;
   FMCA::Tictoc T;
   std::cout << "N:" << npts << " dim:" << dim << " eta:" << eta
             << " mpd:" << mp_deg << " dt:" << dtilde << " thres: " << threshold
@@ -96,7 +96,7 @@ int main(int argc, char *argv[]) {
     trips = X.toTriplets();
     eigenX.setFromTriplets(trips.begin(), trips.end());
     std::cout << "err: " << (eigenI - eigenS * eigenX).norm() / eigenI.norm()
-              << std::endl;
+              << "anz: " << X.nnz() / npts << std::endl;
   }
   T.toc("Schulz time: ");
 #if 0
