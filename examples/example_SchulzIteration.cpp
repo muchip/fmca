@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
   const double eta = 0.8;
   const unsigned int mp_deg = 4;
   const double threshold = 1e-5;
-  const unsigned int npts = 1e4;
+  const unsigned int npts = 1e3;
   FMCA::Tictoc T;
   std::cout << "N:" << npts << " dim:" << dim << " eta:" << eta
             << " mpd:" << mp_deg << " dt:" << dtilde << " thres: " << threshold
@@ -83,13 +83,22 @@ int main(int argc, char *argv[]) {
     SX = S * X;
     I2mSX = I2 - SX;
     X = X * I2mSX;
+    std::cout << "a priori anz: " << X.nnz() / npts;
+    X.compress(1e-10);
     X.symmetrize();
-    std::cout << "err: "
+    std::cout << "  a post anz: " << X.nnz() / npts;
+    std::cout << "  err: "
               << ((X * (S * randFilter)) - randFilter).norm() /
                      randFilter.norm()
-              << " anz: " << X.nnz() / npts << std::endl;
+              << std::endl
+              << std::flush;
   }
   T.toc("Schulz time: ");
+  std::cout << "a priori anz: " << X.nnz() / npts;
+  X.compress(threshold);
+  X.symmetrize();
+  std::cout << "  a post anz: " << X.nnz() / npts;
+
 #if 0
     for (auto i = 0; i < 5; ++i) {
       FMCA::IndexType level_index = 0;

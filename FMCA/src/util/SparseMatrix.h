@@ -286,6 +286,24 @@ public:
     return *this;
   }
 
+  SparseMatrix<value_type> &compress(value_type threshold) {
+    SparseMatrix<value_type> temp = *this;
+#pragma omp parallel for
+    for (auto i = 0; i < m_; ++i) {
+      size_type k = 0;
+      for (auto j = 0; j < idx_[i].size(); ++j)
+        if (abs(val_[i][j]) > threshold) {
+          temp.idx_[i][k] = idx_[i][j];
+          temp.val_[i][k] = val_[i][j];
+          ++k;
+        }
+      temp.idx_[i].resize(k);
+      temp.val_[i].resize(k);
+    }
+    idx_.swap(temp.idx_);
+    val_.swap(temp.val_);
+    return *this;
+  }
   /*
    *  multiply sparse matrix with a dense matrix
    */
