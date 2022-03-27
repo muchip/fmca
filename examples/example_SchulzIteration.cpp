@@ -87,6 +87,7 @@ int main(int argc, char *argv[]) {
   // std::cout << I.full() << "\n----\n";
   // std::cout << X.full() << "\n----\n";
   // std::cout << S.full() << "\n----\n";
+  Eigen::MatrixXd randFilter = Eigen::MatrixXd::Random(P.cols(), 20);
   T.tic();
   for (auto i = 0; i < 20; ++i) {
     SX = S * X;
@@ -95,7 +96,9 @@ int main(int argc, char *argv[]) {
     X.symmetrize();
     trips = X.toTriplets();
     eigenX.setFromTriplets(trips.begin(), trips.end());
-    std::cout << "err: " << (eigenI - eigenS * eigenX).norm() / eigenI.norm()
+    std::cout << "err: "
+              << ((X * (S * randFilter)) - randFilter).norm() /
+                     randFilter.norm()
               << std::endl;
   }
   T.toc("Schulz time: ");
