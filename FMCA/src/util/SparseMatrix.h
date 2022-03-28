@@ -10,10 +10,9 @@
 #ifndef FMCA_UTIL_SPARSEMATRIX_H_
 #define FMCA_UTIL_SPARSEMATRIX_H_
 
-#include <vector>
-
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
+#include <vector>
 
 namespace FMCA {
 /*
@@ -26,8 +25,9 @@ namespace FMCA {
  *         is log_2(_Srows[i].size()).
  */
 
-template <typename T> class SparseMatrix {
-public:
+template <typename T>
+class SparseMatrix {
+ public:
   //////////////////////////////////////////////////////////////////////////////
   typedef T value_type;
   typedef typename std::vector<value_type> value_vector;
@@ -51,8 +51,7 @@ public:
     resize(M.rows(), M.cols());
     for (auto j = 0; j < M.cols(); ++j)
       for (auto i = 0; i < M.rows(); ++i)
-        if (M(i, j))
-          insert(i, j) = M(i, j);
+        if (M(i, j)) insert(i, j) = M(i, j);
   }
   // move constructor
   SparseMatrix(SparseMatrix<value_type> &&S) {
@@ -118,8 +117,7 @@ public:
   SparseMatrix<value_type> &setIdentity() {
     setZero();
     const size_type dlength = m_ > n_ ? n_ : m_;
-    for (auto i = 0; i < dlength; ++i)
-      coeffRef(i, i) = 1;
+    for (auto i = 0; i < dlength; ++i) coeffRef(i, i) = 1;
     return *this;
   }
 
@@ -185,8 +183,7 @@ public:
 
   size_type nnz() const {
     size_type retval = 0;
-    for (auto &&it : idx_)
-      retval += it.size();
+    for (auto &&it : idx_) retval += it.size();
     return retval;
   }
 
@@ -215,8 +212,7 @@ public:
     {
       const size_type dlength = m_ > n_ ? n_ : m_;
       assert(diag.size() == dlength && "dimension mismatch");
-      for (auto i = 0; i < dlength; ++i)
-        coeffRef(i, i) = diag[i];
+      for (auto i = 0; i < dlength; ++i) coeffRef(i, i) = diag[i];
       return *this;
     }
   }
@@ -333,10 +329,9 @@ public:
     return retval;
   }
 
-  static SparseMatrix<value_type>
-  formatted_AtBT(const SparseMatrix<value_type> &P,
-                 const SparseMatrix<value_type> &M1,
-                 const SparseMatrix<value_type> &M2) {
+  static SparseMatrix<value_type> formatted_AtBT(
+      const SparseMatrix<value_type> &P, const SparseMatrix<value_type> &M1,
+      const SparseMatrix<value_type> &M2) {
     SparseMatrix<value_type> temp = P;
 #pragma omp parallel for
     for (auto i = 0; i < temp.m_; ++i)
@@ -347,10 +342,10 @@ public:
     return temp;
   }
 
-  static SparseMatrix<value_type>
-  formatted_BABT(const SparseMatrix<value_type> &P,
-                 const SparseMatrix<value_type> &A,
-                 const SparseMatrix<value_type> &B) {
+#if 1
+  static SparseMatrix<value_type> formatted_BABT(
+      const SparseMatrix<value_type> &P, const SparseMatrix<value_type> &A,
+      const SparseMatrix<value_type> &B) {
     SparseMatrix<value_type> temp = P;
 #pragma omp parallel for
     for (auto i = 0; i < temp.m_; ++i)
@@ -378,6 +373,28 @@ public:
       }
     return temp;
   }
+#else
+  static SparseMatrix<value_type> formatted_BABT(
+      const SparseMatrix<value_type> &P, const SparseMatrix<value_type> &A,
+      const SparseMatrix<value_type> &B) {
+    SparseMatrix<value_type> temp = P;
+#pragma omp parallel for
+    for (auto i = 0; i < temp.m_; ++i)
+      for (auto j = 0; j < temp.idx_[i].size(); ++j) {
+        if (B.idx_[temp.idx_[i][j]].size() && B.idx_[i].size()) {
+          index_vector tidx;
+          value_vector tval;
+          for (auto k = 0; k < B.idx_[i].size(); ++k)
+            axpy(B.val_[i][k], &(tidx), &(tval), A.idx_[B.idx_[i][k]],
+                 A.val_[B.idx_[i][k]]);
+          temp.val_[i][j] = dotProduct(tidx, tval, B.idx_[temp.idx_[i][j]],
+                                       B.val_[temp.idx_[i][j]]);
+        } else
+          temp.val_[i][j] = 0;
+      }
+    return temp;
+  }
+#endif
 
   SparseMatrix<value_type> &operator+=(const SparseMatrix<value_type> &M) {
     eigen_assert(rows() == M.rows() && cols() == M.cols() &&
@@ -508,7 +525,7 @@ public:
     return pos;
   }
 
-private:
+ private:
   /*
    *  private member variables
    */
@@ -518,5 +535,5 @@ private:
   size_type n_;
 };
 
-} // namespace FMCA
+}  // namespace FMCA
 #endif

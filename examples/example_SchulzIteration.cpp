@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
   const double eta = 0.8;
   const unsigned int mp_deg = 4;
   const double threshold = 1e-5;
-  const unsigned int npts = 1e3;
+  const unsigned int npts = 2e2;
   FMCA::Tictoc T;
   std::cout << "N:" << npts << " dim:" << dim << " eta:" << eta
             << " mpd:" << mp_deg << " dt:" << dtilde << " thres: " << threshold
@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
   for (auto i = 0; i < 20; ++i) {
     // SX = S * X;
     // I2mSX = I2 - SX;
-    // X = (I2 * X) - (X * (S * X));
+    //X = (I2 * X) - (X * (S * X));
     X = (I2 * X) - FMCA::SparseMatrix<double>::formatted_BABT(S, S, X);
     std::cout << "a priori anz: " << X.nnz() / npts;
     X.symmetrize();
