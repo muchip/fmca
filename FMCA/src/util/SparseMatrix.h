@@ -354,14 +354,14 @@ class SparseMatrix {
         for (auto k = 0; k < B.idx_[i].size(); ++k)
           axpy(B.val_[i][k], &(temp.idx_[i]), &(temp.val_[i]),
                A.idx_[B.idx_[i][k]], A.val_[B.idx_[i][k]]);
-    // now create all entries of the target matrix
+          // now create all entries of the target matrix
 #pragma omp parallel for
     for (auto i = 0; i < retval.m_; ++i)
       for (auto j = 0; j < retval.idx_[i].size(); ++j) {
-        if (B.idx_[retval.idx_[i][j]].size() && B.idx_[i].size()) {
+        if (B.idx_[retval.idx_[i][j]].size() && temp.idx_[i].size()) {
           retval.val_[i][j] =
-              dotProduct(temp.idx_[i], temp.val_[i], B.idx_[temp.idx_[i][j]],
-                         B.val_[temp.idx_[i][j]]);
+              dotProduct(temp.idx_[i], temp.val_[i], B.idx_[retval.idx_[i][j]],
+                         B.val_[retval.idx_[i][j]]);
         } else
           retval.val_[i][j] = 0;
       }

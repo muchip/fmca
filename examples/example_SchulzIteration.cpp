@@ -38,11 +38,11 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
 int main(int argc, char *argv[]) {
   const unsigned int dim = atoi(argv[1]);
-  const unsigned int dtilde = 3;
+  const unsigned int dtilde = 4;
   const auto function = expKernel();
   const double eta = 0.8;
-  const unsigned int mp_deg = 4;
-  const double threshold = 1e-5;
+  const unsigned int mp_deg = 6;
+  const double threshold = 0;
   const unsigned int npts = 1e4;
   FMCA::Tictoc T;
   std::cout << "N:" << npts << " dim:" << dim << " eta:" << eta
@@ -86,8 +86,8 @@ int main(int argc, char *argv[]) {
     T.tic();
     // SX = S * X;
     // I2mSX = I2 - SX;
-    X = (I2 * X) - (X * (S * X));
-    //X = (I2 * X) - FMCA::SparseMatrix<double>::formatted_BABT(S, S, X);
+    //X = (I2 * X) - (X * (S * X));
+    X = (I2 * X) - FMCA::SparseMatrix<double>::formatted_BABT(S, S, X);
     T.toc("Schulz step: ");
     std::cout << "a priori anz: " << X.nnz() / npts;
     X.symmetrize();
