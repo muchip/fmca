@@ -65,28 +65,21 @@ int main(int argc, char *argv[]) {
   const auto &trips = comp.pattern_triplets();
   FMCA::SparseMatrix<double> S(P.cols(), P.cols());
   FMCA::SparseMatrix<double> X(P.cols(), P.cols());
-  FMCA::SparseMatrix<double> SX(P.cols(), P.cols());
-  FMCA::SparseMatrix<double> I(P.cols(), P.cols());
   FMCA::SparseMatrix<double> I2(P.cols(), P.cols());
-  //FMCA::SparseMatrix<double> Pat(Eigen::MatrixXd::Ones(P.cols(), P.cols()));
-  I.setIdentity();
+  // FMCA::SparseMatrix<double> Pat(Eigen::MatrixXd::Ones(P.cols(), P.cols()));
   S.setFromTriplets(trips.begin(), trips.end());
   S.symmetrize();
   Eigen::VectorXd init(P.cols());
-  for (auto i = 0; i < init.size(); ++i)
-    init(i) = 1. / sqrt(S(i, i) + 1e-6);
+  for (auto i = 0; i < init.size(); ++i) init(i) = 1. / sqrt(S(i, i) + 1e-6);
   X.setDiagonal(init);
   S = (X * S) * X;
-  for (auto i = 0; i < init.size(); ++i)
-    init(i) = 0.25;
+  for (auto i = 0; i < init.size(); ++i) init(i) = 0.25;
   X.setDiagonal(init);
   I2.setDiagonal(2 * Eigen::VectorXd::Ones(P.cols()));
   Eigen::MatrixXd randFilter = Eigen::MatrixXd::Random(P.cols(), 20);
   for (auto i = 0; i < 20; ++i) {
     T.tic();
-    // SX = S * X;
-    // I2mSX = I2 - SX;
-    //X = (I2 * X) - (X * (S * X));
+    // X = (I2 * X) - (X * (S * X));
     X = (I2 * X) - FMCA::SparseMatrix<double>::formatted_BABT(S, S, X);
     T.toc("Schulz step: ");
     std::cout << "a priori anz: " << X.nnz() / npts;
@@ -103,46 +96,6 @@ int main(int argc, char *argv[]) {
   X.symmetrize();
   std::cout << "  a post anz: " << X.nnz() / npts;
 
-#if 0
-    for (auto i = 0; i < 5; ++i) {
-      FMCA::IndexType level_index = 0;
-
-      while (lvls[level_index] <= i)
-        ++level_index;
-      --level_index;
-
-      S0 = S.block(0, 0, level_index, level_index);
-      X0 = X.block(0, 0, level_index, level_index);
-      I0 = I.block(0, 0, level_index, level_index);
-      // if (i > 0)
-      //   X0.block(0, 0, X0old.rows(), X0old.cols()) = X0old;
-      double err = (X0 * S0 - 0.5 * I0).norm() / (0.5 * I0).norm();
-      unsigned int iter = 0;
-      while (err > 1e-6) {
-        AX0 = S0 * X0;
-        AX0 = I0 - AX0;
-        X0 = (X0 * AX0);
-        X0 = 0.5 * (X0 + X0.transpose());
-        err = (X0 * S0 - 0.5 * I0).norm() / (0.5 * I0).norm();
-        ++iter;
-      }
-      std::cout << X0.rows() << " " << X0.cols() << " "
-                << X0.nonZeros() / X0.cols() << std::endl;
-      std::cout << "iter: " << iter << "err " << err << std::endl;
-      X0old = X0;
-    }
-#if 0
-    T.tic();
-    for (auto i = 0; i < 30; ++i) {
-      AX0 = multip.multiply(hst, S0, X0, eta, 1e-4);
-      AX0 = I0 - AX0;
-      X0 = multip.multiply(hst, X0, AX, eta, 1e-4);
-      X0 = 0.5 * (X0 + Eigen::SparseMatrix<double>(X0.transpose()));
-      std::cout << (X0.transpose() * S0 - 0.5 * I0).norm() / sqrt(P.cols())
-                << std::endl;
-    }
-#endif
-    std::cout << "------------------------------------------------------\n";
-#endif
+  std::cout << "------------------------------------------------------\n";
   return 0;
 }

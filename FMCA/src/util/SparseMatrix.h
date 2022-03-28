@@ -329,7 +329,7 @@ class SparseMatrix {
     return retval;
   }
 
-  static SparseMatrix<value_type> formatted_AtBT(
+  static SparseMatrix<value_type> formatted_ABT(
       const SparseMatrix<value_type> &P, const SparseMatrix<value_type> &M1,
       const SparseMatrix<value_type> &M2) {
     SparseMatrix<value_type> temp = P;
