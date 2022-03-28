@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
   const double eta = 0.8;
   const unsigned int mp_deg = 4;
   const double threshold = 1e-5;
-  const unsigned int npts = 2e2;
+  const unsigned int npts = 1e4;
   FMCA::Tictoc T;
   std::cout << "N:" << npts << " dim:" << dim << " eta:" << eta
             << " mpd:" << mp_deg << " dt:" << dtilde << " thres: " << threshold
@@ -82,12 +82,13 @@ int main(int argc, char *argv[]) {
   X.setDiagonal(init);
   I2.setDiagonal(2 * Eigen::VectorXd::Ones(P.cols()));
   Eigen::MatrixXd randFilter = Eigen::MatrixXd::Random(P.cols(), 20);
-  T.tic();
   for (auto i = 0; i < 20; ++i) {
+    T.tic();
     // SX = S * X;
     // I2mSX = I2 - SX;
-    //X = (I2 * X) - (X * (S * X));
-    X = (I2 * X) - FMCA::SparseMatrix<double>::formatted_BABT(S, S, X);
+    X = (I2 * X) - (X * (S * X));
+    //X = (I2 * X) - FMCA::SparseMatrix<double>::formatted_BABT(S, S, X);
+    T.toc("Schulz step: ");
     std::cout << "a priori anz: " << X.nnz() / npts;
     X.symmetrize();
     std::cout << "  a post anz: " << X.nnz() / npts;
@@ -97,7 +98,6 @@ int main(int argc, char *argv[]) {
               << std::endl
               << std::flush;
   }
-  T.toc("Schulz time: ");
   std::cout << "a priori anz: " << X.nnz() / npts;
   X.compress(threshold);
   X.symmetrize();
