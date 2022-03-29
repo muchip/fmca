@@ -25,9 +25,8 @@ namespace FMCA {
  *         is log_2(_Srows[i].size()).
  */
 
-template <typename T>
-class SparseMatrix {
- public:
+template <typename T> class SparseMatrix {
+public:
   //////////////////////////////////////////////////////////////////////////////
   typedef T value_type;
   typedef typename std::vector<value_type> value_vector;
@@ -51,7 +50,8 @@ class SparseMatrix {
     resize(M.rows(), M.cols());
     for (auto j = 0; j < M.cols(); ++j)
       for (auto i = 0; i < M.rows(); ++i)
-        if (M(i, j)) insert(i, j) = M(i, j);
+        if (M(i, j))
+          insert(i, j) = M(i, j);
   }
   // move constructor
   SparseMatrix(SparseMatrix<value_type> &&S) {
@@ -117,7 +117,8 @@ class SparseMatrix {
   SparseMatrix<value_type> &setIdentity() {
     setZero();
     const size_type dlength = m_ > n_ ? n_ : m_;
-    for (auto i = 0; i < dlength; ++i) coeffRef(i, i) = 1;
+    for (auto i = 0; i < dlength; ++i)
+      coeffRef(i, i) = 1;
     return *this;
   }
 
@@ -183,7 +184,8 @@ class SparseMatrix {
 
   size_type nnz() const {
     size_type retval = 0;
-    for (auto &&it : idx_) retval += it.size();
+    for (auto &&it : idx_)
+      retval += it.size();
     return retval;
   }
 
@@ -212,11 +214,22 @@ class SparseMatrix {
     {
       const size_type dlength = m_ > n_ ? n_ : m_;
       assert(diag.size() == dlength && "dimension mismatch");
-      for (auto i = 0; i < dlength; ++i) coeffRef(i, i) = diag[i];
+      for (auto i = 0; i < dlength; ++i)
+        coeffRef(i, i) = diag[i];
       return *this;
     }
   }
 
+  template <typename Derived>
+  SparseMatrix<value_type> &setPermutation(const Derived &perm) {
+    {
+      setZero();
+      assert(m_ == n_ && perm.size() == m_ && "dimension mismatch");
+      for (auto i = 0; i < m_; ++i)
+        coeffRef(i, perm[i]) = 1;
+      return *this;
+    }
+  }
   //////////////////////////////////////////////////////////////////////////////
   // parallel methods
   SparseMatrix<value_type> &symmetrize() {
@@ -329,9 +342,10 @@ class SparseMatrix {
     return retval;
   }
 
-  static SparseMatrix<value_type> formatted_ABT(
-      const SparseMatrix<value_type> &P, const SparseMatrix<value_type> &M1,
-      const SparseMatrix<value_type> &M2) {
+  static SparseMatrix<value_type>
+  formatted_ABT(const SparseMatrix<value_type> &P,
+                const SparseMatrix<value_type> &M1,
+                const SparseMatrix<value_type> &M2) {
     SparseMatrix<value_type> temp = P;
 #pragma omp parallel for
     for (auto i = 0; i < temp.m_; ++i)
@@ -342,9 +356,10 @@ class SparseMatrix {
     return temp;
   }
 
-  static SparseMatrix<value_type> formatted_BABT(
-      const SparseMatrix<value_type> &P, const SparseMatrix<value_type> &A,
-      const SparseMatrix<value_type> &B) {
+  static SparseMatrix<value_type>
+  formatted_BABT(const SparseMatrix<value_type> &P,
+                 const SparseMatrix<value_type> &A,
+                 const SparseMatrix<value_type> &B) {
     SparseMatrix<value_type> retval = P;
 
 #pragma omp parallel for
@@ -497,7 +512,7 @@ class SparseMatrix {
     return pos;
   }
 
- private:
+private:
   /*
    *  private member variables
    */
@@ -507,5 +522,5 @@ class SparseMatrix {
   size_type n_;
 };
 
-}  // namespace FMCA
+} // namespace FMCA
 #endif
