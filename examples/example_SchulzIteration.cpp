@@ -38,12 +38,12 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
 int main(int argc, char *argv[]) {
   const unsigned int dim = atoi(argv[1]);
-  const unsigned int dtilde = 4;
+  const unsigned int dtilde = 3;
   const auto function = expKernel();
   const double eta = 0.8;
-  const unsigned int mp_deg = 6;
+  const unsigned int mp_deg = 4;
   const double threshold = 0;
-  const unsigned int npts = 1e4;
+  const unsigned int npts = 5e3;
   FMCA::Tictoc T;
   std::cout << "N:" << npts << " dim:" << dim << " eta:" << eta
             << " mpd:" << mp_deg << " dt:" << dtilde << " thres: " << threshold
@@ -67,7 +67,12 @@ int main(int argc, char *argv[]) {
   FMCA::SparseMatrix<double> X(P.cols(), P.cols());
   FMCA::SparseMatrix<double> I2(P.cols(), P.cols());
   // FMCA::SparseMatrix<double> Pat(Eigen::MatrixXd::Ones(P.cols(), P.cols()));
+  // Eigen::MatrixXd K;
+  // mat_eval.compute_dense_block(hst, hst, &K);
+  // Eigen::MatrixXd KS = K;
+  // hst.sampletTransformMatrix(KS);
   S.setFromTriplets(trips.begin(), trips.end());
+  // S = FMCA::SparseMatrix<double>(KS);
   S.symmetrize();
   Eigen::VectorXd init(P.cols());
   for (auto i = 0; i < init.size(); ++i) init(i) = 1. / sqrt(S(i, i) + 1e-6);
@@ -77,12 +82,15 @@ int main(int argc, char *argv[]) {
   X.setDiagonal(init);
   I2.setDiagonal(2 * Eigen::VectorXd::Ones(P.cols()));
   Eigen::MatrixXd randFilter = Eigen::MatrixXd::Random(P.cols(), 20);
+  auto lvls = FMCA::internal::sampletLevelMapper(hst);
+  std::cout << "maxlvl: " << lvls.back() << std::endl;
   for (auto i = 0; i < 20; ++i) {
     T.tic();
-    // X = (I2 * X) - (X * (S * X));
+    //X = (I2 * X) - (X * (S * X));
     X = (I2 * X) - FMCA::SparseMatrix<double>::formatted_BABT(S, S, X);
     T.toc("Schulz step: ");
     std::cout << "a priori anz: " << X.nnz() / npts;
+    X.compress(1e-4);
     X.symmetrize();
     std::cout << "  a post anz: " << X.nnz() / npts;
     std::cout << "  err: "
@@ -92,9 +100,13 @@ int main(int argc, char *argv[]) {
               << std::flush;
   }
   std::cout << "a priori anz: " << X.nnz() / npts;
-  X.compress(threshold);
+  X.compress(1e-4);
   X.symmetrize();
-  std::cout << "  a post anz: " << X.nnz() / npts;
+  std::cout << "  a post anz: " << X.nnz() / npts << std::endl;
+  std::cout << "  err: "
+            << ((X * (S * randFilter)) - randFilter).norm() / randFilter.norm()
+            << std::endl
+            << std::flush;
 
   std::cout << "------------------------------------------------------\n";
   return 0;

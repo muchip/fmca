@@ -345,26 +345,26 @@ class SparseMatrix {
   static SparseMatrix<value_type> formatted_BABT(
       const SparseMatrix<value_type> &P, const SparseMatrix<value_type> &A,
       const SparseMatrix<value_type> &B) {
-    SparseMatrix<value_type> temp(P.m_, P.n_);
     SparseMatrix<value_type> retval = P;
-    // create all rows that might be needed
+
 #pragma omp parallel for
-    for (auto i = 0; i < retval.m_; ++i)
-      if (retval.idx_[i].size())
+    for (auto i = 0; i < retval.m_; ++i) {
+      if (retval.idx_[i].size()) {
+        index_vector temp_idx;
+        value_vector temp_val;
         for (auto k = 0; k < B.idx_[i].size(); ++k)
-          axpy(B.val_[i][k], &(temp.idx_[i]), &(temp.val_[i]),
-               A.idx_[B.idx_[i][k]], A.val_[B.idx_[i][k]]);
-          // now create all entries of the target matrix
-#pragma omp parallel for
-    for (auto i = 0; i < retval.m_; ++i)
-      for (auto j = 0; j < retval.idx_[i].size(); ++j) {
-        if (B.idx_[retval.idx_[i][j]].size() && temp.idx_[i].size()) {
-          retval.val_[i][j] =
-              dotProduct(temp.idx_[i], temp.val_[i], B.idx_[retval.idx_[i][j]],
-                         B.val_[retval.idx_[i][j]]);
-        } else
-          retval.val_[i][j] = 0;
+          axpy(B.val_[i][k], &(temp_idx), &(temp_val), A.idx_[B.idx_[i][k]],
+               A.val_[B.idx_[i][k]]);
+        for (auto j = 0; j < retval.idx_[i].size(); ++j) {
+          if (B.idx_[retval.idx_[i][j]].size()) {
+            retval.val_[i][j] =
+                dotProduct(temp_idx, temp_val, B.idx_[retval.idx_[i][j]],
+                           B.val_[retval.idx_[i][j]]);
+          } else
+            retval.val_[i][j] = 0;
+        }
       }
+    }
     return retval;
   }
 
