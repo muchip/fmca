@@ -9,6 +9,7 @@
 // any warranty, see <https://github.com/muchip/FMCA> for further
 // information.
 #define FMCA_CLUSTERSET_
+#include <algorithm>
 #include <iomanip>
 #include <iostream>
 ////////////////////////////////////////////////////////////////////////////////
@@ -21,6 +22,15 @@
 #include <FMCA/src/util/SparseMatrix.h>
 #include <FMCA/src/util/Tictoc.h>
 #include <FMCA/src/util/print2file.h>
+
+template <typename T> struct customLess {
+  customLess(const T &array) : array_(array) {}
+  bool operator()(typename T::size_type a, typename T::size_type b) const {
+    return array_[a] < array_[b];
+  }
+  const T &array_;
+};
+
 struct expKernel {
   template <typename derived, typename otherDerived>
   double operator()(const Eigen::MatrixBase<derived> &x,
@@ -43,7 +53,7 @@ int main(int argc, char *argv[]) {
   const double eta = 0.8;
   const unsigned int mp_deg = 4;
   const double threshold = 0;
-  const unsigned int npts = 5e3;
+  const unsigned int npts = 1e3;
   FMCA::Tictoc T;
   std::cout << "N:" << npts << " dim:" << dim << " eta:" << eta
             << " mpd:" << mp_deg << " dt:" << dtilde << " thres: " << threshold
@@ -63,30 +73,66 @@ int main(int argc, char *argv[]) {
   comp.compress(hst, mat_eval, eta, threshold);
   const double tcomp = T.toc("compressor: ");
   const auto &trips = comp.pattern_triplets();
+  std::vector<unsigned int> lvls = FMCA::internal::sampletLevelMapper(hst);
+  std::vector<unsigned int> idcs(lvls.size());
+  std::iota(idcs.begin(), idcs.end(), 0);
+  std::stable_sort(idcs.begin(), idcs.end(),
+                   customLess<std::vector<unsigned int>>(lvls));
+
   FMCA::SparseMatrix<double> S(P.cols(), P.cols());
   FMCA::SparseMatrix<double> X(P.cols(), P.cols());
   FMCA::SparseMatrix<double> I2(P.cols(), P.cols());
+  FMCA::SparseMatrix<double> Perm(P.cols(), P.cols());
   // FMCA::SparseMatrix<double> Pat(Eigen::MatrixXd::Ones(P.cols(), P.cols()));
   // Eigen::MatrixXd K;
   // mat_eval.compute_dense_block(hst, hst, &K);
   // Eigen::MatrixXd KS = K;
   // hst.sampletTransformMatrix(KS);
   S.setFromTriplets(trips.begin(), trips.end());
+  Perm.setPermutation(idcs);
   // S = FMCA::SparseMatrix<double>(KS);
   S.symmetrize();
+  S = Perm * S;
+  S = S * Perm.transpose();
+  Perm = Perm.transpose();
+  Eigen::VectorXd lvl(idcs.size());
+  std::vector<unsigned int> lvlsteps;
+  unsigned int jump = 0;
+  for (auto i = 0; i < lvl.size(); ++i) {
+    lvl(i) = lvls[idcs[i]];
+    if (jump < lvl(i)) {
+      lvlsteps.push_back(i);
+      jump = lvl(i);
+    }
+  }
+  for (auto &&it : lvlsteps)
+    std::cout << it << std::endl;
+  FMCA::SparseMatrix<double> S0 = S;
+  FMCA::SparseMatrix<double> S1 = S;
+  FMCA::SparseMatrix<double> S2 = S;
+  S0.resize(lvlsteps[0], lvlsteps[0]);
+  S1.resize(lvlsteps[1], lvlsteps[1]);
+  S2.resize(lvlsteps[2], lvlsteps[2]);
+
+  FMCA::IO::print2m("matrices.m", "P", Perm.full(), "w");
+  FMCA::IO::print2m("matrices.m", "S", S.full(), "a");
+  FMCA::IO::print2m("matrices.m", "S0", S0.full(), "a");
+  FMCA::IO::print2m("matrices.m", "S1", S1.full(), "a");
+  FMCA::IO::print2m("matrices.m", "S2", S2.full(), "a");
+  FMCA::IO::print2m("matrices.m", "lvl", lvl, "a");
   Eigen::VectorXd init(P.cols());
-  for (auto i = 0; i < init.size(); ++i) init(i) = 1. / sqrt(S(i, i) + 1e-6);
+  for (auto i = 0; i < init.size(); ++i)
+    init(i) = 1. / sqrt(S(i, i) + 1e-6);
   X.setDiagonal(init);
   S = (X * S) * X;
-  for (auto i = 0; i < init.size(); ++i) init(i) = 0.25;
+  for (auto i = 0; i < init.size(); ++i)
+    init(i) = 0.25;
   X.setDiagonal(init);
   I2.setDiagonal(2 * Eigen::VectorXd::Ones(P.cols()));
   Eigen::MatrixXd randFilter = Eigen::MatrixXd::Random(P.cols(), 20);
-  auto lvls = FMCA::internal::sampletLevelMapper(hst);
-  std::cout << "maxlvl: " << lvls.back() << std::endl;
   for (auto i = 0; i < 20; ++i) {
     T.tic();
-    //X = (I2 * X) - (X * (S * X));
+    // X = (I2 * X) - (X * (S * X));
     X = (I2 * X) - FMCA::SparseMatrix<double>::formatted_BABT(S, S, X);
     T.toc("Schulz step: ");
     std::cout << "a priori anz: " << X.nnz() / npts;
