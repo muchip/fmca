@@ -23,7 +23,8 @@
 #include <FMCA/src/util/Tictoc.h>
 #include <FMCA/src/util/print2file.h>
 
-template <typename T> struct customLess {
+template <typename T>
+struct customLess {
   customLess(const T &array) : array_(array) {}
   bool operator()(typename T::size_type a, typename T::size_type b) const {
     return array_[a] < array_[b];
@@ -48,9 +49,9 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
 int main(int argc, char *argv[]) {
   const unsigned int dim = atoi(argv[1]);
-  const unsigned int dtilde = 3;
+  const unsigned int dtilde = 1;
   const auto function = expKernel();
-  const double eta = 0.8;
+  const double eta = 0.5;
   const unsigned int mp_deg = 4;
   const double threshold = 0;
   const unsigned int npts = 1e3;
@@ -82,9 +83,11 @@ int main(int argc, char *argv[]) {
   // we sort the entries in the matrix according to the samplet diameter
   // next, we can access the levels by means of the lvlsteps array
   FMCA::SparseMatrix<double> S(P.cols(), P.cols());
+  FMCA::SparseMatrix<double> Sb(P.cols(), P.cols());
   FMCA::SparseMatrix<double> X(P.cols(), P.cols());
   FMCA::SparseMatrix<double> Xold(P.cols(), P.cols());
   FMCA::SparseMatrix<double> Perm(P.cols(), P.cols());
+  FMCA::SparseMatrix<double> I2(P.cols(), P.cols());
   // FMCA::SparseMatrix<double> Pat(Eigen::MatrixXd::Ones(P.cols(), P.cols()));
   // Eigen::MatrixXd K;
   // mat_eval.compute_dense_block(hst, hst, &K);
@@ -108,12 +111,55 @@ int main(int argc, char *argv[]) {
     }
   }
   Eigen::VectorXd init(S.rows());
-  for (auto i = 0; i < init.size(); ++i)
-    init(i) = 1. / sqrt(S(i, i) + 1e-6);
+  for (auto i = 0; i < init.size(); ++i) init(i) = 1. / sqrt(S(i, i) + 1e-6);
   X.setDiagonal(init);
   S = (X * S) * X;
-  FMCA::IO::print2m("matrices.m", "S", S.full(), "w");
+  Sb.setBlock(S, 0, 0, S.cols() / 2, S.cols() / 2);
+  Sb.setBlock(S, S.cols() / 2, S.cols() / 2, S.cols() / 2, S.cols() / 2);
+  I2.setDiagonal(2 * Eigen::VectorXd::Ones(S.rows()));
 
+  FMCA::IO::print2m("matrices.m", "S", S.full(), "w");
+  FMCA::IO::print2m("matrices.m", "Slb", Sb.full(), "a");
+  for (auto i = 0; i < X.rows(); ++i) X(i, i) = 0.25;
+  Eigen::MatrixXd randFilter = Eigen::MatrixXd::Random(S.rows(), 20);
+#if 0
+  for (auto i = 0; i < 10; ++i) {
+    T.tic();
+    X = (I2 * X) - (X * (Sb * X));
+    //X = (I2 * X) - FMCA::SparseMatrix<double>::formatted_BABT(Sb, Sb, X);
+    T.toc("Schulz step: ");
+    std::cout << "a priori anz: " << X.nnz() / npts;
+    X.symmetrize();
+    std::cout << "  a post anz: " << X.nnz() / npts;
+    std::cout << "  err: "
+              << ((X * (Sb * randFilter)) - randFilter).norm() /
+                     randFilter.norm()
+              << std::endl
+              << std::flush;
+  }
+  X.compress(1e-6);
+  //FMCA::IO::print2m("matrices.m", "Xold", X.full(), "a");
+#endif
+  X.setIdentity().scal(0.25);
+  I2.setIdentity().scal(1.05);
+  for (auto i = 0; i < 10000; ++i) {
+    T.tic();
+    // X = (I2 * X) - (X * (S * X));
+    X = (I2 * X) - FMCA::SparseMatrix<double>::formatted_BABT(S, S, X).scal(0.05);
+    T.toc("Schulz step: ");
+    std::cout << "a priori anz: " << X.nnz() / npts;
+    X.symmetrize();
+    std::cout << "  a post anz: " << X.nnz() / npts;
+    std::cout << "  err: "
+              << ((X * (S * randFilter)) - randFilter).norm() /
+                     randFilter.norm()
+              << std::endl
+              << std::flush;
+  }
+
+  FMCA::IO::print2m("matrices.m", "X", X.full(), "a");
+
+#if 0
   for (auto lvl = 0; lvl < lvlsteps.size(); ++lvl) {
     std::cout << "block size: " << lvlsteps[lvl] << std::endl;
     FMCA::SparseMatrix<double> Slvl = S;
@@ -161,6 +207,7 @@ int main(int argc, char *argv[]) {
     Xold = X;
     FMCA::IO::print2m("matrices.m", "X" + std::to_string(lvl), X.full(), "a");
   }
+#endif
   std::cout << "------------------------------------------------------\n";
   return 0;
 }

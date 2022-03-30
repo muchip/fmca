@@ -25,8 +25,9 @@ namespace FMCA {
  *         is log_2(_Srows[i].size()).
  */
 
-template <typename T> class SparseMatrix {
-public:
+template <typename T>
+class SparseMatrix {
+ public:
   //////////////////////////////////////////////////////////////////////////////
   typedef T value_type;
   typedef typename std::vector<value_type> value_vector;
@@ -50,8 +51,7 @@ public:
     resize(M.rows(), M.cols());
     for (auto j = 0; j < M.cols(); ++j)
       for (auto i = 0; i < M.rows(); ++i)
-        if (M(i, j))
-          insert(i, j) = M(i, j);
+        if (M(i, j)) insert(i, j) = M(i, j);
   }
   // move constructor
   SparseMatrix(SparseMatrix<value_type> &&S) {
@@ -117,8 +117,7 @@ public:
   SparseMatrix<value_type> &setIdentity() {
     setZero();
     const size_type dlength = m_ > n_ ? n_ : m_;
-    for (auto i = 0; i < dlength; ++i)
-      coeffRef(i, i) = 1;
+    for (auto i = 0; i < dlength; ++i) coeffRef(i, i) = 1;
     return *this;
   }
 
@@ -184,8 +183,7 @@ public:
 
   size_type nnz() const {
     size_type retval = 0;
-    for (auto &&it : idx_)
-      retval += it.size();
+    for (auto &&it : idx_) retval += it.size();
     return retval;
   }
 
@@ -214,8 +212,7 @@ public:
     {
       const size_type dlength = m_ > n_ ? n_ : m_;
       assert(diag.size() == dlength && "dimension mismatch");
-      for (auto i = 0; i < dlength; ++i)
-        coeffRef(i, i) = diag[i];
+      for (auto i = 0; i < dlength; ++i) coeffRef(i, i) = diag[i];
       return *this;
     }
   }
@@ -225,8 +222,7 @@ public:
     {
       setZero();
       assert(m_ == n_ && perm.size() == m_ && "dimension mismatch");
-      for (auto i = 0; i < m_; ++i)
-        coeffRef(i, perm[i]) = 1;
+      for (auto i = 0; i < m_; ++i) coeffRef(i, perm[i]) = 1;
       return *this;
     }
   }
@@ -342,10 +338,9 @@ public:
     return retval;
   }
 
-  static SparseMatrix<value_type>
-  formatted_ABT(const SparseMatrix<value_type> &P,
-                const SparseMatrix<value_type> &M1,
-                const SparseMatrix<value_type> &M2) {
+  static SparseMatrix<value_type> formatted_ABT(
+      const SparseMatrix<value_type> &P, const SparseMatrix<value_type> &M1,
+      const SparseMatrix<value_type> &M2) {
     SparseMatrix<value_type> temp = P;
 #pragma omp parallel for
     for (auto i = 0; i < temp.m_; ++i)
@@ -356,10 +351,9 @@ public:
     return temp;
   }
 
-  static SparseMatrix<value_type>
-  formatted_BABT(const SparseMatrix<value_type> &P,
-                 const SparseMatrix<value_type> &A,
-                 const SparseMatrix<value_type> &B) {
+  static SparseMatrix<value_type> formatted_BABT(
+      const SparseMatrix<value_type> &P, const SparseMatrix<value_type> &A,
+      const SparseMatrix<value_type> &B) {
     SparseMatrix<value_type> retval = P;
 
 #pragma omp parallel for
@@ -409,6 +403,24 @@ public:
     return temp;
   }
 
+  static SparseMatrix<value_type> gaxpy(value_type a,
+                                        const SparseMatrix<value_type> &X,
+                                        const SparseMatrix<value_type> &Y) {
+    SparseMatrix<value_type> retval = Y;
+#pragma omp parallel for
+    for (auto i = 0; i < retval.m_; ++i)
+      axpy(a, &(retval.idx_[i]), &(retval.val_[i]), X.idx_[i], X.val_[i]);
+
+    return retval;
+  }
+
+  SparseMatrix<value_type> &scal(value_type a) {
+#pragma omp parallel for
+    for (auto i = 0; i < m_; ++i)
+      for (auto &&it : val_[i]) it *= a;
+    return *this;
+  }
+
   SparseMatrix<value_type> operator-(const SparseMatrix<value_type> &M) {
     eigen_assert(rows() == M.rows() && cols() == M.cols() &&
                  "dimension mismatch");
@@ -417,6 +429,19 @@ public:
     return temp;
   }
 
+  SparseMatrix<value_type> &setBlock(const SparseMatrix<value_type> &M,
+                                     size_type row, size_type col,
+                                     size_type nrows, size_type ncols) {
+    for (auto i = row; i < row + nrows; ++i)
+      for (auto j = 0; j < M.idx_[i].size(); ++j)
+        if (M.idx_[i][j] >= col) {
+          if (M.idx_[i][j] < col + ncols)
+            coeffRef(i, M.idx_[i][j]) = M.val_[i][j];
+          else
+            break;
+        }
+    return *this;
+  }
   //////////////////////////////////////////////////////////////////////////////
   // low level linear algebra (serial)
   static value_type dotProduct(const index_vector &iv1, const value_vector &vv1,
@@ -512,7 +537,7 @@ public:
     return pos;
   }
 
-private:
+ private:
   /*
    *  private member variables
    */
@@ -522,5 +547,5 @@ private:
   size_type n_;
 };
 
-} // namespace FMCA
+}  // namespace FMCA
 #endif
