@@ -45,11 +45,11 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
 int main(int argc, char *argv[]) {
   const unsigned int dim = atoi(argv[1]);
-  const unsigned int dtilde = 4;
+  const unsigned int dtilde = 3;
   const auto function = expKernel();
-  const double eta = 0.5;
-  const unsigned int mp_deg = 6;
-  const double threshold = 1e-5;
+  const double eta = 0.8;
+  const unsigned int mp_deg = 4;
+  const double threshold = 1e-3;
   const unsigned int npts = 1e4;
   FMCA::Tictoc T;
   std::cout << "N:" << npts << " dim:" << dim << " eta:" << eta
@@ -99,14 +99,13 @@ int main(int argc, char *argv[]) {
       // It holds (A+E)^-1\approx A^-1-A^-1EA^-1
       // Thus letting A = S + c_1I and E = - c_2I, we get
       // (A+(c1-c_2)I)^-1 = (A+c_1I)^-1+c_2(A+c_1I)^-2
-      //X = X + FMCA::SparseMatrix<double>::formatted_BABT(S, X, X).scale(reg);
+      // X = X + FMCA::SparseMatrix<double>::formatted_BABT(S, X, X).scale(reg);
     }
     T.tic();
     for (auto inner_iter = 0; inner_iter < 8; ++inner_iter) {
       // X = (I2 * X) - (X * (Seps * X));
       Xold = I2 - FMCA::SparseMatrix<double>::formatted_ABT(S, X, Seps);
       X = FMCA::SparseMatrix<double>::formatted_ABT(S, X, Xold);
-      // X = (I2 * X) - FMCA::SparseMatrix<double>::formatted_BABT(S, Seps, X);
       X.symmetrize();
       std::cout << "  err: "
                 << ((X * (Seps * randFilter)) - randFilter).norm() /
@@ -114,7 +113,7 @@ int main(int argc, char *argv[]) {
                 << std::endl
                 << std::flush;
     }
-    T.toc("time innner: ");
+    T.toc("time inner: ");
     std::cout << "------------------------------------------------------\n";
   }
 

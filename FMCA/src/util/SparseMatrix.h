@@ -368,6 +368,46 @@ class SparseMatrix {
     return retval;
   }
 
+  static SparseMatrix<value_type> formatted_BABT_sym(
+      const SparseMatrix<value_type> &P, const SparseMatrix<value_type> &A,
+      const SparseMatrix<value_type> &B) {
+    SparseMatrix<value_type> retval = P;
+#pragma omp parallel for
+    for (auto i = 0; i < retval.m_; ++i) {
+      if (retval.idx_[i].size()) {
+        index_vector temp_idx;
+        value_vector temp_val;
+        // if the i-th row has entries, we compute B(i,:) * A
+        for (auto k = 0; k < B.idx_[i].size(); ++k)
+          axpy(B.val_[i][k], &(temp_idx), &(temp_val), A.idx_[B.idx_[i][k]],
+               A.val_[B.idx_[i][k]]);
+        // next, we compute B(i,:) * A * B(j,:)' for j <= i
+        for (auto j = 0; j < retval.idx_[i].size(); ++j) {
+          if (retval.idx_[i][j] <= i) {
+            if (B.idx_[retval.idx_[i][j]].size()) {
+              retval.val_[i][j] =
+                  dotProduct(temp_idx, temp_val, B.idx_[retval.idx_[i][j]],
+                             B.val_[retval.idx_[i][j]]);
+            } else
+              retval.val_[i][j] = 0;
+          }
+        }
+      }
+    }
+    // second sweep catches all entries above the diagonal
+    // that have not been found so far
+#pragma omp parallel for
+    for (auto i = 0; i < retval.m_; ++i) {
+      for (int j = retval.idx_[i].size() - 1; j >= 0; --j) {
+        if (retval.idx_[i][j] > i)
+          retval.val_[i][j] = retval(retval.idx_[i][j], i);
+        else
+          break;
+      }
+    }
+    return retval;
+  }
+
   SparseMatrix<value_type> &operator+=(const SparseMatrix<value_type> &M) {
     eigen_assert(rows() == M.rows() && cols() == M.cols() &&
                  "dimension mismatch");
