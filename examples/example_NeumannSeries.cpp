@@ -9,9 +9,11 @@
 // any warranty, see <https://github.com/muchip/FMCA> for further
 // information.
 #define FMCA_CLUSTERSET_
+#include <algorithm>
 #include <iomanip>
 #include <iostream>
 ////////////////////////////////////////////////////////////////////////////////
+
 #include <FMCA/MatrixEvaluators>
 #include <FMCA/Samplets>
 ////////////////////////////////////////////////////////////////////////////////
@@ -32,7 +34,7 @@ struct expKernel {
   template <typename derived, typename otherDerived>
   double operator()(const Eigen::MatrixBase<derived> &x,
                     const Eigen::MatrixBase<otherDerived> &y) const {
-    return exp(-1 * (x - y).norm());
+    return exp(-0.5 * (x - y).norm());
   }
 };
 
@@ -44,13 +46,13 @@ using MatrixEvaluator = FMCA::NystromMatrixEvaluator<Moments, expKernel>;
 using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
 int main(int argc, char *argv[]) {
-  const unsigned int dim = atoi(argv[1]);
-  const unsigned int dtilde = 4;
+  const unsigned int dim = 2;
+  const unsigned int dtilde = 2;
   const auto function = expKernel();
-  const double eta = 0.5;
-  const unsigned int mp_deg = 6;
-  const double threshold = 1e-5;
-  const unsigned int npts = 1e4;
+  const double eta = 0.2;
+  const unsigned int mp_deg = 3;
+  const double threshold = 0;
+  const unsigned int npts = 5e3;
   FMCA::Tictoc T;
   std::cout << "N:" << npts << " dim:" << dim << " eta:" << eta
             << " mpd:" << mp_deg << " dt:" << dtilde << " thres: " << threshold
@@ -67,56 +69,60 @@ int main(int argc, char *argv[]) {
   FMCA::unsymmetric_compressor_impl<H2SampletTree> comp;
   T.tic();
   comp.compress(hst, mat_eval, eta, threshold);
-  const double tcomp = T.toc("compressor: ");
+  T.toc("compressor: ");
   const auto &trips = comp.pattern_triplets();
+  std::vector<unsigned int> lvls = FMCA::internal::sampletLevelMapper(hst);
+  std::vector<unsigned int> idcs(lvls.size());
+  std::iota(idcs.begin(), idcs.end(), 0);
+  std::stable_sort(idcs.begin(), idcs.end(),
+                   customLess<std::vector<unsigned int>>(lvls));
   //////////////////////////////////////////////////////////////////////////////
   // we sort the entries in the matrix according to the samplet diameter
   // next, we can access the levels by means of the lvlsteps array
   FMCA::SparseMatrix<double> S(P.cols(), P.cols());
-  FMCA::SparseMatrix<double> Seps(P.cols(), P.cols());
   FMCA::SparseMatrix<double> X(P.cols(), P.cols());
-  FMCA::SparseMatrix<double> Xold(P.cols(), P.cols());
-  FMCA::SparseMatrix<double> I2(P.cols(), P.cols());
-  Eigen::MatrixXd randFilter = Eigen::MatrixXd::Random(S.rows(), 20);
+  FMCA::SparseMatrix<double> Sp(P.cols(), P.cols());
+  FMCA::SparseMatrix<double> Sp_formatted(P.cols(), P.cols());
+  FMCA::SparseMatrix<double> Perm(P.cols(), P.cols());
   S.setFromTriplets(trips.begin(), trips.end());
   S.symmetrize();
-  double trace = 0;
-  for (auto i = 0; i < S.rows(); ++i) trace += S(i, i);
-  std::cout << "trace: " << trace << std::endl;
+  Eigen::VectorXd init(S.rows());
+  for (auto i = 0; i < init.size(); ++i) init(i) = 1. / sqrt(S(i, i) + 1e-6);
+  X.setDiagonal(init);
+  //S = (X * S) * X;
+  Sp = S;
+  Sp_formatted = S;
+  Eigen::MatrixXd randFilter = Eigen::MatrixXd::Random(S.rows(), 20);
+  Eigen::MatrixXd K;
+  mat_eval.compute_dense_block(hst, hst, &K);
+  Eigen::MatrixXd KS = K;
+  hst.sampletTransformMatrix(KS);
+  KS = 0.5 * (KS + KS.transpose());
+  //KS = X.full() * KS * X.full();
+  Eigen::MatrixXd Kp = KS;
+  std::cout << " err: "
+            << ((Sp * randFilter) - (Kp * randFilter)).norm() /
+                   (Kp * randFilter).norm()
+            << std::endl
+            << std::flush;
 
-  for (auto outer_iter = 0; outer_iter < 10; ++outer_iter) {
-    double reg = 10. / (1 << outer_iter);
-    std::cout << "regularization: " << reg << std::endl;
-    I2.setIdentity().scale(reg);
-    Seps = S + I2;
-    I2.setIdentity().scale(2);
-    if (outer_iter == 0) {
-      Eigen::VectorXd inv_diagS(Seps.rows());
-      for (auto i = 0; i < Seps.rows(); ++i) inv_diagS(i) = 0.5 / Seps(i, i);
-      X.setDiagonal(inv_diagS);
-      I2.setIdentity().scale(2);
-    } else {
-      // It holds (A+E)^-1\approx A^-1-A^-1EA^-1
-      // Thus letting A = S + c_1I and E = - c_2I, we get
-      // (A+(c1-c_2)I)^-1 = (A+c_1I)^-1+c_2(A+c_1I)^-2
-      //X = X + FMCA::SparseMatrix<double>::formatted_BABT(S, X, X).scale(reg);
-    }
+  for (auto i = 0; i < 40; ++i) {
     T.tic();
-    for (auto inner_iter = 0; inner_iter < 8; ++inner_iter) {
-      // X = (I2 * X) - (X * (Seps * X));
-      Xold = I2 - FMCA::SparseMatrix<double>::formatted_ABT(S, X, Seps);
-      X = FMCA::SparseMatrix<double>::formatted_ABT(S, X, Xold);
-      // X = (I2 * X) - FMCA::SparseMatrix<double>::formatted_BABT(S, Seps, X);
-      X.symmetrize();
-      std::cout << "  err: "
-                << ((X * (Seps * randFilter)) - randFilter).norm() /
-                       randFilter.norm()
-                << std::endl
-                << std::flush;
-    }
-    T.toc("time innner: ");
-    std::cout << "------------------------------------------------------\n";
+    Sp = S * Sp;
+    Sp.symmetrize();
+    const double tunformatted = T.toc();
+    T.tic();
+    Sp_formatted =
+        FMCA::SparseMatrix<double>::formatted_ABT(S, S, Sp_formatted);
+    const double tformatted = T.toc();
+    Kp = KS * Kp;
+    std::cout << "time Sp: " << tunformatted
+              << " \ttime Sp_formatted: " << tformatted << " \terr: "
+              << ((Sp_formatted * randFilter) - (Kp * randFilter)).norm() /
+                     (Kp * randFilter).norm()
+              << std::endl
+              << std::flush;
   }
-
+  std::cout << "------------------------------------------------------\n";
   return 0;
 }
