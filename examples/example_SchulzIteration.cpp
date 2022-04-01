@@ -45,11 +45,11 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
 int main(int argc, char *argv[]) {
   const unsigned int dim = atoi(argv[1]);
-  const unsigned int dtilde = 3;
+  const unsigned int dtilde = 4;
   const auto function = expKernel();
   const double eta = 0.8;
-  const unsigned int mp_deg = 4;
-  const double threshold = 1e-3;
+  const unsigned int mp_deg = 6;
+  const double threshold = atof(argv[2]);
   const unsigned int npts = 1e4;
   FMCA::Tictoc T;
   std::cout << "N:" << npts << " dim:" << dim << " eta:" << eta
@@ -82,9 +82,9 @@ int main(int argc, char *argv[]) {
   S.symmetrize();
   double trace = 0;
   for (auto i = 0; i < S.rows(); ++i) trace += S(i, i);
-  std::cout << "trace: " << trace << std::endl;
-
-  for (auto outer_iter = 0; outer_iter < 10; ++outer_iter) {
+  std::cout << "trace: " << trace << " anz: " << S.nnz() / S.cols()
+            << std::endl;
+  for (auto outer_iter = 0; outer_iter < 2; ++outer_iter) {
     double reg = 10. / (1 << outer_iter);
     std::cout << "regularization: " << reg << std::endl;
     I2.setIdentity().scale(reg);
@@ -102,12 +102,12 @@ int main(int argc, char *argv[]) {
       // X = X + FMCA::SparseMatrix<double>::formatted_BABT(S, X, X).scale(reg);
     }
     T.tic();
-    for (auto inner_iter = 0; inner_iter < 8; ++inner_iter) {
+    for (auto inner_iter = 0; inner_iter < 10; ++inner_iter) {
       // X = (I2 * X) - (X * (Seps * X));
       Xold = I2 - FMCA::SparseMatrix<double>::formatted_ABT(S, X, Seps);
       X = FMCA::SparseMatrix<double>::formatted_ABT(S, X, Xold);
       X.symmetrize();
-      std::cout << "  err: "
+      std::cout << "err: "
                 << ((X * (Seps * randFilter)) - randFilter).norm() /
                        randFilter.norm()
                 << std::endl
