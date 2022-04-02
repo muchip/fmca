@@ -139,7 +139,7 @@ class SparseMatrix {
   /*
    *  function for read only returns value of element (i,j)
    */
-  const value_type &getVal(size_type i, size_type j) const {
+  const value_type getVal(size_type i, size_type j) const {
     assert(i < m_ && j < n_ && "index out of bounds");
     const size_type pos = binarySearch(idx_[i], j);
     if (pos == idx_[i].size() || idx_[i][pos] != j)
@@ -152,11 +152,11 @@ class SparseMatrix {
    *  reference function to make it look like EigenSparse
    */
   value_type &coeffRef(size_type i, size_type j) { return insert(i, j); }
-  const value_type &coeffRef(size_type i, size_type j) const {
+  const value_type coeffRef(size_type i, size_type j) const {
     return getVal(i, j);
   }
 
-  const value_type &operator()(size_type i, size_type j) const {
+  const value_type operator()(size_type i, size_type j) const {
     return coeffRef(i, j);
   }
 
