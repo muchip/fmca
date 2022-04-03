@@ -38,8 +38,8 @@ int main(int argc, char *argv[]) {
   T.tic();
   std::cout << std::string(60, '=') << "\n";
   const Eigen::MatrixXd P =
-      readMatrix("../mex/mfiles/P_mb_0003.txt").transpose();
-  const Eigen::MatrixXd Atrips = readMatrix("../mex/mfiles/A_mb_0003.txt");
+      readMatrix("../mex/mfiles/P_mb_0001.txt").transpose();
+  const Eigen::MatrixXd Atrips = readMatrix("../mex/mfiles/A_mb_0001.txt");
   T.toc("geometry generation: ");
   const unsigned int npts = P.cols();
   const unsigned int dim = P.rows();
@@ -123,8 +123,8 @@ int main(int argc, char *argv[]) {
   std::cout << "chosen alpha for initial guess: " << alpha << std::endl;
   double err = 10;
   double err_old = 10;
-  X.setIdentity().scale(alpha);
-  X0 = X;
+  X = S;
+  X.scale(alpha);
   std::cout << "initial guess: "
             << ((X * (S * randFilter)) - randFilter).norm() / randFilter.norm()
             << std::endl;
@@ -133,10 +133,10 @@ int main(int argc, char *argv[]) {
     // ImXS = I2 - FMCA::SparseMatrix<double>::formatted_ABT(Pattern, X, Seps);
     // X = FMCA::SparseMatrix<double>::formatted_ABT(Pattern, X, ImXS);
     X = I2 * X - FMCA::SparseMatrix<double>::formatted_BABT(Pattern, Seps, X);
-    // std::cout << "apriori: " << X.nnz() / X.rows();
-    // X.compress(1e-2);
-    // X.symmetrize();
-    // std::cout << " aposteriori: " << X.nnz() / X.rows() << std::endl;
+    std::cout << "apriori: " << X.nnz() / X.rows();
+    X.compress(1e-8);
+    X.symmetrize();
+    std::cout << " aposteriori: " << X.nnz() / X.rows() << std::endl;
     err_old = err;
     err = ((X * (S * randFilter)) - randFilter).norm() / randFilter.norm();
     std::cout << "err: " << err << std::endl;
