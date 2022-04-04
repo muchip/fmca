@@ -38,8 +38,8 @@ int main(int argc, char *argv[]) {
   T.tic();
   std::cout << std::string(60, '=') << "\n";
   const Eigen::MatrixXd P =
-      readMatrix("../mex/mfiles/P_mb_0001.txt").transpose();
-  const Eigen::MatrixXd Atrips = readMatrix("../mex/mfiles/A_mb_0001.txt");
+      readMatrix("../mex/mfiles/P_mb_0003.txt").transpose();
+  const Eigen::MatrixXd Atrips = readMatrix("../mex/mfiles/A_mb_0003.txt");
   T.toc("geometry generation: ");
   const unsigned int npts = P.cols();
   const unsigned int dim = P.rows();
@@ -130,11 +130,11 @@ int main(int argc, char *argv[]) {
             << std::endl;
   I2.setIdentity().scale(2);
   for (auto inner_iter = 0; inner_iter < 100; ++inner_iter) {
-    // ImXS = I2 - FMCA::SparseMatrix<double>::formatted_ABT(Pattern, X, Seps);
-    // X = FMCA::SparseMatrix<double>::formatted_ABT(Pattern, X, ImXS);
-    X = I2 * X - FMCA::SparseMatrix<double>::formatted_BABT(Pattern, Seps, X);
+    ImXS = I2 - FMCA::SparseMatrix<double>::formatted_ABT(Pattern, X, Seps);
+    X = FMCA::SparseMatrix<double>::formatted_ABT(Pattern, X, ImXS);
+    //X = I2 * X - FMCA::SparseMatrix<double>::formatted_BABT(Pattern, Seps, X);
     std::cout << "apriori: " << X.nnz() / X.rows();
-    X.compress(1e-8);
+    X.compress(1e-10);
     X.symmetrize();
     std::cout << " aposteriori: " << X.nnz() / X.rows() << std::endl;
     err_old = err;
