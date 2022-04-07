@@ -19,8 +19,7 @@
 #include <FMCA/src/util/Tictoc.h>
 #include <FMCA/src/util/print2file.h>
 
-template <typename T>
-struct customLess {
+template <typename T> struct customLess {
   customLess(const T &array) : array_(array) {}
   bool operator()(typename T::size_type a, typename T::size_type b) const {
     return array_[a] < array_[b];
@@ -45,10 +44,10 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
 int main(int argc, char *argv[]) {
   const unsigned int dim = atoi(argv[1]);
-  const unsigned int dtilde = 4;
+  const unsigned int dtilde = 3;
   const auto function = expKernel();
   const double eta = 0.8;
-  const unsigned int mp_deg = 6;
+  const unsigned int mp_deg = 4;
   const double threshold = atof(argv[2]);
   const unsigned int npts = 1e4;
   FMCA::Tictoc T;
@@ -73,49 +72,55 @@ int main(int argc, char *argv[]) {
   // we sort the entries in the matrix according to the samplet diameter
   // next, we can access the levels by means of the lvlsteps array
   FMCA::SparseMatrix<double> S(P.cols(), P.cols());
-  FMCA::SparseMatrix<double> Seps(P.cols(), P.cols());
   FMCA::SparseMatrix<double> X(P.cols(), P.cols());
   FMCA::SparseMatrix<double> Xold(P.cols(), P.cols());
   FMCA::SparseMatrix<double> I2(P.cols(), P.cols());
   Eigen::MatrixXd randFilter = Eigen::MatrixXd::Random(S.rows(), 20);
   S.setFromTriplets(trips.begin(), trips.end());
   S.symmetrize();
+  double lambda_max = 0;
+  {
+    Eigen::MatrixXd x = Eigen::VectorXd::Random(S.cols());
+    x /= x.norm();
+    for (auto i = 0; i < 20; ++i) {
+      x = S * x;
+      lambda_max = x.norm();
+      x /= lambda_max;
+    }
+    std::cout << "lambda_max (est by 20its of power it): " << lambda_max
+              << std::endl;
+  }
   double trace = 0;
-  for (auto i = 0; i < S.rows(); ++i) trace += S(i, i);
+  for (auto i = 0; i < S.rows(); ++i)
+    trace += S(i, i);
   std::cout << "trace: " << trace << " anz: " << S.nnz() / S.cols()
             << std::endl;
-  for (auto outer_iter = 0; outer_iter < 2; ++outer_iter) {
-    double reg = 10. / (1 << outer_iter);
-    std::cout << "regularization: " << reg << std::endl;
-    I2.setIdentity().scale(reg);
-    Seps = S + I2;
-    I2.setIdentity().scale(2);
-    if (outer_iter == 0) {
-      Eigen::VectorXd inv_diagS(Seps.rows());
-      for (auto i = 0; i < Seps.rows(); ++i) inv_diagS(i) = 0.5 / Seps(i, i);
-      X.setDiagonal(inv_diagS);
-      I2.setIdentity().scale(2);
-    } else {
-      // It holds (A+E)^-1\approx A^-1-A^-1EA^-1
-      // Thus letting A = S + c_1I and E = - c_2I, we get
-      // (A+(c1-c_2)I)^-1 = (A+c_1I)^-1+c_2(A+c_1I)^-2
-      // X = X + FMCA::SparseMatrix<double>::formatted_BABT(S, X, X).scale(reg);
+  std::cout << "norm: " << S.norm() << std::endl;
+  double alpha = 1. / lambda_max / lambda_max;
+  std::cout << "chosen alpha for initial guess: " << alpha << std::endl;
+  double err = 10;
+  double err_old = 10;
+  X = S;
+  X.scale(alpha);
+  std::cout << "initial guess: "
+            << ((X * (S * randFilter)) - randFilter).norm() / randFilter.norm()
+            << std::endl;
+  I2.setIdentity().scale(2);
+  for (auto inner_iter = 0; inner_iter < 100; ++inner_iter) {
+    // ImXS = I2 - FMCA::SparseMatrix<double>::formatted_ABT(S, X, Seps);
+    // X = FMCA::SparseMatrix<double>::formatted_ABT(S, X, ImXS);
+    X = I2 * X - FMCA::SparseMatrix<double>::formatted_BABT(S, S, X);
+    err_old = err;
+    err = ((X * (S * randFilter)) - randFilter).norm() / randFilter.norm();
+    std::cout << "err: " << err << std::endl;
+    if (err > err_old) {
+      X = Xold;
+      break;
     }
-    T.tic();
-    for (auto inner_iter = 0; inner_iter < 10; ++inner_iter) {
-      // X = (I2 * X) - (X * (Seps * X));
-      Xold = I2 - FMCA::SparseMatrix<double>::formatted_ABT(S, X, Seps);
-      X = FMCA::SparseMatrix<double>::formatted_ABT(S, X, Xold);
-      X.symmetrize();
-      std::cout << "err: "
-                << ((X * (Seps * randFilter)) - randFilter).norm() /
-                       randFilter.norm()
-                << std::endl
-                << std::flush;
-    }
-    T.toc("time inner: ");
-    std::cout << "------------------------------------------------------\n";
   }
+
+  T.toc("time inner: ");
+  std::cout << std::string(60, '=') << "\n";
 
   return 0;
 }
