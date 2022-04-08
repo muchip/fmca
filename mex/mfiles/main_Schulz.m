@@ -8,7 +8,22 @@ plot(P(1,:), P(2,:), 'r.');
 [K,I] = MEXsampletCompressor(P, 3, 0.8, 4, 1e-6);
 K = sparse(K(:,1), K(:,2), K(:,3), N, N);
 K = K + triu(K,1)';
-
+[pI, pJ] = find(K ~= 0);
+nnz(K)
+tic
+L = K * K;
+toc
+tic
+L2 = K' * K;
+toc
+display('onpattern')
+tic
+L3 = K;
+ret = zeros(size(pi));
+parfor i=1:length(pI)
+ret(i) = sum(K(:,pI(i)) .* K(:, pJ(i)));
+end
+toc
 X = 1e-2 * spdiags(1./(diag(K)+1e-6), 0, N, N);
 I = speye(size(K));
 

@@ -30,7 +30,7 @@ using SparseMatrixEvaluator = FMCA::SparseMatrixEvaluator<double>;
 using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
 int main(int argc, char *argv[]) {
-  const unsigned int dtilde = 3;
+  const unsigned int dtilde = 4;
   const double eta = 0.8;
   const unsigned int mp_deg = 4;
   FMCA::Tictoc T;
@@ -38,8 +38,8 @@ int main(int argc, char *argv[]) {
   T.tic();
   std::cout << std::string(60, '=') << "\n";
   const Eigen::MatrixXd P =
-      readMatrix("../mex/mfiles/P_mb_0003.txt").transpose();
-  const Eigen::MatrixXd Atrips = readMatrix("../mex/mfiles/A_mb_0003.txt");
+      readMatrix("../mex/mfiles/P_card_005.txt").transpose();
+  const Eigen::MatrixXd Atrips = readMatrix("../mex/mfiles/A_card_005.txt");
   T.toc("geometry generation: ");
   const unsigned int npts = P.cols();
   const unsigned int dim = P.rows();
@@ -118,15 +118,19 @@ int main(int argc, char *argv[]) {
   FMCA::SparseMatrix<double> I2(P.cols(), P.cols());
   Eigen::MatrixXd randFilter = Eigen::MatrixXd::Random(S.rows(), 20);
   Eigen::VectorXd inv_diagS(S.rows());
-  Seps = S;
-  double alpha = 1. / lambda_max / lambda_max;
+  Seps = S.scale(1. / lambda_max);
+  //Seps += I2.setIdentity().scale(1e-2);
+  
+  
+  double alpha = 0.9;
   std::cout << "chosen alpha for initial guess: " << alpha << std::endl;
   double err = 10;
   double err_old = 10;
-  X = S;
+  X = Seps;
   X.scale(alpha);
+  Xold = X;
   std::cout << "initial guess: "
-            << ((X * (S * randFilter)) - randFilter).norm() / randFilter.norm()
+            << ((X * (Seps * randFilter)) - randFilter).norm() / randFilter.norm()
             << std::endl;
   I2.setIdentity().scale(2);
   for (auto inner_iter = 0; inner_iter < 100; ++inner_iter) {
@@ -134,17 +138,25 @@ int main(int argc, char *argv[]) {
     X = FMCA::SparseMatrix<double>::formatted_ABT(Pattern, X, ImXS);
     //X = I2 * X - FMCA::SparseMatrix<double>::formatted_BABT(Pattern, Seps, X);
     std::cout << "apriori: " << X.nnz() / X.rows();
-    X.compress(1e-10);
+    X.compress(1e-4);
     X.symmetrize();
     std::cout << " aposteriori: " << X.nnz() / X.rows() << std::endl;
     err_old = err;
-    err = ((X * (S * randFilter)) - randFilter).norm() / randFilter.norm();
+    err = ((X * (Seps * randFilter)) - randFilter).norm() / randFilter.norm();
     std::cout << "err: " << err << std::endl;
     if (err > err_old) {
       X = Xold;
       break;
     }
+    Xold = X;
   }
+  err = ((X * (Seps * randFilter)) - randFilter).norm() / randFilter.norm();
+  std::cout << "err: " << err << std::endl;
+  err = ((X * (S * randFilter)) - randFilter).norm() / randFilter.norm();
+  std::cout << "err: " << err << std::endl;
+  X += FMCA::SparseMatrix<double>::formatted_ABT(Pattern, X, X).scale(1e-2);
+  err = ((X * (S * randFilter)) - randFilter).norm() / randFilter.norm();
+  std::cout << "err: " << err << std::endl;
 
   T.toc("time inner: ");
   std::cout << std::string(60, '=') << "\n";
