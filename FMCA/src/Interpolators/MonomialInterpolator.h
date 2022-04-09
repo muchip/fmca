@@ -26,12 +26,11 @@ public:
     dim_ = dim;
     deg_ = deg;
     idcs_.init(dim, deg);
-    TD_xi_.resize(dim_, idcs_.get_MultiIndexSet().size());
-    V_.resize(idcs_.get_MultiIndexSet().size(),
-              idcs_.get_MultiIndexSet().size());
+    TD_xi_.resize(dim_, idcs_.index_set().size());
+    V_.resize(idcs_.index_set().size(), idcs_.index_set().size());
     // determine tensor product interpolation points
     IndexType k = 0;
-    for (const auto &it : idcs_.get_MultiIndexSet()) {
+    for (const auto &it : idcs_.index_set()) {
       for (auto i = 0; i < it.size(); ++i)
         TD_xi_(i, k) = LejaPoints[it[i]];
       V_.row(k) = evalPolynomials(TD_xi_.col(k)).transpose();
@@ -44,10 +43,10 @@ public:
   //////////////////////////////////////////////////////////////////////////////
   template <typename Derived>
   eigenMatrix evalPolynomials(const Eigen::MatrixBase<Derived> &pt) const {
-    eigenVector retval(idcs_.get_MultiIndexSet().size());
+    eigenVector retval(idcs_.index_set().size());
     retval.setOnes();
     IndexType k = 0;
-    for (const auto &it : idcs_.get_MultiIndexSet()) {
+    for (const auto &it : idcs_.index_set()) {
       for (auto i = 0; i < dim_; ++i)
         if (it[i])
           retval(k) *= std::pow(pt(i), it[i]);

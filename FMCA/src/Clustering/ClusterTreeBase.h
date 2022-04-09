@@ -22,7 +22,7 @@ namespace FMCA {
  **/
 template <typename Derived>
 struct ClusterTreeNodeBase : public NodeBase<Derived> {
-  ClusterTreeNodeBase() : indices_begin_(-1) {
+  ClusterTreeNodeBase() : indices_begin_(-1), block_id_(-1) {
     bb_.resize(0, 0);
     indices_.resize(0);
   }
@@ -38,8 +38,7 @@ struct ClusterTreeNodeBase : public NodeBase<Derived> {
  *         that may be described by subdivision of index sets and bounding
  *         boxes
  **/
-template <typename Derived>
-struct ClusterTreeBase : public TreeBase<Derived> {
+template <typename Derived> struct ClusterTreeBase : public TreeBase<Derived> {
   typedef typename internal::traits<Derived>::eigenMatrix eigenMatrix;
   typedef typename internal::traits<Derived>::node_type node_type;
   typedef TreeBase<Derived> Base;
@@ -64,5 +63,5 @@ struct ClusterTreeBase : public TreeBase<Derived> {
   IndexType block_id() const { return node().block_id_; }
 };
 
-}  // namespace FMCA
+} // namespace FMCA
 #endif

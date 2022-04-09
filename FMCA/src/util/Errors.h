@@ -1,7 +1,7 @@
 // This file is part of FMCA, the Fast Multiresolution Covariance Analysis
 // package.
 //
-// Copyright (c) 2020, Michael Multerer
+// Copyright (c) 2022, Michael Multerer
 //
 // All rights reserved.
 //
@@ -12,8 +12,9 @@
 #ifndef FMCA_UTIL_ERRORS_H_
 #define FMCA_UTIL_ERRORS_H_
 
-#include "Macros.h"
 #include <vector>
+
+#include "Macros.h"
 
 namespace FMCA {
 

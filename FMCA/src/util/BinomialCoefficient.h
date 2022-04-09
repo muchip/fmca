@@ -1,7 +1,7 @@
 // This file is part of FMCA, the Fast Multiresolution Covariance Analysis
 // package.
 //
-// Copyright (c) 2020, Michael Multerer
+// Copyright (c) 2022, Michael Multerer
 //
 // All rights reserved.
 //
@@ -33,6 +33,6 @@ IndexType multinomialCoefficient(const MultiIndex &alpha,
     retval *= binomialCoefficient(alpha[i], beta[i]);
   return retval;
 }
-}  // namespace FMCA
+} // namespace FMCA
 
 #endif

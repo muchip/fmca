@@ -17,8 +17,7 @@ namespace internal {
 /** \ingroup internal
  *  \brief initializes a bounding box for the geometry
  **/
-template <>
-struct ClusterTreeInitializer<ClusterTreeMesh> {
+template <> struct ClusterTreeInitializer<ClusterTreeMesh> {
   ClusterTreeInitializer() = delete;
   //////////////////////////////////////////////////////////////////////////////
   template <typename Derived, typename Derived2, typename Derived3>
@@ -60,7 +59,8 @@ struct ClusterTreeInitializer<ClusterTreeMesh> {
     eigenMatrix bbmat(V.cols(), 3);
     if (CT.nSons()) {
       // assert that all sons have fitted bb's
-      for (auto i = 0; i < CT.nSons(); ++i) shrinkToFit_impl(CT.sons(i), V, F);
+      for (auto i = 0; i < CT.nSons(); ++i)
+        shrinkToFit_impl(CT.sons(i), V, F);
       // now update own bb (we need a son with indices to get a first bb)
       for (auto i = 0; i < CT.nSons(); ++i)
         if (CT.sons(i).node().indices_.size()) {
@@ -103,8 +103,8 @@ struct ClusterTreeInitializer<ClusterTreeMesh> {
     return;
   }
 };
-}  // namespace internal
+} // namespace internal
 
-}  // namespace FMCA
+} // namespace FMCA
 
 #endif

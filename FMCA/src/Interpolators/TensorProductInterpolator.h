@@ -52,10 +52,10 @@ public:
     for (auto i = 1; i < w_.size(); i += 2)
       w_(i) *= -1.;
     idcs_.init(dim, deg);
-    TP_xi_.resize(dim, idcs_.get_MultiIndexSet().size());
+    TP_xi_.resize(dim, idcs_.index_set().size());
     // determine tensor product interpolation points
     IndexType k = 0;
-    for (const auto &it : idcs_.get_MultiIndexSet()) {
+    for (const auto &it : idcs_.index_set()) {
       for (auto i = 0; i < it.size(); ++i) {
         TP_xi_(i, k) = xi_(it[i]);
       }
@@ -68,7 +68,7 @@ public:
   //////////////////////////////////////////////////////////////////////////////
   template <typename Derived>
   eigenVector evalPolynomials(const Eigen::MatrixBase<Derived> &pt) const {
-    eigenVector retval(idcs_.get_MultiIndexSet().size());
+    eigenVector retval(idcs_.index_set().size());
     eigenVector weight(dim_);
     eigenVector my_pt = pt.col(0);
     retval.setOnes();
@@ -76,7 +76,7 @@ public:
     for (auto i = 0; i < dim_; ++i)
       weight(i) = (w_.array() / (my_pt(i) - xi_.array())).sum();
     IndexType k = 0;
-    for (const auto &it : idcs_.get_MultiIndexSet()) {
+    for (const auto &it : idcs_.index_set()) {
       for (auto i = 0; i < dim_; ++i)
         if (abs(my_pt(i) - xi_(it[i])) > FMCA_ZERO_TOLERANCE)
           retval(k) *= w_(it[i]) / (my_pt(i) - xi_(it[i])) / weight(i);

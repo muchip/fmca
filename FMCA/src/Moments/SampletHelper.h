@@ -53,9 +53,9 @@ monomialMomentShifter(const Eigen::MatrixBase<Derived> &shift,
   IndexType i = 0;
   IndexType j = 0;
   typename Derived::Scalar weight;
-  for (const auto &it1 : idcs.get_MultiIndexSet()) {
+  for (const auto &it1 : idcs.index_set()) {
     j = 0;
-    for (const auto &it2 : idcs.get_MultiIndexSet()) {
+    for (const auto &it2 : idcs.index_set()) {
       // check if the multinomial coefficient is non-zero
       if (retval(j, i)) {
         for (auto k = 0; k < shift.size(); ++k)
@@ -77,12 +77,11 @@ monomialMomentShifter(const Eigen::MatrixBase<Derived> &shift,
  **/
 template <typename Matrix, typename MultiIndexSet>
 inline Matrix multinomialCoefficientMatrix(const MultiIndexSet &idcs) {
-  Matrix retval(idcs.get_MultiIndexSet().size(),
-                idcs.get_MultiIndexSet().size());
+  Matrix retval(idcs.index_set().size(), idcs.index_set().size());
   IndexType i = 0;
   IndexType j = 0;
-  for (const auto &beta : idcs.get_MultiIndexSet()) {
-    for (const auto &alpha : idcs.get_MultiIndexSet()) {
+  for (const auto &beta : idcs.index_set()) {
+    for (const auto &alpha : idcs.index_set()) {
       retval(j, i) = multinomialCoefficient(alpha, beta);
       ++j;
     }
