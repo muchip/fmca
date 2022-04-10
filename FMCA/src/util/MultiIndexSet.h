@@ -45,8 +45,7 @@ template <> struct IndexSetCriterion<TotalDegree> {
 template <> struct IndexSetCriterion<WeightedTotalDegree> {
   IndexSetCriterion(){};
   IndexSetCriterion(IndexType max_degree, const std::vector<FloatType> &weights)
-      : max_degree_(max_degree), weights_(weights) {
-  }
+      : max_degree_(max_degree), weights_(weights) {}
 
   template <typename T> bool operator()(const T &index) {
     assert(index.size() == weights_.size() && "dimension mismatch");
