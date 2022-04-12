@@ -81,10 +81,13 @@ int main() {
   FMCA::Tictoc T;
   // unsigned int npts = 1e5;`
   T.tic();
-  Eigen::MatrixXd P =
-      Eigen::MatrixXd::Random(3, 80000); // = generateSwissCheeseExp(2, npts);
+  Eigen::MatrixXd P;
   double separation_radius_full = double(1.) / double(0.);
   double fill_distance_full = 0;
+
+#if 0
+  =
+      Eigen::MatrixXd::Random(3, 80000); // = generateSwissCheeseExp(2, npts);
   T.tic();
   for (auto j = 0; j < P.cols(); ++j) {
     double dist = double(1.) / double(0.);
@@ -102,8 +105,9 @@ int main() {
   std::cout << "rad full distance matrix: " << separation_radius_full
             << std::endl;
   std::cout << "fill full distance matrix: " << fill_distance_full << std::endl;
-  // Eigen::MatrixXd Pts = readMatrix("../../Points/cross3D.txt");
-  // P = Pts.transpose();
+#endif
+  Eigen::MatrixXd Pts = readMatrix("../../Points/cross3D.txt");
+  P = Pts.transpose();
   // Bembel::IO::print2m("d1c.m", "P", P, "w");
   // return 0;
   T.toc("pts... ");
@@ -162,16 +166,14 @@ int main() {
   for (auto level = 0; level < 16; ++level) {
     std::vector<Eigen::MatrixXd> bbvec;
     for (auto &node : CT) {
-      if (node.level() == level)
-        bbvec.push_back(node.derived().bb());
+      if (node.level() == level) bbvec.push_back(node.derived().bb());
     }
     FMCA::IO::plotBoxes("boxes" + std::to_string(level) + ".vtk", bbvec);
   }
   std::vector<Eigen::MatrixXd> bbvec;
 
   for (auto &node : CT) {
-    if (!node.nSons())
-      bbvec.push_back(node.derived().bb());
+    if (!node.nSons()) bbvec.push_back(node.derived().bb());
   }
   Eigen::VectorXd colrs(P.cols());
   for (auto &node : CT) {
