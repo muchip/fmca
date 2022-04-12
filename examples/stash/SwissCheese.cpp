@@ -18,6 +18,7 @@ double computeDistance(const Derived &cluster1, const Derived &cluster2) {
                       row_radius - col_radius;
   return dist > 0 ? dist : 0;
 }
+
 template <typename Derived, typename Derived2>
 double clusterSeparationRadius(double separation_radius,
                                const Derived &cluster1, const Derived &cluster2,
@@ -27,7 +28,6 @@ double clusterSeparationRadius(double separation_radius,
   double dist = computeDistance(cluster1, cluster2);
 
   if (separation_radius > 0.5 * dist) {
-
     if (cluster2.nSons()) {
       rad = 0.5 * (dist + cluster2.bb().col(2).norm());
       separation_radius = separation_radius < rad ? separation_radius : rad;
@@ -49,14 +49,48 @@ double clusterSeparationRadius(double separation_radius,
   }
   return retval;
 }
+
+template <typename Derived, typename Derived2>
+double pointDistance(double curr_distance, IndexType pt_index,
+                     const Derived &CT, const Eigen::MatrixBase<Derived2> &P) {
+  const auto mp = 0.5 * (CT.bb().col(1) - CT.bb().col(0));
+  const double radius = 0.5 * CT.bb().col(2).norm();
+  double dist = (P.col(pt_index) - mp).norm() - radius;
+  dist = dist > 0 ? dist : 0;
+
+  if (dist < curr_distance) {
+    if (cluster2.nSons()) {
+      rad = 0.5 * (dist + cluster2.bb().col(2).norm());
+      separation_radius = separation_radius < rad ? separation_radius : rad;
+      for (auto i = 0; i < cluster2.nSons(); ++i) {
+        rad = clusterSeparationRadius(separation_radius, cluster1,
+                                      cluster2.sons(i), P);
+        retval = retval < rad ? retval : rad;
+      }
+    } else {
+      if (cluster1.block_id() != cluster2.block_id())
+        for (auto j = 0; j < cluster1.indices().size(); ++j)
+          for (auto i = 0; i < cluster2.indices().size(); ++i) {
+            rad = 0.5 *
+                  (P.col(cluster2.indices()[i]) - P.col(cluster1.indices()[j]))
+                      .norm();
+            retval = retval < rad ? retval : rad;
+          }
+    }
+  }
+  return retval;
+}
+
+
+
 int main() {
   FMCA::Tictoc T;
-  // unsigned int npts = 1e5;
+  // unsigned int npts = 1e5;`
   T.tic();
   Eigen::MatrixXd P =
-      Eigen::MatrixXd::Random(3, 1000000); // = generateSwissCheeseExp(2, npts);
+      Eigen::MatrixXd::Random(3, 200000);  // = generateSwissCheeseExp(2, npts);
   double separation_radius_full = double(1.) / double(0.);
-#if 0
+#if 1
   T.tic();
   for (auto j = 0; j < P.cols(); ++j)
     for (auto i = j + 1; i < P.cols(); ++i) {
@@ -68,8 +102,8 @@ int main() {
   std::cout << "rad full distance matrix: " << separation_radius_full
             << std::endl;
 #endif
-   Eigen::MatrixXd Pts = readMatrix("../../Points/cross3D.txt");
-   P = Pts.transpose();
+  // Eigen::MatrixXd Pts = readMatrix("../../Points/cross3D.txt");
+  // P = Pts.transpose();
   // Bembel::IO::print2m("d1c.m", "P", P, "w");
   // return 0;
   T.toc("pts... ");
@@ -77,7 +111,7 @@ int main() {
   // Q.setZero();
   // Q.topRows(2) = P;
   Q = P;
-  FMCA::ClusterTree CT(Q, 10);
+  FMCA::ClusterTree CT(Q, 2);
   T.tic();
   double separation_radius = double(1.) / double(0.);
   for (auto &it : CT) {
@@ -96,21 +130,38 @@ int main() {
   std::cout << separation_radius << std::endl;
   std::cout << "err: " << std::abs(separation_radius - separation_radius_full)
             << std::endl;
+  double fill_distance = double(0.);
+  double dist = 0;
+  for (auto i = 0; i < P.cols(); ++i) {
+    const auto cluster =
+        pointMinDistance(P.col(i), P, CT, separation_radius, &dist);
+    if (!it.nSons()) {
+      double rad = 0;
+      for (auto j = 0; j < it.indices().size(); ++j)
+        for (auto i = j + 1; i < it.indices().size(); ++i) {
+          dist = (P.col(it.indices()[i]) - P.col(it.indices()[j])).norm();
+          fill_distance = separation_radius < rad ? separation_radius : rad;
+        }
+      rad = clusterSeparationRadius(separation_radius, it, CT, P);
+      separation_radius = separation_radius < rad ? separation_radius : rad;
+    }
+  }
+  T.toc("fill distance comp: ");
+  std::cout << fill_distance << std::endl;
+
   T.tic();
   std::vector<const FMCA::TreeBase<FMCA::ClusterTree> *> leafs;
   for (auto level = 0; level < 16; ++level) {
     std::vector<Eigen::MatrixXd> bbvec;
     for (auto &node : CT) {
-      if (node.level() == level)
-        bbvec.push_back(node.derived().bb());
+      if (node.level() == level) bbvec.push_back(node.derived().bb());
     }
     FMCA::IO::plotBoxes("boxes" + std::to_string(level) + ".vtk", bbvec);
   }
   std::vector<Eigen::MatrixXd> bbvec;
 
   for (auto &node : CT) {
-    if (!node.nSons())
-      bbvec.push_back(node.derived().bb());
+    if (!node.nSons()) bbvec.push_back(node.derived().bb());
   }
   Eigen::VectorXd colrs(P.cols());
   for (auto &node : CT) {

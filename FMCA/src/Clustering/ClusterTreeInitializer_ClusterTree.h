@@ -17,7 +17,8 @@ namespace internal {
 /** \ingroup internal
  *  \brief initializes a bounding box for the geometry
  **/
-template <> struct ClusterTreeInitializer<ClusterTree> {
+template <>
+struct ClusterTreeInitializer<ClusterTree> {
   ClusterTreeInitializer() = delete;
   //////////////////////////////////////////////////////////////////////////////
   template <typename Derived, typename eigenMatrix>
@@ -57,7 +58,9 @@ template <> struct ClusterTreeInitializer<ClusterTree> {
                                     IndexType min_cluster_size,
                                     const eigenMatrix &P) {
     typename traits<Derived>::Splitter split;
-    if (CT.node().indices_.size() >= 2 * min_cluster_size) {
+    const IndexType split_threshold =
+        min_cluster_size >= 1 ? (2 * min_cluster_size - 1) : 1;
+    if (CT.node().indices_.size() > split_threshold) {
       CT.appendSons(2);
       // set up bounding boxes for sons
       for (auto i = 0; i < 2; ++i) {
@@ -91,8 +94,7 @@ template <> struct ClusterTreeInitializer<ClusterTree> {
     eigenMatrix bbmat(P.rows(), 3);
     if (CT.nSons()) {
       // assert that all sons have fitted bb's
-      for (auto i = 0; i < CT.nSons(); ++i)
-        shrinkToFit_impl(CT.sons(i), P);
+      for (auto i = 0; i < CT.nSons(); ++i) shrinkToFit_impl(CT.sons(i), P);
       // now update own bb (we need a son with indices to get a first bb)
       for (auto i = 0; i < CT.nSons(); ++i)
         if (CT.sons(i).node().indices_.size()) {
@@ -137,8 +139,8 @@ template <> struct ClusterTreeInitializer<ClusterTree> {
     return;
   }
 };
-} // namespace internal
+}  // namespace internal
 
-} // namespace FMCA
+}  // namespace FMCA
 
 #endif

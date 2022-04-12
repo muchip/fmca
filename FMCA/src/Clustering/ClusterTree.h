@@ -28,7 +28,7 @@ template <> struct traits<ClusterTree> {
   typedef FloatType value_type;
   typedef ClusterTreeNode node_type;
   typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
-  typedef ClusterSplitter::GeometricBisection<value_type> Splitter;
+  typedef ClusterSplitter::CardinalityBisection<value_type> Splitter;
 };
 } // namespace internal
 
