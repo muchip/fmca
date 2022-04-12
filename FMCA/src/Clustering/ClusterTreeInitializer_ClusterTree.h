@@ -57,7 +57,7 @@ template <> struct ClusterTreeInitializer<ClusterTree> {
                                     IndexType min_cluster_size,
                                     const eigenMatrix &P) {
     typename traits<Derived>::Splitter split;
-    if (CT.node().indices_.size() > 2 * min_cluster_size) {
+    if (CT.node().indices_.size() >= 2 * min_cluster_size) {
       CT.appendSons(2);
       // set up bounding boxes for sons
       for (auto i = 0; i < 2; ++i) {
