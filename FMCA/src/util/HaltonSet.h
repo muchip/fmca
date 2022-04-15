@@ -82,7 +82,8 @@ public:
   //  getter
   //////////////////////////////////////////////////////////////////////////////
   const std::vector<T> &HaltonVector(void) const { return HaltonVector_; }
-  const Eigen::Map<const Eigen::VectorXd> EigenHaltonVector(void) const {
+  const Eigen::Map<const Eigen::Matrix<T, Eigen::Dynamic, 1>>
+  EigenHaltonVector(void) const {
     return Eigen::Map<const Eigen::VectorXd>(HaltonVector_.data(), M_);
   }
   const std::vector<unsigned int> &primes(void) const { return primes_; }

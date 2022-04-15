@@ -21,12 +21,10 @@
 namespace FMCA {
 
 namespace internal {
-template <typename Derived>
-struct traits {};
+template <typename Derived> struct traits {};
 
-}  // namespace internal
-template <typename Derived>
-struct NodeBase {
+} // namespace internal
+template <typename Derived> struct NodeBase {
   // return a reference to the derived object
   Derived &derived() { return *static_cast<Derived *>(this); }
   // return a const reference to the derived object */
@@ -38,9 +36,8 @@ struct NodeBase {
  *  \brief manages a generic tree providing tree topology and a node
  *         iterator
  */
-template <typename Derived>
-class TreeBase {
- public:
+template <typename Derived> class TreeBase {
+public:
   typedef typename internal::traits<Derived>::eigenMatrix eigenMatrix;
   typedef typename internal::traits<Derived>::node_type node_type;
   // when a tree is constructed, we add at least the memory for its node
@@ -59,8 +56,7 @@ class TreeBase {
   const Derived &derived() const { return *static_cast<const Derived *>(this); }
   //////////////////////////////////////////////////////////////////////////////
   // exposed the trees init routine
-  template <typename... Ts>
-  void init(Ts &&...ts) {
+  template <typename... Ts> void init(Ts &&...ts) {
     derived().init(std::forward<Ts>(ts)...);
   }
   //////////////////////////////////////////////////////////////////////////////
@@ -101,18 +97,20 @@ class TreeBase {
   //////////////////////////////////////////////////////////////////////////////
   // provide a levelwise ordered output of the tree for debugging purposes only
   void exportTreeStructure(std::vector<std::vector<IndexType>> &tree) {
-    if (level() >= tree.size()) tree.resize(level() + 1);
+    if (level() >= tree.size())
+      tree.resize(level() + 1);
     tree[level()].push_back(node().indices_.size());
-    for (auto i = 0; i < nSons(); ++i) sons(i).exportTreeStructure(tree);
+    for (auto i = 0; i < nSons(); ++i)
+      sons(i).exportTreeStructure(tree);
   }
   //////////////////////////////////////////////////////////////////////////////
- private:
+private:
   std::vector<TreeBase> sons_;
   std::unique_ptr<NodeBase<node_type>> node_;
   TreeBase *dad_;
   IndexType level_;
 };
 
-}  // namespace FMCA
+} // namespace FMCA
 
 #endif
