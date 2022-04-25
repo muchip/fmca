@@ -15,14 +15,14 @@
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 ////////////////////////////////////////////////////////////////////////////////
-#include <FMCA/src/MatrixEvaluators/SparseMatrixEvaluator.h>
 
 #include <FMCA/MatrixEvaluators>
 #include <FMCA/Samplets>
 ////////////////////////////////////////////////////////////////////////////////
+#include <FMCA/src/MatrixEvaluators/SparseMatrixEvaluator.h>
 #include <FMCA/src/util/SparseMatrix.h>
 #include <FMCA/src/util/Tictoc.h>
-
+#include "../Points/matrixReader.h"
 #include "pardiso_interface.h"
 ////////////////////////////////////////////////////////////////////////////////
 using Interpolator = FMCA::TotalDegreeInterpolator<FMCA::FloatType>;
@@ -34,8 +34,7 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
   const unsigned int dtilde = 4;
-  const auto function = expKernel();
-  const double eta = 0.5;
+  const double eta = 0.0;
   const unsigned int mp_deg = 6;
   const double threshold = 0;
   FMCA::Tictoc T;
