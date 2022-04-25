@@ -10,6 +10,7 @@
 // information.
 //
 #ifndef FMCA_SAMPLETS_SYMMETRICCOMPRESSORIMPL_H_
+#define FMCA_SAMPLETS_SYMMETRICCOMPRESSORIMPL_H_
 //#define FMCA_COMPRESSOR_BUFSIZE_
 
 namespace FMCA {
@@ -104,7 +105,6 @@ private:
     // check for admissibility
     if (compareCluster(TR, TC) == LowRank) {
       e_gen.interpolate_kernel(TR, TC, &buf);
-
       retval = TR.V().transpose() * buf * TC.V();
     } else {
       if (!TR.nSons() && !TC.nSons()) {
