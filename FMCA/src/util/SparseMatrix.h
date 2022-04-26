@@ -12,6 +12,8 @@
 
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
+#include <algorithm>
+#include <numeric>
 #include <vector>
 
 namespace FMCA {
@@ -185,12 +187,48 @@ class SparseMatrix {
   template <typename Derived>
   SparseMatrix<value_type> &setFromTriplets(const Derived &begin,
                                             const Derived &end) {
+    // first sort the triplets in row major manner lexicograpphically
+    const size_type n_triplets = std::distance(begin, end);
+    std::vector<size_type> idcs(n_triplets);
+    {
+      struct customLess {
+        customLess(const Derived &begin, const Derived &end)
+            : begin_(begin), end_(end) {}
+        bool operator()(size_type a, size_type b) const {
+          if ((begin_ + a)->row() == (begin_ + b)->row())
+            return ((begin_ + a)->col() < (begin_ + b)->col());
+          else
+            return ((begin_ + a)->row() < (begin_ + b)->row());
+        }
+        const Derived &begin_;
+        const Derived &end_;
+      };
+      std::iota(idcs.begin(), idcs.end(), 0);
+      std::sort(idcs.begin(), idcs.end(), customLess(begin, end));
+    }
+    // next get the row sizes and row begin/end like in crs
+    std::vector<size_type> rows(m_ + 1, 0);
+    {
+      rows[(begin + idcs[0])->row()] = 0;
+      size_type j = 0;
+      for (auto i = (begin + idcs[0])->row() + 1; i <= m_; ++i) {
+        while (j < n_triplets && i - 1 == (begin + idcs[j])->row()) ++j;
+        rows[i] = j;
+      }
+    }
     val_.clear();
     idx_.clear();
     val_.resize(m_);
     idx_.resize(m_);
-    for (auto it = begin; it != end; ++it)
-      coeffRef(it->row(), it->col()) = it->value();
+    for (auto i = 0; i < m_; ++i) {
+      const size_type sze = rows[i + 1] - rows[i];
+      val_[i].resize(sze);
+      idx_[i].resize(sze);
+      for (auto j = 0; j < sze; ++j) {
+        idx_[i][j] = (begin + idcs[rows[i] + j])->col();
+        val_[i][j] = (begin + idcs[rows[i] + j])->value();
+      }
+    }
     return *this;
   }
 
