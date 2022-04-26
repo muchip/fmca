@@ -27,6 +27,7 @@
 #include "src/Clustering/ClusterTreeBase.h"
 #include "src/Clustering/ClusterTree.h"
 #include "src/Clustering/ClusterTreeMesh.h"
+#include "src/Clustering/ClusterTreeMetrics.h"
 
 
 

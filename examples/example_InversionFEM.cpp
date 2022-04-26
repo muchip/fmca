@@ -22,6 +22,7 @@
 #include <FMCA/src/MatrixEvaluators/SparseMatrixEvaluator.h>
 #include <FMCA/src/util/SparseMatrix.h>
 #include <FMCA/src/util/Tictoc.h>
+
 #include "../Points/matrixReader.h"
 #include "pardiso_interface.h"
 ////////////////////////////////////////////////////////////////////////////////
@@ -34,13 +35,13 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
   const unsigned int dtilde = 4;
-  const double eta = 0.0;
+  const double eta = 0.3;
   const unsigned int mp_deg = 6;
   const double threshold = 0;
   FMCA::Tictoc T;
   const Eigen::MatrixXd P =
-      readMatrix("../mex/mfiles/P_card_005.txt").transpose();
-  const Eigen::MatrixXd Atrips = readMatrix("../mex/mfiles/A_card_005.txt");
+      readMatrix("../mex/mfiles/P_card_001.txt").transpose();
+  const Eigen::MatrixXd Atrips = readMatrix("../mex/mfiles/A_card_001.txt");
   const unsigned int npts = P.cols();
   const unsigned int dim = P.rows();
   assert(Atrips(0, 0) == Atrips(0, 1) && Atrips(0, 0) == P.cols());
@@ -76,6 +77,7 @@ int main(int argc, char *argv[]) {
     std::cout << "lambda_max (est by 20its of power it): " << lambda_max
               << std::endl;
   }
+  std::cout << "domain diam: " << hst.bb().col(2).norm() << std::endl;
   const SparseMatrixEvaluator mat_eval(A);
   FMCA::symmetric_compressor_impl<H2SampletTree> comp;
   T.tic();

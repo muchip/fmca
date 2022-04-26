@@ -15,11 +15,10 @@
 
 namespace FMCA {
 
-template <typename Derived> struct symmetric_compressor_impl {
-  enum Admissibility { Refine = 0, LowRank = 1, Dense = 2 };
+template <typename Derived>
+struct symmetric_compressor_impl {
   typedef typename internal::traits<Derived>::value_type value_type;
   typedef typename internal::traits<Derived>::eigenMatrix eigenMatrix;
-
   template <typename EntryGenerator>
   void compress(const SampletTreeBase<Derived> &ST, const EntryGenerator &e_gen,
                 value_type eta = 0.8, value_type threshold = 1e-6) {
@@ -36,50 +35,16 @@ template <typename Derived> struct symmetric_compressor_impl {
     storage_size_ = 0;
     ////////////////////////////////////////////////////////////////////////////
     // set up the compressed matrix
-    PB_.reset(n_samplet_blocks);
     compute_block_calls_ = 0;
-
     setupColumn(ST.derived(), ST.derived(), e_gen);
     triplet_list_.shrink_to_fit();
-    std::cout << std::endl;
 #ifdef FMCA_COMPRESSOR_BUFSIZE_
     std::cout << "compute calls: " << compute_block_calls_ << std::endl;
     std::cout << "max buffer size: " << max_buff_size_ << std::endl;
     max_buff_size_ = 0;
-    for (const auto &it : buffer_)
-      max_buff_size_ += it.size();
+    for (const auto &it : buffer_) max_buff_size_ += it.size();
     std::cout << "final buffer size: " << max_buff_size_ << std::endl;
 #endif
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-  value_type computeDistance(const Derived &TR, const Derived &TC) {
-    const value_type row_radius = 0.5 * TR.bb().col(2).norm();
-    const value_type col_radius = 0.5 * TC.bb().col(2).norm();
-    const value_type dist = 0.5 * (TR.bb().col(0) - TC.bb().col(0) +
-                                   TR.bb().col(1) - TC.bb().col(1))
-                                      .norm() -
-                            row_radius - col_radius;
-    return dist > 0 ? dist : 0;
-  }
-  //////////////////////////////////////////////////////////////////////////////
-  Admissibility compareCluster(const Derived &cluster1,
-                               const Derived &cluster2) {
-    Admissibility retval;
-    const value_type dist = computeDistance(cluster1, cluster2);
-    const value_type row_radius = 0.5 * cluster1.bb().col(2).norm();
-    const value_type col_radius = 0.5 * cluster2.bb().col(2).norm();
-    const value_type radius = row_radius > col_radius ? row_radius : col_radius;
-
-    if (radius > eta_ * dist) {
-      // check if either cluster is a leaf in that case,
-      // compute the full matrix block
-      if (!cluster1.nSons() || !cluster2.nSons())
-        return Dense;
-      else
-        return Refine;
-    } else
-      return LowRank;
   }
   //////////////////////////////////////////////////////////////////////////////
   const std::vector<Eigen::Triplet<value_type>> &pattern_triplets() const {
@@ -91,7 +56,7 @@ template <typename Derived> struct symmetric_compressor_impl {
     return eigenMatrix(S);
   }
 
-private:
+ private:
   /**
    *  \brief recursively computes for a given pair of row and column clusters
    *         the four blocks [A^PhiPhi, A^PhiSigma; A^SigmaPhi, A^SigmaSigma]
@@ -103,7 +68,7 @@ private:
     eigenMatrix retval(0, 0);
     ++compute_block_calls_;
     // check for admissibility
-    if (compareCluster(TR, TC) == LowRank) {
+    if (compareCluster(TR, TC, eta_) == LowRank) {
       e_gen.interpolate_kernel(TR, TC, &buf);
       retval = TR.V().transpose() * buf * TC.V();
     } else {
@@ -162,7 +127,7 @@ private:
     // if there are children of the row cluster, we proceed recursively
     if (TR.nSons() && TR.block_id() < TC.block_id()) {
       for (auto i = 0; i < TR.nSons(); ++i) {
-        if (compareCluster(TR.sons(i), TC) != LowRank) {
+        if (compareCluster(TR.sons(i), TC, eta_) != LowRank) {
           setupRow(TR.sons(i), TC, e_gen);
           auto it = buffer_[TR.sons(i).block_id()].find(TC.block_id());
           eigen_assert(it != buffer_[TR.sons(i).block_id()].end() &&
@@ -171,8 +136,7 @@ private:
                                  buf.cols() + TR.sons(i).nscalfs());
           buf.rightCols(TR.sons(i).nscalfs()) =
               (it->second).transpose().leftCols(TR.sons(i).nscalfs());
-          if (it->first != 0)
-            buffer_[TR.sons(i).block_id()].erase(it);
+          if (it->first != 0) buffer_[TR.sons(i).block_id()].erase(it);
         } else {
           eigenMatrix ret = recursivelyComputeBlock(TR.sons(i), TC, e_gen);
           buf.conservativeResize(ret.cols(), buf.cols() + TR.sons(i).nscalfs());
@@ -184,8 +148,7 @@ private:
       // we are at a leaf of the row cluster tree
     } else {
       // if TC is a leaf, we compute the corresponding matrix block
-      if (!TC.nSons())
-        block = recursivelyComputeBlock(TR, TC, e_gen);
+      if (!TC.nSons()) block = recursivelyComputeBlock(TR, TC, e_gen);
       // if TC is not a leaf, we reuse the blocks of its children
       else {
         for (auto j = 0; j < TC.nSons(); ++j) {
@@ -215,8 +178,7 @@ private:
     buffer_[TR.block_id()].emplace(std::make_pair(TC.block_id(), block));
 #ifdef FMCA_COMPRESSOR_BUFSIZE_
     IndexType buff_size = 0;
-    for (const auto &it : buffer_)
-      buff_size += it.size();
+    for (const auto &it : buffer_) buff_size += it.size();
     max_buff_size_ = max_buff_size_ < buff_size ? buff_size : max_buff_size_;
     return;
 #endif
@@ -227,8 +189,7 @@ private:
                    const EntryGenerator &e_gen) {
     eigenMatrix retval;
     if (TC.nSons())
-      for (auto i = 0; i < TC.nSons(); ++i)
-        setupColumn(TR, TC.sons(i), e_gen);
+      for (auto i = 0; i < TC.nSons(); ++i) setupColumn(TR, TC.sons(i), e_gen);
     setupRow(TR, TC, e_gen);
     auto it = buffer_[TR.block_id()].find(TC.block_id());
     eigen_assert(it != buffer_[TR.block_id()].end() &&
@@ -252,7 +213,7 @@ private:
     storage_size_ += ncols * nrows;
     for (auto k = 0; k < ncols; ++k)
       for (auto j = 0; j < nrows; ++j)
-        if (abs(block(j, k)) > threshold_ && srow + j <= scol + k)
+        if (srow + j <= scol + k)
           triplet_list_.push_back(
               Eigen::Triplet<value_type>(srow + j, scol + k, block(j, k)));
   }
@@ -269,5 +230,5 @@ private:
   size_t max_buff_size_;
   IndexType compute_block_calls_;
 };
-} // namespace FMCA
+}  // namespace FMCA
 #endif
