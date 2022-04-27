@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
   FMCA::Tictoc T;
 #if 0
   const unsigned int dim = 2;
-  const unsigned int npts = 1e4;
+  const unsigned int npts = 1e1;
   T.tic();
   const Eigen::MatrixXd P = Eigen::MatrixXd::Random(dim, npts);
   T.toc("geometry generation: ");
@@ -63,8 +63,8 @@ int main(int argc, char *argv[]) {
   T.tic();
   std::cout << std::string(60, '=') << "\n";
   const Eigen::MatrixXd P =
-      readMatrix("../mex/mfiles/P_card_005.txt").transpose();
-  const Eigen::MatrixXd Atrips = readMatrix("../mex/mfiles/A_card_005.txt");
+      readMatrix("../mex/mfiles/P_card_01.txt").transpose();
+  const Eigen::MatrixXd Atrips = readMatrix("../mex/mfiles/A_card_01.txt");
   T.toc("geometry generation: ");
   const unsigned int npts = P.cols();
   const unsigned int dim = P.rows();
@@ -100,7 +100,12 @@ int main(int argc, char *argv[]) {
   Eigen::SparseMatrix<double> S(npts, npts);
   Eigen::SparseMatrix<double> iS(npts, npts);
   FMCA::SparseMatrix<double> invS(npts, npts);
+  FMCA::SparseMatrix<double> Sfmca(npts, npts);
   S.setFromTriplets(trips.begin(), trips.end());
+  Sfmca.setFromTriplets(trips.begin(), trips.end());
+  const auto sortTrips = Sfmca.toTriplets();
+  for (auto &&it : sortTrips)
+    std::cout << it.row() << " " << it.col() << " " << it.value() << std::endl;
   invS = Pattern;
   EigenCholesky solver;
   T.tic();

@@ -42,11 +42,11 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 int main(int argc, char *argv[]) {
   const unsigned int dtilde = 4;
   const auto function = expKernel();
-  const double eta = 0.5;
+  const double eta = 0.8;
   const unsigned int mp_deg = 6;
   const double threshold = 0;
   const unsigned int dim = 2;
-  const unsigned int npts = 20000;
+  const unsigned int npts = 160000;
   FMCA::HaltonSet<100> hs(dim);
   FMCA::Tictoc T;
   Eigen::MatrixXd P = Eigen::MatrixXd::Random(dim, npts);
@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
     P.col(i) = bla;
     hs.next();
   }
-  std::cout << P.leftCols(10) << std::endl;
+  std::cout << P.leftCols(6) << std::endl;
   std::cout << std::string(75, '=') << std::endl;
   std::cout << "npts:   " << npts << std::endl
             << "dim:    " << dim << std::endl
@@ -69,75 +69,26 @@ int main(int argc, char *argv[]) {
   T.tic();
   H2SampletTree hst(mom, samp_mom, 0, P);
   T.toc("tree setup:        ");
-  FMCA::symmetric_compressor_impl<H2SampletTree> comp;
+  FMCA::unsymmetric_compressor_impl<H2SampletTree> comp;
   T.tic();
   comp.compress(hst, mat_eval, eta, threshold);
-  const double tcomp = T.toc("compressor:        ");
+  T.toc("compressor:        ");
   T.tic();
   const auto &trips = comp.pattern_triplets();
-  Eigen::SparseMatrix<double> S(npts, npts);
-  Eigen::SparseMatrix<double> invS(npts, npts);
-  FMCA::SparseMatrix<double> Sfmca(npts, npts);
-
-  Sfmca.setFromTriplets(trips.begin(), trips.end());
-  double trace = 0;
-  for (auto i = 0; i < Sfmca.cols(); ++i) trace += Sfmca(i, i);
-  std::cout << trace << std::endl;
-  for (auto i = 0; i < Sfmca.cols(); ++i) Sfmca(i, i) += 1e-4;
-  trace = 0;
-  for (auto i = 0; i < Sfmca.cols(); ++i) trace += Sfmca(i, i);
-  std::cout << trace << std::endl;
-
-  const auto sortTrips = Sfmca.toTriplets();
-  S.setFromTriplets(sortTrips.begin(), sortTrips.end());
-  T.toc("sparse matrices:   ");
-  std::cout << std::string(75, '=') << std::endl;
-  {
-    int i = 0;
-    int j = 0;
-    int n = Sfmca.cols();
-    int m = Sfmca.rows();
-    int n_triplets = sortTrips.size();
-    int *ia = nullptr;
-    int *ja = nullptr;
-    double *a = nullptr;
-    ia = (int *)malloc((m + 1) * sizeof(int));
-    ja = (int *)malloc(n_triplets * sizeof(int));
-    a = (double *)malloc(n_triplets * sizeof(double));
-    memset(ia, 0, (m + 1) * sizeof(int));
-    memset(ja, 0, n_triplets * sizeof(int));
-    memset(a, 0, n_triplets * sizeof(double));
-    // write rows
-    ia[sortTrips[0].row()] = 0;
-    for (i = sortTrips[0].row() + 1; i <= m; ++i) {
-      while (j < n_triplets && i - 1 == sortTrips[j].row()) ++j;
-      ia[i] = j;
-    }
-    // write the rest
-    for (i = 0; i < n_triplets; ++i) {
-      ja[i] = sortTrips[i].col();
-      a[i] = sortTrips[i].value();
-    }
-    std::cout << "\n\nentering pardiso block" << std::flush;
-    T.tic();
-    pardiso_interface(ia, ja, a, m, n);
-    std::cout << std::string(75, '=') << std::endl;
-    T.toc("Wall time pardiso: ");
-    std::vector<Eigen::Triplet<double>> inv_trips;
-    for (i = 0; i < m; ++i)
-      for (j = ia[i]; j < ia[i + 1]; ++j)
-        inv_trips.push_back(Eigen::Triplet<double>(i, ja[j], a[j]));
-    free(ia);
-    free(ja);
-    free(a);
-    invS.setFromTriplets(inv_trips.begin(), inv_trips.end());
-  }
-  Eigen::MatrixXd rand = Eigen::MatrixXd::Random(npts, 100);
-  auto Srand =
-      S * rand + S.triangularView<Eigen::StrictlyUpper>().transpose() * rand;
-  auto Rrand = invS * Srand +
-               invS.triangularView<Eigen::StrictlyUpper>().transpose() * Srand;
-  std::cout << "inverse error: " << (rand - Rrand).norm() / rand.norm()
+  FMCA::SparseMatrix<double> S(npts, npts);
+  FMCA::SparseMatrix<double> S2(npts, npts);
+  S.setFromTriplets(trips.begin(), trips.end());
+  std::cout << "entries A (\%): " << 100 * double(S.nnz()) / npts / npts
             << std::endl;
-  return 0;
+  S.symmetrize();
+  T.toc("sparse matrix:     ");
+  T.tic();
+  for (auto i = 0; i < 1; ++i) {
+    S2 = FMCA::SparseMatrix<double>::formatted_ABT(S, S, S);
+  }
+  T.toc("time 10 mat mult:  ");
+  Eigen::MatrixXd rand = Eigen::MatrixXd::Random(npts, 100);
+  auto Srand = S * (S * rand);
+  auto Rrand = S2 * rand;
+  std::cout << "error: " << (Srand - Rrand).norm() / Srand.norm() << std::endl;
 }

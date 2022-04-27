@@ -34,14 +34,14 @@ using SparseMatrixEvaluator = FMCA::SparseMatrixEvaluator<double>;
 using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
-  const unsigned int dtilde = 4;
-  const double eta = 0.3;
+  const unsigned int dtilde = 5;
+  const double eta = 0.5;
   const unsigned int mp_deg = 6;
   const double threshold = 0;
   FMCA::Tictoc T;
   const Eigen::MatrixXd P =
-      readMatrix("../mex/mfiles/P_card_001.txt").transpose();
-  const Eigen::MatrixXd Atrips = readMatrix("../mex/mfiles/A_card_001.txt");
+      readMatrix("../mex/mfiles/P_card_005.txt").transpose();
+  const Eigen::MatrixXd Atrips = readMatrix("../mex/mfiles/A_card_005.txt");
   const unsigned int npts = P.cols();
   const unsigned int dim = P.rows();
   assert(Atrips(0, 0) == Atrips(0, 1) && Atrips(0, 0) == P.cols());
@@ -83,6 +83,7 @@ int main(int argc, char *argv[]) {
   T.tic();
   comp.compress(hst, mat_eval, eta, threshold);
   const double tcomp = T.toc("compressor:        ");
+  std::cout << std::flush;
   T.tic();
   const auto &trips = comp.pattern_triplets();
   Eigen::SparseMatrix<double> S(npts, npts);
@@ -93,6 +94,7 @@ int main(int argc, char *argv[]) {
   const auto sortTrips = Sfmca.toTriplets();
   T.toc("sparse matrices:   ");
   std::cout << std::string(75, '=') << std::endl;
+  std::cout << std::flush;
   {
     int i = 0;
     int j = 0;
@@ -133,7 +135,7 @@ int main(int argc, char *argv[]) {
     free(a);
     invS.setFromTriplets(inv_trips.begin(), inv_trips.end());
   }
-  Eigen::MatrixXd rand = Eigen::MatrixXd::Random(npts, 100);
+  Eigen::MatrixXd rand = Eigen::MatrixXd::Random(npts, 2);
   auto Srand =
       S * rand + S.triangularView<Eigen::StrictlyUpper>().transpose() * rand;
   auto Rrand = invS * Srand +

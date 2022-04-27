@@ -145,7 +145,7 @@ private:
  *           maximum base length 40bits, i.e. for b=2
  *           maximum index is 1099511627776-1 \approx 10^12
  **/
-template <unsigned int S = 100u>
+template <unsigned int S>
 using HaltonSet = HaltonSetBase<double, S, 40u>;
 } // namespace FMCA
 #endif

@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
   const double eta = 0.8;
   const unsigned int mp_deg = 4;
   const double threshold = atof(argv[2]);
-  const unsigned int npts = 1e4;
+  const unsigned int npts = 2e3;
   FMCA::Tictoc T;
   std::cout << "N:" << npts << " dim:" << dim << " eta:" << eta
             << " mpd:" << mp_deg << " dt:" << dtilde << " thres: " << threshold
@@ -74,6 +74,7 @@ int main(int argc, char *argv[]) {
   FMCA::SparseMatrix<double> S(P.cols(), P.cols());
   FMCA::SparseMatrix<double> X(P.cols(), P.cols());
   FMCA::SparseMatrix<double> Xold(P.cols(), P.cols());
+  FMCA::SparseMatrix<double> ImXS(P.cols(), P.cols());
   FMCA::SparseMatrix<double> I2(P.cols(), P.cols());
   Eigen::MatrixXd randFilter = Eigen::MatrixXd::Random(S.rows(), 20);
   S.setFromTriplets(trips.begin(), trips.end());
@@ -107,12 +108,15 @@ int main(int argc, char *argv[]) {
             << std::endl;
   I2.setIdentity().scale(2);
   for (auto inner_iter = 0; inner_iter < 100; ++inner_iter) {
-    // ImXS = I2 - FMCA::SparseMatrix<double>::formatted_ABT(S, X, Seps);
-    // X = FMCA::SparseMatrix<double>::formatted_ABT(S, X, ImXS);
-    X = I2 * X - FMCA::SparseMatrix<double>::formatted_BABT(S, S, X);
+    //ImXS = I2 - FMCA::SparseMatrix<double>::formatted_ABT(S, X, S);
+    //X = FMCA::SparseMatrix<double>::formatted_ABT(S, X, ImXS);
+    //X = I2 * X - FMCA::SparseMatrix<double>::formatted_BABT(S, S, X);
+    X = X * (I2 - (S  * X));
+    X.compress(1e-10);
+    X.symmetrize();
     err_old = err;
     err = ((X * (S * randFilter)) - randFilter).norm() / randFilter.norm();
-    std::cout << "err: " << err << std::endl;
+    std::cout << "anz: " << X.nnz() / S.rows() << " err: " << err << std::endl;
     if (err > err_old) {
       X = Xold;
       break;
