@@ -534,17 +534,20 @@ class SparseMatrix {
     if (!v1size || !v2size || iv2.back() < iv1.front() ||
         iv1.back() < iv2.front())
       return retval;
-    for (auto i = 0, j = 0; i < v1size && j < v2size;) {
-      if (iv1[i] < iv2[j])
-        ++i;
-      else if (iv1[i] > iv2[j])
-        ++j;
-      else {
-        retval += vv1[i] * vv2[j];
-        ++i;
-        ++j;
+    auto j = 0;
+    if (v1size < v2size)
+      for (auto i = 0; i < v1size; ++i) {
+        while (j < v2size && iv2[j] < iv1[i]) ++j;
+        if (j >= v2size) break;
+        if (iv2[j] == iv1[i]) retval += vv1[i] * vv2[j];
       }
-    }
+    else
+      for (auto i = 0; i < v2size; ++i) {
+        while (j < v1size && iv1[j] < iv2[i]) ++j;
+        if (j >= v1size) break;
+        if (iv2[i] == iv1[j]) retval += vv1[j] * vv2[i];
+      }
+
     return retval;
   }
 

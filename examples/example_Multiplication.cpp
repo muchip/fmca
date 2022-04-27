@@ -28,7 +28,7 @@ struct expKernel {
   template <typename derived, typename otherDerived>
   double operator()(const Eigen::MatrixBase<derived> &x,
                     const Eigen::MatrixBase<otherDerived> &y) const {
-    return exp(-10 * (x - y).norm());
+    return exp(-1 * (x - y).norm());
   }
 };
 ////////////////////////////////////////////////////////////////////////////////
@@ -40,21 +40,23 @@ using MatrixEvaluator = FMCA::NystromMatrixEvaluator<Moments, expKernel>;
 using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
-  const unsigned int dtilde = 4;
+  const unsigned int dtilde = 3;
   const auto function = expKernel();
   const double eta = 0.8;
-  const unsigned int mp_deg = 6;
-  const double threshold = 0;
+  const unsigned int mp_deg = 4;
+  const double threshold = 1e-4;
   const unsigned int dim = 2;
-  const unsigned int npts = 160000;
+  const unsigned int npts = 200000;
   FMCA::HaltonSet<100> hs(dim);
   FMCA::Tictoc T;
   Eigen::MatrixXd P = Eigen::MatrixXd::Random(dim, npts);
+#if 0
   for (auto i = 0; i < P.cols(); ++i) {
     Eigen::VectorXd bla = hs.EigenHaltonVector();
     P.col(i) = bla;
     hs.next();
   }
+#endif
   std::cout << P.leftCols(6) << std::endl;
   std::cout << std::string(75, '=') << std::endl;
   std::cout << "npts:   " << npts << std::endl
@@ -78,8 +80,8 @@ int main(int argc, char *argv[]) {
   FMCA::SparseMatrix<double> S(npts, npts);
   FMCA::SparseMatrix<double> S2(npts, npts);
   S.setFromTriplets(trips.begin(), trips.end());
-  std::cout << "entries A (\%): " << 100 * double(S.nnz()) / npts / npts
-            << std::endl;
+  std::cout << "entries A:          " << 100 * double(S.nnz()) / npts / npts
+            << "\%" << std::endl;
   S.symmetrize();
   T.toc("sparse matrix:     ");
   T.tic();
