@@ -45,25 +45,13 @@ int main(int argc, char *argv[]) {
   const double eta = 0.8;
   const unsigned int mp_deg = 4;
   const double threshold = 1e-4;
-  const unsigned int dim = 2;
-  const unsigned int npts = 200000;
-  FMCA::HaltonSet<100> hs(dim);
+  const unsigned int dim = 3;
+  const unsigned int npts = 20000;
   FMCA::Tictoc T;
   Eigen::MatrixXd P = Eigen::MatrixXd::Random(dim, npts);
-#if 0
-  for (auto i = 0; i < P.cols(); ++i) {
-    Eigen::VectorXd bla = hs.EigenHaltonVector();
-    P.col(i) = bla;
-    hs.next();
-  }
-#endif
-  std::cout << P.leftCols(6) << std::endl;
   std::cout << std::string(75, '=') << std::endl;
-  std::cout << "npts:   " << npts << std::endl
-            << "dim:    " << dim << std::endl
-            << "dtilde: " << dtilde << std::endl
-            << "mp_deg: " << mp_deg << std::endl
-            << "eta:    " << eta << std::endl
+  std::cout << "npts: " << npts << " | dim: " << dim << " | dtilde: " << dtilde
+            << " | mp_deg: " << mp_deg << " | eta: " << eta << std::endl
             << std::flush;
   const Moments mom(P, mp_deg);
   const MatrixEvaluator mat_eval(mom, function);
