@@ -34,14 +34,14 @@ using SparseMatrixEvaluator = FMCA::SparseMatrixEvaluator<double>;
 using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
-  const unsigned int dtilde = 5;
+  const unsigned int dtilde = 4;
   const double eta = 0.5;
   const unsigned int mp_deg = 6;
-  const double threshold = 0;
+  const double threshold = -1;
   FMCA::Tictoc T;
   const Eigen::MatrixXd P =
-      readMatrix("../mex/mfiles/P_card_005.txt").transpose();
-  const Eigen::MatrixXd Atrips = readMatrix("../mex/mfiles/A_card_005.txt");
+      readMatrix("../mex/mfiles/P_card_001.txt").transpose();
+  const Eigen::MatrixXd Atrips = readMatrix("../mex/mfiles/A_card_001.txt");
   const unsigned int npts = P.cols();
   const unsigned int dim = P.rows();
   assert(Atrips(0, 0) == Atrips(0, 1) && Atrips(0, 0) == P.cols());
@@ -57,6 +57,9 @@ int main(int argc, char *argv[]) {
   T.tic();
   H2SampletTree hst(mom, samp_mom, 0, P);
   T.toc("tree setup:        ");
+  std::cout << "fill_dist: " << FMCA::fillDistance(hst, P) << std::endl;
+  std::cout << "sep_rad: " << FMCA::separationRadius(hst, P) << std::endl;
+  std::cout << "bb: " << std::endl << hst.bb() << std::endl;
   FMCA::SparseMatrix<double> A(npts, npts);
   //////////////////////////////////////////////////////////////////////////////
   std::vector<unsigned int> inv_idx(P.cols());
@@ -129,18 +132,45 @@ int main(int argc, char *argv[]) {
     std::vector<Eigen::Triplet<double>> inv_trips;
     for (i = 0; i < m; ++i)
       for (j = ia[i]; j < ia[i + 1]; ++j)
-        inv_trips.push_back(Eigen::Triplet<double>(i, ja[j], a[j]));
+        if (abs(a[j]) > 1e-8)
+          inv_trips.push_back(Eigen::Triplet<double>(i, ja[j], a[j]));
     free(ia);
     free(ja);
     free(a);
     invS.setFromTriplets(inv_trips.begin(), inv_trips.end());
   }
-  Eigen::MatrixXd rand = Eigen::MatrixXd::Random(npts, 2);
-  auto Srand =
-      S * rand + S.triangularView<Eigen::StrictlyUpper>().transpose() * rand;
-  auto Rrand = invS * Srand +
-               invS.triangularView<Eigen::StrictlyUpper>().transpose() * Srand;
-  std::cout << "inverse error: " << (rand - Rrand).norm() / rand.norm()
+  std::cout << "entries: " << 100. * S.nonZeros() / npts / npts << std::endl;
+  std::cout << "inverse entries: " << 100. * invS.nonZeros() / npts / npts
             << std::endl;
+  {
+    Eigen::MatrixXd rand = Eigen::MatrixXd::Random(npts, 100);
+    Eigen::VectorXd nrms = rand.colwise().norm();
+    for (auto i = 0; i < rand.cols(); ++i) rand.col(i) /= nrms(i);
+    auto Srand =
+        S * rand + S.triangularView<Eigen::StrictlyUpper>().transpose() * rand;
+    auto Rrand =
+        invS * Srand +
+        invS.triangularView<Eigen::StrictlyUpper>().transpose() * Srand;
+    std::cout << "inverse error: " << (rand - Rrand).norm() / rand.norm() << " "
+              << rand.norm() << std::endl;
+  }
+  {
+    Eigen::VectorXd x = Eigen::VectorXd::Random(S.cols());
+    Eigen::VectorXd xold;
+    Eigen::VectorXd y;
+    x /= x.norm();
+    for (auto i = 0; i < 50; ++i) {
+      xold = x;
+      y = S.triangularView<Eigen::Upper>() * xold +
+          S.triangularView<Eigen::StrictlyUpper>().transpose() * xold;
+      x = invS.triangularView<Eigen::Upper>() * y +
+          invS.triangularView<Eigen::StrictlyUpper>().transpose() * y;
+      x -= xold;
+      lambda_max = x.norm();
+      x /= lambda_max;
+    }
+    std::cout << "op. norm err (50its of power it): " << lambda_max
+              << std::endl;
+  }
   return 0;
 }

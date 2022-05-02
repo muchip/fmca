@@ -213,7 +213,7 @@ struct symmetric_compressor_impl {
     storage_size_ += ncols * nrows;
     for (auto k = 0; k < ncols; ++k)
       for (auto j = 0; j < nrows; ++j)
-        if (srow + j <= scol + k)
+        if (srow + j <= scol + k && abs(block(j, k)) > threshold_)
           triplet_list_.push_back(
               Eigen::Triplet<value_type>(srow + j, scol + k, block(j, k)));
   }

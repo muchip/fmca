@@ -174,9 +174,9 @@ int pardiso_interface(int *ia, int *ja, double *a, int m, int n) {
   /* ... Inverse factorization.                                           */
   /* -------------------------------------------------------------------- */
 
-  FILE *mat_file = NULL;
+  /*FILE *mat_file = NULL;
   mat_file = fopen("inverse.iajaa", "w");
-
+*/
   if (solver == 0) {
     printf("\nCompute Diagonal Elements of the inverse of A ... \n");
     phase = -22;

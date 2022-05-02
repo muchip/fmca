@@ -18,6 +18,7 @@
 #include <FMCA/MatrixEvaluators>
 #include <FMCA/Samplets>
 ////////////////////////////////////////////////////////////////////////////////
+#include <FMCA/src/util/Errors.h>
 #include <FMCA/src/util/HaltonSet.h>
 #include <FMCA/src/util/SparseMatrix.h>
 #include <FMCA/src/util/Tictoc.h>
@@ -28,7 +29,22 @@ struct expKernel {
   template <typename derived, typename otherDerived>
   double operator()(const Eigen::MatrixBase<derived> &x,
                     const Eigen::MatrixBase<otherDerived> &y) const {
-    return exp(-10 * (x - y).norm());
+    const double r = (x - y).norm();
+    const double ell = 0.2;
+    return exp(-r / ell);
+    // return (1 + sqrt(3) * r / ell) * exp(-sqrt(3) * r / ell);
+  }
+};
+
+struct rationalQuadraticKernel {
+  template <typename derived, typename otherDerived>
+  double operator()(const Eigen::MatrixBase<derived> &x,
+                    const Eigen::MatrixBase<otherDerived> &y) const {
+    const double r = (x - y).norm();
+    constexpr double alpha = 0.5;
+    constexpr double ell = 2.;
+    constexpr double c = 1. / (2. * alpha * ell * ell);
+    return std::pow(1 + c * r * r, -alpha);
   }
 };
 ////////////////////////////////////////////////////////////////////////////////
@@ -42,26 +58,23 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 int main(int argc, char *argv[]) {
   const unsigned int dtilde = 4;
   const auto function = expKernel();
-  const double eta = 0.5;
+  const double eta = atof(argv[2]);
   const unsigned int mp_deg = 6;
-  const double threshold = 0;
+  const double threshold = -1;
   const unsigned int dim = 2;
-  const unsigned int npts = 20000;
+  const unsigned int npts = atoi(argv[1]);
   FMCA::HaltonSet<100> hs(dim);
   FMCA::Tictoc T;
-  Eigen::MatrixXd P = Eigen::MatrixXd::Random(dim, npts);
+  Eigen::MatrixXd P = 0.5 * (Eigen::MatrixXd::Random(dim, npts).array() + 1);
+#if 0
   for (auto i = 0; i < P.cols(); ++i) {
-    Eigen::VectorXd bla = hs.EigenHaltonVector();
-    P.col(i) = bla;
+    P.col(i) = hs.EigenHaltonVector();
     hs.next();
   }
-  std::cout << P.leftCols(10) << std::endl;
+#endif
   std::cout << std::string(75, '=') << std::endl;
-  std::cout << "npts:   " << npts << std::endl
-            << "dim:    " << dim << std::endl
-            << "dtilde: " << dtilde << std::endl
-            << "mp_deg: " << mp_deg << std::endl
-            << "eta:    " << eta << std::endl
+  std::cout << "npts: " << npts << " | dim: " << dim << " | dtilde: " << dtilde
+            << " | mp_deg: " << mp_deg << " | eta: " << eta << std::endl
             << std::flush;
   const Moments mom(P, mp_deg);
   const MatrixEvaluator mat_eval(mom, function);
@@ -69,24 +82,80 @@ int main(int argc, char *argv[]) {
   T.tic();
   H2SampletTree hst(mom, samp_mom, 0, P);
   T.toc("tree setup:        ");
+  std::cout << "fill_dist: " << FMCA::fillDistance(hst, P) << std::endl;
+  std::cout << "sep_rad: " << FMCA::separationRadius(hst, P) << std::endl;
+  std::cout << "bb: " << std::endl << hst.bb() << std::endl;
   FMCA::symmetric_compressor_impl<H2SampletTree> comp;
   T.tic();
   comp.compress(hst, mat_eval, eta, threshold);
   const double tcomp = T.toc("compressor:        ");
   T.tic();
-  const auto &trips = comp.pattern_triplets();
+  std::vector<Eigen::Triplet<double>> trips = comp.pattern_triplets();
+  double nz = 0;
+  for (auto &&it : trips)
+    if (abs(it.value()) < 1e-8)
+      it = Eigen::Triplet<double>(it.row(), it.col(), 0);
+    else
+      nz += 1;
+  std::cout << "nnz: " << nz / npts / npts * 100. << std::endl;
+  T.tic();
+  Eigen::VectorXd x(npts), y1(npts), y2(npts);
+  double err = 0;
+  double nrm = 0;
+  for (auto i = 0; i < 100; ++i) {
+    unsigned int index = rand() % P.cols();
+    x.setZero();
+    x(index) = 1;
+    y1 = FMCA::matrixColumnGetter(P, hst.indices(), function, index);
+    x = hst.sampletTransform(x);
+    y2.setZero();
+    for (const auto &i : trips) {
+      y2(i.row()) += i.value() * x(i.col());
+      if (i.row() != i.col()) y2(i.col()) += i.value() * x(i.row());
+    }
+    y2 = hst.inverseSampletTransform(y2);
+    err += (y1 - y2).squaredNorm();
+    nrm += y1.squaredNorm();
+  }
+
+  const double thet = T.toc("matrix vector time: ");
+  std::cout << "average matrix vector time " << thet / 100 << "sec."
+            << std::endl;
+  err = sqrt(err / nrm);
+  std::cout << "compression error: " << err << std::endl << std::flush;
   Eigen::SparseMatrix<double> S(npts, npts);
   Eigen::SparseMatrix<double> invS(npts, npts);
   FMCA::SparseMatrix<double> Sfmca(npts, npts);
+  FMCA::SparseMatrix<double> D(npts, npts);
 
   Sfmca.setFromTriplets(trips.begin(), trips.end());
+  S.setFromTriplets(trips.begin(), trips.end());
+  double lambda_max = 0;
+  {
+    Eigen::MatrixXd x = Eigen::VectorXd::Random(S.cols());
+    x /= x.norm();
+    for (auto i = 0; i < 20; ++i) {
+      x = S * x + S.triangularView<Eigen::StrictlyUpper>().transpose() * x;
+      lambda_max = x.norm();
+      x /= lambda_max;
+    }
+    std::cout << "lambda_max (est by 20its of power it): " << lambda_max
+              << std::endl;
+  }
+  std::cout << "entries A:          " << 100 * double(Sfmca.nnz()) / npts / npts
+            << "\%" << std::endl;
   double trace = 0;
   for (auto i = 0; i < Sfmca.cols(); ++i) trace += Sfmca(i, i);
   std::cout << trace << std::endl;
+
+  for (auto i = 0; i < Sfmca.cols(); ++i)
+    D(i, i) = 1. / sqrt(Sfmca(i, i) + 1e-4);
+  Sfmca = D * (Sfmca * D);
   for (auto i = 0; i < Sfmca.cols(); ++i) Sfmca(i, i) += 1e-4;
-  trace = 0;
-  for (auto i = 0; i < Sfmca.cols(); ++i) trace += Sfmca(i, i);
-  std::cout << trace << std::endl;
+
+  double trace2 = 0;
+  for (auto i = 0; i < Sfmca.cols(); ++i) trace2 += Sfmca(i, i);
+  std::cout << trace2 << " ratio: " << trace2 / trace - 1 << std::endl;
 
   const auto sortTrips = Sfmca.toTriplets();
   S.setFromTriplets(sortTrips.begin(), sortTrips.end());
@@ -126,18 +195,45 @@ int main(int argc, char *argv[]) {
     std::vector<Eigen::Triplet<double>> inv_trips;
     for (i = 0; i < m; ++i)
       for (j = ia[i]; j < ia[i + 1]; ++j)
-        inv_trips.push_back(Eigen::Triplet<double>(i, ja[j], a[j]));
+        if (abs(a[j]) > 1e-8)
+          inv_trips.push_back(Eigen::Triplet<double>(i, ja[j], a[j]));
     free(ia);
     free(ja);
     free(a);
     invS.setFromTriplets(inv_trips.begin(), inv_trips.end());
   }
-  Eigen::MatrixXd rand = Eigen::MatrixXd::Random(npts, 100);
-  auto Srand =
-      S * rand + S.triangularView<Eigen::StrictlyUpper>().transpose() * rand;
-  auto Rrand = invS * Srand +
-               invS.triangularView<Eigen::StrictlyUpper>().transpose() * Srand;
-  std::cout << "inverse error: " << (rand - Rrand).norm() / rand.norm()
+  std::cout << "inverse entries: " << 100. * invS.nonZeros() / npts / npts
             << std::endl;
+  {
+    Eigen::MatrixXd rand = Eigen::MatrixXd::Random(npts, 100);
+    Eigen::VectorXd nrms = rand.colwise().norm();
+    for (auto i = 0; i < rand.cols(); ++i) rand.col(i) /= nrms(i);
+    auto Srand =
+        S * rand + S.triangularView<Eigen::StrictlyUpper>().transpose() * rand;
+    auto Rrand =
+        invS * Srand +
+        invS.triangularView<Eigen::StrictlyUpper>().transpose() * Srand;
+    std::cout << "inverse error: " << (rand - Rrand).norm() / rand.norm() << " "
+              << rand.norm() << std::endl;
+  }
+  {
+    Eigen::VectorXd x = Eigen::VectorXd::Random(S.cols());
+    Eigen::VectorXd xold;
+    Eigen::VectorXd y;
+    x /= x.norm();
+    for (auto i = 0; i < 50; ++i) {
+      xold = x;
+      y = S.triangularView<Eigen::Upper>() * xold +
+          S.triangularView<Eigen::StrictlyUpper>().transpose() * xold;
+      x = invS.triangularView<Eigen::Upper>() * y +
+          invS.triangularView<Eigen::StrictlyUpper>().transpose() * y;
+      x -= xold;
+      lambda_max = x.norm();
+      x /= lambda_max;
+    }
+    std::cout << "op. norm err (50its of power it): " << lambda_max
+              << std::endl;
+  }
+
   return 0;
 }
