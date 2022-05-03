@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "Macros.h"
+#include "SparseMatrix.h"
 
 namespace FMCA {
 
@@ -41,6 +42,28 @@ Eigen::VectorXd matrixColumnGetter(const Eigen::MatrixXd &P,
   return retval;
 }
 
-}  // namespace FMCA
+template <typename Functor, typename Derived>
+double errorEstimatorSymmetricCompressor(
+    const std::vector<Eigen::Triplet<double>> &trips, const Functor &function,
+    const FMCA::SampletTreeBase<Derived> &hst, const Eigen::MatrixXd &P) {
+  unsigned int npts = P.cols();
+  Eigen::VectorXd x(npts), y1(npts), y2(npts);
+  double err = 0;
+  double nrm = 0;
+  for (auto i = 0; i < 100; ++i) {
+    unsigned int index = rand() % P.cols();
+    x.setZero();
+    x(index) = 1;
+    y1 = FMCA::matrixColumnGetter(P, hst.indices(), function, index);
+    x = hst.sampletTransform(x);
+    y2 = FMCA::SparseMatrix<double>::symTripletsTimesVector(trips, x);
+    y2 = hst.inverseSampletTransform(y2);
+    err += (y1 - y2).squaredNorm();
+    nrm += y1.squaredNorm();
+  }
+  return sqrt(err / nrm);
+}
+
+} // namespace FMCA
 
 #endif
