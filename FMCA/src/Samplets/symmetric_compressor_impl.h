@@ -15,8 +15,7 @@
 
 namespace FMCA {
 
-template <typename Derived>
-struct symmetric_compressor_impl {
+template <typename Derived> struct symmetric_compressor_impl {
   typedef typename internal::traits<Derived>::value_type value_type;
   typedef typename internal::traits<Derived>::eigenMatrix eigenMatrix;
   template <typename EntryGenerator>
@@ -42,7 +41,8 @@ struct symmetric_compressor_impl {
     std::cout << "compute calls: " << compute_block_calls_ << std::endl;
     std::cout << "max buffer size: " << max_buff_size_ << std::endl;
     max_buff_size_ = 0;
-    for (const auto &it : buffer_) max_buff_size_ += it.size();
+    for (const auto &it : buffer_)
+      max_buff_size_ += it.size();
     std::cout << "final buffer size: " << max_buff_size_ << std::endl;
 #endif
   }
@@ -56,7 +56,7 @@ struct symmetric_compressor_impl {
     return eigenMatrix(S);
   }
 
- private:
+private:
   /**
    *  \brief recursively computes for a given pair of row and column clusters
    *         the four blocks [A^PhiPhi, A^PhiSigma; A^SigmaPhi, A^SigmaSigma]
@@ -136,7 +136,8 @@ struct symmetric_compressor_impl {
                                  buf.cols() + TR.sons(i).nscalfs());
           buf.rightCols(TR.sons(i).nscalfs()) =
               (it->second).transpose().leftCols(TR.sons(i).nscalfs());
-          if (it->first != 0) buffer_[TR.sons(i).block_id()].erase(it);
+          if (it->first != 0)
+            buffer_[TR.sons(i).block_id()].erase(it);
         } else {
           eigenMatrix ret = recursivelyComputeBlock(TR.sons(i), TC, e_gen);
           buf.conservativeResize(ret.cols(), buf.cols() + TR.sons(i).nscalfs());
@@ -148,7 +149,8 @@ struct symmetric_compressor_impl {
       // we are at a leaf of the row cluster tree
     } else {
       // if TC is a leaf, we compute the corresponding matrix block
-      if (!TC.nSons()) block = recursivelyComputeBlock(TR, TC, e_gen);
+      if (!TC.nSons())
+        block = recursivelyComputeBlock(TR, TC, e_gen);
       // if TC is not a leaf, we reuse the blocks of its children
       else {
         for (auto j = 0; j < TC.nSons(); ++j) {
@@ -178,7 +180,8 @@ struct symmetric_compressor_impl {
     buffer_[TR.block_id()].emplace(std::make_pair(TC.block_id(), block));
 #ifdef FMCA_COMPRESSOR_BUFSIZE_
     IndexType buff_size = 0;
-    for (const auto &it : buffer_) buff_size += it.size();
+    for (const auto &it : buffer_)
+      buff_size += it.size();
     max_buff_size_ = max_buff_size_ < buff_size ? buff_size : max_buff_size_;
     return;
 #endif
@@ -189,7 +192,8 @@ struct symmetric_compressor_impl {
                    const EntryGenerator &e_gen) {
     eigenMatrix retval;
     if (TC.nSons())
-      for (auto i = 0; i < TC.nSons(); ++i) setupColumn(TR, TC.sons(i), e_gen);
+      for (auto i = 0; i < TC.nSons(); ++i)
+        setupColumn(TR, TC.sons(i), e_gen);
     setupRow(TR, TC, e_gen);
     auto it = buffer_[TR.block_id()].find(TC.block_id());
     eigen_assert(it != buffer_[TR.block_id()].end() &&
@@ -230,5 +234,52 @@ struct symmetric_compressor_impl {
   size_t max_buff_size_;
   IndexType compute_block_calls_;
 };
-}  // namespace FMCA
+
+template <typename Scalar, typename Derived>
+std::vector<Eigen::Triplet<Scalar>> symPattern(SampletTreeBase<Derived> &ST,
+                                               Scalar eta = 0.8) {
+  std::vector<Eigen::Triplet<Scalar>> retval;
+  for (const auto &TC : ST) {
+    const IndexType c_start = TC.start_index();
+    for (const auto &TR : ST) {
+      if (TR.block_id() > TC.block_id())
+        break;
+      const IndexType r_start = TR.start_index();
+      // is there an entry?
+      if (compareCluster(TR, TC, eta) != LowRank) {
+        if (TC.is_root()) {
+          // set up first column
+          if (TR.is_root())
+            for (auto j = c_start; j < c_start + TC.Q().cols(); ++j)
+              for (auto i = r_start; i < r_start + TR.Q().cols(); ++i) {
+                if (i <= j)
+                  retval.push_back(Eigen::Triplet<Scalar>(i, j, 0));
+              }
+          else if (TR.nsamplets())
+            for (auto j = c_start; j < c_start + TC.Q().cols(); ++j)
+              for (auto i = r_start; i < r_start + TR.nsamplets(); ++i) {
+                if (i <= j)
+                  retval.push_back(Eigen::Triplet<Scalar>(i, j, 0));
+              }
+        } else if (TC.nsamplets()) {
+          // set up remainder of the first row
+          if (TR.is_root())
+            for (auto j = c_start; j < c_start + TC.nsamplets(); ++j)
+              for (auto i = r_start; i < r_start + TR.Q().cols(); ++i) {
+                if (i <= j)
+                  retval.push_back(Eigen::Triplet<Scalar>(i, j, 0));
+              }
+          else if (TR.nsamplets())
+            for (auto j = c_start; j < c_start + TC.nsamplets(); ++j)
+              for (auto i = r_start; i < r_start + TR.nsamplets(); ++i) {
+                if (i <= j)
+                  retval.push_back(Eigen::Triplet<Scalar>(i, j, 0));
+              }
+        }
+      }
+    }
+  }
+  return retval;
+}
+} // namespace FMCA
 #endif

@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-int pardiso_interface(int *ia, int *ja, double *a, int m, int n) {
+int pardiso_interface(int *ia, int *ja, double *a, int n) {
   //////////////////////////////////////////////////////////////////////////////
   int i = 0;
   int j = 0;
@@ -27,7 +27,7 @@ int pardiso_interface(int *ia, int *ja, double *a, int m, int n) {
   int k;
   double ddum; /* Double dummy */
   int idum;    /* Integer dummy. */
-  b = (double *)calloc(1, m * sizeof(double));
+  b = (double *)calloc(1, n * sizeof(double));
   x = (double *)calloc(1, n * sizeof(double));
   /* -------------------------------------------------------------------- */
   /* ..  Setup Pardiso control parameters.                                */
@@ -88,7 +88,7 @@ int pardiso_interface(int *ia, int *ja, double *a, int m, int n) {
     printf("\nERROR in consistency of matrix: %d", error);
     exit(1);
   }
-
+#if 0
   /* -------------------------------------------------------------------- */
   /* ..  pardiso_chkvec(...)                                              */
   /*     Checks the given vectors for infinite and NaN values             */
@@ -113,7 +113,7 @@ int pardiso_interface(int *ia, int *ja, double *a, int m, int n) {
     printf("\nERROR right hand side: %d", error);
     exit(1);
   }
-
+#endif
   /* -------------------------------------------------------------------- */
   /* ..  Reordering and Symbolic Factorization.  This step also allocates */
   /*     all memory that is necessary for the factorization.              */
@@ -130,7 +130,6 @@ int pardiso_interface(int *ia, int *ja, double *a, int m, int n) {
   printf("\nReordering completed ... ");
   printf("\nNumber of nonzeros in factors  = %d", iparm[17]);
   printf("\nNumber of factorization GFLOPS = %d", iparm[18]);
-
   /* -------------------------------------------------------------------- */
   /* ..  Numerical factorization.                                         */
   /* -------------------------------------------------------------------- */
@@ -145,7 +144,7 @@ int pardiso_interface(int *ia, int *ja, double *a, int m, int n) {
     exit(2);
   }
   printf("\nFactorization completed ...\n ");
-
+#if 0
   /* -------------------------------------------------------------------- */
   /* ..  Back substitution and iterative refinement.                      */
   /* -------------------------------------------------------------------- */
@@ -161,7 +160,6 @@ int pardiso_interface(int *ia, int *ja, double *a, int m, int n) {
     exit(3);
   }
 
-#if 0
     printf("\nSolve completed ... ");
     printf("\nThe solution of the system is: ");
     for (i = 0; i < n; i++) {
