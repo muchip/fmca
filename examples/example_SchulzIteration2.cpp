@@ -136,6 +136,7 @@ int main(int argc, char *argv[]) {
   for (auto inner_iter = 0; inner_iter < 200; ++inner_iter) {
     ImXS = I2 - FMCA::SparseMatrix<double>::formatted_ABT(pattern, X, S);
     X = FMCA::SparseMatrix<double>::formatted_ABT(pattern, X, ImXS);
+    X.compress(1e-8);
     X.symmetrize();
     err_old = err;
     err = ((X * (S * randFilter)) - randFilter).norm() / randFilter.norm();
