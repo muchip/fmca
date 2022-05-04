@@ -129,25 +129,38 @@ int main(int argc, char *argv[]) {
   X = S;
   X.scale(alpha);
   Eigen::MatrixXd randFilter = Eigen::MatrixXd::Random(npts, 10);
-  std::cout << "initial guess: "
-            << ((X * (S * randFilter)) - randFilter).norm() / randFilter.norm()
-            << std::endl;
   I2.setIdentity().scale(2);
   for (auto inner_iter = 0; inner_iter < 200; ++inner_iter) {
-    ImXS = I2 - FMCA::SparseMatrix<double>::formatted_ABT(pattern, X, S);
+    Xold = X;
+    ImXS = I2 - FMCA::SparseMatrix<double>::formatted_ABT(pattern, S, X);
+    ImXS.transpose();
     X = FMCA::SparseMatrix<double>::formatted_ABT(pattern, X, ImXS);
-    X.compress(1e-8);
+    X.compress(1e-10);
     X.symmetrize();
     err_old = err;
     err = ((X * (S * randFilter)) - randFilter).norm() / randFilter.norm();
     std::cout << "anz: " << X.nnz() / S.rows() << " err: " << err << std::endl;
     if (err > err_old) {
+      Xold = X;
       break;
     }
   }
-
   T.toc("time inner: ");
-  std::cout << std::string(60, '=') << "\n";
-
+  std::cout << std::string(75, '=') << "\n";
+  {
+    Eigen::MatrixXd x = Eigen::VectorXd::Random(npts,1);
+    Eigen::MatrixXd xold;
+    Eigen::MatrixXd y;
+    x /= x.norm();
+    for (auto i = 0; i < 50; ++i) {
+      xold = x;
+      y = S * xold;
+      x = X * y;
+      x -= xold;
+      lambda_max = x.norm();
+      x /= lambda_max;
+    }
+    std::cout << "op. norm err:       " << lambda_max << std::endl;
+  }
   return 0;
 }
