@@ -92,6 +92,8 @@ int main(int argc, char *argv[]) {
   FMCA::SparseMatrix<double> S(npts, npts);
   FMCA::SparseMatrix<double> I2(npts, npts);
   FMCA::SparseMatrix<double> X(npts, npts);
+  FMCA::SparseMatrix<double> Xl(npts, npts);
+  FMCA::SparseMatrix<double> Xr(npts, npts);
   FMCA::SparseMatrix<double> ImXS(npts, npts);
   FMCA::SparseMatrix<double> Xold(npts, npts);
   pattern.setFromTriplets(inv_trips.begin(), inv_trips.end());
@@ -132,11 +134,10 @@ int main(int argc, char *argv[]) {
   I2.setIdentity().scale(2);
   for (auto inner_iter = 0; inner_iter < 200; ++inner_iter) {
     Xold = X;
-    ImXS = I2 - FMCA::SparseMatrix<double>::formatted_ABT(pattern, S, X);
-    ImXS.transpose();
-    X = FMCA::SparseMatrix<double>::formatted_ABT(pattern, X, ImXS);
-    X.compress(1e-10);
-    X.symmetrize();
+    ImXS = I2 - FMCA::SparseMatrix<double>::formatted_ABT(pattern, Xold, S);
+    Xl = FMCA::SparseMatrix<double>::formatted_ABT(pattern, ImXS, Xold);
+    Xr = FMCA::SparseMatrix<double>::formatted_ABT(pattern, Xold, ImXS);
+    X = (Xl + Xr).scale(0.5);
     err_old = err;
     err = ((X * (S * randFilter)) - randFilter).norm() / randFilter.norm();
     std::cout << "anz: " << X.nnz() / S.rows() << " err: " << err << std::endl;
@@ -148,7 +149,7 @@ int main(int argc, char *argv[]) {
   T.toc("time inner: ");
   std::cout << std::string(75, '=') << "\n";
   {
-    Eigen::MatrixXd x = Eigen::VectorXd::Random(npts,1);
+    Eigen::MatrixXd x = Eigen::VectorXd::Random(npts, 1);
     Eigen::MatrixXd xold;
     Eigen::MatrixXd y;
     x /= x.norm();
