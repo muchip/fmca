@@ -138,6 +138,7 @@ int main(int argc, char *argv[]) {
     Xl = FMCA::SparseMatrix<double>::formatted_ABT(pattern, ImXS, Xold);
     Xr = FMCA::SparseMatrix<double>::formatted_ABT(pattern, Xold, ImXS);
     X = (Xl + Xr).scale(0.5);
+    X.compress(1e-8);
     err_old = err;
     err = ((X * (S * randFilter)) - randFilter).norm() / randFilter.norm();
     std::cout << "anz: " << X.nnz() / S.rows() << " err: " << err << std::endl;
