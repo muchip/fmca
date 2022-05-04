@@ -3,6 +3,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* PARDISO prototype. */
+void pardisoinit(void *, int *, int *, int *, double *, int *);
+void pardiso(void *, int *, int *, int *, int *, int *, double *, int *, int *,
+             int *, int *, int *, int *, double *, double *, int *, double *);
+void pardiso_chkmatrix(int *, int *, double *, int *, int *, int *);
+void pardiso_chkvec(int *, int *, double *, int *);
+void pardiso_printstats(int *, int *, double *, int *, int *, int *, double *,
+                        int *);
+
 int pardiso_interface(int *ia, int *ja, double *a, int n) {
   //////////////////////////////////////////////////////////////////////////////
   int i = 0;
@@ -35,7 +44,7 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
   error = 0;
   solver = 0; /* use sparse direct solver */
   pardisoinit(pt, &mtype, &solver, iparm, dparm, &error);
-
+#if 0
   if (error != 0) {
     if (error == -10) printf("No license file found \n");
     if (error == -11) printf("License is expired \n");
@@ -43,7 +52,7 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
     return 1;
   } else
     printf("[PARDISO]: License check was successful ... \n");
-
+#endif
   /* Numbers of processors, value of OMP_NUM_THREADS */
   var = getenv("OMP_NUM_THREADS");
   if (var != NULL)
@@ -76,6 +85,7 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
   for (i = 0; i < n; i++) {
     b[i] = i + 1;
   }
+#if 0
 
   /* -------------------------------------------------------------------- */
   /*  .. pardiso_chk_matrix(...)                                          */
@@ -88,7 +98,6 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
     printf("\nERROR in consistency of matrix: %d", error);
     exit(1);
   }
-#if 0
   /* -------------------------------------------------------------------- */
   /* ..  pardiso_chkvec(...)                                              */
   /*     Checks the given vectors for infinite and NaN values             */

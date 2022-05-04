@@ -5,6 +5,6 @@
 #include <cstdlib>
 
 extern "C" {
-int pardiso_interface(int *ia, int *ja, double *a, int m, int n);
+int pardiso_interface(int *ia, int *ja, double *a, int n);
 }
 #endif
