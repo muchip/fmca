@@ -50,7 +50,7 @@ public:
     std::sort(trips.begin(), trips.end(), customLess());
     return;
   }
-  
+
   template <typename Derived>
   static eigenMatrix
   symTripletsTimesVector(const std::vector<Eigen::Triplet<T>> &trips,
@@ -326,6 +326,15 @@ public:
     return *this;
   }
 
+  SparseMatrix<value_type> &mirrorUpper() {
+    for (auto i = 0; i < m_; ++i)
+      for (int j = idx_[i].size() - 1; j >= 0; --j)
+        if (idx_[i][j] > i)
+          coeffRef(idx_[i][j], i) = val_[i][j];
+        else
+          break;
+    return *this;
+  }
   /**
    *  transposition symmetrizes the pattern, i.e. additional zeros are
    *  introduced if either a_ij or a_ji exists and the other does not.

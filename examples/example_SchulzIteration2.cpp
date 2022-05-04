@@ -23,8 +23,14 @@
 #include <FMCA/src/util/SparseMatrix.h>
 #include <FMCA/src/util/Tictoc.h>
 
-#include "pardiso_interface.h"
-////////////////////////////////////////////////////////////////////////////////
+template <typename T> struct customLess {
+  customLess(const T &array) : array_(array) {}
+  bool operator()(typename T::size_type a, typename T::size_type b) const {
+    return array_[a] < array_[b];
+  }
+  const T &array_;
+};
+
 struct expKernel {
   template <typename derived, typename otherDerived>
   double operator()(const Eigen::MatrixBase<derived> &x,
@@ -32,21 +38,21 @@ struct expKernel {
     return exp(-1 * (x - y).norm());
   }
 };
-////////////////////////////////////////////////////////////////////////////////
+
 using Interpolator = FMCA::TotalDegreeInterpolator<FMCA::FloatType>;
 using SampletInterpolator = FMCA::MonomialInterpolator<FMCA::FloatType>;
 using Moments = FMCA::NystromMoments<Interpolator>;
 using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
 using MatrixEvaluator = FMCA::NystromMatrixEvaluator<Moments, expKernel>;
 using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
-////////////////////////////////////////////////////////////////////////////////
+
 int main(int argc, char *argv[]) {
   typedef std::vector<Eigen::Triplet<double>> TripletVector;
-  const unsigned int dtilde = 3;
+  const unsigned int dtilde = 4;
   const auto function = expKernel();
   const double eta = atof(argv[2]);
   const double inv_eta = atof(argv[3]);
-  const unsigned int mp_deg = 4;
+  const unsigned int mp_deg = 6;
   const double threshold = 1e-6;
   const unsigned int dim = 2;
   const unsigned int npts = atoi(argv[1]);
@@ -84,30 +90,63 @@ int main(int argc, char *argv[]) {
   FMCA::SparseMatrix<double>::sortTripletsInPlace(inv_trips);
   FMCA::SparseMatrix<double> pattern(npts, npts);
   FMCA::SparseMatrix<double> S(npts, npts);
-  FMCA::SparseMatrix<double> S2(npts, npts);
+  FMCA::SparseMatrix<double> I2(npts, npts);
+  FMCA::SparseMatrix<double> X(npts, npts);
+  FMCA::SparseMatrix<double> ImXS(npts, npts);
+  FMCA::SparseMatrix<double> Xold(npts, npts);
   pattern.setFromTriplets(inv_trips.begin(), inv_trips.end());
   S.setFromTriplets(sym_trips.begin(), sym_trips.end());
   S.mirrorUpper();
+  pattern.mirrorUpper();
   std::cout << "compression error:  "
             << FMCA::errorEstimatorSymmetricCompressor(sym_trips, function, hst,
                                                        P)
             << std::endl
             << std::flush;
   double lambda_max = 0;
-
-  std::cout << "entries A:          "
-            << 100 * double(sym_trips.size()) / npts / npts << "\%" << std::endl;
-  std::cout << std::string(75, '=') << std::endl;
-  T.tic();
-  for (auto i = 0; i < 1; ++i) {
-    S2 = FMCA::SparseMatrix<double>::formatted_ABT(pattern, S, S);
+  {
+    Eigen::MatrixXd x = Eigen::VectorXd::Random(npts);
+    x /= x.norm();
+    for (auto i = 0; i < 20; ++i) {
+      x = FMCA::SparseMatrix<double>::symTripletsTimesVector(sym_trips, x);
+      lambda_max = x.norm();
+      x /= lambda_max;
+    }
+    std::cout << "lambda_max (est by 20its of power it): " << lambda_max
+              << std::endl;
   }
-  T.toc("time mat mult:     ");
-  Eigen::MatrixXd rand = Eigen::MatrixXd::Random(npts, 100);
-  auto Srand = S * (S * rand);
-  inv_trips = S2.toTriplets();
-  auto Rrand =
-      FMCA::SparseMatrix<double>::symTripletsTimesVector(inv_trips, rand);
-  std::cout << "error:              " << (Srand - Rrand).norm() / Srand.norm()
+  std::cout << "entries A:          "
+            << 100 * double(sym_trips.size()) / npts / npts << "\%"
             << std::endl;
+  std::cout << std::string(75, '=') << std::endl;
+  double trace = 0;
+  for (auto i = 0; i < S.rows(); ++i)
+    S(i, i) += 1e-4 * lambda_max;
+  double alpha = 1. / lambda_max / lambda_max;
+  std::cout << "chosen alpha for initial guess: " << alpha << std::endl;
+  double err = 10;
+  double err_old = 10;
+  X = S;
+  X.scale(alpha);
+  Eigen::MatrixXd randFilter = Eigen::MatrixXd::Random(npts, 10);
+  std::cout << "initial guess: "
+            << ((X * (S * randFilter)) - randFilter).norm() / randFilter.norm()
+            << std::endl;
+  I2.setIdentity().scale(2);
+  for (auto inner_iter = 0; inner_iter < 200; ++inner_iter) {
+    ImXS = I2 - FMCA::SparseMatrix<double>::formatted_ABT(pattern, X, S);
+    X = FMCA::SparseMatrix<double>::formatted_ABT(pattern, X, ImXS);
+    X.symmetrize();
+    err_old = err;
+    err = ((X * (S * randFilter)) - randFilter).norm() / randFilter.norm();
+    std::cout << "anz: " << X.nnz() / S.rows() << " err: " << err << std::endl;
+    if (err > err_old) {
+      break;
+    }
+  }
+
+  T.toc("time inner: ");
+  std::cout << std::string(60, '=') << "\n";
+
+  return 0;
 }
