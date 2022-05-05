@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
   S = S * I2.transpose();
   pattern = pattern * I2;
   FMCA::IndexType ind = 0;
-  for (ind = 0; S(ind, ind) >= S(0, 0) * 5e-4; ++ind)
+  for (ind = 0; S(ind, ind) >= S(0, 0) * 2e-4; ++ind)
     ;
   //////////////////////////////////////////////////////////////////////////////
   std::cout << "block size low pass: " << ind << std::endl << std::flush;
@@ -181,7 +181,7 @@ int main(int argc, char *argv[]) {
     Eigen::MatrixXd bla1 = Ssmall * randFilter;
     Eigen::MatrixXd bla2 = X * bla1;
     err = (bla2 - randFilter).norm() / randFilter.norm();
-  if (err > err_old) {
+    if (err > err_old) {
       break;
     }
   }
@@ -191,7 +191,7 @@ int main(int argc, char *argv[]) {
   //////////////////////////////////////////////////////////////////////////////
   X.resize(npts, npts);
   for (auto i = ind; i < X.rows(); ++i)
-    X(i, i) = 1;
+    X(i, i) = 1. / lambda_max;
   ImXS = pattern;
   Xl = pattern;
   Xr = pattern;
