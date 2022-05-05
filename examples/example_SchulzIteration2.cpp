@@ -100,6 +100,9 @@ int main(int argc, char *argv[]) {
   S.setFromTriplets(sym_trips.begin(), sym_trips.end());
   S.mirrorUpper();
   pattern.mirrorUpper();
+  ImXS = pattern;
+  Xl = pattern;
+  Xr = pattern;
   std::cout << "compression error:  "
             << FMCA::errorEstimatorSymmetricCompressor(sym_trips, function, hst,
                                                        P)
@@ -128,20 +131,29 @@ int main(int argc, char *argv[]) {
   std::cout << "chosen alpha for initial guess: " << alpha << std::endl;
   double err = 10;
   double err_old = 10;
-  X = S;
-  X.scale(alpha);
+  X.setIdentity().scale(0.01 / lambda_max);
   Eigen::MatrixXd randFilter = Eigen::MatrixXd::Random(npts, 10);
+  Eigen::VectorXd rscale = randFilter.colwise().norm();
+  for (auto i = 0; i < randFilter.cols(); ++i)
+    randFilter.col(i) /= rscale(i);
   I2.setIdentity().scale(2);
+  std::cout << "matrices initialized\n" << std::flush;
   for (auto inner_iter = 0; inner_iter < 200; ++inner_iter) {
     Xold = X;
-    ImXS = I2 - FMCA::SparseMatrix<double>::formatted_ABT(pattern, Xold, S);
-    Xl = FMCA::SparseMatrix<double>::formatted_ABT(pattern, ImXS, Xold);
-    Xr = FMCA::SparseMatrix<double>::formatted_ABT(pattern, Xold, ImXS);
-    X = (Xl + Xr).scale(0.5);
+    FMCA::SparseMatrix<double>::formatted_ABT(ImXS, Xold, S);
+    ImXS.scale(-1);
+#pragma omp parallel for
+  for (auto i = 0; i < ImXS.rows(); ++i)
+    ImXS(i, i) += 2;
+    FMCA::SparseMatrix<double>::formatted_ABT(Xl, ImXS, Xold);
+    FMCA::SparseMatrix<double>::formatted_ABT(Xr, Xold, ImXS);
+    X = std::move((Xl + Xr).scale(0.5));
     X.compress(1e-8);
     err_old = err;
-    err = ((X * (S * randFilter)) - randFilter).norm() / randFilter.norm();
-    std::cout << "anz: " << X.nnz() / S.rows() << " err: " << err << std::endl;
+    Eigen::MatrixXd bla1 = S * randFilter;
+    Eigen::MatrixXd bla2 = X * bla1;
+    err = (bla2 - randFilter).norm() / randFilter.norm();
+    std::cout << "anz: " << X.nnz() / S.rows() << " err: " << err << std::endl << std::flush;
     if (err > err_old) {
       Xold = X;
       break;

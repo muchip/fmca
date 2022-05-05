@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <numeric>
 #include <vector>
+#include "Tictoc.h"
 
 namespace FMCA {
 /*
@@ -86,17 +87,23 @@ public:
   }
   // move constructor
   SparseMatrix(SparseMatrix<value_type> &&S) {
+    //Tictoc TT;
+    //TT.tic();
     m_ = S.m_;
     n_ = S.n_;
     val_.swap(S.val_);
     idx_.swap(S.idx_);
+    //TT.toc("move construct Sparse ");
   }
   // deep copy constructor, exploits deep copy of std::vector
   SparseMatrix(const SparseMatrix<value_type> &S) {
+    //Tictoc TT;
+    //TT.tic();
     m_ = S.m_;
     n_ = S.n_;
     val_ = S.val_;
     idx_ = S.idx_;
+    //TT.toc("copy construct Sparse ");
   }
   // assignment operator based on copy and swap idiom
   SparseMatrix<value_type> &operator=(SparseMatrix<value_type> S) {
@@ -411,18 +418,17 @@ public:
     return retval;
   }
 
-  static SparseMatrix<value_type>
-  formatted_ABT(const SparseMatrix<value_type> &P,
+  static void
+  formatted_ABT(SparseMatrix<value_type> &retval,
                 const SparseMatrix<value_type> &M1,
                 const SparseMatrix<value_type> &M2) {
-    SparseMatrix<value_type> retval = P;
 #pragma omp parallel for
     for (auto i = 0; i < retval.m_; ++i)
       for (auto j = 0; j < retval.idx_[i].size(); ++j)
         retval.val_[i][j] =
             dotProduct(M1.idx_[i], M1.val_[i], M2.idx_[retval.idx_[i][j]],
                        M2.val_[retval.idx_[i][j]]);
-    return retval;
+    return;
   }
 
   static SparseMatrix<value_type>
