@@ -109,8 +109,7 @@ int main(int argc, char *argv[]) {
       lambda_max = x.norm();
       x /= lambda_max;
     }
-    std::cout << "lambda_max (est by 20its of power it): " << lambda_max
-              << std::endl;
+    std::cout << "lambda_max:         " << lambda_max << std::endl;
   }
   std::cout << "entries A:          "
             << 100 * double(sym_trips.size()) / npts / npts << "\%"
@@ -122,15 +121,18 @@ int main(int argc, char *argv[]) {
     diag(i) = S(i, i);
   }
   std::vector<FMCA::IndexType> idcs(npts);
-  std::iota(idcs.begin(), idcs.end(), 0);
-  struct customGtr {
-    customGtr(const Eigen::VectorXd &vec) : vec_(vec) {}
-    bool operator()(FMCA::IndexType a, FMCA::IndexType b) {
-      return vec_(a) > vec_(b);
-    }
-    const Eigen::VectorXd &vec_;
-  };
-  std::sort(idcs.begin(), idcs.end(), customGtr(diag));
+  {
+    std::iota(idcs.begin(), idcs.end(), 0);
+    struct customGtr {
+      customGtr(const Eigen::VectorXd &vec) : vec_(vec) {}
+      bool operator()(FMCA::IndexType a, FMCA::IndexType b) {
+        return vec_(a) > vec_(b);
+      }
+      const Eigen::VectorXd &vec_;
+    };
+    std::sort(idcs.begin(), idcs.end(), customGtr(diag));
+  }
+  //////////////////////////////////////////////////////////////////////////////
   I2.setPermutation(idcs);
   S = I2 * S;
   pattern = I2 * pattern;
@@ -139,6 +141,7 @@ int main(int argc, char *argv[]) {
   FMCA::IndexType ind = 0;
   for (ind = 0; S(ind, ind) >= S(0, 0) * 5e-4; ++ind)
     ;
+  //////////////////////////////////////////////////////////////////////////////
   std::cout << "block size low pass: " << ind << std::endl << std::flush;
   std::cout << std::string(75, '=') << std::endl;
   FMCA::SparseMatrix<double> Ssmall;
@@ -163,6 +166,7 @@ int main(int argc, char *argv[]) {
     randFilter.col(i) /= rscale(i);
   I2.setIdentity().scale(2);
   std::cout << "matrices initialized\n" << std::flush;
+  //////////////////////////////////////////////////////////////////////////////
   for (auto inner_iter = 0; inner_iter < 200; ++inner_iter) {
     FMCA::SparseMatrix<double>::formatted_ABT(ImXS, X, Ssmall);
     ImXS.scale(-1);
@@ -182,8 +186,12 @@ int main(int argc, char *argv[]) {
     }
   }
   T.toc("time initial guess: ");
+  std::cout << "initial error: " << err << std::endl;
   std::cout << std::string(75, '=') << "\n";
+  //////////////////////////////////////////////////////////////////////////////
   X.resize(npts, npts);
+  for (auto i = ind; i < X.rows(); ++i)
+    X(i, i) = 1;
   ImXS = pattern;
   Xl = pattern;
   Xr = pattern;
@@ -192,6 +200,7 @@ int main(int argc, char *argv[]) {
   for (auto i = 0; i < randFilter.cols(); ++i)
     randFilter.col(i) /= rscale(i);
   err = err_old = 10;
+  //////////////////////////////////////////////////////////////////////////////
   for (auto inner_iter = 0; inner_iter < 200; ++inner_iter) {
     FMCA::SparseMatrix<double>::formatted_ABT(ImXS, X, S);
     ImXS.scale(-1);
@@ -201,7 +210,6 @@ int main(int argc, char *argv[]) {
     FMCA::SparseMatrix<double>::formatted_ABT(Xl, ImXS, X);
     FMCA::SparseMatrix<double>::formatted_ABT(Xr, X, ImXS);
     X = std::move((Xl + Xr).scale(0.5));
-    X.compress(1e-8);
     err_old = err;
     Eigen::MatrixXd bla1 = S * randFilter;
     Eigen::MatrixXd bla2 = X * bla1;
@@ -225,7 +233,7 @@ int main(int argc, char *argv[]) {
       lambda_max = x.norm();
       x /= lambda_max;
     }
-    std::cout << "op. norm err:       " << lambda_max << std::endl;
+    std::cout << "op. norm err: " << lambda_max << std::endl;
   }
 
   return 0;
