@@ -167,6 +167,7 @@ int main(int argc, char *argv[]) {
   I2.setIdentity().scale(2);
   std::cout << "matrices initialized\n" << std::flush;
   //////////////////////////////////////////////////////////////////////////////
+  T.tic();
   for (auto inner_iter = 0; inner_iter < 200; ++inner_iter) {
     FMCA::SparseMatrix<double>::formatted_ABT(ImXS, X, Ssmall);
     ImXS.scale(-1);
@@ -176,12 +177,12 @@ int main(int argc, char *argv[]) {
     FMCA::SparseMatrix<double>::formatted_ABT(Xl, ImXS, X);
     FMCA::SparseMatrix<double>::formatted_ABT(Xr, X, ImXS);
     X = std::move((Xl + Xr).scale(0.5));
-    X.compress(1e-8);
     err_old = err;
     Eigen::MatrixXd bla1 = Ssmall * randFilter;
     Eigen::MatrixXd bla2 = X * bla1;
     err = (bla2 - randFilter).norm() / randFilter.norm();
-    if (err > err_old) {
+  std::cout << err << std::endl;
+  if (err > err_old) {
       break;
     }
   }
@@ -201,6 +202,7 @@ int main(int argc, char *argv[]) {
     randFilter.col(i) /= rscale(i);
   err = err_old = 10;
   //////////////////////////////////////////////////////////////////////////////
+  T.tic();
   for (auto inner_iter = 0; inner_iter < 200; ++inner_iter) {
     FMCA::SparseMatrix<double>::formatted_ABT(ImXS, X, S);
     ImXS.scale(-1);
@@ -220,6 +222,7 @@ int main(int argc, char *argv[]) {
       break;
     }
   }
+  T.toc("time Schulz iteration: ");
   {
     Eigen::MatrixXd x = Eigen::VectorXd::Random(npts, 1);
     Eigen::MatrixXd xold;
