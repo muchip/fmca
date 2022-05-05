@@ -181,7 +181,6 @@ int main(int argc, char *argv[]) {
     Eigen::MatrixXd bla1 = Ssmall * randFilter;
     Eigen::MatrixXd bla2 = X * bla1;
     err = (bla2 - randFilter).norm() / randFilter.norm();
-  std::cout << err << std::endl;
   if (err > err_old) {
       break;
     }
@@ -212,6 +211,7 @@ int main(int argc, char *argv[]) {
     FMCA::SparseMatrix<double>::formatted_ABT(Xl, ImXS, X);
     FMCA::SparseMatrix<double>::formatted_ABT(Xr, X, ImXS);
     X = std::move((Xl + Xr).scale(0.5));
+    X.compress(1e-10);
     err_old = err;
     Eigen::MatrixXd bla1 = S * randFilter;
     Eigen::MatrixXd bla2 = X * bla1;
