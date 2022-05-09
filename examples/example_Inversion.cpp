@@ -27,14 +27,16 @@
 #include "pardiso_interface.h"
 ////////////////////////////////////////////////////////////////////////////////
 struct expKernel {
+  expKernel(const unsigned int n) : n_(n) {}
   template <typename derived, typename otherDerived>
   double operator()(const Eigen::MatrixBase<derived> &x,
                     const Eigen::MatrixBase<otherDerived> &y) const {
     const double r = (x - y).norm();
     const double ell = 1;
-    return exp(-r / ell);
+    return 1. / n_ * exp(-r / ell);
     // return (1 + sqrt(3) * r / ell) * exp(-sqrt(3) * r / ell);
   }
+  const unsigned int n_;
 };
 
 struct rationalQuadraticKernel {
@@ -58,18 +60,16 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
   /* d= 4, mp = 6, thresh = 1e-5 */
-  /*npts dtilde mp_deg eta inv_eta filldist seprad tcomp comperr nnzS tmult
+  /*npts dtilde mp_deg eta filldist seprad tcomp comperr nnzS tmult
     nnzS2 nnzS2apost S2err*/
   typedef std::vector<Eigen::Triplet<double>> TripletVector;
   const unsigned int dtilde = 4;
-  const auto function = expKernel();
   const double eta = atof(argv[2]);
-  const double inv_eta = atof(argv[3]);
   const unsigned int mp_deg = 6;
-  const double threshold = 1e-4;
-  const double threshold2 = 1e-12;
-  const unsigned int dim = 2;
+  const unsigned int dim = 3;
   const unsigned int npts = atoi(argv[1]);
+  const double threshold = 1e-5 / npts;
+  const auto function = expKernel(npts);
   std::fstream output_file;
   FMCA::HaltonSet<100> hs(dim);
   FMCA::Tictoc T;
@@ -84,11 +84,10 @@ int main(int argc, char *argv[]) {
                    std::ios::out | std::ios::app);
   std::cout << std::string(75, '=') << std::endl;
   std::cout << "npts: " << npts << " | dim: " << dim << " | dtilde: " << dtilde
-            << " | mp_deg: " << mp_deg << " | eta: " << eta
-            << " | inv_eta: " << inv_eta << std::endl
+            << " | mp_deg: " << mp_deg << " | eta: " << eta << std::endl
             << std::flush;
   output_file << npts << " \t" << dtilde << " \t" << mp_deg << " \t" << eta
-              << " \t" << inv_eta << " \t";
+               << " \t";
   const Moments mom(P, mp_deg);
   const MatrixEvaluator mat_eval(mom, function);
   const SampletMoments samp_mom(P, dtilde - 1);
@@ -106,10 +105,7 @@ int main(int argc, char *argv[]) {
   const double tcomp = T.toc("compressor:        ");
   output_file << filldist << " \t" << seprad << " \t" << tcomp << " \t";
   std::vector<Eigen::Triplet<double>> trips = comp.pattern_triplets();
-  std::vector<Eigen::Triplet<double>> inv_trips =
-      FMCA::symPattern(hst, inv_eta);
   FMCA::SparseMatrix<double>::sortTripletsInPlace(trips);
-  FMCA::SparseMatrix<double>::sortTripletsInPlace(inv_trips);
   double comperr =
       FMCA::errorEstimatorSymmetricCompressor(trips, function, hst, P);
   std::cout << "compression error:  " << comperr << std::endl << std::flush;
@@ -128,22 +124,11 @@ int main(int argc, char *argv[]) {
   }
   for (auto &&it : trips) {
     if (it.row() == it.col())
-      it = Eigen::Triplet<double>(it.row(), it.col(),
-                                  it.value() + 1e-4 * lambda_max);
+      it = Eigen::Triplet<double>(it.row(), it.col(), it.value() + 1e-4);
   }
   output_file << lambda_max << " \t";
 
-#if 0
-  // merge trips into inv_trips
-  unsigned int j = 0;
-  for (auto i = 0; i < trips.size(); ++i) {
-    while (trips[i].row() != inv_trips[j].row() ||
-           trips[i].col() != inv_trips[j].col())
-      ++j;
-    inv_trips[j] = trips[i];
-  }
-#endif
-  inv_trips = trips;
+  std::vector<Eigen::Triplet<double>> inv_trips = trips;
   std::cout << "entries A:          "
             << 100 * double(trips.size()) / npts / npts << "\%" << std::endl;
   std::cout << std::string(75, '=') << std::endl;

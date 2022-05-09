@@ -26,12 +26,18 @@
 #include <FMCA/src/util/Tictoc.h>
 ////////////////////////////////////////////////////////////////////////////////
 struct expKernel {
+  expKernel(const unsigned int n) : n_(n) {}
   template <typename derived, typename otherDerived>
   double operator()(const Eigen::MatrixBase<derived> &x,
                     const Eigen::MatrixBase<otherDerived> &y) const {
-    return exp(-1 * (x - y).norm());
+    const double r = (x - y).norm();
+    const double ell = 1;
+    return 1. / n_ * exp(-r / ell);
+    // return (1 + sqrt(3) * r / ell) * exp(-sqrt(3) * r / ell);
   }
+  const unsigned int n_;
 };
+
 ////////////////////////////////////////////////////////////////////////////////
 using Interpolator = FMCA::TotalDegreeInterpolator<FMCA::FloatType>;
 using SampletInterpolator = FMCA::MonomialInterpolator<FMCA::FloatType>;
@@ -42,18 +48,17 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
   /* d= 4, mp = 6, thresh = 1e-5 */
+  /* d= 3, mp = 4, thresh = 1e-4 */
   /*npts dtilde mp_deg eta inv_eta filldist seprad tcomp comperr nnzS tmult
     nnzS2 nnzS2apost S2err*/
   typedef std::vector<Eigen::Triplet<double>> TripletVector;
-  const unsigned int dtilde = 3;
-  const auto function = expKernel();
+  const unsigned int dtilde = 4;
   const double eta = atof(argv[2]);
-  const double inv_eta = atof(argv[3]);
-  const unsigned int mp_deg = 4;
-  const double threshold = 1e-4;
-  const double threshold2 = 1e-12;
-  const unsigned int dim = 3;
+  const unsigned int mp_deg = 6;
+  const unsigned int dim = 2;
   const unsigned int npts = atoi(argv[1]);
+  const auto function = expKernel(npts);
+  const double threshold = 1e-5 / npts;
   std::fstream output_file;
   FMCA::HaltonSet<100> hs(dim);
   FMCA::Tictoc T;
@@ -68,11 +73,10 @@ int main(int argc, char *argv[]) {
                    std::ios::out | std::ios::app);
   std::cout << std::string(75, '=') << std::endl;
   std::cout << "npts: " << npts << " | dim: " << dim << " | dtilde: " << dtilde
-            << " | mp_deg: " << mp_deg << " | eta: " << eta
-            << " | inv_eta: " << inv_eta << std::endl
+            << " | mp_deg: " << mp_deg << " | eta: " << eta << std::endl
             << std::flush;
   output_file << npts << " \t" << dtilde << " \t" << mp_deg << " \t" << eta
-              << " \t" << inv_eta << " \t";
+              << " \t";
   const Moments mom(P, mp_deg);
   const MatrixEvaluator mat_eval(mom, function);
   const SampletMoments samp_mom(P, dtilde - 1);
@@ -91,7 +95,7 @@ int main(int argc, char *argv[]) {
   output_file << filldist << " \t" << seprad << " \t" << tcomp << " \t";
   TripletVector sym_trips = comp.pattern_triplets();
   TripletVector inv_trips = sym_trips;
-  //TripletVector inv_trips = FMCA::symPattern(hst, inv_eta);
+  // TripletVector inv_trips = FMCA::symPattern(hst, inv_eta);
   FMCA::SparseMatrix<double>::sortTripletsInPlace(sym_trips);
   FMCA::SparseMatrix<double>::sortTripletsInPlace(inv_trips);
   FMCA::SparseMatrix<double> S(npts, npts);
@@ -118,8 +122,6 @@ int main(int argc, char *argv[]) {
   output_file << tmult << " \t";
   output_file << 100 * double(S2.nnz()) / npts / npts << " \t";
 
-
-  S2.compress(threshold2);
   Eigen::MatrixXd rand = Eigen::MatrixXd::Random(npts, 100);
   auto Srand = S * (S * rand);
   inv_trips = S2.toTriplets();
