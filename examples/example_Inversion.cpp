@@ -11,6 +11,7 @@
 #define FMCA_CLUSTERSET_
 #include <iomanip>
 #include <iostream>
+#include <limits>
 ////////////////////////////////////////////////////////////////////////////////
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
@@ -32,7 +33,7 @@ struct expKernel {
     const double r = (x - y).norm();
     const double ell = 1;
     return exp(-r / ell);
-    //return (1 + sqrt(3) * r / ell) * exp(-sqrt(3) * r / ell);
+    // return (1 + sqrt(3) * r / ell) * exp(-sqrt(3) * r / ell);
   }
 };
 
@@ -56,14 +57,20 @@ using MatrixEvaluator = FMCA::NystromMatrixEvaluator<Moments, expKernel>;
 using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
+  /* d= 4, mp = 6, thresh = 1e-5 */
+  /*npts dtilde mp_deg eta inv_eta filldist seprad tcomp comperr nnzS tmult
+    nnzS2 nnzS2apost S2err*/
+  typedef std::vector<Eigen::Triplet<double>> TripletVector;
   const unsigned int dtilde = 4;
   const auto function = expKernel();
   const double eta = atof(argv[2]);
   const double inv_eta = atof(argv[3]);
   const unsigned int mp_deg = 6;
-  const double threshold = 1e-6;
+  const double threshold = 1e-4;
+  const double threshold2 = 1e-12;
   const unsigned int dim = 2;
   const unsigned int npts = atoi(argv[1]);
+  std::fstream output_file;
   FMCA::HaltonSet<100> hs(dim);
   FMCA::Tictoc T;
   Eigen::MatrixXd P = 0.5 * (Eigen::MatrixXd::Random(dim, npts).array() + 1);
@@ -73,34 +80,40 @@ int main(int argc, char *argv[]) {
     hs.next();
   }
 #endif
+  output_file.open("output_Inversion_" + std::to_string(dim) + "D.txt",
+                   std::ios::out | std::ios::app);
   std::cout << std::string(75, '=') << std::endl;
   std::cout << "npts: " << npts << " | dim: " << dim << " | dtilde: " << dtilde
             << " | mp_deg: " << mp_deg << " | eta: " << eta
             << " | inv_eta: " << inv_eta << std::endl
             << std::flush;
+  output_file << npts << " \t" << dtilde << " \t" << mp_deg << " \t" << eta
+              << " \t" << inv_eta << " \t";
   const Moments mom(P, mp_deg);
   const MatrixEvaluator mat_eval(mom, function);
   const SampletMoments samp_mom(P, dtilde - 1);
   T.tic();
   H2SampletTree hst(mom, samp_mom, 0, P);
   T.toc("tree setup:        ");
-  std::cout << "fill_dist: " << FMCA::fillDistance(hst, P) << std::endl;
-  std::cout << "sep_rad: " << FMCA::separationRadius(hst, P) << std::endl;
+  double filldist = FMCA::fillDistance(hst, P);
+  double seprad = FMCA::separationRadius(hst, P);
+  std::cout << "fill_dist: " << filldist << std::endl;
+  std::cout << "sep_rad: " << seprad << std::endl;
   std::cout << "bb: " << std::endl << hst.bb() << std::endl;
   FMCA::symmetric_compressor_impl<H2SampletTree> comp;
   T.tic();
   comp.compress(hst, mat_eval, eta, threshold);
   const double tcomp = T.toc("compressor:        ");
-  T.tic();
+  output_file << filldist << " \t" << seprad << " \t" << tcomp << " \t";
   std::vector<Eigen::Triplet<double>> trips = comp.pattern_triplets();
   std::vector<Eigen::Triplet<double>> inv_trips =
       FMCA::symPattern(hst, inv_eta);
   FMCA::SparseMatrix<double>::sortTripletsInPlace(trips);
   FMCA::SparseMatrix<double>::sortTripletsInPlace(inv_trips);
-  std::cout << "compression error: "
-            << FMCA::errorEstimatorSymmetricCompressor(trips, function, hst, P)
-            << std::endl
-            << std::flush;
+  double comperr =
+      FMCA::errorEstimatorSymmetricCompressor(trips, function, hst, P);
+  std::cout << "compression error:  " << comperr << std::endl << std::flush;
+  output_file << comperr << " \t";
   double lambda_max = 0;
   {
     Eigen::MatrixXd x = Eigen::VectorXd::Random(npts);
@@ -115,8 +128,12 @@ int main(int argc, char *argv[]) {
   }
   for (auto &&it : trips) {
     if (it.row() == it.col())
-      it = Eigen::Triplet<double>(it.row(), it.col(), it.value() + 1e-4 * lambda_max);
+      it = Eigen::Triplet<double>(it.row(), it.col(),
+                                  it.value() + 1e-4 * lambda_max);
   }
+  output_file << lambda_max << " \t";
+
+#if 0
   // merge trips into inv_trips
   unsigned int j = 0;
   for (auto i = 0; i < trips.size(); ++i) {
@@ -125,14 +142,21 @@ int main(int argc, char *argv[]) {
       ++j;
     inv_trips[j] = trips[i];
   }
+#endif
+  inv_trips = trips;
   std::cout << "entries A:          "
             << 100 * double(trips.size()) / npts / npts << "\%" << std::endl;
   std::cout << std::string(75, '=') << std::endl;
+  output_file << 100 * double(trips.size()) / npts / npts << " \t";
   {
     int i = 0;
     int j = 0;
     int n = npts;
-    int n_triplets = inv_trips.size();
+    size_t n_triplets = inv_trips.size();
+    std::cout << "triplet size (\% of INT_MAX):"
+              << (long double)(n_triplets) / (long double)(INT_MAX)*100
+              << std::endl;
+    assert(n_triplets <= INT_MAX && "exceeded INT_MAX");
     int *ia = nullptr;
     int *ja = nullptr;
     double *a = nullptr;
@@ -145,8 +169,7 @@ int main(int argc, char *argv[]) {
     // write rows
     ia[trips[0].row()] = 0;
     for (i = trips[0].row() + 1; i <= n; ++i) {
-      while (j < n_triplets && i - 1 == inv_trips[j].row())
-        ++j;
+      while (j < n_triplets && i - 1 == inv_trips[j].row()) ++j;
       ia[i] = j;
     }
     // write the rest
@@ -158,11 +181,12 @@ int main(int argc, char *argv[]) {
     T.tic();
     pardiso_interface(ia, ja, a, n);
     std::cout << std::string(75, '=') << std::endl;
-    T.toc("Wall time pardiso: ");
+    const double tPard = T.toc("Wall time pardiso: ");
+    output_file << tPard << " \t";
     inv_trips.clear();
     for (i = 0; i < n; ++i)
       for (j = ia[i]; j < ia[i + 1]; ++j)
-        if (abs(a[j]) > 1e-8)
+        if (abs(a[j]) > 1e-12)
           inv_trips.push_back(Eigen::Triplet<double>(i, ja[j], a[j]));
     free(ia);
     free(ja);
@@ -170,17 +194,18 @@ int main(int argc, char *argv[]) {
   }
   std::cout << "inverse entries:    " << 100. * inv_trips.size() / npts / npts
             << "\%" << std::endl;
+  output_file << 100. * inv_trips.size() / npts / npts << " \t";
   {
     Eigen::MatrixXd rand = Eigen::MatrixXd::Random(npts, 100);
     Eigen::VectorXd nrms = rand.colwise().norm();
-    for (auto i = 0; i < rand.cols(); ++i)
-      rand.col(i) /= nrms(i);
+    for (auto i = 0; i < rand.cols(); ++i) rand.col(i) /= nrms(i);
     auto Srand =
         FMCA::SparseMatrix<double>::symTripletsTimesVector(trips, rand);
     auto Rrand =
         FMCA::SparseMatrix<double>::symTripletsTimesVector(inv_trips, Srand);
     std::cout << "inverse error:      " << (rand - Rrand).norm() / rand.norm()
               << std::endl;
+    output_file << (rand - Rrand).norm() / rand.norm() << " \t";
   }
   {
     Eigen::VectorXd x = Eigen::VectorXd::Random(npts);
@@ -196,6 +221,8 @@ int main(int argc, char *argv[]) {
       x /= lambda_max;
     }
     std::cout << "op. norm err:       " << lambda_max << std::endl;
+    output_file << lambda_max << std::endl;
   }
+  output_file.close();
   return 0;
 }
