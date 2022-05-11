@@ -2,10 +2,11 @@
 ////////////////////////////////////////////////////////////////////////////////
 #include <Eigen/Dense>
 
-#include <FMCA/src/Interpolators/LejaPoints.h>
-#include <FMCA/src/Interpolators/WeightedTotalDegreeInterpolator.h>
 #include <FMCA/src/util/Macros.h>
 #include <FMCA/src/util/MultiIndexSet.h>
+#include <FMCA/src/Interpolators/LejaPoints.h>
+#include <FMCA/src/Interpolators/WeightedTotalDegreeInterpolator.h>
+
 
 #include "matrix.h"
 #include "mex.h"
@@ -32,12 +33,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   const double *weights = mxGetPr(prhs[1]);
   const FMCA::IndexType deg = std::round(*(mxGetPr(prhs[2])));
   std::vector<double> internal_weights(dimM);
-  for (auto i = 0; i < dimM; ++i)
-    internal_weights[i] = weights[i];
+  for (auto i = 0; i < dimM; ++i) internal_weights[i] = weights[i];
   std::cout << "points:   " << dimM << "x" << dimN << std::endl;
   std::cout << "weights:\n";
-  for (auto &&it : internal_weights)
-    std::cout << it << " ";
+  for (auto &&it : internal_weights) std::cout << it << " ";
   std::cout << std::endl;
   std::cout << "max_degree: " << deg << std::endl;
   Eigen::Map<const Eigen::MatrixXd> interp_values(p_values, dimM, dimN);

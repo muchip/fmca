@@ -1,5 +1,6 @@
 clear all;
 close all;
+addpath('../')
 k = @(X, Y) exp(-10 * abs(X-Y));
 %k = @(X, Y) max(1-10*abs(X-Y),0);
 %k = @(X, Y) (1 + 50 * abs(X-Y)) .* exp(-50 * abs(X-Y));

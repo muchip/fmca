@@ -85,7 +85,7 @@ int main() {
   double separation_radius_full = double(1.) / double(0.);
   double fill_distance_full = 0;
 
-#if 0
+#if 1
   =
       Eigen::MatrixXd::Random(3, 80000); // = generateSwissCheeseExp(2, npts);
   T.tic();
