@@ -9,6 +9,7 @@
 // any warranty, see <https://github.com/muchip/FMCA> for further
 // information.
 #define FMCA_CLUSTERSET_
+#include <cstdio>
 #include <iomanip>
 #include <iostream>
 #include <limits>
@@ -23,6 +24,7 @@
 #include <FMCA/src/util/HaltonSet.h>
 #include <FMCA/src/util/SparseMatrix.h>
 #include <FMCA/src/util/Tictoc.h>
+#include <FMCA/src/util/print2file.h>
 
 #include "pardiso_interface.h"
 ////////////////////////////////////////////////////////////////////////////////
@@ -87,7 +89,7 @@ int main(int argc, char *argv[]) {
             << " | mp_deg: " << mp_deg << " | eta: " << eta << std::endl
             << std::flush;
   output_file << npts << " \t" << dtilde << " \t" << mp_deg << " \t" << eta
-               << " \t";
+              << " \t";
   const Moments mom(P, mp_deg);
   const MatrixEvaluator mat_eval(mom, function);
   const SampletMoments samp_mom(P, dtilde - 1);
@@ -105,11 +107,37 @@ int main(int argc, char *argv[]) {
   const double tcomp = T.toc("compressor:        ");
   output_file << filldist << " \t" << seprad << " \t" << tcomp << " \t";
   std::vector<Eigen::Triplet<double>> trips = comp.pattern_triplets();
+  std::vector<Eigen::Triplet<double>> inv_trips;
   FMCA::SparseMatrix<double>::sortTripletsInPlace(trips);
+  Eigen::MatrixXd mtrips(trips.size() + 1, 3);
+  Eigen::MatrixXd read_trips;
+
   double comperr =
       FMCA::errorEstimatorSymmetricCompressor(trips, function, hst, P);
   std::cout << "compression error:  " << comperr << std::endl << std::flush;
   output_file << comperr << " \t";
+  T.tic();
+  {
+    FMCA::SparseMatrix<double> Sinput(npts, npts);
+    Sinput.setFromTriplets(trips.begin(), trips.end());
+    for (auto i = 0; i < Sinput.rows(); ++i)
+      Sinput(i, i) = Sinput(i, i) + 1e-4;
+    trips = Sinput.toTriplets();
+  }
+  T.toc("added regularization: ");
+  T.tic();
+  mtrips.setZero();
+  {
+    mtrips.row(0) << npts, npts, 0;
+    for (auto i = 1; i < mtrips.rows(); ++i)
+      mtrips.row(i) << trips[i - 1].row(), trips[i - 1].col(),
+          trips[i - 1].value();
+    FMCA::IO::print2bin("matrix" + std::to_string(npts) + ".dat", mtrips);
+    FMCA::IO::bin2Mat("matrix" + std::to_string(npts) + ".dat", &read_trips);
+    std::cout << (mtrips - read_trips).norm() << std::endl;
+  }
+  T.toc("export: ");
+  return 0;
   double lambda_max = 0;
   {
     Eigen::MatrixXd x = Eigen::VectorXd::Random(npts);
@@ -122,26 +150,22 @@ int main(int argc, char *argv[]) {
     std::cout << "lambda_max (est by 20its of power it): " << lambda_max
               << std::endl;
   }
-  for (auto &&it : trips) {
-    if (it.row() == it.col())
-      it = Eigen::Triplet<double>(it.row(), it.col(), it.value() + 1e-4);
-  }
-  output_file << lambda_max << " \t";
+  output_file << lambda_max << " \t" << std::flush;
 
-  std::vector<Eigen::Triplet<double>> inv_trips = trips;
   std::cout << "entries A:          "
             << 100 * double(trips.size()) / npts / npts << "\%" << std::endl;
   std::cout << std::string(75, '=') << std::endl;
-  output_file << 100 * double(trips.size()) / npts / npts << " \t";
+  output_file << 100 * double(trips.size()) / npts / npts << " \t"
+              << std::flush;
   {
     int i = 0;
     int j = 0;
     int n = npts;
-    size_t n_triplets = inv_trips.size();
+    size_t n_triplets = trips.size();
     std::cout << "triplet size (\% of INT_MAX):"
               << (long double)(n_triplets) / (long double)(INT_MAX)*100
               << std::endl;
-    assert(n_triplets <= INT_MAX && "exceeded INT_MAX");
+    assert(n_triplets < INT_MAX && "exceeded INT_MAX");
     int *ia = nullptr;
     int *ja = nullptr;
     double *a = nullptr;
@@ -154,21 +178,25 @@ int main(int argc, char *argv[]) {
     // write rows
     ia[trips[0].row()] = 0;
     for (i = trips[0].row() + 1; i <= n; ++i) {
-      while (j < n_triplets && i - 1 == inv_trips[j].row()) ++j;
+      while (j < n_triplets && i - 1 == trips[j].row())
+        ++j;
       ia[i] = j;
     }
+    assert(j == n_triplets && "j is not ntriplets");
     // write the rest
     for (i = 0; i < n_triplets; ++i) {
-      ja[i] = inv_trips[i].col();
-      a[i] = inv_trips[i].value();
+      ja[i] = trips[i].col();
+      a[i] = trips[i].value();
     }
-    std::cout << "\n\nentering pardiso block" << std::flush;
+    std::cout << "\n\nentering pardiso block\n" << std::flush;
     T.tic();
+    std::printf("ia=%p ja=%p a=%p n=%i nnz=%i\n", ia, ja, a, n, ia[n]);
+    std::cout << std::flush;
     pardiso_interface(ia, ja, a, n);
     std::cout << std::string(75, '=') << std::endl;
     const double tPard = T.toc("Wall time pardiso: ");
     output_file << tPard << " \t";
-    inv_trips.clear();
+    inv_trips.reserve(n_triplets);
     for (i = 0; i < n; ++i)
       for (j = ia[i]; j < ia[i + 1]; ++j)
         if (abs(a[j]) > 1e-12)
@@ -183,7 +211,8 @@ int main(int argc, char *argv[]) {
   {
     Eigen::MatrixXd rand = Eigen::MatrixXd::Random(npts, 100);
     Eigen::VectorXd nrms = rand.colwise().norm();
-    for (auto i = 0; i < rand.cols(); ++i) rand.col(i) /= nrms(i);
+    for (auto i = 0; i < rand.cols(); ++i)
+      rand.col(i) /= nrms(i);
     auto Srand =
         FMCA::SparseMatrix<double>::symTripletsTimesVector(trips, rand);
     auto Rrand =

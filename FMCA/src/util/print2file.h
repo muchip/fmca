@@ -15,6 +15,8 @@
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <fstream>
+#include <iomanip>
+#include <iostream>
 
 namespace FMCA {
 namespace IO {
@@ -144,7 +146,7 @@ int print2bin(const std::string &fileName,
   IsRowMajor = var.IsRowMajor;
   dataSize = sizeof(typename Derived::Scalar);
 
-  myfile.open(fileName, std::ios::out | std::ios::binary | std::ios::trunc);
+  myfile.open(fileName, std::ios::out | std::ios::binary);
   // write data size and row major flag
   myfile.write(reinterpret_cast<const char *>(&dataSize), sizeof(int));
   myfile.write(reinterpret_cast<const char *>(&IsRowMajor), sizeof(int));
@@ -153,17 +155,17 @@ int print2bin(const std::string &fileName,
   // write rows and cols of the matrix
   myfile.write((const char *)&(rows), sizeof(int));
   myfile.write((const char *)&(cols), sizeof(int));
-  std::cout << "writing binary file" << std::endl;
+  std::cout << "Eigen to binary file writer" << std::endl;
   std::cout << "rows: " << rows << " cols: " << cols
             << " dataSize: " << dataSize << " IsRowMajor: " << IsRowMajor
             << std::endl;
+  std::cout << "writing..." << std::flush;
   if (IsRowMajor) {
     Eigen::Matrix<typename Derived::Scalar, Eigen::Dynamic, Eigen::Dynamic,
                   Eigen::RowMajor>
         tmp = var;
-
     myfile.write(reinterpret_cast<const char *>(tmp.data()),
-                 rows * cols * dataSize);
+                 size_t(rows) * size_t(cols) * size_t(dataSize));
 
   } else {
     Eigen::Matrix<typename Derived::Scalar, Eigen::Dynamic, Eigen::Dynamic,
@@ -171,9 +173,12 @@ int print2bin(const std::string &fileName,
         tmp = var;
 
     myfile.write(reinterpret_cast<const char *>(tmp.data()),
-                 rows * cols * dataSize);
+                 size_t(rows) * size_t(cols) * size_t(dataSize));
   }
-
+  std::cout << " done." << std::endl;
+  std::cout << size_t(rows) / 1000. * size_t(cols) / 1000. * size_t(dataSize) /
+                  1000.
+           << "GB written to file" << std::endl;
   myfile.close();
 
   return 0;
@@ -197,7 +202,7 @@ int bin2Mat(const std::string &fileName,
   myfile.read(reinterpret_cast<char *>(&IsRowMajor), sizeof(int));
   myfile.read(reinterpret_cast<char *>(&rows), sizeof(int));
   myfile.read(reinterpret_cast<char *>(&cols), sizeof(int));
-  std::cout << "reading binary file" << std::endl;
+  std::cout << "Binary file to Eigen reader" << std::endl;
   std::cout << "rows: " << rows << " cols: " << cols
             << " dataSize: " << dataSize << " IsRowMajor: " << IsRowMajor
             << std::endl;
@@ -206,13 +211,14 @@ int bin2Mat(const std::string &fileName,
               << std::endl;
     return 1;
   }
-
-  data = new typename Derived::Scalar[rows * cols];
-
-  myfile.read((char *)data, rows * cols * dataSize);
-
+  std::cout << "reading..." << std::flush;
+  data = new typename Derived::Scalar[size_t(rows) * size_t(cols)];
+  myfile.read((char *)data, size_t(rows) * size_t(cols) * size_t(dataSize));
   myfile.close();
-
+  std::cout << " done." << std::endl;
+  std::cout << size_t(rows) / 1000. * size_t(cols) / 1000. * size_t(dataSize) /
+                   1000.
+            << "GB read from file" << std::endl;
   if (IsRowMajor)
     returnMat =
         Eigen::Map<Eigen::Matrix<typename Derived::Scalar, Eigen::Dynamic,

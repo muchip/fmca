@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
   const unsigned int dtilde = 4;
   const double eta = atof(argv[2]);
   const unsigned int mp_deg = 6;
-  const unsigned int dim = 2;
+  const unsigned int dim = 3;
   const unsigned int npts = atoi(argv[1]);
   const auto function = expKernel(npts);
   const double threshold = 1e-5 / npts;
@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
     hs.next();
   }
 #endif
-  output_file.open("output_PAT_" + std::to_string(dim) + "D.txt",
+  output_file.open("output_PAT4_" + std::to_string(dim) + "D.txt",
                    std::ios::out | std::ios::app);
   std::cout << std::string(75, '=') << std::endl;
   std::cout << "npts: " << npts << " | dim: " << dim << " | dtilde: " << dtilde
