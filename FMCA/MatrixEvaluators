@@ -15,6 +15,7 @@
 #include "Moments"
 
 #include "src/MatrixEvaluators/NystromMatrixEvaluator.h"
+#include "src/MatrixEvaluators/unsymmetricNystromMatrixEvaluator.h"
 #include "src/MatrixEvaluators/KernelHelper.h"
 #include "src/MatrixEvaluators/CollocationMatrixEvaluatorDL.h"
 #include "src/MatrixEvaluators/CollocationMatrixEvaluatorSL.h"

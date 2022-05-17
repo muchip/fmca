@@ -19,39 +19,41 @@
 namespace FMCA {
 
 template <typename Derived> struct unsymmetric_compressor_impl {
-  enum Admissibility { Refine = 0, LowRank = 1, Dense = 2 };
   typedef typename internal::traits<Derived>::value_type value_type;
   typedef typename internal::traits<Derived>::eigenMatrix eigenMatrix;
 
   template <typename EntryGenerator>
-  void compress(SampletTreeBase<Derived> &ST, const EntryGenerator &e_gen,
-                value_type eta = 0.8, value_type threshold = 1e-6) {
-    eigen_assert(ST.is_root() && "compress needs to be called from root");
+  void compress(SampletTreeBase<Derived> &TR, SampletTreeBase<Derived> &TC,
+                const EntryGenerator &e_gen, value_type eta = 0.8,
+                value_type threshold = 1e-6) {
+    eigen_assert(TR.is_root() && TC.is_root() &&
+                 "compress needs to be called from root");
     eta_ = eta;
     threshold_ = threshold;
     triplet_list_.clear();
     buffer_.clear();
-    const IndexType n_samplet_blocks = std::distance(ST.cbegin(), ST.cend());
-    buffer_.resize(n_samplet_blocks);
+    const IndexType row_samplet_blocks = std::distance(TR.cbegin(), TR.cend());
+    const IndexType col_samplet_blocks = std::distance(TC.cbegin(), TC.cend());
+    buffer_.resize(row_samplet_blocks);
     max_buff_size_ = 0;
     storage_size_ = 0;
     ////////////////////////////////////////////////////////////////////////////
     // set up the compressed matrix
-    PB_.reset(n_samplet_blocks);
+    PB_.reset(col_samplet_blocks);
 
-    setupColumn(ST.derived(), ST.derived(), e_gen);
+    setupColumn(TR.derived(), TC.derived(), e_gen);
     // set up remainder of the first column
-    for (const auto &cluster : ST) {
+    for (const auto &cluster : TR) {
       if (!cluster.is_root()) {
         const IndexType block_id = cluster.derived().block_id();
         const IndexType start_index = cluster.derived().start_index();
         const IndexType nsamplets = cluster.derived().nsamplets();
         const IndexType nscalfs = cluster.derived().nscalfs();
-        auto it = buffer_[block_id].find(ST.derived().block_id());
+        auto it = buffer_[block_id].find(TC.derived().block_id());
         eigen_assert(it != buffer_[block_id].end() &&
                      "there is a missing root block!");
-        storeBlock(start_index, ST.derived().start_index(), nsamplets,
-                   ST.derived().Q().cols(), (it->second).bottomRows(nsamplets));
+        storeBlock(start_index, TR.derived().start_index(), nsamplets,
+                   TC.derived().Q().cols(), (it->second).bottomRows(nsamplets));
         buffer_[block_id].erase(it);
       }
     }
@@ -73,25 +75,6 @@ template <typename Derived> struct unsymmetric_compressor_impl {
                                       .norm() -
                             row_radius - col_radius;
     return dist > 0 ? dist : 0;
-  }
-  //////////////////////////////////////////////////////////////////////////////
-  Admissibility compareCluster(const Derived &cluster1,
-                               const Derived &cluster2) {
-    Admissibility retval;
-    const value_type dist = computeDistance(cluster1, cluster2);
-    const value_type row_radius = 0.5 * cluster1.bb().col(2).norm();
-    const value_type col_radius = 0.5 * cluster2.bb().col(2).norm();
-    const value_type radius = row_radius > col_radius ? row_radius : col_radius;
-
-    if (radius > eta_ * dist) {
-      // check if either cluster is a leaf in that case,
-      // compute the full matrix block
-      if (!cluster1.nSons() || !cluster2.nSons())
-        return Dense;
-      else
-        return Refine;
-    } else
-      return LowRank;
   }
   //////////////////////////////////////////////////////////////////////////////
   const std::vector<Eigen::Triplet<value_type>> &pattern_triplets() const {
