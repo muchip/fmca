@@ -107,6 +107,9 @@ int main(int argc, char *argv[]) {
   const double tcomp = T.toc("compressor:        ");
   output_file << filldist << " \t" << seprad << " \t" << tcomp << " \t";
   std::vector<Eigen::Triplet<double>> trips = comp.pattern_triplets();
+    std::cout << "triplet size (\% of INT_MAX):"
+              << (long double)(trips.size()) / (long double)(INT_MAX)*100
+              << std::endl;
   std::vector<Eigen::Triplet<double>> inv_trips;
   FMCA::SparseMatrix<double>::sortTripletsInPlace(trips);
   Eigen::MatrixXd mtrips(trips.size() + 1, 3);
@@ -134,7 +137,7 @@ int main(int argc, char *argv[]) {
           trips[i - 1].value();
     FMCA::IO::print2bin("matrix" + std::to_string(npts) + ".dat", mtrips);
     FMCA::IO::bin2Mat("matrix" + std::to_string(npts) + ".dat", &read_trips);
-    std::cout << (mtrips - read_trips).norm() << std::endl;
+    std::cout << (mtrips - read_trips).colwise().maxCoeff() << std::endl;
   }
   T.toc("export: ");
   return 0;
