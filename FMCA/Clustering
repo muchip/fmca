@@ -12,6 +12,8 @@
 #ifndef FMCA_CLUSTERING_MODULE_
 #define FMCA_CLUSTERING_MODULE_
 
+#include <iomanip>
+#include <iostream>
 #include <algorithm>
 #include <numeric>
 

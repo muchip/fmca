@@ -18,7 +18,7 @@ enum Admissibility { Refine = 0, LowRank = 1, Dense = 2 };
 
 template <typename Derived>
 Scalar computeDistance(const ClusterTreeBase<Derived> &TR,
-                      const ClusterTreeBase<Derived> &TC) {
+                       const ClusterTreeBase<Derived> &TC) {
 
   const Scalar row_radius = 0.5 * TR.bb().col(2).norm();
   const Scalar col_radius = 0.5 * TC.bb().col(2).norm();
@@ -52,9 +52,9 @@ Admissibility compareCluster(const ClusterTreeBase<Derived> &cluster1,
 
 template <typename Derived>
 Scalar clusterSeparationRadius(Scalar separation_radius,
-                              const ClusterTreeBase<Derived> &cluster1,
-                              const ClusterTreeBase<Derived> &cluster2,
-                              const Matrix &P) {
+                               const ClusterTreeBase<Derived> &cluster1,
+                               const ClusterTreeBase<Derived> &cluster2,
+                               const Matrix &P) {
   Scalar retval = separation_radius;
   Scalar rad = 0;
   Scalar dist = computeDistance(cluster1, cluster2);
@@ -114,7 +114,7 @@ template <typename Derived>
 Scalar separationRadius(const ClusterTreeBase<Derived> &CT, const Matrix &P) {
   Scalar separation_radius = Scalar(1.) / Scalar(0.);
   for (auto it = CT.cbegin(); it != CT.cend(); ++it) {
-    if (!it->nSons()) {
+    if (!it->nSons() && it->indices().size()) {
       Scalar rad = 0;
       for (auto j = 0; j < it->indices().size(); ++j)
         for (auto i = j + 1; i < it->indices().size(); ++i) {
@@ -135,7 +135,7 @@ Scalar fillDistance(const ClusterTreeBase<Derived> &CT, const Matrix &P) {
   Vector min_distance;
   Scalar dist = 0;
   for (auto it = CT.cbegin(); it != CT.cend(); ++it) {
-    if (!it->nSons()) {
+    if (!it->nSons() && it->indices().size()) {
       min_distance.resize(it->indices().size());
       min_distance.setOnes();
       min_distance /= Scalar(0.);
@@ -154,6 +154,57 @@ Scalar fillDistance(const ClusterTreeBase<Derived> &CT, const Matrix &P) {
     }
   }
   return fill_distance;
+}
+
+template <typename Derived>
+void clusterTreeStatistics(const ClusterTreeBase<Derived> &CT) {
+  std::vector<Scalar> disc_vec;
+  Index N = CT.indices().size();
+  Scalar vol = CT.bb().col(2).prod();
+  Scalar max_disc = 0;
+  Scalar min_disc = 1. / 0.;
+  Scalar mean_disc = 0;
+
+  for (auto it = CT.cbegin(); it != CT.cend(); ++it) {
+    const auto &node = *it;
+    Scalar discrepancy = std::abs(Scalar(node.indices().size()) / N -
+                                  node.bb().col(2).prod() / vol);
+    disc_vec.push_back(discrepancy);
+    max_disc = max_disc < disc_vec.back() ? disc_vec.back() : max_disc;
+    min_disc = min_disc > disc_vec.back() ? disc_vec.back() : min_disc;
+    mean_disc += disc_vec.back();
+  }
+  mean_disc /= disc_vec.size();
+  std::cout << "number of clusters: " << disc_vec.size() << std::endl;
+  std::cout << std::scientific << std::setprecision(2)
+            << "min discrepancy: " << min_disc
+            << " max discrepancy: " << max_disc
+            << " mean discrepancy: " << mean_disc << std::endl;
+  FMCA::Scalar range = exp(log(mean_disc) - 2 * log(max_disc / mean_disc));
+  min_disc = min_disc < range ? range : min_disc;
+  std::cout << std::scientific << std::setprecision(2)
+            << "discrepancy distribution of clusters in [" << min_disc << ","
+            << max_disc << ")" << std::endl;
+  FMCA::Index intervals = 20;
+  FMCA::Scalar h = log(max_disc / min_disc) / intervals;
+  FMCA::Vector values(intervals);
+  values.setZero();
+  for (auto &&it : disc_vec) {
+    for (auto j = 0; j < intervals; ++j)
+      if ((log(it) >= h * j + log(min_disc)) &&
+          (log(it) < h * (j + 1) + log(min_disc))) {
+        ++values(j);
+        break;
+      }
+  }
+  FMCA::Scalar bar_factor = 60 * disc_vec.size() / values.maxCoeff();
+  for (auto i = 0; i < intervals; ++i) {
+    std::cout << std::scientific << std::setprecision(2) << std::setw(8)
+              << exp(h * (i + 0.5)) * min_disc << "|";
+    std::cout << std::string(
+                     std::round(bar_factor * values(i) / disc_vec.size()), '=')
+              << std::endl;
+  }
 }
 
 } // namespace FMCA
