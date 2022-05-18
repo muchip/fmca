@@ -21,7 +21,7 @@ namespace IO {
  *  \brief exports a sequence of 3D boxes stored in a std::vector in vtk
  **/
 void plotBoxes(const std::string &fileName,
-               const std::vector<Eigen::MatrixXd> &bb) {
+               const std::vector<Matrix> &bb) {
   std::ofstream myfile;
   myfile.open(fileName);
   myfile << "# vtk DataFile Version 3.1\n";
@@ -122,7 +122,7 @@ void plotBoxes2D(const std::string &fileName, Bbvec &bb) {
  **/
 template <typename Scalar>
 void plotBoxes(const std::string &fileName,
-               const std::vector<Eigen::Matrix3d> &bb,
+               const std::vector<Matrix> &bb,
                const std::vector<Scalar> &cvec) {
   std::ofstream myfile;
   myfile.open(fileName);

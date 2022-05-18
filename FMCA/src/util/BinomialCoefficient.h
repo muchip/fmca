@@ -16,7 +16,7 @@
 
 namespace FMCA {
 
-IndexType binomialCoefficient(IndexType n, IndexType k) {
+Index binomialCoefficient(Index n, Index k) {
   if (k > n)
     return 0;
   else if (n == k)
@@ -26,9 +26,8 @@ IndexType binomialCoefficient(IndexType n, IndexType k) {
 }
 
 template <typename MultiIndex>
-IndexType multinomialCoefficient(const MultiIndex &alpha,
-                                 const MultiIndex &beta) {
-  IndexType retval = 1;
+Index multinomialCoefficient(const MultiIndex &alpha, const MultiIndex &beta) {
+  Index retval = 1;
   for (auto i = 0; i < alpha.size(); ++i)
     retval *= binomialCoefficient(alpha[i], beta[i]);
   return retval;

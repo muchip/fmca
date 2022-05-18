@@ -17,9 +17,9 @@ namespace FMCA {
 class ProgressBar {
 public:
   ProgressBar() : currStep_(0), numSteps_(0), displayNext_(1) {}
-  ProgressBar(unsigned int numSteps)
+  ProgressBar(Index numSteps)
       : currStep_(0), numSteps_(numSteps), displayNext_(1) {}
-  void reset(unsigned int numSteps) {
+  void reset(Index numSteps) {
     numSteps_ = numSteps;
     currStep_ = 0;
     displayNext_ = 1;
@@ -28,7 +28,7 @@ public:
   }
   void next() {
 #ifndef FMCA_CLUSTERSET_
-if (currStep_ < numSteps_)
+    if (currStep_ < numSteps_)
       ++currStep_;
     percent_ = (100 * currStep_) / numSteps_;
     if (percent_ > 100)
@@ -45,10 +45,10 @@ if (currStep_ < numSteps_)
   }
 
 private:
-  unsigned int currStep_;
-  unsigned int numSteps_;
-  unsigned int displayNext_;
-  unsigned int percent_;
+  Index currStep_;
+  Index numSteps_;
+  Index displayNext_;
+  Index percent_;
 };
 } // namespace FMCA
 

@@ -32,43 +32,43 @@ template <IndexSetType T> struct IndexSetCriterion {};
 
 template <> struct IndexSetCriterion<TotalDegree> {
   IndexSetCriterion(){};
-  IndexSetCriterion(IndexType max_degree) : max_degree_(max_degree) {}
+  IndexSetCriterion(Index max_degree) : max_degree_(max_degree) {}
   template <typename T> bool operator()(const T &index) {
-    IndexType sum = 0;
+    Index sum = 0;
     for (auto i : index)
       sum += i;
     return sum <= max_degree_;
   }
-  IndexType max_degree_;
+  Index max_degree_;
 };
 
 template <> struct IndexSetCriterion<WeightedTotalDegree> {
   IndexSetCriterion(){};
-  IndexSetCriterion(IndexType max_degree, const std::vector<FloatType> &weights)
+  IndexSetCriterion(Index max_degree, const std::vector<Scalar> &weights)
       : max_degree_(max_degree), weights_(weights) {}
 
   template <typename T> bool operator()(const T &index) {
     assert(index.size() == weights_.size() && "dimension mismatch");
-    IndexType sum = 0;
+    Scalar sum = 0;
     for (auto i = 0; i < index.size(); ++i)
       sum += index[i] * weights_[i];
     return sum <= max_degree_;
   }
 
-  IndexType max_degree_;
-  std::vector<FloatType> weights_;
+  Index max_degree_;
+  std::vector<Scalar> weights_;
 };
 
 template <> struct IndexSetCriterion<TensorProduct> {
   IndexSetCriterion(){};
-  IndexSetCriterion(IndexType max_degree) : max_degree_(max_degree) {}
+  IndexSetCriterion(Index max_degree) : max_degree_(max_degree) {}
   template <typename T> bool operator()(const T &index) {
-    IndexType max = 0;
+    Index max = 0;
     for (auto i : index)
       max = max > i ? max : i;
     return max <= max_degree_;
   }
-  IndexType max_degree_;
+  Index max_degree_;
 };
 
 /**
@@ -98,7 +98,7 @@ template <IndexSetType T = TotalDegree> class MultiIndexSet {
   friend struct MultiIndexSetInitializer<T>;
 
 public:
-  typedef std::set<std::vector<IndexType>, FMCA_Compare<std::vector<IndexType>>>
+  typedef std::set<std::vector<Index>, FMCA_Compare<std::vector<Index>>>
       multi_index_set;
   MultiIndexSet(){};
   template <typename... Ts> MultiIndexSet(Ts &&...ts) {
@@ -110,11 +110,11 @@ public:
   }
 
   //////////////////////////////////////////////////////////////////////////////
-  const IndexType max_degree() const { return max_degree_; }
-  IndexType &max_degree() { return max_degree_; }
+  const Index max_degree() const { return max_degree_; }
+  Index &max_degree() { return max_degree_; }
 
-  const IndexType dim() const { return dim_; }
-  IndexType &dim() { return dim_; }
+  const Index dim() const { return dim_; }
+  Index &dim() { return dim_; }
 
   const multi_index_set &index_set() const { return s_data_; }
   multi_index_set &index_set() { return s_data_; }
@@ -125,8 +125,8 @@ public:
 private:
   multi_index_set s_data_;
   IndexSetCriterion<T> is_element_;
-  IndexType max_degree_;
-  IndexType dim_;
+  Index max_degree_;
+  Index dim_;
 };
 
 /**
@@ -134,13 +134,12 @@ private:
  *
  **/
 template <> struct MultiIndexSetInitializer<Generic> {
-  template <typename T>
-  static void init(T &set, IndexType dim, IndexType max_degree) {
+  template <typename T> static void init(T &set, Index dim, Index max_degree) {
     set.dim() = dim;
     set.max_degree() = max_degree;
     set.is_element().max_degree_ = max_degree;
     set.index_set().clear();
-    std::vector<IndexType> index(set.dim(), 0);
+    std::vector<Index> index(set.dim(), 0);
     if (set.is_element()(index)) {
       set.index_set().insert(index);
       // compute all other indices in the set recursively
@@ -150,8 +149,7 @@ template <> struct MultiIndexSetInitializer<Generic> {
   }
 
   template <typename T>
-  static void addChildren(T &set, IndexType max_bit,
-                          std::vector<IndexType> &index) {
+  static void addChildren(T &set, Index max_bit, std::vector<Index> &index) {
     // successively increase all entries in the current index
     for (auto i = max_bit; i < set.dim(); ++i) {
       index[i] += 1;
@@ -177,14 +175,14 @@ struct MultiIndexSetInitializer<TensorProduct>
 
 template <> struct MultiIndexSetInitializer<WeightedTotalDegree> {
   template <typename T>
-  static void init(T &set, IndexType dim, IndexType max_degree,
-                   const std::vector<FloatType> &weights) {
+  static void init(T &set, Index dim, Index max_degree,
+                   const std::vector<Scalar> &weights) {
     set.dim() = dim;
     set.max_degree() = max_degree;
     set.is_element().weights_ = weights;
     set.is_element().max_degree_ = max_degree;
     set.index_set().clear();
-    std::vector<IndexType> index(set.dim(), 0);
+    std::vector<Index> index(set.dim(), 0);
     if (0 <= set.max_degree()) {
       set.index_set().insert(index);
       // compute all other indices in the set recursively
@@ -194,8 +192,8 @@ template <> struct MultiIndexSetInitializer<WeightedTotalDegree> {
   }
 
   template <typename T>
-  static void addChildren(T &set, IndexType max_bit,
-                          std::vector<IndexType> &index, FloatType q) {
+  static void addChildren(T &set, Index max_bit, std::vector<Index> &index,
+                          Scalar q) {
     // successively increase all entries in the current index
     for (auto i = max_bit; i < set.dim(); ++i) {
       // in total degree sets, the remaining budget can be determined by
