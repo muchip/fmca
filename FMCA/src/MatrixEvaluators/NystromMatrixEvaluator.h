@@ -22,10 +22,6 @@ namespace FMCA {
  *         two routines.
  **/
 template <typename Moments, typename Kernel> struct NystromMatrixEvaluator {
-  typedef typename Moments::eigenVector eigenVector;
-  typedef typename Moments::eigenMatrix eigenMatrix;
-  typedef typename eigenMatrix::Scalar value_type;
-
   NystromMatrixEvaluator(const Moments &mom) : mom_(mom) {}
   NystromMatrixEvaluator(const Moments &mom, const Kernel &kernel)
       : mom_(mom), kernel_(kernel) {}
@@ -43,13 +39,13 @@ template <typename Moments, typename Kernel> struct NystromMatrixEvaluator {
   template <typename Derived>
   void interpolate_kernel(const ClusterTreeBase<Derived> &TR,
                           const ClusterTreeBase<Derived> &TC,
-                          eigenMatrix *mat) const {
-    eigenMatrix XiX = mom_.interp().Xi().cwiseProduct(TR.bb().col(2).replicate(
-                          1, mom_.interp().Xi().cols())) +
-                      TR.bb().col(0).replicate(1, mom_.interp().Xi().cols());
-    eigenMatrix XiY = mom_.interp().Xi().cwiseProduct(TC.bb().col(2).replicate(
-                          1, mom_.interp().Xi().cols())) +
-                      TC.bb().col(0).replicate(1, mom_.interp().Xi().cols());
+                          Matrix *mat) const {
+    Matrix XiX = mom_.interp().Xi().cwiseProduct(
+                     TR.bb().col(2).replicate(1, mom_.interp().Xi().cols())) +
+                 TR.bb().col(0).replicate(1, mom_.interp().Xi().cols());
+    Matrix XiY = mom_.interp().Xi().cwiseProduct(
+                     TC.bb().col(2).replicate(1, mom_.interp().Xi().cols())) +
+                 TC.bb().col(0).replicate(1, mom_.interp().Xi().cols());
     mat->resize(XiX.cols(), XiX.cols());
     for (auto j = 0; j < mat->cols(); ++j)
       for (auto i = 0; i < mat->rows(); ++i)
@@ -64,7 +60,7 @@ template <typename Moments, typename Kernel> struct NystromMatrixEvaluator {
   template <typename Derived>
   void compute_dense_block(const ClusterTreeBase<Derived> &TR,
                            const ClusterTreeBase<Derived> &TC,
-                           eigenMatrix *retval) const {
+                           Matrix *retval) const {
     retval->resize(TR.indices().size(), TC.indices().size());
     for (auto j = 0; j < TC.indices().size(); ++j)
       for (auto i = 0; i < TR.indices().size(); ++i)

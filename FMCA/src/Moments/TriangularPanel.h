@@ -53,9 +53,9 @@ struct TriangularPanel {
   Eigen::Matrix3d cs_;
   Eigen::Matrix3d affmap_;
   Eigen::Vector3d mp_;
-  double radius_;
-  double volel_;
+  Scalar radius_;
+  Scalar volel_;
 };
 
-}  // namespace FMCA
+} // namespace FMCA
 #endif

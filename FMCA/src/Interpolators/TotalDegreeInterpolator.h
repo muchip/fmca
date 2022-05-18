@@ -14,24 +14,22 @@
 
 namespace FMCA {
 
-template <typename ValueType> class TotalDegreeInterpolator {
+class TotalDegreeInterpolator {
 public:
-  typedef Eigen::Matrix<ValueType, Eigen::Dynamic, 1> eigenVector;
-  typedef Eigen::Matrix<ValueType, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
   /**
    *  \brief These are the corresponding weights of the Chebyshev nodes
    *         for barycentric interpolation. see [1]. Note: The scaling is wrong
    *         as the nodes are on [0,1]. However, this does not matter as
    *         the factor cancels.
    **/
-  void init(IndexType dim, IndexType deg) {
+  void init(Index dim, Index deg) {
     dim_ = dim;
     deg_ = deg;
     idcs_.init(dim, deg);
     TD_xi_.resize(dim_, idcs_.index_set().size());
     V_.resize(idcs_.index_set().size(), idcs_.index_set().size());
     // determine tensor product interpolation points
-    IndexType k = 0;
+    Index k = 0;
     for (const auto &it : idcs_.index_set()) {
       for (auto i = 0; i < it.size(); ++i)
         TD_xi_(i, k) = LejaPoints[it[i]];
@@ -44,19 +42,18 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
   template <typename Derived>
-  eigenMatrix
-  evalLegendrePolynomials1D(const Eigen::MatrixBase<Derived> &pt) const {
-    eigenMatrix retval(pt.rows(), deg_ + 1);
-    eigenVector P0, P1;
+  Matrix evalLegendrePolynomials1D(const Eigen::MatrixBase<Derived> &pt) const {
+    Matrix retval(pt.rows(), deg_ + 1);
+    Vector P0, P1;
     P0.resize(pt.rows());
     P1.resize(pt.rows());
     P0.setZero();
     P1.setOnes();
     retval.col(0) = P1;
     for (auto i = 1; i <= deg_; ++i) {
-      retval.col(i) = ValueType(2 * i - 1) / ValueType(i) *
+      retval.col(i) = Scalar(2 * i - 1) / Scalar(i) *
                           (2 * pt.array() - 1) * P1.array() -
-                      ValueType(i - 1) / ValueType(i) * P0.array();
+                      Scalar(i - 1) / Scalar(i) * P0.array();
       P0 = P1;
       P1 = retval.col(i);
       // L2-normalize
@@ -66,11 +63,11 @@ public:
   }
   //////////////////////////////////////////////////////////////////////////////
   template <typename Derived>
-  eigenMatrix evalPolynomials(const Eigen::MatrixBase<Derived> &pt) const {
-    eigenVector retval(idcs_.index_set().size());
-    eigenMatrix p_values = evalLegendrePolynomials1D(pt);
+  Matrix evalPolynomials(const Eigen::MatrixBase<Derived> &pt) const {
+    Vector retval(idcs_.index_set().size());
+    Matrix p_values = evalLegendrePolynomials1D(pt);
     retval.setOnes();
-    IndexType k = 0;
+    Index k = 0;
     for (const auto &it : idcs_.index_set()) {
       for (auto i = 0; i < dim_; ++i)
         retval(k) *= p_values(i, it[i]);
@@ -79,17 +76,17 @@ public:
     return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
-  const eigenMatrix &Xi() const { return TD_xi_; }
-  const eigenMatrix &invV() const { return invV_; }
-  const eigenMatrix &V() const { return V_; }
+  const Matrix &Xi() const { return TD_xi_; }
+  const Matrix &invV() const { return invV_; }
+  const Matrix &V() const { return V_; }
 
 private:
   MultiIndexSet<TotalDegree> idcs_;
-  eigenMatrix TD_xi_;
-  eigenMatrix invV_;
-  eigenMatrix V_;
-  IndexType dim_;
-  IndexType deg_;
+  Matrix TD_xi_;
+  Matrix invV_;
+  Matrix V_;
+  Index dim_;
+  Index deg_;
 };
 } // namespace FMCA
 #endif

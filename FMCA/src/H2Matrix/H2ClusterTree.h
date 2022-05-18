@@ -14,19 +14,12 @@
 
 namespace FMCA {
 
-namespace internal {
-template <> struct traits<H2ClusterTreeNode> {
-  typedef FloatType value_type;
-  typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
-};
-} // namespace internal
-
 struct H2ClusterTreeNode : public H2ClusterTreeNodeBase<H2ClusterTreeNode> {};
 
 namespace internal {
 template <typename ClusterTreeType>
 struct traits<H2ClusterTree<ClusterTreeType>> : public traits<ClusterTreeType> {
-  typedef H2ClusterTreeNode node_type;
+  typedef H2ClusterTreeNode Node;
 };
 } // namespace internal
 
@@ -44,9 +37,7 @@ struct traits<H2ClusterTree<ClusterTreeType>> : public traits<ClusterTreeType> {
 template <typename ClusterTreeType>
 class H2ClusterTree : public H2ClusterTreeBase<H2ClusterTree<ClusterTreeType>> {
 public:
-  typedef typename internal::traits<H2ClusterTree>::value_type value_type;
-  typedef typename internal::traits<H2ClusterTree>::node_type node_type;
-  typedef typename internal::traits<H2ClusterTree>::eigenMatrix eigenMatrix;
+  typedef typename internal::traits<H2ClusterTree>::Node Node;
   typedef H2ClusterTreeBase<H2ClusterTree<ClusterTreeType>> Base;
   // make base class methods visible
   using Base::appendSons;
@@ -67,16 +58,16 @@ public:
   //////////////////////////////////////////////////////////////////////////////
   H2ClusterTree() {}
   template <typename Moments, typename... Ts>
-  H2ClusterTree(const Moments &mom, IndexType min_cluster_size, Ts &&...ts) {
+  H2ClusterTree(const Moments &mom, Index min_cluster_size, Ts &&...ts) {
     init(mom, min_cluster_size, std::forward<Ts>(ts)...);
   }
   //////////////////////////////////////////////////////////////////////////////
   template <typename Moments, typename... Ts>
-  void init(const Moments &mom, IndexType min_cluster_size, Ts &&...ts) {
+  void init(const Moments &mom, Index min_cluster_size, Ts &&...ts) {
     // init cluster tree first
-    const IndexType mincsize = min_cluster_size > mom.interp().Xi().cols()
-                                   ? min_cluster_size
-                                   : mom.interp().Xi().cols();
+    const Index mincsize = min_cluster_size > mom.interp().Xi().cols()
+                               ? min_cluster_size
+                               : mom.interp().Xi().cols();
     internal::ClusterTreeInitializer<ClusterTreeType>::init(
         *this, mincsize, std::forward<Ts>(ts)...);
     internal::compute_cluster_bases_impl::compute(*this, mom);

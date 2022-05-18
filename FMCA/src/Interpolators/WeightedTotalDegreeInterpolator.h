@@ -16,11 +16,7 @@ namespace FMCA {
 
 class WeightedTotalDegreeInterpolator {
 public:
-  typedef FloatType ValueType;
-  typedef Eigen::Matrix<FloatType, Eigen::Dynamic, 1> eigenVector;
-  typedef Eigen::Matrix<FloatType, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
-
-  void init(IndexType deg, const std::vector<FloatType> &weights) {
+  void init(IndexType deg, const std::vector<Scalar> &weights) {
     dim_ = weights.size();
     deg_ = deg;
     idcs_.init(dim_, deg_, weights);
@@ -39,19 +35,18 @@ public:
   }
   //////////////////////////////////////////////////////////////////////////////
   template <typename Derived>
-  eigenMatrix
-  evalLegendrePolynomials1D(const Eigen::MatrixBase<Derived> &pt) const {
-    eigenMatrix retval(pt.rows(), deg_ + 1);
-    eigenVector P0, P1;
+  Matrix evalLegendrePolynomials1D(const Eigen::MatrixBase<Derived> &pt) const {
+    Matrix retval(pt.rows(), deg_ + 1);
+    Vector P0, P1;
     P0.resize(pt.rows());
     P1.resize(pt.rows());
     P0.setZero();
     P1.setOnes();
     retval.col(0) = P1;
     for (auto i = 1; i <= deg_; ++i) {
-      retval.col(i) = ValueType(2 * i - 1) / ValueType(i) *
+      retval.col(i) = Scalar(2 * i - 1) / Scalar(i) *
                           (2 * pt.array() - 1) * P1.array() -
-                      ValueType(i - 1) / ValueType(i) * P0.array();
+                      Scalar(i - 1) / Scalar(i) * P0.array();
       P0 = P1;
       P1 = retval.col(i);
       // L2-normalize
@@ -61,9 +56,9 @@ public:
   }
   //////////////////////////////////////////////////////////////////////////////
   template <typename Derived>
-  eigenVector evalPolynomials(const Eigen::MatrixBase<Derived> &pt) const {
-    eigenVector retval(idcs_.index_set().size());
-    eigenMatrix p_values = evalLegendrePolynomials1D(pt);
+  Vector evalPolynomials(const Eigen::MatrixBase<Derived> &pt) const {
+    Vector retval(idcs_.index_set().size());
+    Matrix p_values = evalLegendrePolynomials1D(pt);
     retval.setOnes();
     IndexType k = 0;
     for (const auto &it : idcs_.index_set()) {
@@ -74,15 +69,15 @@ public:
     return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
-  const eigenMatrix &Xi() const { return TD_xi_; }
-  const eigenMatrix &invV() const { return invV_; }
-  const eigenMatrix &V() const { return V_; }
+  const Matrix &Xi() const { return TD_xi_; }
+  const Matrix &invV() const { return invV_; }
+  const Matrix &V() const { return V_; }
 
 private:
   MultiIndexSet<WeightedTotalDegree> idcs_;
-  eigenMatrix TD_xi_;
-  eigenMatrix invV_;
-  eigenMatrix V_;
+  Matrix TD_xi_;
+  Matrix invV_;
+  Matrix V_;
   IndexType dim_;
   IndexType deg_;
 };

@@ -25,10 +25,9 @@ template <> struct Quadrature<Midpoint> {
     w << 0.5;
     xi.col(0) << 1. / 3, 1. / 3;
   }
-  Eigen::MatrixXd xi;
-  Eigen::VectorXd w;
+  Matrix xi;
+  Vector w;
 };
-
 
 template <> struct Quadrature<Trapezoidal> {
   Quadrature(void) {
@@ -37,8 +36,8 @@ template <> struct Quadrature<Trapezoidal> {
     w << 1. / 6, 1. / 6, 1. / 6;
     xi << 0, 1, 0, 0, 0, 1;
   }
-  Eigen::MatrixXd xi;
-  Eigen::VectorXd w;
+  Matrix xi;
+  Vector w;
 };
 
 template <> struct Quadrature<Radon> {
@@ -55,8 +54,8 @@ template <> struct Quadrature<Radon> {
         (9 - 2 * sqrt(15)) / 21, (6 - sqrt(15)) / 21, (6 - sqrt(15)) / 21,
         (9 + 2 * sqrt(15)) / 21;
   }
-  Eigen::MatrixXd xi;
-  Eigen::VectorXd w;
+  Matrix xi;
+  Vector w;
 };
 } // namespace Quad
 } // namespace FMCA

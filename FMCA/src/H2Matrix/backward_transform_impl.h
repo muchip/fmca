@@ -33,11 +33,8 @@ void backward_transform_recursion(const H2ClusterTree<Derived1> &CT,
 }
 
 template <typename Derived>
-typename Derived::eigenMatrix
-backward_transform_impl(const Derived &mat,
-                        std::vector<typename Derived::eigenMatrix> &vec) {
-  typename Derived::eigenMatrix retval(mat.rcluster()->indices().size(),
-                                       vec[0].cols());
+Matrix backward_transform_impl(const Derived &mat, std::vector<Matrix> &vec) {
+  Matrix retval(mat.rcluster()->indices().size(), vec[0].cols());
   retval.setZero();
   backward_transform_recursion(*(mat.rcluster()), &retval, vec);
   return retval;

@@ -18,13 +18,10 @@ namespace FMCA {
  *  \brief implements the moments for the Galerkin method
  *
  **/
-template <typename Interpolator>
-class GalerkinMoments {
- public:
-  typedef typename Interpolator::eigenVector eigenVector;
-  typedef typename Interpolator::eigenMatrix eigenMatrix;
+template <typename Interpolator> class GalerkinMoments {
+public:
   GalerkinMoments(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F,
-                  IndexType polynomial_degree = 3)
+                  Index polynomial_degree = 3)
       : V_(V), F_(F), polynomial_degree_(polynomial_degree) {
     interp_.init(V_.cols(), polynomial_degree_);
     elements_.clear();
@@ -35,9 +32,9 @@ class GalerkinMoments {
   }
   //////////////////////////////////////////////////////////////////////////////
   template <typename otherDerived>
-  eigenMatrix moment_matrix(const ClusterTreeBase<otherDerived> &CT) const {
+  Matrix moment_matrix(const ClusterTreeBase<otherDerived> &CT) const {
     const otherDerived &H2T = CT.derived();
-    eigenMatrix retval(interp_.Xi().cols(), H2T.indices().size());
+    Matrix retval(interp_.Xi().cols(), H2T.indices().size());
     for (auto i = 0; i < H2T.indices().size(); ++i) {
       const TriangularPanel &el = elements_[H2T.indices()[i]];
       retval.col(i).setZero();
@@ -55,20 +52,20 @@ class GalerkinMoments {
     return retval;
   }
 
-  IndexType polynomial_degree() const { return polynomial_degree_; }
+  Index polynomial_degree() const { return polynomial_degree_; }
   const Interpolator &interp() const { return interp_; }
   const Eigen::MatrixXd &V() const { return V_; }
   const Eigen::MatrixXi &F() const { return F_; }
   const std::vector<TriangularPanel> &elements() const { return elements_; }
 
- private:
+private:
   const Eigen::MatrixXd &V_;
   const Eigen::MatrixXi &F_;
   const Quad::Quadrature<Quad::Radon> Rq_;
   std::vector<TriangularPanel> elements_;
-  IndexType polynomial_degree_;
+  Index polynomial_degree_;
   Interpolator interp_;
 };
 
-}  // namespace FMCA
+} // namespace FMCA
 #endif

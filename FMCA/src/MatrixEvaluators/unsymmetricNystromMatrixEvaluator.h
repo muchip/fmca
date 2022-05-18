@@ -23,10 +23,6 @@ namespace FMCA {
  **/
 template <typename Moments, typename Kernel>
 struct unsymmetricNystromMatrixEvaluator {
-  typedef typename Moments::eigenVector eigenVector;
-  typedef typename Moments::eigenMatrix eigenMatrix;
-  typedef typename eigenMatrix::Scalar value_type;
-
   unsymmetricNystromMatrixEvaluator(const Moments &r_mom, const Moments &c_mom)
       : r_mom_(r_mom), c_mom_(c_mom) {}
   unsymmetricNystromMatrixEvaluator(const Moments &r_mom, const Moments &c_mom,
@@ -46,15 +42,13 @@ struct unsymmetricNystromMatrixEvaluator {
   template <typename Derived>
   void interpolate_kernel(const ClusterTreeBase<Derived> &TR,
                           const ClusterTreeBase<Derived> &TC,
-                          eigenMatrix *mat) const {
-    eigenMatrix XiX =
-        r_mom_.interp().Xi().cwiseProduct(
-            TR.bb().col(2).replicate(1, r_mom_.interp().Xi().cols())) +
-        TR.bb().col(0).replicate(1, r_mom_.interp().Xi().cols());
-    eigenMatrix XiY =
-        c_mom_.interp().Xi().cwiseProduct(
-            TC.bb().col(2).replicate(1, c_mom_.interp().Xi().cols())) +
-        TC.bb().col(0).replicate(1, c_mom_.interp().Xi().cols());
+                          Matrix *mat) const {
+    Matrix XiX = r_mom_.interp().Xi().cwiseProduct(
+                     TR.bb().col(2).replicate(1, r_mom_.interp().Xi().cols())) +
+                 TR.bb().col(0).replicate(1, r_mom_.interp().Xi().cols());
+    Matrix XiY = c_mom_.interp().Xi().cwiseProduct(
+                     TC.bb().col(2).replicate(1, c_mom_.interp().Xi().cols())) +
+                 TC.bb().col(0).replicate(1, c_mom_.interp().Xi().cols());
     mat->resize(XiX.cols(), XiY.cols());
     for (auto j = 0; j < mat->cols(); ++j)
       for (auto i = 0; i < mat->rows(); ++i)
@@ -69,7 +63,7 @@ struct unsymmetricNystromMatrixEvaluator {
   template <typename Derived>
   void compute_dense_block(const ClusterTreeBase<Derived> &TR,
                            const ClusterTreeBase<Derived> &TC,
-                           eigenMatrix *retval) const {
+                           Matrix *retval) const {
     retval->resize(TR.indices().size(), TC.indices().size());
     for (auto j = 0; j < TC.indices().size(); ++j)
       for (auto i = 0; i < TR.indices().size(); ++i)
@@ -83,5 +77,5 @@ struct unsymmetricNystromMatrixEvaluator {
   Kernel kernel_;
 };
 
-}  // namespace FMCA
+} // namespace FMCA
 #endif

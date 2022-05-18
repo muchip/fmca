@@ -36,10 +36,10 @@ void forward_transform_recursion(const H2ClusterTree<Derived1> &CT,
 }
 
 template <typename Derived, typename otherDerived>
-std::vector<typename Derived::eigenMatrix>
+std::vector<Matrix>
 forward_transform_impl(const Derived &mat,
                        const Eigen::MatrixBase<otherDerived> &vec) {
-  std::vector<typename Derived::eigenMatrix> retval(mat.nclusters());
+  std::vector<Matrix> retval(mat.nclusters());
   forward_transform_recursion(*(mat.ccluster()), &retval, vec);
   return retval;
 };

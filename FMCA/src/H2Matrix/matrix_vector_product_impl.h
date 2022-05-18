@@ -12,15 +12,14 @@
 #ifndef FMCA_H2MATRIX_MATRIXVECTORPRODUCTIMPL_H_
 #define FMCA_H2MATRIX_MATRIXVECTORPRODUCTIMPL_H_
 
+namespace FMCA {
 template <typename Derived, typename otherDerived>
-typename Derived::eigenMatrix
-matrix_vector_product_impl(const Derived &H2,
-                           const Eigen::MatrixBase<otherDerived> &rhs) {
-  typedef typename Derived::eigenMatrix eigenMatrix;
-  eigenMatrix lhs(rhs.rows(), rhs.cols());
+Matrix matrix_vector_product_impl(const Derived &H2,
+                                  const Eigen::MatrixBase<otherDerived> &rhs) {
+  Matrix lhs(rhs.rows(), rhs.cols());
   lhs.setZero();
-  std::vector<eigenMatrix> trhs = forward_transform_impl(H2, rhs);
-  std::vector<eigenMatrix> tlhs = trhs;
+  std::vector<Matrix> trhs = forward_transform_impl(H2, rhs);
+  std::vector<Matrix> tlhs = trhs;
   for (auto &&it : tlhs)
     it.setZero();
   for (auto it = H2.cbegin(); it != H2.cend(); ++it) {
@@ -39,5 +38,5 @@ matrix_vector_product_impl(const Derived &H2,
   backward_transform_recursion(*(H2.rcluster()), &lhs, tlhs);
   return lhs;
 }
-
+} // namespace FMCA
 #endif

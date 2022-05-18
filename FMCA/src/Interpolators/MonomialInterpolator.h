@@ -17,19 +17,16 @@ namespace FMCA {
 /**
  *  \brief Multivariate total degree monomial interpolator
  **/
-template <typename ValueType> class MonomialInterpolator {
+class MonomialInterpolator {
 public:
-  typedef Eigen::Matrix<ValueType, Eigen::Dynamic, 1> eigenVector;
-  typedef Eigen::Matrix<ValueType, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
-
-  void init(IndexType dim, IndexType deg) {
+  void init(Index dim, Index deg) {
     dim_ = dim;
     deg_ = deg;
     idcs_.init(dim, deg);
     TD_xi_.resize(dim_, idcs_.index_set().size());
     V_.resize(idcs_.index_set().size(), idcs_.index_set().size());
     // determine tensor product interpolation points
-    IndexType k = 0;
+    Index k = 0;
     for (const auto &it : idcs_.index_set()) {
       for (auto i = 0; i < it.size(); ++i)
         TD_xi_(i, k) = LejaPoints[it[i]];
@@ -42,10 +39,10 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
   template <typename Derived>
-  eigenMatrix evalPolynomials(const Eigen::MatrixBase<Derived> &pt) const {
-    eigenVector retval(idcs_.index_set().size());
+  Matrix evalPolynomials(const Eigen::MatrixBase<Derived> &pt) const {
+    Vector retval(idcs_.index_set().size());
     retval.setOnes();
-    IndexType k = 0;
+    Index k = 0;
     for (const auto &it : idcs_.index_set()) {
       for (auto i = 0; i < dim_; ++i)
         if (it[i])
@@ -55,18 +52,18 @@ public:
     return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
-  const eigenMatrix &Xi() const { return TD_xi_; }
-  const eigenMatrix &invV() const { return invV_; }
-  const eigenMatrix &V() const { return V_; }
+  const Matrix &Xi() const { return TD_xi_; }
+  const Matrix &invV() const { return invV_; }
+  const Matrix &V() const { return V_; }
   const MultiIndexSet<TotalDegree> &idcs() const { return idcs_; }
 
 private:
   MultiIndexSet<TotalDegree> idcs_;
-  eigenMatrix TD_xi_;
-  eigenMatrix invV_;
-  eigenMatrix V_;
-  IndexType dim_;
-  IndexType deg_;
+  Matrix TD_xi_;
+  Matrix invV_;
+  Matrix V_;
+  Index dim_;
+  Index deg_;
 };
 } // namespace FMCA
 #endif

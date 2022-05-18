@@ -20,10 +20,10 @@ namespace SampletHelper {
  *  \ingroup Moments
  *  \brief computes the internal polynomial degree for the vanishing moments
  **/
-inline IndexType internal_q(IndexType q, IndexType dim) {
-  IndexType retval = q;
-  IndexType mq = binomialCoefficient(dim + q, dim);
-  IndexType mq2 = mq;
+inline Index internal_q(Index q, Index dim) {
+  Index retval = q;
+  Index mq = binomialCoefficient(dim + q, dim);
+  Index mq2 = mq;
 
   while (2 * mq > mq2) {
     ++retval;
@@ -40,19 +40,16 @@ inline IndexType internal_q(IndexType q, IndexType dim) {
  *         procedure
  **/
 template <typename Derived, typename MultiIndexSet, typename Derived2>
-inline Eigen::Matrix<typename Derived::Scalar, Eigen::Dynamic, Eigen::Dynamic>
+inline Matrix
 monomialMomentShifter(const Eigen::MatrixBase<Derived> &shift,
                       const MultiIndexSet &idcs,
                       const Eigen::MatrixBase<Derived2> &mult_coeffs) {
-  Eigen::Matrix<typename Derived::Scalar, Eigen::Dynamic, Eigen::Dynamic>
-      retval = mult_coeffs;
+  Matrix retval = mult_coeffs;
   if (shift.norm() < FMCA_ZERO_TOLERANCE)
-    return Eigen::Matrix<typename Derived::Scalar, Eigen::Dynamic,
-                         Eigen::Dynamic>::Identity(retval.rows(),
-                                                   retval.cols());
-  IndexType i = 0;
-  IndexType j = 0;
-  typename Derived::Scalar weight;
+    return Matrix::Identity(retval.rows(), retval.cols());
+  Index i = 0;
+  Index j = 0;
+  Scalar weight = 0;
   for (const auto &it1 : idcs.index_set()) {
     j = 0;
     for (const auto &it2 : idcs.index_set()) {
@@ -75,11 +72,11 @@ monomialMomentShifter(const Eigen::MatrixBase<Derived> &shift,
  *  \brief computes a matrix containing all possible multinomial
  *         combinations for a given multi index set
  **/
-template <typename Matrix, typename MultiIndexSet>
+template <typename MultiIndexSet>
 inline Matrix multinomialCoefficientMatrix(const MultiIndexSet &idcs) {
   Matrix retval(idcs.index_set().size(), idcs.index_set().size());
-  IndexType i = 0;
-  IndexType j = 0;
+  Index i = 0;
+  Index j = 0;
   for (const auto &beta : idcs.index_set()) {
     for (const auto &alpha : idcs.index_set()) {
       retval(j, i) = multinomialCoefficient(alpha, beta);

@@ -22,12 +22,7 @@ namespace FMCA {
  *         a given Nystrom matrix that is fully described by these
  *         two routines.
  **/
-template <typename Scalar> struct SparseMatrixEvaluator {
-  typedef typename Eigen::Matrix<Scalar, Eigen::Dynamic, 1> eigenVector;
-  typedef typename Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>
-      eigenMatrix;
-  typedef Scalar value_type;
-
+struct SparseMatrixEvaluator {
   SparseMatrixEvaluator(const SparseMatrix<Scalar> &M) : M_(M) {}
   /**
    *  \brief provides the kernel evaluation for the H2-matrix, in principle
@@ -38,7 +33,7 @@ template <typename Scalar> struct SparseMatrixEvaluator {
   template <typename Derived>
   void interpolate_kernel(const ClusterTreeBase<Derived> &TR,
                           const ClusterTreeBase<Derived> &TC,
-                          eigenMatrix *mat) const {
+                          Matrix *mat) const {
     mat->resize(TR.derived().V().rows(), TC.derived().V().rows());
     mat->setZero();
     return;
@@ -50,7 +45,7 @@ template <typename Scalar> struct SparseMatrixEvaluator {
   template <typename Derived>
   void compute_dense_block(const ClusterTreeBase<Derived> &TR,
                            const ClusterTreeBase<Derived> &TC,
-                           eigenMatrix *retval) const {
+                           Matrix *retval) const {
     retval->resize(TR.indices().size(), TC.indices().size());
     for (auto j = 0; j < TC.indices().size(); ++j)
       for (auto i = 0; i < TR.indices().size(); ++i)

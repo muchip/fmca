@@ -22,9 +22,6 @@ namespace FMCA {
  */
 template <typename Derived> class H2Matrix {
 public:
-  typedef typename internal::traits<Derived>::value_type value_type;
-  typedef typename internal::traits<Derived>::eigenMatrix eigenMatrix;
-  enum Admissibility { Refine = 0, LowRank = 1, Dense = 2 };
   using iterator = IDDFSForwardIterator<H2Matrix, false>;
   using const_iterator = IDDFSForwardIterator<H2Matrix, true>;
   friend iterator;
@@ -47,7 +44,7 @@ public:
   H2Matrix() : is_low_rank_(false), dad_(nullptr), level_(0) {}
   template <typename EntryGenerator>
   H2Matrix(const H2ClusterTreeBase<Derived> &CT, const EntryGenerator &e_gen,
-           value_type eta = 0.8)
+           Scalar eta = 0.8)
       : is_low_rank_(false), dad_(nullptr), level_(0) {
     init(CT, e_gen, eta);
   }
@@ -56,12 +53,12 @@ public:
   //////////////////////////////////////////////////////////////////////////////
   template <typename MatrixEvaluator>
   void init(const H2ClusterTreeBase<Derived> &CT,
-            const MatrixEvaluator &mat_eval, value_type eta = 0.8) {
+            const MatrixEvaluator &mat_eval, Scalar eta = 0.8) {
     computeH2Matrix(CT.derived(), CT.derived(), mat_eval, eta);
     // after setting up the actual H2Matrix, we now also fill the random
     // access iterator, which allows levelwise traversal of the H2Matrix
     // and random access to the nearfield
-    IndexType max_level = 0;
+    Index max_level = 0;
     nclusters_ = std::distance(CT.cbegin(), CT.cend());
     for (const auto &node : *this) {
       max_level = max_level < node.level() ? node.level() : max_level;
@@ -78,23 +75,23 @@ public:
     }
     return;
   }
-  IndexType rows() const { return row_cluster_->indices().size(); }
-  IndexType cols() const { return col_cluster_->indices().size(); }
-  IndexType level() const { return level_; }
-  IndexType nclusters() const { return nclusters_; }
+  Index rows() const { return row_cluster_->indices().size(); }
+  Index cols() const { return col_cluster_->indices().size(); }
+  Index level() const { return level_; }
+  Index nclusters() const { return nclusters_; }
   const Derived *rcluster() const { return row_cluster_; }
   const Derived *ccluster() const { return col_cluster_; }
   const GenericMatrix<H2Matrix> &sons() const { return sons_; }
   bool is_low_rank() const { return is_low_rank_; }
-  const eigenMatrix &matrixS() const { return S_; }
+  const Matrix &matrixS() const { return S_; }
   const RandomAccessor &rnd_accessor() const { return rnd_access_; }
   //////////////////////////////////////////////////////////////////////////////
   // (m, n, fblocks, lrblocks, nz(A), mem)
   std::vector<double> get_statistics() const {
     std::vector<double> retval;
-    IndexType low_rank_blocks = 0;
-    IndexType full_blocks = 0;
-    IndexType memory = 0;
+    Index low_rank_blocks = 0;
+    Index full_blocks = 0;
+    Index memory = 0;
     getStatisticsRecursion(&low_rank_blocks, &full_blocks, &memory);
     std::cout << "matrix size: " << row_cluster_->indices().size() << " x "
               << col_cluster_->indices().size() << std::endl;
@@ -107,48 +104,47 @@ public:
     retval.push_back(full_blocks);
 
     std::cout << "nz per row: "
-              << round(FloatType(memory) / col_cluster_->indices().size())
+              << round(Scalar(memory) / col_cluster_->indices().size())
               << std::endl;
-    retval.push_back(round(FloatType(memory) / col_cluster_->indices().size()));
-    std::cout << "storage size: "
-              << FloatType(memory * sizeof(value_type)) / 1e9 << "GB"
-              << std::endl;
-    retval.push_back(FloatType(memory * sizeof(value_type)) / 1e9);
+    retval.push_back(round(Scalar(memory) / col_cluster_->indices().size()));
+    std::cout << "storage size: " << Scalar(memory * sizeof(Scalar)) / 1e9
+              << "GB" << std::endl;
+    retval.push_back(Scalar(memory * sizeof(Scalar)) / 1e9);
     return retval;
   }
 
   template <typename otherDerived>
-  eigenMatrix operator*(const Eigen::MatrixBase<otherDerived> &rhs) const {
+  Matrix operator*(const Eigen::MatrixBase<otherDerived> &rhs) const {
     return matrix_vector_product_impl(*this, rhs);
   }
   //////////////////////////////////////////////////////////////////////////////
-  eigenMatrix full() const {
+  Matrix full() const {
     eigen_assert(row_cluster_->is_root() && col_cluster_->is_root() &&
                  "method needs to be called from the root");
-    eigenMatrix retval(row_cluster_->indices().size(),
-                       row_cluster_->indices().size());
+    Matrix retval(row_cluster_->indices().size(),
+                  row_cluster_->indices().size());
     computeFullMatrixRecursion(*row_cluster_, *row_cluster_, &retval);
     return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
-  static value_type computeDistance(const Derived &cluster1,
-                                    const Derived &cluster2) {
-    const value_type row_radius = 0.5 * cluster1.bb().col(2).norm();
-    const value_type col_radius = 0.5 * cluster2.bb().col(2).norm();
-    const value_type dist = 0.5 * (cluster1.bb().col(0) - cluster2.bb().col(0) +
-                                   cluster1.bb().col(1) - cluster2.bb().col(1))
-                                      .norm() -
-                            row_radius - col_radius;
+  static Scalar computeDistance(const Derived &cluster1,
+                               const Derived &cluster2) {
+    const Scalar row_radius = 0.5 * cluster1.bb().col(2).norm();
+    const Scalar col_radius = 0.5 * cluster2.bb().col(2).norm();
+    const Scalar dist = 0.5 * (cluster1.bb().col(0) - cluster2.bb().col(0) +
+                              cluster1.bb().col(1) - cluster2.bb().col(1))
+                                 .norm() -
+                       row_radius - col_radius;
     return dist > 0 ? dist : 0;
   }
   //////////////////////////////////////////////////////////////////////////////
   static Admissibility compareCluster(const Derived &cluster1,
-                                      const Derived &cluster2, value_type eta) {
+                                      const Derived &cluster2, Scalar eta) {
     Admissibility retval;
-    const value_type dist = computeDistance(cluster1, cluster2);
-    const value_type row_radius = 0.5 * cluster1.bb().col(2).norm();
-    const value_type col_radius = 0.5 * cluster2.bb().col(2).norm();
-    const value_type radius = row_radius > col_radius ? row_radius : col_radius;
+    const Scalar dist = computeDistance(cluster1, cluster2);
+    const Scalar row_radius = 0.5 * cluster1.bb().col(2).norm();
+    const Scalar col_radius = 0.5 * cluster2.bb().col(2).norm();
+    const Scalar radius = row_radius > col_radius ? row_radius : col_radius;
 
     if (radius > eta * dist) {
       // check if either cluster is a leaf in that case,
@@ -163,8 +159,8 @@ public:
   //////////////////////////////////////////////////////////////////////////////
 private:
   //////////////////////////////////////////////////////////////////////////////
-  void getStatisticsRecursion(IndexType *low_rank_blocks,
-                              IndexType *full_blocks, IndexType *memory) const {
+  void getStatisticsRecursion(Index *low_rank_blocks, Index *full_blocks,
+                              Index *memory) const {
     if (sons_.size()) {
       for (const auto &s : sons_)
         s.getStatisticsRecursion(low_rank_blocks, full_blocks, memory);
@@ -179,7 +175,7 @@ private:
   }
 
   void computeFullMatrixRecursion(const Derived &CR, const Derived &CS,
-                                  eigenMatrix *target) const {
+                                  Matrix *target) const {
     if (sons_.size()) {
       for (auto i = 0; i < sons_.rows(); ++i)
         for (auto j = 0; j < sons_.cols(); ++j)
@@ -202,7 +198,7 @@ private:
 
   template <typename MatrixEvaluator>
   void computeH2Matrix(const Derived &CT1, const Derived &CT2,
-                       const MatrixEvaluator &mat_eval, value_type eta) {
+                       const MatrixEvaluator &mat_eval, Scalar eta) {
     row_cluster_ = &CT1;
     col_cluster_ = &CT2;
     level_ = CT1.level();
@@ -230,9 +226,9 @@ private:
   const Derived *row_cluster_;
   const Derived *col_cluster_;
   bool is_low_rank_;
-  eigenMatrix S_;
-  IndexType level_;
-  IndexType nclusters_;
+  Matrix S_;
+  Index level_;
+  Index nclusters_;
 };
 
 } // namespace FMCA
