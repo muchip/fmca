@@ -55,7 +55,7 @@ struct unsymmetricNystromMatrixEvaluator {
         c_mom_.interp().Xi().cwiseProduct(
             TC.bb().col(2).replicate(1, c_mom_.interp().Xi().cols())) +
         TC.bb().col(0).replicate(1, c_mom_.interp().Xi().cols());
-    mat->resize(XiX.cols(), XiX.cols());
+    mat->resize(XiX.cols(), XiY.cols());
     for (auto j = 0; j < mat->cols(); ++j)
       for (auto i = 0; i < mat->rows(); ++i)
         (*mat)(i, j) = kernel_(XiX.col(i), XiY.col(j));
@@ -83,5 +83,5 @@ struct unsymmetricNystromMatrixEvaluator {
   Kernel kernel_;
 };
 
-} // namespace FMCA
+}  // namespace FMCA
 #endif

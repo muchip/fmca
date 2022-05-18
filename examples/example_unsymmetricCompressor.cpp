@@ -16,12 +16,13 @@
 ////////////////////////////////////////////////////////////////////////////////
 #include <FMCA/src/util/Errors.h>
 #include <FMCA/src/util/Tictoc.h>
+#include <FMCA/src/util/print2file.h>
 
 struct expKernel {
   template <typename derived, typename otherDerived>
   double operator()(const Eigen::MatrixBase<derived> &x,
                     const Eigen::MatrixBase<otherDerived> &y) const {
-    return exp(-(x - y).norm()) * x.norm();
+    return exp(-(x - y).norm());
   }
 };
 
@@ -36,14 +37,14 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 int main(int argc, char *argv[]) {
   const unsigned int dim = atoi(argv[1]);
   const unsigned int dtildeR = 3;
-  const unsigned int dtildeC = 4;
+  const unsigned int dtildeC = 3;
   const auto function = expKernel();
-  const double eta = 0.5;
+  const double eta = 0.8;
   const unsigned int mp_degR = 4;
-  const unsigned int mp_degC = 6;
-  const double threshold = 1e-10;
-  const unsigned int mpts = 10000;
-  const unsigned int npts = 5000;
+  const unsigned int mp_degC = 4;
+  const double threshold = 1e-4;
+  const unsigned int mpts = 2000;
+  const unsigned int npts = 500;
 
   FMCA::Tictoc T;
   std::cout << "M:" << mpts << " N: " << npts << " dim:" << dim
@@ -77,6 +78,7 @@ int main(int argc, char *argv[]) {
   S.setFromTriplets(trips.begin(), trips.end());
   std::cout << (TTblock.transpose() - S.full()).norm() / TTblock.norm()
             << std::endl;
+  FMCA::IO::print2m("eval.m", "K", S.full() , "w");
   std::cout << std::flush;
 #if 0
 
