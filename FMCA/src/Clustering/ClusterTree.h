@@ -14,21 +14,12 @@
 
 namespace FMCA {
 
-namespace internal {
-template <> struct traits<ClusterTreeNode> {
-  typedef FloatType value_type;
-  typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
-};
-} // namespace internal
-
 struct ClusterTreeNode : public ClusterTreeNodeBase<ClusterTreeNode> {};
 
 namespace internal {
 template <> struct traits<ClusterTree> {
-  typedef FloatType value_type;
-  typedef ClusterTreeNode node_type;
-  typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
-  typedef ClusterSplitter::CardinalityBisection<value_type> Splitter;
+  typedef ClusterTreeNode Node;
+  typedef ClusterSplitter::CardinalityBisection Splitter;
 };
 } // namespace internal
 
@@ -39,7 +30,6 @@ template <> struct traits<ClusterTree> {
  *         afterwards always be recombined into an 2^n tree.
  */
 struct ClusterTree : public ClusterTreeBase<ClusterTree> {
-  typedef typename internal::traits<ClusterTree>::eigenMatrix eigenMatrix;
   typedef ClusterTreeBase<ClusterTree> Base;
   // make base class methods visible
   using Base::appendSons;
@@ -57,13 +47,13 @@ struct ClusterTree : public ClusterTreeBase<ClusterTree> {
   // constructors
   //////////////////////////////////////////////////////////////////////////////
   ClusterTree() {}
-  ClusterTree(const eigenMatrix &P, IndexType min_cluster_size = 1) {
+  ClusterTree(const Matrix &P, Index min_cluster_size = 1) {
     init(P, min_cluster_size);
   }
   //////////////////////////////////////////////////////////////////////////////
   // implementation of init
   //////////////////////////////////////////////////////////////////////////////
-  void init(const eigenMatrix &P, IndexType min_cluster_size = 1) {
+  void init(const Matrix &P, Index min_cluster_size = 1) {
     internal::ClusterTreeInitializer<ClusterTree>::init(*this, min_cluster_size,
                                                         P);
   }

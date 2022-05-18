@@ -16,10 +16,8 @@ namespace FMCA {
 
 namespace internal {
 template <> struct traits<ClusterTreeMesh> {
-  typedef FloatType value_type;
-  typedef ClusterTreeNode node_type;
-  typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
-  typedef ClusterSplitter::GeometricBisection<value_type> Splitter;
+  typedef ClusterTreeNode Node;
+  typedef ClusterSplitter::GeometricBisection Splitter;
 };
 } // namespace internal
 
@@ -30,7 +28,6 @@ template <> struct traits<ClusterTreeMesh> {
  *         afterwards always be recombined into an 2^n tree.
  */
 struct ClusterTreeMesh : public ClusterTreeBase<ClusterTreeMesh> {
-  typedef typename internal::traits<ClusterTree>::eigenMatrix eigenMatrix;
   typedef ClusterTreeBase<ClusterTreeMesh> Base;
   // make base class methods visible
   using Base::appendSons;
@@ -51,7 +48,7 @@ struct ClusterTreeMesh : public ClusterTreeBase<ClusterTreeMesh> {
   template <typename Derived, typename otherDerived>
   ClusterTreeMesh(const Eigen::MatrixBase<Derived> &V,
                   const Eigen::MatrixBase<otherDerived> &F,
-                  IndexType min_cluster_size = 1) {
+                  Index min_cluster_size = 1) {
     init(V, F, min_cluster_size);
   }
   //////////////////////////////////////////////////////////////////////////////
@@ -60,9 +57,9 @@ struct ClusterTreeMesh : public ClusterTreeBase<ClusterTreeMesh> {
   template <typename Derived, typename otherDerived>
   void init(const Eigen::MatrixBase<Derived> &V,
             const Eigen::MatrixBase<otherDerived> &F,
-            IndexType min_cluster_size = 1) {
+            Index min_cluster_size = 1) {
     // generate list of element centers of gravity
-    eigenMatrix P(V.cols(), F.rows());
+    Matrix P(V.cols(), F.rows());
     P.setZero();
     for (auto i = 0; i < P.cols(); ++i)
       for (auto j = 0; j < F.cols(); ++j)

@@ -20,14 +20,12 @@ namespace FMCA {
  **/
 namespace ClusterSplitter {
 
-template <typename ValueType> struct GeometricBisection {
-  typedef Eigen::Matrix<ValueType, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
+struct GeometricBisection {
   template <class ClusterTree>
-  void operator()(const eigenMatrix &P, const std::vector<IndexType> &indices,
-                  const eigenMatrix &bb, ClusterTree &c1,
-                  ClusterTree &c2) const {
+  void operator()(const Matrix &P, const std::vector<Index> &indices,
+                  const Matrix &bb, ClusterTree &c1, ClusterTree &c2) const {
     // assign bounding boxes by longest edge bisection
-    IndexType longest;
+    Index longest;
     bb.col(2).maxCoeff(&longest);
     c1.bb_ = bb;
     c1.bb_(longest, 2) *= 0.5;
@@ -52,31 +50,27 @@ template <typename Derived> struct CoordinateCompare {
   CoordinateCompare(const Eigen::MatrixBase<Derived> &P, Eigen::Index cmp)
       : P_(P), cmp_(cmp){};
 
-  bool operator()(IndexType i, IndexType &j) {
-    return P_(cmp_, i) < P_(cmp_, j);
-  }
+  bool operator()(Index i, Index &j) { return P_(cmp_, i) < P_(cmp_, j); }
 };
 
-template <typename ValueType> struct CardinalityBisection {
-  typedef Eigen::Matrix<ValueType, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
+struct CardinalityBisection {
   template <class ClusterTree>
-  void operator()(const eigenMatrix &P, const std::vector<IndexType> &indices,
-                  const eigenMatrix &bb, ClusterTree &c1,
-                  ClusterTree &c2) const {
-    std::vector<IndexType> sorted_indices;
-    IndexType longest;
+  void operator()(const Matrix &P, const std::vector<Index> &indices,
+                  const Matrix &bb, ClusterTree &c1, ClusterTree &c2) const {
+    std::vector<Index> sorted_indices;
+    Index longest;
     // assign bounding boxes by longest edge division
     bb.col(2).maxCoeff(&longest);
     sorted_indices = indices;
     // sort father index set with respect to the longest edge component
     std::sort(sorted_indices.begin(), sorted_indices.end(),
-              CoordinateCompare<eigenMatrix>(P, longest));
-    c1.indices_ = std::vector<IndexType>(sorted_indices.begin(),
-                                         sorted_indices.begin() +
-                                             sorted_indices.size() / 2);
-    c2.indices_ = std::vector<IndexType>(sorted_indices.begin() +
-                                             sorted_indices.size() / 2,
-                                         sorted_indices.end());
+              CoordinateCompare<Matrix>(P, longest));
+    c1.indices_ =
+        std::vector<Index>(sorted_indices.begin(),
+                           sorted_indices.begin() + sorted_indices.size() / 2);
+    c2.indices_ =
+        std::vector<Index>(sorted_indices.begin() + sorted_indices.size() / 2,
+                           sorted_indices.end());
     c2.indices_begin_ += c1.indices_.size();
     c1.bb_ = bb;
     c1.bb_(longest, 1) = P(longest, c1.indices_.back());

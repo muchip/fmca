@@ -17,30 +17,28 @@ namespace internal {
 /** \ingroup internal
  *  \brief initializes a bounding box for the geometry
  **/
-template <>
-struct ClusterTreeInitializer<ClusterTree> {
+template <> struct ClusterTreeInitializer<ClusterTree> {
   ClusterTreeInitializer() = delete;
   //////////////////////////////////////////////////////////////////////////////
-  template <typename Derived, typename eigenMatrix>
-  static void init(ClusterTreeBase<Derived> &CT, IndexType min_cluster_size,
-                   const eigenMatrix &P) {
+  template <typename Derived>
+  static void init(ClusterTreeBase<Derived> &CT, Index min_cluster_size,
+                   const Matrix &P) {
     init_BoundingBox_impl(CT, min_cluster_size, P);
     CT.node().indices_begin_ = 0;
     CT.node().indices_.resize(P.cols());
     std::iota(CT.node().indices_.begin(), CT.node().indices_.end(), 0u);
     init_ClusterTree_impl(CT, min_cluster_size, P);
     shrinkToFit_impl(CT, P);
-    IndexType i = 0;
+    Index i = 0;
     for (auto &it : CT) {
       it.node().block_id_ = i;
       ++i;
     }
   }
   //////////////////////////////////////////////////////////////////////////////
-  template <typename Derived, typename eigenMatrix>
+  template <typename Derived>
   static void init_BoundingBox_impl(ClusterTreeBase<Derived> &CT,
-                                    IndexType min_cluster_size,
-                                    const eigenMatrix &P) {
+                                    Index min_cluster_size, const Matrix &P) {
     CT.node().bb_.resize(P.rows(), 3);
     CT.node().bb_.col(0) = P.rowwise().minCoeff();
     CT.node().bb_.col(1) = P.rowwise().maxCoeff();
@@ -53,12 +51,11 @@ struct ClusterTreeInitializer<ClusterTree> {
   /** \ingroup internal
    *  \brief perform cluster refinement given a Splitter class
    **/
-  template <typename Derived, typename eigenMatrix>
+  template <typename Derived>
   static void init_ClusterTree_impl(ClusterTreeBase<Derived> &CT,
-                                    IndexType min_cluster_size,
-                                    const eigenMatrix &P) {
+                                    Index min_cluster_size, const Matrix &P) {
     typename traits<Derived>::Splitter split;
-    const IndexType split_threshold =
+    const Index split_threshold =
         min_cluster_size >= 1 ? (2 * min_cluster_size - 1) : 1;
     if (CT.node().indices_.size() > split_threshold) {
       CT.appendSons(2);
@@ -72,8 +69,7 @@ struct ClusterTreeInitializer<ClusterTree> {
             CT.sons(1).node());
       // let recursion handle the rest
       for (auto i = 0; i < CT.nSons(); ++i)
-        init_ClusterTree_impl<Derived, eigenMatrix>(CT.sons(i),
-                                                    min_cluster_size, P);
+        init_ClusterTree_impl<Derived>(CT.sons(i), min_cluster_size, P);
       // make indices hierarchically
       CT.node().indices_.clear();
       for (auto i = 0; i < CT.nSons(); ++i)
@@ -88,13 +84,13 @@ struct ClusterTreeInitializer<ClusterTree> {
    *  \brief recursively shrink all bounding boxes to the minimal possible
    *         size
    **/
-  template <typename Derived, typename eigenMatrix>
-  static void shrinkToFit_impl(ClusterTreeBase<Derived> &CT,
-                               const eigenMatrix &P) {
-    eigenMatrix bbmat(P.rows(), 3);
+  template <typename Derived>
+  static void shrinkToFit_impl(ClusterTreeBase<Derived> &CT, const Matrix &P) {
+    Matrix bbmat(P.rows(), 3);
     if (CT.nSons()) {
       // assert that all sons have fitted bb's
-      for (auto i = 0; i < CT.nSons(); ++i) shrinkToFit_impl(CT.sons(i), P);
+      for (auto i = 0; i < CT.nSons(); ++i)
+        shrinkToFit_impl(CT.sons(i), P);
       // now update own bb (we need a son with indices to get a first bb)
       for (auto i = 0; i < CT.nSons(); ++i)
         if (CT.sons(i).node().indices_.size()) {
@@ -139,8 +135,8 @@ struct ClusterTreeInitializer<ClusterTree> {
     return;
   }
 };
-}  // namespace internal
+} // namespace internal
 
-}  // namespace FMCA
+} // namespace FMCA
 
 #endif

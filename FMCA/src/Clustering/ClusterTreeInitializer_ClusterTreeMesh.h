@@ -21,12 +21,11 @@ template <> struct ClusterTreeInitializer<ClusterTreeMesh> {
   ClusterTreeInitializer() = delete;
   //////////////////////////////////////////////////////////////////////////////
   template <typename Derived, typename Derived2, typename Derived3>
-  static void init(ClusterTreeBase<Derived> &CT, IndexType min_cluster_size,
+  static void init(ClusterTreeBase<Derived> &CT, Index min_cluster_size,
                    const Eigen::MatrixBase<Derived2> &V,
                    const Eigen::MatrixBase<Derived3> &F) {
-    typedef typename ClusterTreeBase<Derived>::eigenMatrix eigenMatrix;
     // we split according to midpoints and fix everything later
-    eigenMatrix P(V.cols(), F.rows());
+    Matrix P(V.cols(), F.rows());
     P.setZero();
     for (auto i = 0; i < P.cols(); ++i)
       for (auto j = 0; j < F.cols(); ++j)
@@ -39,7 +38,7 @@ template <> struct ClusterTreeInitializer<ClusterTreeMesh> {
     ClusterTreeInitializer<ClusterTree>::init_ClusterTree_impl(
         CT, min_cluster_size, P);
     shrinkToFit_impl(CT, V, F);
-    IndexType i = 0;
+    Index i = 0;
     for (auto &it : CT) {
       it.node().block_id_ = i;
       ++i;
@@ -55,8 +54,7 @@ template <> struct ClusterTreeInitializer<ClusterTreeMesh> {
   static void shrinkToFit_impl(ClusterTreeBase<Derived> &CT,
                                const Eigen::MatrixBase<Derived2> &V,
                                const Eigen::MatrixBase<Derived3> &F) {
-    typedef typename ClusterTreeBase<Derived>::eigenMatrix eigenMatrix;
-    eigenMatrix bbmat(V.cols(), 3);
+    Matrix bbmat(V.cols(), 3);
     if (CT.nSons()) {
       // assert that all sons have fitted bb's
       for (auto i = 0; i < CT.nSons(); ++i)

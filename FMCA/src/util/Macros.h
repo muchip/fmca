@@ -21,8 +21,11 @@ namespace FMCA {
 #define FMCA_BBOX_THREASHOLD 5e-2
 #define FMCA_ZERO_TOLERANCE 1e-14
 
-typedef unsigned int IndexType;
-typedef double FloatType;
+typedef unsigned int Index;
+typedef double Scalar;
+typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
+typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1u> Vector;
+
 } // namespace FMCA
 
 #endif

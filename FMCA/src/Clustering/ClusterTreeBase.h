@@ -26,10 +26,10 @@ struct ClusterTreeNodeBase : public NodeBase<Derived> {
     bb_.resize(0, 0);
     indices_.resize(0);
   }
-  typename internal::traits<Derived>::eigenMatrix bb_;
-  std::vector<IndexType> indices_;
-  IndexType indices_begin_;
-  IndexType block_id_;
+  Matrix bb_;
+  std::vector<Index> indices_;
+  Index indices_begin_;
+  Index block_id_;
 };
 
 /**
@@ -39,8 +39,7 @@ struct ClusterTreeNodeBase : public NodeBase<Derived> {
  *         boxes
  **/
 template <typename Derived> struct ClusterTreeBase : public TreeBase<Derived> {
-  typedef typename internal::traits<Derived>::eigenMatrix eigenMatrix;
-  typedef typename internal::traits<Derived>::node_type node_type;
+  typedef typename internal::traits<Derived>::Node Node;
   typedef TreeBase<Derived> Base;
   // make base class methods visible
   using Base::appendSons;
@@ -54,13 +53,13 @@ template <typename Derived> struct ClusterTreeBase : public TreeBase<Derived> {
   //////////////////////////////////////////////////////////////////////////////
   // getter
   //////////////////////////////////////////////////////////////////////////////
-  const eigenMatrix &bb() const { return node().bb_; }
+  const Matrix &bb() const { return node().bb_; }
 
-  const std::vector<IndexType> &indices() const { return node().indices_; }
+  const std::vector<Index> &indices() const { return node().indices_; }
 
-  IndexType indices_begin() const { return node().indices_begin_; }
+  Index indices_begin() const { return node().indices_begin_; }
 
-  IndexType block_id() const { return node().block_id_; }
+  Index block_id() const { return node().block_id_; }
 };
 
 } // namespace FMCA

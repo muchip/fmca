@@ -38,11 +38,10 @@ template <typename Derived> struct NodeBase {
  */
 template <typename Derived> class TreeBase {
 public:
-  typedef typename internal::traits<Derived>::eigenMatrix eigenMatrix;
-  typedef typename internal::traits<Derived>::node_type node_type;
+  typedef typename internal::traits<Derived>::Node Node;
   // when a tree is constructed, we add at least the memory for its node
   TreeBase() noexcept : dad_(nullptr), level_(0) {
-    node_ = std::unique_ptr<NodeBase<node_type>>(new node_type);
+    node_ = std::unique_ptr<NodeBase<Node>>(new Node);
   }
   //////////////////////////////////////////////////////////////////////////////
   using iterator = IDDFSForwardIterator<Derived, false>;
@@ -60,8 +59,8 @@ public:
     derived().init(std::forward<Ts>(ts)...);
   }
   //////////////////////////////////////////////////////////////////////////////
-  node_type &node() { return node_->derived(); }
-  const node_type &node() const { return node_->derived(); }
+  Node &node() { return node_->derived(); }
+  const Node &node() const { return node_->derived(); }
   //////////////////////////////////////////////////////////////////////////////
   iterator begin() { return iterator(static_cast<Derived *>(this), 0); }
   iterator end() { return iterator(nullptr, 0); }
@@ -90,13 +89,13 @@ public:
     }
   }
   //////////////////////////////////////////////////////////////////////////////
-  IndexType level() { return level_; };
-  const IndexType level() const { return level_; };
+  Index level() { return level_; };
+  const Index level() const { return level_; };
 
   bool is_root() const { return dad_ == nullptr; }
   //////////////////////////////////////////////////////////////////////////////
   // provide a levelwise ordered output of the tree for debugging purposes only
-  void exportTreeStructure(std::vector<std::vector<IndexType>> &tree) {
+  void exportTreeStructure(std::vector<std::vector<Index>> &tree) {
     if (level() >= tree.size())
       tree.resize(level() + 1);
     tree[level()].push_back(node().indices_.size());
@@ -106,9 +105,9 @@ public:
   //////////////////////////////////////////////////////////////////////////////
 private:
   std::vector<TreeBase> sons_;
-  std::unique_ptr<NodeBase<node_type>> node_;
+  std::unique_ptr<NodeBase<Node>> node_;
   TreeBase *dad_;
-  IndexType level_;
+  Index level_;
 };
 
 } // namespace FMCA

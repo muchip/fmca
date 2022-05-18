@@ -26,7 +26,7 @@ template <typename T, bool IS_CONST> struct IDDFSForwardIterator {
   using pointer = value_type *;
   using reference = value_type &;
 
-  explicit IDDFSForwardIterator(pointer ptr, IndexType depth)
+  explicit IDDFSForwardIterator(pointer ptr, Index depth)
       : ptr_(ptr), depth_(depth), max_depth_(0) {}
 
   reference operator*() const { return *ptr_; }
@@ -83,8 +83,8 @@ template <typename T, bool IS_CONST> struct IDDFSForwardIterator {
 
 private:
   pointer ptr_;
-  IndexType depth_;
-  IndexType max_depth_;
+  Index depth_;
+  Index max_depth_;
   // give iterator access to const_iterator::m_ptr
   friend IDDFSForwardIterator<T, false>;
 };
