@@ -67,16 +67,6 @@ template <typename Derived> struct unsymmetric_compressor_impl {
   }
 
   //////////////////////////////////////////////////////////////////////////////
-  value_type computeDistance(const Derived &TR, const Derived &TC) {
-    const value_type row_radius = 0.5 * TR.bb().col(2).norm();
-    const value_type col_radius = 0.5 * TC.bb().col(2).norm();
-    const value_type dist = 0.5 * (TR.bb().col(0) - TC.bb().col(0) +
-                                   TR.bb().col(1) - TC.bb().col(1))
-                                      .norm() -
-                            row_radius - col_radius;
-    return dist > 0 ? dist : 0;
-  }
-  //////////////////////////////////////////////////////////////////////////////
   const std::vector<Eigen::Triplet<value_type>> &pattern_triplets() const {
     return triplet_list_;
   }
@@ -132,7 +122,7 @@ template <typename Derived> struct unsymmetric_compressor_impl {
     eigenMatrix buf(0, 0);
     eigenMatrix retval(0, 0);
     // check for admissibility
-    if (compareCluster(TR, TC) == LowRank) {
+    if (compareCluster(TR, TC, eta_) == LowRank) {
       e_gen.interpolate_kernel(TR, TC, &buf);
 
       retval = TR.V().transpose() * buf * TC.V();
@@ -192,7 +182,7 @@ template <typename Derived> struct unsymmetric_compressor_impl {
     // if there are children of the row cluster, we proceed recursively
     if (TR.nSons()) {
       for (auto i = 0; i < TR.nSons(); ++i) {
-        if (compareCluster(TR.sons(i), TC) != LowRank) {
+        if (compareCluster(TR.sons(i), TC, eta_) != LowRank) {
           setupRow(TR.sons(i), TC, e_gen);
           auto it = buffer_[TR.sons(i).block_id()].find(TC.block_id());
           eigen_assert(it != buffer_[TR.sons(i).block_id()].end() &&

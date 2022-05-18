@@ -21,7 +21,7 @@ struct expKernel {
   template <typename derived, typename otherDerived>
   double operator()(const Eigen::MatrixBase<derived> &x,
                     const Eigen::MatrixBase<otherDerived> &y) const {
-    return exp(-(x - y).norm());
+    return exp(-(x - y).norm()) * x.norm();
   }
 };
 
@@ -35,41 +35,51 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
 int main(int argc, char *argv[]) {
   const unsigned int dim = atoi(argv[1]);
-  const unsigned int dtilde = 3;
+  const unsigned int dtildeR = 3;
+  const unsigned int dtildeC = 4;
   const auto function = expKernel();
-  const double eta = 0.8;
-  const unsigned int mp_deg = 4;
-  const double threshold = 1e-5;
-  const unsigned int mpts = 10;
-  const unsigned int npts = 8;
+  const double eta = 0.5;
+  const unsigned int mp_degR = 4;
+  const unsigned int mp_degC = 6;
+  const double threshold = 1e-10;
+  const unsigned int mpts = 10000;
+  const unsigned int npts = 5000;
 
   FMCA::Tictoc T;
   std::cout << "M:" << mpts << " N: " << npts << " dim:" << dim
-            << " eta:" << eta << " mpd:" << mp_deg << " dt:" << dtilde
+            << " eta:" << eta << " mpd:" << mp_degR << " dt:" << dtildeR
             << " thres: " << threshold << std::endl;
   T.tic();
   const Eigen::MatrixXd PR = Eigen::MatrixXd::Random(dim, mpts);
   const Eigen::MatrixXd PC = Eigen::MatrixXd::Random(dim, npts);
   T.toc("geometry generation: ");
-  const Moments momR(PR, mp_deg);
-  const Moments momC(PC, mp_deg);
+  const Moments momR(PR, mp_degR);
+  const Moments momC(PC, mp_degC);
   const MatrixEvaluator mat_eval(momR, momC, function);
-  const SampletMoments samp_momR(PR, dtilde - 1);
-  const SampletMoments samp_momC(PC, dtilde - 1);
+  const SampletMoments samp_momR(PR, dtildeR - 1);
+  const SampletMoments samp_momC(PC, dtildeC - 1);
   T.tic();
-  const H2SampletTree hstR(momR, samp_momR, 0, PR);
-  const H2SampletTree hstC(momC, samp_momC, 0, PC);
+  H2SampletTree hstR(momR, samp_momR, 0, PR);
+  H2SampletTree hstC(momC, samp_momC, 0, PC);
   T.toc("tree setup: ");
   std::cout << std::flush;
   Eigen::MatrixXd block;
   mat_eval.compute_dense_block(hstR, hstC, &block);
-  std::cout << block << std::endl;
-#if 0
-  FMCA::symmetric_compressor_impl<H2SampletTree> symComp;
+  Eigen::MatrixXd TRblock = hstR.sampletTransform(block);
+  Eigen::MatrixXd TTblock = hstC.sampletTransform(TRblock.transpose());
+  FMCA::unsymmetric_compressor_impl<H2SampletTree> comp;
   T.tic();
-  symComp.compress(hst, mat_eval, eta, threshold);
-  const double tcomp = T.toc("symmetric compressor: ");
+  comp.compress(hstR, hstC, mat_eval, eta, threshold);
+  const double tcomp = T.toc("compressor: ");
+  auto trips = comp.pattern_triplets();
+  std::cout << double(trips.size()) / mpts / npts << std::endl;
+  FMCA::SparseMatrix<double> S(mpts, npts);
+  S.setFromTriplets(trips.begin(), trips.end());
+  std::cout << (TTblock.transpose() - S.full()).norm() / TTblock.norm()
+            << std::endl;
   std::cout << std::flush;
+#if 0
+
 
   {
     Eigen::VectorXd x(npts), y1(npts), y2(npts);
