@@ -13,12 +13,11 @@
 #include <Eigen/Dense>
 #include <iostream>
 
-#include "../FMCA/MatrixEvaluators"
 #include "../FMCA/Samplets"
 #include "TestParameters.h"
 
-using Interpolator = FMCA::TotalDegreeInterpolator<FMCA::FloatType>;
-using SampletInterpolator = FMCA::MonomialInterpolator<FMCA::FloatType>;
+using Interpolator = FMCA::TotalDegreeInterpolator;
+using SampletInterpolator = FMCA::MonomialInterpolator;
 using Moments = FMCA::NystromMoments<Interpolator>;
 using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
 using MatrixEvaluator =
@@ -38,7 +37,7 @@ int main() {
       const SampletMoments samp_mom(P, dtilde - 1);
       H2SampletTree hst(mom, samp_mom, 0, P);
       FMCA::unsymmetric_compressor_impl<H2SampletTree> Scomp;
-      Scomp.compress(hst, mat_eval, eta, threshold);
+      Scomp.compress(hst, hst, mat_eval, eta, threshold);
       const auto &trips = Scomp.pattern_triplets();
       Eigen::MatrixXd K;
       mat_eval.compute_dense_block(hst, hst, &K);

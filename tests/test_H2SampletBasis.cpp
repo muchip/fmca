@@ -15,28 +15,28 @@
 #include "../FMCA/Samplets"
 #include "TestParameters.h"
 
-using Interpolator = FMCA::TotalDegreeInterpolator<FMCA::FloatType>;
-using SampletInterpolator = FMCA::MonomialInterpolator<FMCA::FloatType>;
+using Interpolator = FMCA::TotalDegreeInterpolator;
+using SampletInterpolator = FMCA::MonomialInterpolator;
 using Moments = FMCA::NystromMoments<Interpolator>;
 using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
 using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
 int main() {
-  const Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, NPTS);
+  const FMCA::Matrix P = Eigen::MatrixXd::Random(DIM, NPTS);
 
-  for (double dtilde = 1; dtilde <= 10; ++dtilde) {
+  for (FMCA::Index dtilde = 1; dtilde <= 10; ++dtilde) {
     std::cout << "dtilde= " << dtilde << std::endl;
     const Moments mom(P, 10);
     const SampletMoments samp_mom(P, dtilde - 1);
     const H2SampletTree hst(mom, samp_mom, 0, P);
 
-    Eigen::MatrixXd Pol = samp_mom.moment_matrix(hst);
+    FMCA::Matrix Pol = samp_mom.moment_matrix(hst);
     Pol = Pol.topRows(samp_mom.mdtilde());
-    double err = 0;
+    FMCA::Scalar err = 0;
     Pol = hst.sampletTransform(Pol.transpose());
     err = Pol.bottomRows(Pol.cols() - hst.nscalfs()).colwise().norm().sum();
     std::cout << "average vanishing error: " << err / Pol.rows() << std::endl;
-    Eigen::MatrixXd Q =
+    FMCA::Matrix Q =
         hst.sampletTransform(Eigen::MatrixXd::Identity(P.cols(), P.cols()));
     std::cout << "basis orthogonality error: "
               << (Q.transpose() * Q -

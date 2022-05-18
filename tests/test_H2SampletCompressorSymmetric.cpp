@@ -16,27 +16,38 @@
 #include "../FMCA/Samplets"
 #include "TestParameters.h"
 
+using Interpolator = FMCA::TotalDegreeInterpolator;
+using SampletInterpolator = FMCA::MonomialInterpolator;
+using Moments = FMCA::NystromMoments<Interpolator>;
+using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
+using MatrixEvaluator =
+    FMCA::NystromMatrixEvaluator<Moments, exponentialKernel>;
+using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
+
 int main() {
   const auto function = exponentialKernel();
-  const Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, NPTS);
-  const double threshold = 1e-15;
-  const FMCA::NystromMatrixEvaluator<FMCA::H2SampletTree, exponentialKernel>
-      nm_eval(P, function);
+  const FMCA::Matrix P = FMCA::Matrix::Random(DIM, NPTS);
+  const FMCA::Scalar threshold = 1e-15;
+  const MatrixEvaluator nm_eval(P, function);
 
-  for (int dtilde = 1; dtilde <= 4; ++dtilde) {
-    for (double eta = 1; eta >= 0; eta -= 0.5) {
+  for (FMCA::Index dtilde = 1; dtilde <= 4; ++dtilde) {
+    for (FMCA::Scalar eta = 1; eta >= 0; eta -= 0.5) {
       std::cout << "dtilde= " << dtilde << " eta= " << eta << std::endl;
-      FMCA::H2SampletTree ST(P, LEAFSIZE, dtilde, MPOLE_DEG);
-      FMCA::symmetric_compressor_impl<FMCA::H2SampletTree> Scomp;
-      Scomp.compress(ST, nm_eval, eta, threshold);
+      const Moments mom(P, 6);
+      const MatrixEvaluator mat_eval(mom, function);
+      const SampletMoments samp_mom(P, dtilde - 1);
+      H2SampletTree hst(mom, samp_mom, 0, P);
+      FMCA::symmetric_compressor_impl<H2SampletTree> Scomp;
+      Scomp.compress(hst, mat_eval, eta, threshold);
       const auto &trips = Scomp.pattern_triplets();
-      Eigen::MatrixXd K;
-      nm_eval.compute_dense_block(ST, ST, &K);
-      ST.sampletTransformMatrix(K);
+      FMCA::Matrix K;
+      mat_eval.compute_dense_block(hst, hst, &K);
+      hst.sampletTransformMatrix(K);
       Eigen::SparseMatrix<double> S(K.rows(), K.cols());
       S.setFromTriplets(trips.begin(), trips.end());
       Eigen::MatrixXd K2 = S;
-      K2 += Eigen::MatrixXd(K2.triangularView<Eigen::StrictlyUpper>().transpose());
+      K2 += Eigen::MatrixXd(
+          K2.triangularView<Eigen::StrictlyUpper>().transpose());
       std::cout << "compression error: " << (K2 - K).norm() / K.norm()
                 << std::endl;
       std::cout << std::string(60, '-') << std::endl;
