@@ -16,21 +16,18 @@
 namespace FMCA {
 
 template <typename Derived> struct sparse_compressor_impl {
-  enum Admissibility { Refine = 0, LowRank = 1, Dense = 2 };
-  typedef typename internal::traits<Derived>::value_type value_type;
-  typedef typename internal::traits<Derived>::eigenMatrix eigenMatrix;
 
   template <typename EntryGenerator>
   void compress(SampletTreeBase<Derived> &ST, const EntryGenerator &M) {
     eigen_assert(ST.is_root() && "compress needs to be called from root");
     triplet_list_.clear();
-    const IndexType n_samplet_blocks = std::distance(ST.cbegin(), ST.cend());
+    const Index n_samplet_blocks = std::distance(ST.cbegin(), ST.cend());
     storage_size_ = 0;
     ////////////////////////////////////////////////////////////////////////////
     // set up the compressed matrix
     for (auto &&col : ST.derived())
       for (auto &&row : ST.derived()) {
-        eigenMatrix block = recursivelyComputeBlock(row, col, M);
+        Matrix block = recursivelyComputeBlock(row, col, M);
         if (row.nsamplets() && col.nsamplets() && !row.is_root() &&
             !col.is_root())
           storeBlock(row.start_index(), col.start_index(), row.nsamplets(),
@@ -39,10 +36,10 @@ template <typename Derived> struct sparse_compressor_impl {
       }
   }
   //////////////////////////////////////////////////////////////////////////////
-  value_type computeDistance(const Derived &TR, const Derived &TC) {
-    const value_type row_radius = 0.5 * TR.bb().col(2).norm();
-    const value_type col_radius = 0.5 * TC.bb().col(2).norm();
-    const value_type dist = 0.5 * (TR.bb().col(0) - TC.bb().col(0) +
+  Scalar computeDistance(const Derived &TR, const Derived &TC) {
+    const Scalar row_radius = 0.5 * TR.bb().col(2).norm();
+    const Scalar col_radius = 0.5 * TC.bb().col(2).norm();
+    const Scalar dist = 0.5 * (TR.bb().col(0) - TC.bb().col(0) +
                                    TR.bb().col(1) - TC.bb().col(1))
                                       .norm() -
                             row_radius - col_radius;
@@ -52,7 +49,7 @@ template <typename Derived> struct sparse_compressor_impl {
   Admissibility compareCluster(const Derived &cluster1,
                                const Derived &cluster2) {
     Admissibility retval;
-    const value_type dist = computeDistance(cluster1, cluster2);
+    const Scalar dist = computeDistance(cluster1, cluster2);
 
     if (dist == 0) {
       // check if either cluster is a leaf in that case,
@@ -65,13 +62,13 @@ template <typename Derived> struct sparse_compressor_impl {
       return LowRank;
   }
   //////////////////////////////////////////////////////////////////////////////
-  const std::vector<Eigen::Triplet<value_type>> &pattern_triplets() const {
+  const std::vector<Eigen::Triplet<Scalar>> &pattern_triplets() const {
     return triplet_list_;
   }
-  eigenMatrix matrix() const {
-    Eigen::SparseMatrix<value_type> S(N_, N_);
+  Matrix matrix() const {
+    Eigen::SparseMatrix<Scalar> S(N_, N_);
     S.setFromTriplets(triplet_list_.begin(), triplet_list_.end());
-    return eigenMatrix(S);
+    return Matrix(S);
   }
 
 private:
@@ -80,13 +77,13 @@ private:
    *         the four blocks [A^PhiPhi, A^PhiSigma; A^SigmaPhi, A^SigmaSigma]
    **/
   template <typename EntryGenerator>
-  eigenMatrix recursivelyComputeBlock(const Derived &TR, const Derived &TC,
+  Matrix recursivelyComputeBlock(const Derived &TR, const Derived &TC,
                                       const EntryGenerator &e_gen) {
-    eigenMatrix buf(0, 0);
-    eigenMatrix retval = eigenMatrix::Zero(TR.Q().cols(), TC.Q().cols());
+    Matrix buf(0, 0);
+    Matrix retval = Matrix::Zero(TR.Q().cols(), TC.Q().cols());
     // check for admissibility
     if (compareCluster(TR, TC) == LowRank) {
-      // retval = eigenMatrix::Zero(TR.V().cols(), TC.V().cols());
+      // retval = Matrix::Zero(TR.V().cols(), TC.V().cols());
     } else {
       if (!TR.nSons() && !TC.nSons()) {
         // both are leafs: compute the block and return
@@ -99,7 +96,7 @@ private:
       } else if (!TR.nSons() && TC.nSons()) {
         // the row cluster is a leaf cluster: recursion on the col cluster
         for (auto j = 0; j < TC.nSons(); ++j) {
-          eigenMatrix ret = recursivelyComputeBlock(TR, TC.sons(j), e_gen);
+          Matrix ret = recursivelyComputeBlock(TR, TC.sons(j), e_gen);
           buf.conservativeResize(ret.rows(), buf.cols() + TC.sons(j).nscalfs());
           buf.rightCols(TC.sons(j).nscalfs()) =
               ret.leftCols(TC.sons(j).nscalfs());
@@ -108,7 +105,7 @@ private:
       } else if (TR.nSons() && !TC.nSons()) {
         // the col cluster is a leaf cluster: recursion on the row cluster
         for (auto i = 0; i < TR.nSons(); ++i) {
-          eigenMatrix ret = recursivelyComputeBlock(TR.sons(i), TC, e_gen);
+          Matrix ret = recursivelyComputeBlock(TR.sons(i), TC, e_gen);
           buf.conservativeResize(ret.cols(), buf.cols() + TR.sons(i).nscalfs());
           buf.rightCols(TR.sons(i).nscalfs()) =
               ret.transpose().leftCols(TR.sons(i).nscalfs());
@@ -117,9 +114,9 @@ private:
       } else {
         // neither is a leaf, let recursion handle this
         for (auto i = 0; i < TR.nSons(); ++i) {
-          eigenMatrix ret1(0, 0);
+          Matrix ret1(0, 0);
           for (auto j = 0; j < TC.nSons(); ++j) {
-            eigenMatrix ret2 =
+            Matrix ret2 =
                 recursivelyComputeBlock(TR.sons(i), TC.sons(j), e_gen);
             ret1.conservativeResize(ret2.rows(),
                                     ret1.cols() + TC.sons(j).nscalfs());
@@ -140,21 +137,21 @@ private:
   }
   //////////////////////////////////////////////////////////////////////////////
   template <typename otherDerived>
-  void storeBlock(IndexType srow, IndexType scol, IndexType nrows,
-                  IndexType ncols,
+  void storeBlock(Index srow, Index scol, Index nrows,
+                  Index ncols,
                   const Eigen::MatrixBase<otherDerived> &block) {
     storage_size_ += ncols * nrows;
     for (auto k = 0; k < ncols; ++k)
       for (auto j = 0; j < nrows; ++j)
         if (abs(block(j, k)) > 1e-15)
           triplet_list_.push_back(
-              Eigen::Triplet<value_type>(srow + j, scol + k, block(j, k)));
+              Eigen::Triplet<Scalar>(srow + j, scol + k, block(j, k)));
   }
   //////////////////////////////////////////////////////////////////////////////
   /// member variables
   //////////////////////////////////////////////////////////////////////////////
-  std::vector<Eigen::Triplet<value_type>> triplet_list_;
-  IndexType N_;
+  std::vector<Eigen::Triplet<Scalar>> triplet_list_;
+  Index N_;
   size_t storage_size_;
 };
 } // namespace FMCA

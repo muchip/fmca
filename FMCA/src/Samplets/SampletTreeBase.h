@@ -19,13 +19,12 @@ namespace FMCA {
  *  \brief SampletTreeNodeBase defines the basic fields required for an
  *         abstract SampletTree, i.e. the transformation matrices
  **/
-template <typename Derived>
-struct SampletTreeNodeDataFields {
-  typename internal::traits<Derived>::eigenMatrix Q_;
-  typename internal::traits<Derived>::eigenMatrix mom_buffer_;
-  IndexType nscalfs_;
-  IndexType nsamplets_;
-  IndexType start_index_;
+template <typename Derived> struct SampletTreeNodeDataFields {
+  Matrix Q_;
+  Matrix mom_buffer_;
+  Index nscalfs_;
+  Index nsamplets_;
+  Index start_index_;
 };
 
 template <typename Derived>
@@ -37,9 +36,7 @@ struct SampletTreeNodeBase : public ClusterTreeNodeBase<Derived>,
  **/
 template <typename Derived>
 struct SampletTreeBase : public ClusterTreeBase<Derived> {
-  typedef typename internal::traits<Derived>::eigenMatrix eigenMatrix;
-  typedef typename internal::traits<Derived>::node_type node_type;
-  typedef typename internal::traits<Derived>::value_type value_type;
+  typedef typename internal::traits<Derived>::Node Node;
   typedef ClusterTreeBase<Derived> Base;
   // make base class methods visible
   using Base::appendSons;
@@ -55,39 +52,39 @@ struct SampletTreeBase : public ClusterTreeBase<Derived> {
   using Base::nSons;
   using Base::sons;
   //////////////////////////////////////////////////////////////////////////////
-  void sampletTransformMatrix(eigenMatrix &M) {
+  void sampletTransformMatrix(Matrix &M) {
     M = sampletTransform(M);
     M = sampletTransform(M.transpose()).transpose();
   }
   //////////////////////////////////////////////////////////////////////////////
-  void inverseSampletTransformMatrix(eigenMatrix &M) {
+  void inverseSampletTransformMatrix(Matrix &M) {
     M = inverseSampletTransform(M);
     M = inverseSampletTransform(M.transpose()).transpose();
   }
   //////////////////////////////////////////////////////////////////////////////
-  eigenMatrix sampletTransform(const eigenMatrix &data) const {
+  Matrix sampletTransform(const Matrix &data) const {
     assert(is_root() &&
            "sampletTransform needs to be called from the root cluster");
-    eigenMatrix retval(data.rows(), data.cols());
+    Matrix retval(data.rows(), data.cols());
     retval.setZero();
     sampletTransformRecursion(data, &retval);
     return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
-  eigenMatrix inverseSampletTransform(const eigenMatrix &data) const {
+  Matrix inverseSampletTransform(const Matrix &data) const {
     assert(is_root() &&
            "sampletTransform needs to be called from the root cluster");
-    eigenMatrix retval(data.rows(), data.cols());
+    Matrix retval(data.rows(), data.cols());
     retval.setZero();
     inverseSampletTransformRecursion(data, &retval, nullptr);
     return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
-  std::vector<Eigen::Triplet<value_type>> transformationMatrixTriplets() const {
-    const IndexType n = indices().size();
-    eigenMatrix buffer(n, 1);
-    eigenMatrix unit(n, 1);
-    std::vector<Eigen::Triplet<value_type>> triplet_list;
+  std::vector<Eigen::Triplet<Scalar>> transformationMatrixTriplets() const {
+    const Index n = indices().size();
+    Matrix buffer(n, 1);
+    Matrix unit(n, 1);
+    std::vector<Eigen::Triplet<Scalar>> triplet_list;
     for (auto j = 0; j < n; ++j) {
       buffer.setZero();
       unit.setZero();
@@ -95,31 +92,30 @@ struct SampletTreeBase : public ClusterTreeBase<Derived> {
       buffer = sampletTransform(unit);
       for (auto i = 0; i < buffer.size(); ++i)
         if (abs(buffer(i)) > 1e-14)
-          triplet_list.emplace_back(
-              Eigen::Triplet<value_type>(i, j, buffer(i)));
+          triplet_list.emplace_back(Eigen::Triplet<Scalar>(i, j, buffer(i)));
     }
     return triplet_list;
   }
   //////////////////////////////////////////////////////////////////////////////
-  IndexType nscalfs() const { return node().nscalfs_; }
-  IndexType nsamplets() const { return node().nsamplets_; }
+  Index nscalfs() const { return node().nscalfs_; }
+  Index nsamplets() const { return node().nsamplets_; }
 
-  IndexType start_index() const { return node().start_index_; }
+  Index start_index() const { return node().start_index_; }
   //////////////////////////////////////////////////////////////////////////////
-  const eigenMatrix &Q() const { return node().Q_; }
+  const Matrix &Q() const { return node().Q_; }
 
- private:
+private:
   //////////////////////////////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////////
-  eigenMatrix sampletTransformRecursion(const eigenMatrix &data,
-                                        eigenMatrix *svec) const {
-    eigenMatrix retval(0, 0);
-    IndexType scalf_shift = 0;
-    if (is_root()) scalf_shift = nscalfs();
+  Matrix sampletTransformRecursion(const Matrix &data, Matrix *svec) const {
+    Matrix retval(0, 0);
+    Index scalf_shift = 0;
+    if (is_root())
+      scalf_shift = nscalfs();
     if (nSons()) {
       for (auto i = 0; i < nSons(); ++i) {
-        eigenMatrix scalf = sons(i).sampletTransformRecursion(data, svec);
+        Matrix scalf = sons(i).sampletTransformRecursion(data, svec);
         retval.conservativeResize(retval.rows() + scalf.rows(), data.cols());
         retval.bottomRows(scalf.rows()) = scalf;
       }
@@ -131,14 +127,15 @@ struct SampletTreeBase : public ClusterTreeBase<Derived> {
           Q().rightCols(nsamplets()).transpose() * retval;
       retval = Q().leftCols(nscalfs()).transpose() * retval;
     }
-    if (is_root()) svec->middleRows(start_index(), nscalfs()) = retval;
+    if (is_root())
+      svec->middleRows(start_index(), nscalfs()) = retval;
     return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
-  void inverseSampletTransformRecursion(const eigenMatrix &data,
-                                        eigenMatrix *fvec, eigenMatrix *ddata,
-                                        IndexType ddata_offset = 0) const {
-    eigenMatrix retval;
+  void inverseSampletTransformRecursion(const Matrix &data, Matrix *fvec,
+                                        Matrix *ddata,
+                                        Index ddata_offset = 0) const {
+    Matrix retval;
     if (is_root()) {
       retval =
           Q().leftCols(nscalfs()) * data.middleRows(start_index(), nscalfs()) +
@@ -164,5 +161,5 @@ struct SampletTreeBase : public ClusterTreeBase<Derived> {
     return;
   }
 };
-}  // namespace FMCA
+} // namespace FMCA
 #endif

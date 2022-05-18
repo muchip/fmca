@@ -20,7 +20,7 @@ template <typename Derived>
 void sampletMapper(SampletTreeBase<Derived> &ST) {
   assert(ST.is_root() &&
          "sampletMapper needs to be called from the root cluster");
-  IndexType sum = 0;
+  Index sum = 0;
   // assign vector start_index to each wavelet cluster
   for (auto &&it : ST) {
     it.node().start_index_ = sum;
@@ -32,10 +32,10 @@ void sampletMapper(SampletTreeBase<Derived> &ST) {
 }
 
 template <typename Derived>
-std::vector<IndexType> sampletLevelMapper(SampletTreeBase<Derived> &ST) {
+std::vector<Index> sampletLevelMapper(SampletTreeBase<Derived> &ST) {
   assert(ST.is_root() &&
          "sampletLevelMapper needs to be called from the root cluster");
-  std::vector<IndexType> retval;
+  std::vector<Index> retval;
   // assign vector start_index to each wavelet cluster
   double geo_diam = ST.bb().col(2).norm();
   for (auto &&it : ST) {

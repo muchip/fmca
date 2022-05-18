@@ -14,22 +14,14 @@
 
 namespace FMCA {
 
-namespace internal {
-template <>
-struct traits<SampletTreeNode> {
-  typedef FloatType value_type;
-  typedef Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
-};
-}  // namespace internal
-
 struct SampletTreeNode : public SampletTreeNodeBase<SampletTreeNode> {};
 
 namespace internal {
 template <typename ClusterTreeType>
 struct traits<SampletTree<ClusterTreeType>> : public traits<ClusterTreeType> {
-  typedef SampletTreeNode node_type;
+  typedef SampletTreeNode Node;
 };
-}  // namespace internal
+} // namespace internal
 
 /**
  *  \ingroup Samplets
@@ -37,10 +29,8 @@ struct traits<SampletTree<ClusterTreeType>> : public traits<ClusterTreeType> {
  */
 template <typename ClusterTreeType>
 struct SampletTree : public SampletTreeBase<SampletTree<ClusterTreeType>> {
- public:
-  typedef typename internal::traits<SampletTree>::value_type value_type;
-  typedef typename internal::traits<SampletTree>::node_type node_type;
-  typedef typename internal::traits<SampletTree>::eigenMatrix eigenMatrix;
+public:
+  typedef typename internal::traits<SampletTree>::Node Node;
   typedef SampletTreeBase<SampletTree<ClusterTreeType>> Base;
   // make base class methods visible
   using Base::appendSons;
@@ -64,15 +54,15 @@ struct SampletTree : public SampletTreeBase<SampletTree<ClusterTreeType>> {
   //////////////////////////////////////////////////////////////////////////////
   SampletTree() {}
   template <typename Moments, typename... Ts>
-  SampletTree(const Moments &mom, IndexType min_cluster_size, Ts &&...ts) {
+  SampletTree(const Moments &mom, Index min_cluster_size, Ts &&...ts) {
     init(mom, min_cluster_size, std::forward<Ts>(ts)...);
   }
   //////////////////////////////////////////////////////////////////////////////
   // init
   //////////////////////////////////////////////////////////////////////////////
   template <typename Moments, typename... Ts>
-  void init(const Moments &mom, IndexType min_cluster_size, Ts &&...ts) {
-    const IndexType mincsize = min_cluster_size > mom.interp().Xi().cols()
+  void init(const Moments &mom, Index min_cluster_size, Ts &&...ts) {
+    const Index mincsize = min_cluster_size > mom.interp().Xi().cols()
                                    ? min_cluster_size
                                    : mom.interp().Xi().cols();
     internal::ClusterTreeInitializer<ClusterTreeType>::init(
@@ -82,15 +72,14 @@ struct SampletTree : public SampletTreeBase<SampletTree<ClusterTreeType>> {
     return;
   }
 
- private:
-  template <typename Moments>
-  void computeSamplets(const Moments &mom) {
+private:
+  template <typename Moments> void computeSamplets(const Moments &mom) {
     if (nSons()) {
-      IndexType offset = 0;
+      Index offset = 0;
       for (auto i = 0; i < nSons(); ++i) {
         sons(i).computeSamplets(mom);
         // the son now has moments, lets grep them...
-        eigenMatrix shift = 0.5 * (sons(i).bb().col(0) - bb().col(0) +
+        Matrix shift = 0.5 * (sons(i).bb().col(0) - bb().col(0) +
                                    sons(i).bb().col(1) - bb().col(1));
         node().mom_buffer_.conservativeResize(
             sons(i).node().mom_buffer_.rows(),
@@ -107,7 +96,7 @@ struct SampletTree : public SampletTreeBase<SampletTree<ClusterTreeType>> {
       node().mom_buffer_ = mom.moment_matrix(*this);
     // are there samplets?
     if (mom.mdtilde() < node().mom_buffer_.cols()) {
-      Eigen::HouseholderQR<eigenMatrix> qr(node().mom_buffer_.transpose());
+      Eigen::HouseholderQR<Matrix> qr(node().mom_buffer_.transpose());
       node().Q_ = qr.householderQ();
       node().nscalfs_ = mom.mdtilde();
       node().nsamplets_ = node().Q_.cols() - node().nscalfs_;
@@ -117,7 +106,7 @@ struct SampletTree : public SampletTreeBase<SampletTree<ClusterTreeType>> {
                                .template triangularView<Eigen::Upper>()
                                .transpose();
     } else {
-      node().Q_ = eigenMatrix::Identity(node().mom_buffer_.cols(),
+      node().Q_ = Matrix::Identity(node().mom_buffer_.cols(),
                                         node().mom_buffer_.cols());
       node().nscalfs_ = node().mom_buffer_.cols();
       node().nsamplets_ = 0;
@@ -125,7 +114,7 @@ struct SampletTree : public SampletTreeBase<SampletTree<ClusterTreeType>> {
     return;
   }
 };
-}  // namespace FMCA
+} // namespace FMCA
 #endif
 
 #if 0
@@ -180,7 +169,7 @@ struct SampletTree : public SampletTreeBase<SampletTree<ClusterTreeType>> {
     if (!wlevel_) {
       // as I do not have a better solution right now, store the interpolation
       // points within the samplet tree
-      pXi_ = std::make_shared<eigenMatrix>();
+      pXi_ = std::make_shared<Matrix>();
       *pXi_ = CT.get_Xi();
     }
     if (!sons_.size()) {

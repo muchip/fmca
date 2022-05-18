@@ -19,21 +19,19 @@
 namespace FMCA {
 
 template <typename Derived> struct unsymmetric_compressor_impl {
-  typedef typename internal::traits<Derived>::value_type value_type;
-  typedef typename internal::traits<Derived>::eigenMatrix eigenMatrix;
 
   template <typename EntryGenerator>
   void compress(SampletTreeBase<Derived> &TR, SampletTreeBase<Derived> &TC,
-                const EntryGenerator &e_gen, value_type eta = 0.8,
-                value_type threshold = 1e-6) {
+                const EntryGenerator &e_gen, Scalar eta = 0.8,
+                Scalar threshold = 1e-6) {
     eigen_assert(TR.is_root() && TC.is_root() &&
                  "compress needs to be called from root");
     eta_ = eta;
     threshold_ = threshold;
     triplet_list_.clear();
     buffer_.clear();
-    const IndexType row_samplet_blocks = std::distance(TR.cbegin(), TR.cend());
-    const IndexType col_samplet_blocks = std::distance(TC.cbegin(), TC.cend());
+    const Index row_samplet_blocks = std::distance(TR.cbegin(), TR.cend());
+    const Index col_samplet_blocks = std::distance(TC.cbegin(), TC.cend());
     buffer_.resize(row_samplet_blocks);
     max_buff_size_ = 0;
     storage_size_ = 0;
@@ -45,10 +43,10 @@ template <typename Derived> struct unsymmetric_compressor_impl {
     // set up remainder of the first column
     for (const auto &cluster : TR) {
       if (!cluster.is_root()) {
-        const IndexType block_id = cluster.derived().block_id();
-        const IndexType start_index = cluster.derived().start_index();
-        const IndexType nsamplets = cluster.derived().nsamplets();
-        const IndexType nscalfs = cluster.derived().nscalfs();
+        const Index block_id = cluster.derived().block_id();
+        const Index start_index = cluster.derived().start_index();
+        const Index nsamplets = cluster.derived().nsamplets();
+        const Index nscalfs = cluster.derived().nscalfs();
         auto it = buffer_[block_id].find(TC.derived().block_id());
         eigen_assert(it != buffer_[block_id].end() &&
                      "there is a missing root block!");
@@ -67,22 +65,22 @@ template <typename Derived> struct unsymmetric_compressor_impl {
   }
 
   //////////////////////////////////////////////////////////////////////////////
-  const std::vector<Eigen::Triplet<value_type>> &pattern_triplets() const {
+  const std::vector<Eigen::Triplet<Scalar>> &pattern_triplets() const {
     return triplet_list_;
   }
-  eigenMatrix matrix() const {
-    Eigen::SparseMatrix<value_type> S(N_, N_);
+  Matrix matrix() const {
+    Eigen::SparseMatrix<Scalar> S(N_, N_);
     S.setFromTriplets(triplet_list_.begin(), triplet_list_.end());
-    return eigenMatrix(S);
+    return Matrix(S);
   }
 
-  SparseMatrix<value_type> pattern(SampletTreeBase<Derived> &ST,
-                                   value_type eta = 0.8) {
-    SparseMatrix<value_type> retval(ST.indices().size(), ST.indices().size());
+  SparseMatrix<Scalar> pattern(SampletTreeBase<Derived> &ST,
+                                   Scalar eta = 0.8) {
+    SparseMatrix<Scalar> retval(ST.indices().size(), ST.indices().size());
     for (const auto &TC : ST) {
-      const IndexType c_start = TC.start_index();
+      const Index c_start = TC.start_index();
       for (const auto &TR : ST) {
-        const IndexType r_start = TR.start_index();
+        const Index r_start = TR.start_index();
         // is there an entry?
         if (compareCluster(TR, TC) != LowRank) {
           if (TC.is_root()) {
@@ -117,10 +115,10 @@ template <typename Derived> struct unsymmetric_compressor_impl {
    *A^SigmaSigma]
    **/
   template <typename EntryGenerator>
-  eigenMatrix recursivelyComputeBlock(const Derived &TR, const Derived &TC,
+  Matrix recursivelyComputeBlock(const Derived &TR, const Derived &TC,
                                       const EntryGenerator &e_gen) {
-    eigenMatrix buf(0, 0);
-    eigenMatrix retval(0, 0);
+    Matrix buf(0, 0);
+    Matrix retval(0, 0);
     // check for admissibility
     if (compareCluster(TR, TC, eta_) == LowRank) {
       e_gen.interpolate_kernel(TR, TC, &buf);
@@ -134,7 +132,7 @@ template <typename Derived> struct unsymmetric_compressor_impl {
       } else if (!TR.nSons() && TC.nSons()) {
         // the row cluster is a leaf cluster: recursion on the col cluster
         for (auto j = 0; j < TC.nSons(); ++j) {
-          eigenMatrix ret = recursivelyComputeBlock(TR, TC.sons(j), e_gen);
+          Matrix ret = recursivelyComputeBlock(TR, TC.sons(j), e_gen);
           buf.conservativeResize(ret.rows(), buf.cols() + TC.sons(j).nscalfs());
           buf.rightCols(TC.sons(j).nscalfs()) =
               ret.leftCols(TC.sons(j).nscalfs());
@@ -143,7 +141,7 @@ template <typename Derived> struct unsymmetric_compressor_impl {
       } else if (TR.nSons() && !TC.nSons()) {
         // the col cluster is a leaf cluster: recursion on the row cluster
         for (auto i = 0; i < TR.nSons(); ++i) {
-          eigenMatrix ret = recursivelyComputeBlock(TR.sons(i), TC, e_gen);
+          Matrix ret = recursivelyComputeBlock(TR.sons(i), TC, e_gen);
           buf.conservativeResize(ret.cols(), buf.cols() + TR.sons(i).nscalfs());
           buf.rightCols(TR.sons(i).nscalfs()) =
               ret.transpose().leftCols(TR.sons(i).nscalfs());
@@ -152,9 +150,9 @@ template <typename Derived> struct unsymmetric_compressor_impl {
       } else {
         // neither is a leaf, let recursion handle this
         for (auto i = 0; i < TR.nSons(); ++i) {
-          eigenMatrix ret1(0, 0);
+          Matrix ret1(0, 0);
           for (auto j = 0; j < TC.nSons(); ++j) {
-            eigenMatrix ret2 =
+            Matrix ret2 =
                 recursivelyComputeBlock(TR.sons(i), TC.sons(j), e_gen);
             ret1.conservativeResize(ret2.rows(),
                                     ret1.cols() + TC.sons(j).nscalfs());
@@ -176,8 +174,8 @@ template <typename Derived> struct unsymmetric_compressor_impl {
   template <typename EntryGenerator>
   void setupRow(const Derived &TR, const Derived &TC,
                 const EntryGenerator &e_gen) {
-    eigenMatrix block(0, 0);
-    eigenMatrix buf(0, 0);
+    Matrix block(0, 0);
+    Matrix buf(0, 0);
     ////////////////////////////////////////////////////////////////////////////
     // if there are children of the row cluster, we proceed recursively
     if (TR.nSons()) {
@@ -194,7 +192,7 @@ template <typename Derived> struct unsymmetric_compressor_impl {
           if (it->first != 0)
             buffer_[TR.sons(i).block_id()].erase(it);
         } else {
-          eigenMatrix ret = recursivelyComputeBlock(TR.sons(i), TC, e_gen);
+          Matrix ret = recursivelyComputeBlock(TR.sons(i), TC, e_gen);
           buf.conservativeResize(ret.cols(), buf.cols() + TR.sons(i).nscalfs());
           buf.rightCols(TR.sons(i).nscalfs()) =
               ret.transpose().leftCols(TR.sons(i).nscalfs());
@@ -217,7 +215,7 @@ template <typename Derived> struct unsymmetric_compressor_impl {
             buf.rightCols(TC.sons(j).nscalfs()) =
                 (it->second).leftCols(TC.sons(j).nscalfs());
           } else {
-            eigenMatrix ret = recursivelyComputeBlock(TR, TC.sons(j), e_gen);
+            Matrix ret = recursivelyComputeBlock(TR, TC.sons(j), e_gen);
             buf.conservativeResize(ret.rows(),
                                    buf.cols() + TC.sons(j).nscalfs());
             buf.rightCols(TC.sons(j).nscalfs()) =
@@ -235,7 +233,7 @@ template <typename Derived> struct unsymmetric_compressor_impl {
                  block.bottomRightCorner(TR.nsamplets(), TC.nsamplets()));
     buffer_[TR.block_id()].emplace(std::make_pair(TC.block_id(), block));
 #ifdef FMCA_COMPRESSOR_BUFSIZE_
-    IndexType buff_size = 0;
+    Index buff_size = 0;
     for (const auto &it : buffer_)
       buff_size += it.size();
     max_buff_size_ = max_buff_size_ < buff_size ? buff_size : max_buff_size_;
@@ -246,7 +244,7 @@ template <typename Derived> struct unsymmetric_compressor_impl {
   template <typename EntryGenerator>
   void setupColumn(const Derived &TR, const Derived &TC,
                    const EntryGenerator &e_gen) {
-    eigenMatrix retval;
+    Matrix retval;
     if (TC.nSons())
       for (auto i = 0; i < TC.nSons(); ++i)
         setupColumn(TR, TC.sons(i), e_gen);
@@ -267,8 +265,8 @@ template <typename Derived> struct unsymmetric_compressor_impl {
   }
   //////////////////////////////////////////////////////////////////////////////
   template <typename otherDerived>
-  void storeBlock(IndexType srow, IndexType scol, IndexType nrows,
-                  IndexType ncols,
+  void storeBlock(Index srow, Index scol, Index nrows,
+                  Index ncols,
                   const Eigen::MatrixBase<otherDerived> &block) {
     storage_size_ += ncols * nrows;
     for (auto k = 0; k < ncols; ++k)
@@ -277,21 +275,21 @@ template <typename Derived> struct unsymmetric_compressor_impl {
 #ifdef FMCA_SYMMETRIC_STORAGE_
           if (srow + j >= scol + k)
             triplet_list_.push_back(
-                Eigen::Triplet<value_type>(srow + j, scol + k, block(j, k)));
+                Eigen::Triplet<Scalar>(srow + j, scol + k, block(j, k)));
 #else
           triplet_list_.push_back(
-              Eigen::Triplet<value_type>(srow + j, scol + k, block(j, k)));
+              Eigen::Triplet<Scalar>(srow + j, scol + k, block(j, k)));
 #endif
   }
   //////////////////////////////////////////////////////////////////////////////
   /// member variables
   //////////////////////////////////////////////////////////////////////////////
-  std::vector<Eigen::Triplet<value_type>> triplet_list_;
-  std::vector<std::map<IndexType, eigenMatrix>> buffer_;
+  std::vector<Eigen::Triplet<Scalar>> triplet_list_;
+  std::vector<std::map<Index, Matrix>> buffer_;
   ProgressBar PB_;
-  value_type eta_;
-  value_type threshold_;
-  IndexType N_;
+  Scalar eta_;
+  Scalar threshold_;
+  Index N_;
   size_t storage_size_;
   size_t max_buff_size_;
 };

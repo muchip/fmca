@@ -19,29 +19,29 @@
 
 struct expKernel {
   template <typename derived, typename otherDerived>
-  double operator()(const Eigen::MatrixBase<derived> &x,
-                    const Eigen::MatrixBase<otherDerived> &y) const {
+  FMCA::Scalar operator()(const Eigen::MatrixBase<derived> &x,
+                          const Eigen::MatrixBase<otherDerived> &y) const {
     return exp(-(x - y).norm());
   }
 };
 
-using Interpolator = FMCA::TotalDegreeInterpolator<FMCA::FloatType>;
-using SampletInterpolator = FMCA::MonomialInterpolator<FMCA::FloatType>;
+using Interpolator = FMCA::TotalDegreeInterpolator;
+using SampletInterpolator = FMCA::MonomialInterpolator;
 using Moments = FMCA::NystromMoments<Interpolator>;
 using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
 using MatrixEvaluator = FMCA::NystromMatrixEvaluator<Moments, expKernel>;
 using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
 int main(int argc, char *argv[]) {
-  const unsigned int dim = atoi(argv[1]);
-  const unsigned int dtilde = 3;
+  const FMCA::Index dim = atoi(argv[1]);
+  const FMCA::Index dtilde = 4;
   const auto function = expKernel();
-  const double eta = 0.8;
-  const unsigned int mp_deg = 4;
-  const double threshold = 1e-5;
+  const FMCA::Scalar eta = 0.8;
+  const FMCA::Index mp_deg = 6;
+  const FMCA::Scalar threshold = 1e-5;
   FMCA::Tictoc T;
-  for (unsigned int npts : {1e3, 5e3, 1e4, 5e4, 1e5, 5e5, 1e6, 5e6}) {
-    // for (unsigned int npts : {5e6}) {
+  for (FMCA::Index npts : {1e3, 5e3, 1e4, 5e4, 1e5, 5e5, 1e6, 5e6}) {
+    // for (FMCA::Index npts : {5e6}) {
     std::cout << "N:" << npts << " dim:" << dim << " eta:" << eta
               << " mpd:" << mp_deg << " dt:" << dtilde
               << " thres: " << threshold << std::endl;
@@ -58,21 +58,21 @@ int main(int argc, char *argv[]) {
     FMCA::symmetric_compressor_impl<H2SampletTree> symComp;
     T.tic();
     symComp.compress(hst, mat_eval, eta, threshold);
-    const double tcomp = T.toc("symmetric compressor: ");
+    const FMCA::Scalar tcomp = T.toc("symmetric compressor: ");
     std::cout << std::flush;
 
     {
       Eigen::VectorXd x(npts), y1(npts), y2(npts);
-      double err = 0;
-      double nrm = 0;
-      const double tripSize = sizeof(Eigen::Triplet<double>);
-      const double nTrips = symComp.pattern_triplets().size();
+      FMCA::Scalar err = 0;
+      FMCA::Scalar nrm = 0;
+      const FMCA::Scalar tripSize = sizeof(Eigen::Triplet<FMCA::Scalar>);
+      const FMCA::Scalar nTrips = symComp.pattern_triplets().size();
       std::cout << "nz(S): " << std::ceil(nTrips / npts) << std::endl;
       std::cout << "memory: " << nTrips * tripSize / 1e9 << "GB\n"
                 << std::flush;
       T.tic();
       for (auto i = 0; i < 100; ++i) {
-        unsigned int index = rand() % P.cols();
+        FMCA::Index index = rand() % P.cols();
         x.setZero();
         x(index) = 1;
         y1 = FMCA::matrixColumnGetter(P, hst.indices(), function, index);
@@ -80,13 +80,14 @@ int main(int argc, char *argv[]) {
         y2.setZero();
         for (const auto &i : symComp.pattern_triplets()) {
           y2(i.row()) += i.value() * x(i.col());
-          if (i.row() != i.col()) y2(i.col()) += i.value() * x(i.row());
+          if (i.row() != i.col())
+            y2(i.col()) += i.value() * x(i.row());
         }
         y2 = hst.inverseSampletTransform(y2);
         err += (y1 - y2).squaredNorm();
         nrm += y1.squaredNorm();
       }
-      const double thet = T.toc("matrix vector time: ");
+      const FMCA::Scalar thet = T.toc("matrix vector time: ");
       std::cout << "average matrix vector time " << thet / 100 << "sec."
                 << std::endl;
       err = sqrt(err / nrm);

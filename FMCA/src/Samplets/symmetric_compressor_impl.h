@@ -16,11 +16,9 @@
 namespace FMCA {
 
 template <typename Derived> struct symmetric_compressor_impl {
-  typedef typename internal::traits<Derived>::value_type value_type;
-  typedef typename internal::traits<Derived>::eigenMatrix eigenMatrix;
   template <typename EntryGenerator>
   void compress(const SampletTreeBase<Derived> &ST, const EntryGenerator &e_gen,
-                value_type eta = 0.8, value_type threshold = 1e-6) {
+                Scalar eta = 0.8, Scalar threshold = 1e-6) {
     eigen_assert(ST.is_root() && "compress needs to be called from root");
     eta_ = eta;
     threshold_ = threshold;
@@ -28,7 +26,7 @@ template <typename Derived> struct symmetric_compressor_impl {
     triplet_list_.reserve(1230 * ST.derived().indices().size());
     std::cout << "trips reserved\n" << std::flush;
     buffer_.clear();
-    const IndexType n_samplet_blocks = std::distance(ST.cbegin(), ST.cend());
+    const Index n_samplet_blocks = std::distance(ST.cbegin(), ST.cend());
     buffer_.resize(n_samplet_blocks);
     max_buff_size_ = 0;
     storage_size_ = 0;
@@ -47,13 +45,13 @@ template <typename Derived> struct symmetric_compressor_impl {
 #endif
   }
   //////////////////////////////////////////////////////////////////////////////
-  const std::vector<Eigen::Triplet<value_type>> &pattern_triplets() const {
+  const std::vector<Eigen::Triplet<Scalar>> &pattern_triplets() const {
     return triplet_list_;
   }
-  eigenMatrix matrix() const {
-    Eigen::SparseMatrix<value_type> S(N_, N_);
+  Matrix matrix() const {
+    Eigen::SparseMatrix<Scalar> S(N_, N_);
     S.setFromTriplets(triplet_list_.begin(), triplet_list_.end());
-    return eigenMatrix(S);
+    return Matrix(S);
   }
 
 private:
@@ -62,10 +60,10 @@ private:
    *         the four blocks [A^PhiPhi, A^PhiSigma; A^SigmaPhi, A^SigmaSigma]
    **/
   template <typename EntryGenerator>
-  eigenMatrix recursivelyComputeBlock(const Derived &TR, const Derived &TC,
-                                      const EntryGenerator &e_gen) {
-    eigenMatrix buf(0, 0);
-    eigenMatrix retval(0, 0);
+  Matrix recursivelyComputeBlock(const Derived &TR, const Derived &TC,
+                                 const EntryGenerator &e_gen) {
+    Matrix buf(0, 0);
+    Matrix retval(0, 0);
     ++compute_block_calls_;
     // check for admissibility
     if (compareCluster(TR, TC, eta_) == LowRank) {
@@ -79,7 +77,7 @@ private:
       } else if (!TR.nSons() && TC.nSons()) {
         // the row cluster is a leaf cluster: recursion on the col cluster
         for (auto j = 0; j < TC.nSons(); ++j) {
-          eigenMatrix ret = recursivelyComputeBlock(TR, TC.sons(j), e_gen);
+          Matrix ret = recursivelyComputeBlock(TR, TC.sons(j), e_gen);
           buf.conservativeResize(ret.rows(), buf.cols() + TC.sons(j).nscalfs());
           buf.rightCols(TC.sons(j).nscalfs()) =
               ret.leftCols(TC.sons(j).nscalfs());
@@ -88,7 +86,7 @@ private:
       } else if (TR.nSons() && !TC.nSons()) {
         // the col cluster is a leaf cluster: recursion on the row cluster
         for (auto i = 0; i < TR.nSons(); ++i) {
-          eigenMatrix ret = recursivelyComputeBlock(TR.sons(i), TC, e_gen);
+          Matrix ret = recursivelyComputeBlock(TR.sons(i), TC, e_gen);
           buf.conservativeResize(ret.cols(), buf.cols() + TR.sons(i).nscalfs());
           buf.rightCols(TR.sons(i).nscalfs()) =
               ret.transpose().leftCols(TR.sons(i).nscalfs());
@@ -97,9 +95,9 @@ private:
       } else {
         // neither is a leaf, let recursion handle this
         for (auto i = 0; i < TR.nSons(); ++i) {
-          eigenMatrix ret1(0, 0);
+          Matrix ret1(0, 0);
           for (auto j = 0; j < TC.nSons(); ++j) {
-            eigenMatrix ret2 =
+            Matrix ret2 =
                 recursivelyComputeBlock(TR.sons(i), TC.sons(j), e_gen);
             ret1.conservativeResize(ret2.rows(),
                                     ret1.cols() + TC.sons(j).nscalfs());
@@ -121,8 +119,8 @@ private:
   template <typename EntryGenerator>
   void setupRow(const Derived &TR, const Derived &TC,
                 const EntryGenerator &e_gen) {
-    eigenMatrix block(0, 0);
-    eigenMatrix buf(0, 0);
+    Matrix block(0, 0);
+    Matrix buf(0, 0);
     ////////////////////////////////////////////////////////////////////////////
     // if there are children of the row cluster, we proceed recursively
     if (TR.nSons() && TR.block_id() < TC.block_id()) {
@@ -139,7 +137,7 @@ private:
           if (it->first != 0)
             buffer_[TR.sons(i).block_id()].erase(it);
         } else {
-          eigenMatrix ret = recursivelyComputeBlock(TR.sons(i), TC, e_gen);
+          Matrix ret = recursivelyComputeBlock(TR.sons(i), TC, e_gen);
           buf.conservativeResize(ret.cols(), buf.cols() + TR.sons(i).nscalfs());
           buf.rightCols(TR.sons(i).nscalfs()) =
               ret.transpose().leftCols(TR.sons(i).nscalfs());
@@ -161,7 +159,7 @@ private:
             buf.rightCols(TC.sons(j).nscalfs()) =
                 (it->second).leftCols(TC.sons(j).nscalfs());
           } else {
-            eigenMatrix ret = recursivelyComputeBlock(TR, TC.sons(j), e_gen);
+            Matrix ret = recursivelyComputeBlock(TR, TC.sons(j), e_gen);
             buf.conservativeResize(ret.rows(),
                                    buf.cols() + TC.sons(j).nscalfs());
             buf.rightCols(TC.sons(j).nscalfs()) =
@@ -179,7 +177,7 @@ private:
                  block.bottomRightCorner(TR.nsamplets(), TC.nsamplets()));
     buffer_[TR.block_id()].emplace(std::make_pair(TC.block_id(), block));
 #ifdef FMCA_COMPRESSOR_BUFSIZE_
-    IndexType buff_size = 0;
+    Index buff_size = 0;
     for (const auto &it : buffer_)
       buff_size += it.size();
     max_buff_size_ = max_buff_size_ < buff_size ? buff_size : max_buff_size_;
@@ -190,7 +188,7 @@ private:
   template <typename EntryGenerator>
   void setupColumn(const Derived &TR, const Derived &TC,
                    const EntryGenerator &e_gen) {
-    eigenMatrix retval;
+    Matrix retval;
     if (TC.nSons())
       for (auto i = 0; i < TC.nSons(); ++i)
         setupColumn(TR, TC.sons(i), e_gen);
@@ -211,40 +209,39 @@ private:
   }
   //////////////////////////////////////////////////////////////////////////////
   template <typename otherDerived>
-  void storeBlock(IndexType srow, IndexType scol, IndexType nrows,
-                  IndexType ncols,
+  void storeBlock(Index srow, Index scol, Index nrows, Index ncols,
                   const Eigen::MatrixBase<otherDerived> &block) {
     storage_size_ += ncols * nrows;
     for (auto k = 0; k < ncols; ++k)
       for (auto j = 0; j < nrows; ++j)
         if (srow + j <= scol + k && abs(block(j, k)) > threshold_)
           triplet_list_.push_back(
-              Eigen::Triplet<value_type>(srow + j, scol + k, block(j, k)));
+              Eigen::Triplet<Scalar>(srow + j, scol + k, block(j, k)));
   }
   //////////////////////////////////////////////////////////////////////////////
   /// member variables
   //////////////////////////////////////////////////////////////////////////////
-  std::vector<Eigen::Triplet<value_type>> triplet_list_;
-  std::vector<std::map<IndexType, eigenMatrix>> buffer_;
+  std::vector<Eigen::Triplet<Scalar>> triplet_list_;
+  std::vector<std::map<Index, Matrix>> buffer_;
   ProgressBar PB_;
-  value_type eta_;
-  value_type threshold_;
-  IndexType N_;
+  Scalar eta_;
+  Scalar threshold_;
+  Index N_;
   size_t storage_size_;
   size_t max_buff_size_;
-  IndexType compute_block_calls_;
+  Index compute_block_calls_;
 };
 
-template <typename Scalar, typename Derived>
+template <typename Derived>
 std::vector<Eigen::Triplet<Scalar>> symPattern(SampletTreeBase<Derived> &ST,
                                                Scalar eta = 0.8) {
   std::vector<Eigen::Triplet<Scalar>> retval;
   for (const auto &TC : ST) {
-    const IndexType c_start = TC.start_index();
+    const Index c_start = TC.start_index();
     for (const auto &TR : ST) {
       if (TR.block_id() > TC.block_id())
         break;
-      const IndexType r_start = TR.start_index();
+      const Index r_start = TR.start_index();
       // is there an entry?
       if (compareCluster(TR, TC, eta) != LowRank) {
         if (TC.is_root()) {

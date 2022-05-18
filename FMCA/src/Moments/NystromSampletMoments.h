@@ -23,8 +23,9 @@ public:
   NystromSampletMoments(const Matrix &P, Index polynomial_degree = 2)
       : Base(P, SampletHelper::internal_q(polynomial_degree, P.rows())),
         polynomial_degree_(polynomial_degree) {
-    multinomial_coeffs_ = SampletHelper::multinomialCoefficientMatrix<
-        Matrix, MultiIndexSet<TotalDegree>>(Base::interp().idcs());
+    multinomial_coeffs_ =
+        SampletHelper::multinomialCoefficientMatrix<MultiIndexSet<TotalDegree>>(
+            Base::interp().idcs());
     mq_ = binomialCoefficient(P.rows() + polynomial_degree_, P.rows());
     mq2_ = binomialCoefficient(P.rows() + Base::polynomial_degree(), P.rows());
   }

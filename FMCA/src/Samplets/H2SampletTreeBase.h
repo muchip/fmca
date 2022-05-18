@@ -34,9 +34,7 @@ struct H2SampletTreeNodeBase : public ClusterTreeNodeBase<Derived>,
  **/
 template <typename Derived>
 struct H2SampletTreeBase : public SampletTreeBase<Derived> {
-  typedef typename internal::traits<Derived>::eigenMatrix eigenMatrix;
-  typedef typename internal::traits<Derived>::node_type node_type;
-  typedef typename internal::traits<Derived>::value_type value_type;
+  typedef typename internal::traits<Derived>::Node Node;
   typedef SampletTreeBase<Derived> Base;
   // make base class methods visible
   using Base::appendSons;
@@ -56,13 +54,13 @@ struct H2SampletTreeBase : public SampletTreeBase<Derived> {
   using Base::sons;
   using Base::start_index;
 
-  const eigenMatrix &V() const { return node().V_; }
-  eigenMatrix &V() { return node().V_; }
+  const Matrix &V() const { return node().V_; }
+  Matrix &V() { return node().V_; }
 
-  const std::vector<eigenMatrix> &Es() const { return node().E_; }
-  std::vector<eigenMatrix> &Es() { return node().E_; }
+  const std::vector<Matrix> &Es() const { return node().E_; }
+  std::vector<Matrix> &Es() { return node().E_; }
 
-  const eigenMatrix &Xi() const { return node().interp_->Xi(); }
+  const Matrix &Xi() const { return node().interp_->Xi(); }
   //////////////////////////////////////////////////////////////////////////////
   void computeMultiscaleClusterBasis() {
     if (!nSons()) {
@@ -85,10 +83,11 @@ struct H2SampletTreeBase : public SampletTreeBase<Derived> {
   template <typename Moments>
   void updateMultiscaleClusterBasis(const Moments &mom) {
     // compute multiscale cluster bases of sons and update own
-    for (auto i = 0; i < nSons(); ++i) sons(i).updateMultiscaleClusterBasis(mom);
+    for (auto i = 0; i < nSons(); ++i)
+      sons(i).updateMultiscaleClusterBasis(mom);
     node().V_ = mom.interp().invV().transpose() * node().V_;
     return;
   }
 };
-}  // namespace FMCA
+} // namespace FMCA
 #endif
