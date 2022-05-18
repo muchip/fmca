@@ -17,8 +17,8 @@
 
 #include <Eigen/Dense>
 
-#include "src/util/ForwardDeclarations.h"
 #include "src/util/Macros.h"
+#include "src/util/ForwardDeclarations.h"
 #include "src/util/TreeBase.h"
 
 #include "src/Clustering/ClusterTreeInitializer_ClusterTree.h"
