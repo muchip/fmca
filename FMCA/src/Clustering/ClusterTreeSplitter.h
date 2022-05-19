@@ -31,16 +31,17 @@ struct GeometricBisection {
     c1.bb_(longest, 2) *= 0.5;
     c1.bb_(longest, 1) -= c1.bb_(longest, 2);
     c2.bb_ = bb;
-    c2.bb_(longest, 2) *= 0.5;
-    c2.bb_(longest, 0) += c2.bb_(longest, 2);
+    c2.bb_(longest, 2) = c1.bb_(longest, 2);
+    c2.bb_(longest, 0) = c1.bb_(longest, 1);
     // now split the index vector
     for (auto i = 0; i < indices.size(); ++i)
-      if ((P.col(indices[i]).array() < c1.bb_.col(1).array()).all() &&
-          (P.col(indices[i]).array() >= c1.bb_.col(0).array()).all())
+      if (P(longest, indices[i]) <= c1.bb_(longest, 1))
         c1.indices_.push_back(indices[i]);
       else
         c2.indices_.push_back(indices[i]);
     c2.indices_begin_ += c1.indices_.size();
+    assert(c1.indices_.size() + c2.indices_.size() == indices.size() &&
+           "lost indices");
   }
 };
 

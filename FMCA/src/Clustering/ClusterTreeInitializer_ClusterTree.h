@@ -73,11 +73,16 @@ template <> struct ClusterTreeInitializer<ClusterTree> {
       for (auto i = 0; i < CT.nSons(); ++i)
         init_ClusterTree_impl<Derived>(CT.sons(i), min_csize, P);
       // make indices hierarchically
+      auto indices_old = CT.node().indices_;
+      std::sort(indices_old.begin(), indices_old.end());
       CT.node().indices_.clear();
       for (auto i = 0; i < CT.nSons(); ++i)
         CT.node().indices_.insert(CT.node().indices_.end(),
                                   CT.sons(i).node().indices_.begin(),
                                   CT.sons(i).node().indices_.end());
+      auto indices_new = CT.node().indices_;
+      std::sort(indices_new.begin(), indices_new.end());
+      assert(indices_new == indices_old && "mismatch after sons");
     }
     return;
   }
@@ -89,42 +94,35 @@ template <> struct ClusterTreeInitializer<ClusterTree> {
   template <typename Derived>
   static void shrinkToFit_impl(ClusterTreeBase<Derived> &CT, const Matrix &P) {
     Matrix bbmat(P.rows(), 3);
-    if (CT.nSons()) {
-      // assert that all sons have fitted bb's
-      for (auto i = 0; i < CT.nSons(); ++i)
-        shrinkToFit_impl(CT.sons(i), P);
-      // now update own bb (we need a son with indices to get a first bb)
-      for (auto i = 0; i < CT.nSons(); ++i)
-        if (CT.sons(i).node().indices_.size()) {
-          bbmat.col(0).array() = CT.sons(i).node().bb_.col(0);
-          bbmat.col(1).array() = CT.sons(i).node().bb_.col(1);
-          break;
+    if (CT.node().indices_.size()) {
+      bbmat.col(0) = P.col(CT.node().indices_[0]);
+      bbmat.col(1) = bbmat.col(0);
+      if (CT.nSons()) {
+        // assert that all sons have fitted bb's
+        for (auto i = 0; i < CT.nSons(); ++i) {
+          shrinkToFit_impl(CT.sons(i), P);
+          if (CT.sons(i).node().indices_.size()) {
+            bbmat.col(0).array() =
+                bbmat.col(0).array().min(CT.sons(i).node().bb_.col(0).array());
+            bbmat.col(1).array() =
+                bbmat.col(1).array().max(CT.sons(i).node().bb_.col(1).array());
+          }
         }
-      for (auto i = 0; i < CT.nSons(); ++i)
-        if (CT.sons(i).node().indices_.size()) {
-          bbmat.col(0).array() =
-              bbmat.col(0).array().min(CT.sons(i).node().bb_.col(0).array());
-          bbmat.col(1).array() =
-              bbmat.col(1).array().max(CT.sons(i).node().bb_.col(1).array());
-        }
-    } else {
-      if (CT.node().indices_.size()) {
-        bbmat.col(0) = P.col(CT.node().indices_[0]);
-        bbmat.col(1) = bbmat.col(0);
-        for (auto i = 1; i < CT.node().indices_.size(); ++i) {
+      } else {
+        for (auto i = 0; i < CT.node().indices_.size(); ++i) {
           // determine minimum
           bbmat.col(0).array() =
               P.col(CT.node().indices_[i]).array().min(bbmat.col(0).array());
           // determine maximum
           bbmat.col(1).array() =
-              P.col(CT.node().indices_[i]).array().max(bbmat.col(0).array());
+              P.col(CT.node().indices_[i]).array().max(bbmat.col(1).array());
         }
-      } else {
-        // set everything to inf;
-        bbmat.setOnes();
-        bbmat.col(0) *= Scalar(1. / 0.);
-        bbmat.col(1) *= -Scalar(1. / 0.);
       }
+    } else {
+      // set everything to inf;
+      bbmat.setOnes();
+      bbmat.col(0) *= Scalar(1. / 0.);
+      bbmat.col(1) *= -Scalar(1. / 0.);
     }
     bbmat.col(2) = bbmat.col(1) - bbmat.col(0);
     CT.node().bb_ = bbmat;

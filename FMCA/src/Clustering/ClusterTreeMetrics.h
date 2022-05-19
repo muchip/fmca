@@ -58,14 +58,14 @@ Scalar clusterSeparationRadius(Scalar separation_radius,
   Scalar retval = separation_radius;
   Scalar rad = 0;
   Scalar dist = computeDistance(cluster1, cluster2);
-
-  if (separation_radius > 0.5 * dist) {
+  if (separation_radius >= 0.5 * dist) {
     if (cluster2.nSons()) {
       rad = 0.5 * (dist + cluster2.bb().col(2).norm());
       separation_radius = separation_radius < rad ? separation_radius : rad;
       for (auto i = 0; i < cluster2.nSons(); ++i) {
-        rad = clusterSeparationRadius(separation_radius, cluster1,
-                                      cluster2.sons(i), P);
+        if (cluster2.sons(i).indices().size())
+          rad = clusterSeparationRadius(separation_radius, cluster1,
+                                        cluster2.sons(i), P);
         retval = retval < rad ? retval : rad;
       }
     } else {
@@ -83,27 +83,25 @@ Scalar clusterSeparationRadius(Scalar separation_radius,
 }
 
 template <typename Derived>
-void clusterFillDistance(Vector &fill_distance,
+void clusterFillDistance(Vector &min_distance,
                          const ClusterTreeBase<Derived> &cluster1,
                          const ClusterTreeBase<Derived> &cluster2,
                          const Matrix &P) {
-  Scalar max_dist = 0;
   Scalar dist = computeDistance(cluster1, cluster2);
-  // check cluster if there is the chance of improving the distance of a given
-  // point
-  if (fill_distance.maxCoeff() > dist) {
+  // check cluster if there is the chance of improving the distance of a
+  // given point
+  if (min_distance.maxCoeff() >= dist) {
     if (cluster2.nSons()) {
       for (auto i = 0; i < cluster2.nSons(); ++i)
-        clusterFillDistance(fill_distance, cluster1, cluster2.sons(i), P);
+        if (cluster2.sons(i).indices().size())
+          clusterFillDistance(min_distance, cluster1, cluster2.sons(i), P);
     } else {
       if (cluster1.block_id() != cluster2.block_id())
         for (auto j = 0; j < cluster1.indices().size(); ++j)
           for (auto i = 0; i < cluster2.indices().size(); ++i) {
-            max_dist =
-                (P.col(cluster2.indices()[i]) - P.col(cluster1.indices()[j]))
-                    .norm();
-            fill_distance(j) =
-                fill_distance(j) > max_dist ? max_dist : fill_distance(j);
+            dist = (P.col(cluster2.indices()[i]) - P.col(cluster1.indices()[j]))
+                       .norm();
+            min_distance(j) = min_distance(j) > dist ? dist : min_distance(j);
           }
     }
   }
@@ -112,7 +110,7 @@ void clusterFillDistance(Vector &fill_distance,
 
 template <typename Derived>
 Scalar separationRadius(const ClusterTreeBase<Derived> &CT, const Matrix &P) {
-  Scalar separation_radius = Scalar(1.) / Scalar(0.);
+  Scalar separation_radius = Scalar(1. / 0.);
   for (auto it = CT.cbegin(); it != CT.cend(); ++it) {
     if (!it->nSons() && it->indices().size()) {
       Scalar rad = 0;
@@ -141,11 +139,10 @@ Scalar fillDistance(const ClusterTreeBase<Derived> &CT, const Matrix &P) {
       min_distance /= Scalar(0.);
       // determine candidate distances within the cluster
       for (auto j = 0; j < it->indices().size(); ++j)
-        for (auto i = 0; i < it->indices().size(); ++i) {
-          if (i != j) {
-            dist = (P.col(it->indices()[i]) - P.col(it->indices()[j])).norm();
-            min_distance(j) = min_distance(j) > dist ? dist : min_distance(j);
-          }
+        for (auto i = 0; i < j; ++i) {
+          dist = (P.col(it->indices()[i]) - P.col(it->indices()[j])).norm();
+          min_distance(j) = min_distance(j) > dist ? dist : min_distance(j);
+          min_distance(i) = min_distance(i) > dist ? dist : min_distance(i);
         }
       clusterFillDistance(min_distance, *it, CT, P);
       const Scalar cluster_max_dist = min_distance.maxCoeff();
