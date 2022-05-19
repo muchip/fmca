@@ -11,6 +11,7 @@
 //
 #include <Eigen/Dense>
 #include <FMCA/Clustering>
+#include <FMCA/src/util/IO.h>
 #include <FMCA/src/util/Tictoc.h>
 #include <FMCA/src/util/print2file.h>
 #include <iomanip>
@@ -49,6 +50,32 @@ int main() {
   }
   std::cout << fill_distance << " " << separation_radius << std::endl;
   FMCA::clusterTreeStatistics(CT, P);
+
+  std::vector<const FMCA::TreeBase<FMCA::ClusterTree> *> leafs;
+  for (auto level = 0; level < 16; ++level) {
+    std::vector<Eigen::MatrixXd> bbvec;
+    for (auto &node : CT) {
+      if (node.level() == level)
+        bbvec.push_back(node.derived().bb());
+    }
+    FMCA::IO::plotBoxes("boxes" + std::to_string(level) + ".vtk", bbvec);
+  }
+  std::vector<FMCA::Matrix> bbvec;
+
+  for (auto &node : CT) {
+    if (!node.nSons())
+      bbvec.push_back(node.derived().bb());
+  }
+  FMCA::Vector colrs(P.cols());
+  for (auto &node : CT) {
+    if (!node.nSons()) {
+      FMCA::Index idx = rand() % 512;
+      for (auto it = node.indices().begin(); it != node.indices().end(); ++it)
+        colrs(*it) = idx;
+    }
+  }
+  FMCA::IO::plotBoxes("boxesLeafs.vtk", bbvec);
+  FMCA::IO::plotPointsColor("points.vtk", P, colrs);
 
   return 0;
 }
