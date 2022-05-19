@@ -15,7 +15,7 @@
 #include "../FMCA/H2Matrix"
 #include "TestParameters.h"
 
-using Interpolator = FMCA::TotalDegreeInterpolator<FMCA::FloatType>;
+using Interpolator = FMCA::TotalDegreeInterpolator;
 using Moments = FMCA::NystromMoments<Interpolator>;
 using MatrixEvaluator =
     FMCA::NystromMatrixEvaluator<Moments, exponentialKernel>;
@@ -24,16 +24,16 @@ using H2Matrix = FMCA::H2Matrix<H2ClusterTree>;
 
 int main() {
   const auto function = exponentialKernel();
-  const Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, NPTS);
+  const FMCA::Matrix P = FMCA::Matrix::Random(DIM, NPTS);
   const Moments mom(P, MPOLE_DEG);
   H2ClusterTree ct(mom, 0, P);
   FMCA::internal::compute_cluster_bases_impl::check_transfer_matrices(ct, mom);
   const MatrixEvaluator mat_eval(mom, function);
-  for (double eta = 0.8; eta >= 0; eta -= 0.2) {
+  for (FMCA::Scalar eta = 0.8; eta >= 0; eta -= 0.2) {
     std::cout << "eta= " << eta << std::endl;
     const H2Matrix hmat(ct, mat_eval, eta);
     hmat.get_statistics();
-    Eigen::MatrixXd K(P.cols(), P.cols());
+    FMCA::Matrix K(P.cols(), P.cols());
     for (auto j = 0; j < P.cols(); ++j)
       for (auto i = 0; i < P.cols(); ++i)
         K(i, j) = function(P.col(ct.indices()[i]), P.col(ct.indices()[j]));

@@ -21,6 +21,7 @@ namespace FMCA {
 namespace ClusterSplitter {
 
 struct GeometricBisection {
+  static std::string splitterName() { return "GeometricBisection"; }
   template <class ClusterTree>
   void operator()(const Matrix &P, const std::vector<Index> &indices,
                   const Matrix &bb, ClusterTree &c1, ClusterTree &c2) const {
@@ -55,6 +56,7 @@ template <typename Derived> struct CoordinateCompare {
 };
 
 struct CardinalityBisection {
+  static std::string splitterName() { return "CardinalityBisection"; }
   template <class ClusterTree>
   void operator()(const Matrix &P, const std::vector<Index> &indices,
                   const Matrix &bb, ClusterTree &c1, ClusterTree &c2) const {

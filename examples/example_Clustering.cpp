@@ -17,8 +17,8 @@
 #include <iostream>
 
 int main() {
-  const FMCA::Index d = 10;
-  const FMCA::Index N = 10000;
+  const FMCA::Index d = 3;
+  const FMCA::Index N = 100000;
   const FMCA::Matrix P = FMCA::Matrix::Random(d, N);
   FMCA::Tictoc T;
   std::cout << "dimension:                  " << d << std::endl;

@@ -58,7 +58,6 @@ struct compute_cluster_bases_impl {
   template <typename Derived, typename Moments>
   static int check_transfer_matrices(TreeBase<Derived> &CT,
                                      const Moments &mom) {
-    using Matrix = typename Derived::Matrix;
     Derived &H2T = CT.derived();
     if (H2T.nSons()) {
       // check transfer matrices of sons first

@@ -16,6 +16,21 @@ namespace FMCA {
 
 enum Admissibility { Refine = 0, LowRank = 1, Dense = 2 };
 
+template <typename Derived, typename Derived2>
+Scalar pointDistance(const ClusterTreeBase<Derived> &TR,
+                     const Eigen::MatrixBase<Derived2> &pt) {
+  const Scalar radius = 0.5 * TR.bb().col(2).norm();
+  const Scalar dist = (0.5 * (TR.bb().col(0) + TR.bb().col(1)) - pt) - radius;
+  return dist > 0 ? dist : 0;
+}
+
+template <typename Derived, typename Derived2>
+bool inBoundingBox(const ClusterTreeBase<Derived> &TR,
+                   const Eigen::MatrixBase<Derived2> &pt) {
+  return ((pt - TR.bb().col(0)).array() >= 0).all() *
+         ((pt - TR.bb().col(1)).array() <= 0).all();
+}
+
 template <typename Derived>
 Scalar computeDistance(const ClusterTreeBase<Derived> &TR,
                        const ClusterTreeBase<Derived> &TC) {

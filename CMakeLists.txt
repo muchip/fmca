@@ -12,7 +12,7 @@ message(STATUS "
 *                 |__|     |__|  |__|  \\______| |__|  |__|                 *
 *                                                                          *
 ****************************************************************************
-This file is FMCA, the Fast Multiresolution Covariance Analysis package.
+This is FMCA, the Fast Multiresolution Covariance Analysis package.
 
 Copyright (c) 2021, Michael Multerer
 All rights reserved.
