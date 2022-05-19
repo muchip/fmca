@@ -35,7 +35,7 @@ struct GeometricBisection {
     c2.bb_(longest, 0) += c2.bb_(longest, 2);
     // now split the index vector
     for (auto i = 0; i < indices.size(); ++i)
-      if ((P.col(indices[i]).array() <= c1.bb_.col(1).array()).all() &&
+      if ((P.col(indices[i]).array() < c1.bb_.col(1).array()).all() &&
           (P.col(indices[i]).array() >= c1.bb_.col(0).array()).all())
         c1.indices_.push_back(indices[i]);
       else

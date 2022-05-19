@@ -16,40 +16,16 @@
 #include <iostream>
 
 int main() {
-  const FMCA::Index N = 10000000;
-  const FMCA::Matrix P = FMCA::Matrix::Random(1, N);
+  const FMCA::Index d = 3;
+  const FMCA::Index N = 1000;
+  const FMCA::Matrix P = FMCA::Matrix::Random(d, N);
   FMCA::Tictoc T;
-  FMCA::Scalar fill_distance = 0;
-  FMCA::Scalar separation_radius = 1. / 0.;
-
+  std::cout << "dimension:                  " << d << std::endl;
+  std::cout << "number of points:           " << N << std::endl;
   T.tic();
   FMCA::ClusterTree CT(P, 10);
-  T.toc("cluster tree: ");
-#if 0
-  T.tic();
-  for (auto j = 0; j < P.cols(); ++j) {
-    FMCA::Scalar dist = 1. / 0.;
-    for (auto i = 0; i < P.cols(); ++i) {
-      if (i != j) {
-        FMCA::Scalar rad = 0.5 * (P.col(i) - P.col(j)).norm();
-        dist = dist > (2 * rad) ? (2 * rad) : dist;
-        separation_radius = separation_radius < rad ? separation_radius : rad;
-      }
-    }
-    fill_distance = fill_distance < dist ? dist : fill_distance;
-  }
-  std::cout << "fill_distance:     " << fill_distance << std::endl;
-  std::cout << "separation_radius: " << separation_radius << std::endl;
-  T.toc("dist mat: ");
-#endif
-  T.tic();
-  std::cout << "error fd: " << abs(fill_distance - FMCA::fillDistance(CT, P))
-            << std::endl;
-  std::cout << "error sr: "
-            << abs(separation_radius - FMCA::separationRadius(CT, P))
-            << std::endl;
-  T.toc("computation time: ");
-  FMCA::clusterTreeStatistics(CT);
+  T.toc("cluster tree assembly time:");
+  FMCA::clusterTreeStatistics(CT, P);
 
   return 0;
 }

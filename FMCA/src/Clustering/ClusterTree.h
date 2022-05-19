@@ -19,7 +19,7 @@ struct ClusterTreeNode : public ClusterTreeNodeBase<ClusterTreeNode> {};
 namespace internal {
 template <> struct traits<ClusterTree> {
   typedef ClusterTreeNode Node;
-  typedef ClusterSplitter::CardinalityBisection Splitter;
+  typedef ClusterSplitter::GeometricBisection Splitter;
 };
 } // namespace internal
 

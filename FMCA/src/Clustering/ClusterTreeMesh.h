@@ -45,25 +45,15 @@ struct ClusterTreeMesh : public ClusterTreeBase<ClusterTreeMesh> {
   // constructors
   //////////////////////////////////////////////////////////////////////////////
   ClusterTreeMesh() {}
-  template <typename Derived, typename otherDerived>
-  ClusterTreeMesh(const Eigen::MatrixBase<Derived> &V,
-                  const Eigen::MatrixBase<otherDerived> &F,
+  ClusterTreeMesh(const Matrix &V, const iMatrix &F,
                   Index min_cluster_size = 1) {
     init(V, F, min_cluster_size);
   }
   //////////////////////////////////////////////////////////////////////////////
   // implementation of init
   //////////////////////////////////////////////////////////////////////////////
-  template <typename Derived, typename otherDerived>
-  void init(const Eigen::MatrixBase<Derived> &V,
-            const Eigen::MatrixBase<otherDerived> &F,
-            Index min_cluster_size = 1) {
-    // generate list of element centers of gravity
-    Matrix P(V.cols(), F.rows());
-    P.setZero();
-    for (auto i = 0; i < P.cols(); ++i)
-      for (auto j = 0; j < F.cols(); ++j)
-        P.col(i) += V.row(F(i, j)).transpose() / F.cols();
+  void init(const Matrix &V, const iMatrix &F, Index min_cluster_size = 1) {
+
     internal::ClusterTreeInitializer<ClusterTreeMesh>::init(
         *this, min_cluster_size, V, F);
   }

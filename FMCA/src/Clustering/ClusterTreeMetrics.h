@@ -157,9 +157,11 @@ Scalar fillDistance(const ClusterTreeBase<Derived> &CT, const Matrix &P) {
 }
 
 template <typename Derived>
-void clusterTreeStatistics(const ClusterTreeBase<Derived> &CT) {
+void clusterTreeStatistics(const ClusterTreeBase<Derived> &CT,
+                           const Matrix &P) {
   std::vector<Scalar> disc_vec;
   Index N = CT.indices().size();
+  Index n_cluster = std::distance(CT.cbegin(), CT.cend());
   Scalar vol = CT.bb().col(2).prod();
   Scalar max_disc = 0;
   Scalar min_disc = 1. / 0.;
@@ -167,30 +169,38 @@ void clusterTreeStatistics(const ClusterTreeBase<Derived> &CT) {
 
   for (auto it = CT.cbegin(); it != CT.cend(); ++it) {
     const auto &node = *it;
-    Scalar discrepancy = std::abs(Scalar(node.indices().size()) / N -
-                                  node.bb().col(2).prod() / vol);
-    disc_vec.push_back(discrepancy);
-    max_disc = max_disc < disc_vec.back() ? disc_vec.back() : max_disc;
-    min_disc = min_disc > disc_vec.back() ? disc_vec.back() : min_disc;
-    mean_disc += disc_vec.back();
+    if (node.indices().size() > 1) {
+      Scalar discrepancy = std::abs(Scalar(node.indices().size()) / N -
+                                    node.bb().col(2).prod() / vol);
+      disc_vec.push_back(discrepancy);
+      max_disc = max_disc < disc_vec.back() ? disc_vec.back() : max_disc;
+      min_disc = min_disc > disc_vec.back() ? disc_vec.back() : min_disc;
+      mean_disc += disc_vec.back();
+    }
   }
   mean_disc /= disc_vec.size();
-  std::cout << "number of clusters: " << disc_vec.size() << std::endl;
+  std::cout << "number of clusters:         " << n_cluster << std::endl;
+  std::cout << "number of actual clusters:  " << disc_vec.size() << std::endl;
+  std::cout << "fill distance:              " << FMCA::fillDistance(CT, P)
+            << std::endl;
+  std::cout << "sep radius:                 " << FMCA::separationRadius(CT, P)
+            << std::endl;
   std::cout << std::scientific << std::setprecision(2)
-            << "min discrepancy: " << min_disc
-            << " max discrepancy: " << max_disc
-            << " mean discrepancy: " << mean_disc << std::endl;
+            << "min cluster discrepancy:    " << min_disc << std::endl
+            << "max cluster discrepancy:    " << max_disc << std::endl
+            << "mean cluster discrepancy:   " << mean_disc << std::endl;
   FMCA::Scalar range = exp(log(mean_disc) - 2 * log(max_disc / mean_disc));
   min_disc = min_disc < range ? range : min_disc;
   std::cout << std::scientific << std::setprecision(2)
-            << "discrepancy distribution of clusters in [" << min_disc << ","
+            << "cluster discrepancy distribution in [" << min_disc << ","
             << max_disc << ")" << std::endl;
   FMCA::Index intervals = 20;
   FMCA::Scalar h = log(max_disc / min_disc) / intervals;
   FMCA::Vector values(intervals);
   values.setZero();
   for (auto &&it : disc_vec) {
-    for (auto j = 0; j < intervals; ++j)
+    auto j = 0;
+    for (; j < intervals; ++j)
       if ((log(it) >= h * j + log(min_disc)) &&
           (log(it) < h * (j + 1) + log(min_disc))) {
         ++values(j);
@@ -198,6 +208,7 @@ void clusterTreeStatistics(const ClusterTreeBase<Derived> &CT) {
       }
   }
   FMCA::Scalar bar_factor = 60 * disc_vec.size() / values.maxCoeff();
+  bar_factor = bar_factor < Scalar(1. / 0.) ? bar_factor : 0;
   for (auto i = 0; i < intervals; ++i) {
     std::cout << std::scientific << std::setprecision(2) << std::setw(8)
               << exp(h * (i + 0.5)) * min_disc << "|";

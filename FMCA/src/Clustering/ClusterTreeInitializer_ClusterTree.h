@@ -21,13 +21,13 @@ template <> struct ClusterTreeInitializer<ClusterTree> {
   ClusterTreeInitializer() = delete;
   //////////////////////////////////////////////////////////////////////////////
   template <typename Derived>
-  static void init(ClusterTreeBase<Derived> &CT, Index min_cluster_size,
+  static void init(ClusterTreeBase<Derived> &CT, Index min_csize,
                    const Matrix &P) {
-    init_BoundingBox_impl(CT, min_cluster_size, P);
+    init_BoundingBox_impl(CT, min_csize, P);
     CT.node().indices_begin_ = 0;
     CT.node().indices_.resize(P.cols());
     std::iota(CT.node().indices_.begin(), CT.node().indices_.end(), 0u);
-    init_ClusterTree_impl(CT, min_cluster_size, P);
+    init_ClusterTree_impl(CT, min_csize, P);
     shrinkToFit_impl(CT, P);
     Index i = 0;
     for (auto &it : CT) {
@@ -38,12 +38,15 @@ template <> struct ClusterTreeInitializer<ClusterTree> {
   //////////////////////////////////////////////////////////////////////////////
   template <typename Derived>
   static void init_BoundingBox_impl(ClusterTreeBase<Derived> &CT,
-                                    Index min_cluster_size, const Matrix &P) {
+                                    Index min_csize, const Matrix &P) {
     CT.node().bb_.resize(P.rows(), 3);
     CT.node().bb_.col(0) = P.rowwise().minCoeff();
     CT.node().bb_.col(1) = P.rowwise().maxCoeff();
-    CT.node().bb_.col(0) += FMCA_BBOX_THREASHOLD * CT.node().bb_.col(0);
-    CT.node().bb_.col(1) += FMCA_BBOX_THREASHOLD * CT.node().bb_.col(1);
+    // increase bounding box by an epsilon layer
+    CT.node().bb_.col(0) -=
+        FMCA_BBOX_THREASHOLD * CT.node().bb_.col(0).cwiseAbs();
+    CT.node().bb_.col(1) +=
+        FMCA_BBOX_THREASHOLD * CT.node().bb_.col(1).cwiseAbs();
     CT.node().bb_.col(2) = CT.node().bb_.col(1) - CT.node().bb_.col(0);
     return;
   }
@@ -53,10 +56,9 @@ template <> struct ClusterTreeInitializer<ClusterTree> {
    **/
   template <typename Derived>
   static void init_ClusterTree_impl(ClusterTreeBase<Derived> &CT,
-                                    Index min_cluster_size, const Matrix &P) {
+                                    Index min_csize, const Matrix &P) {
     typename traits<Derived>::Splitter split;
-    const Index split_threshold =
-        min_cluster_size >= 1 ? (2 * min_cluster_size - 1) : 1;
+    const Index split_threshold = min_csize >= 1 ? (2 * min_csize - 1) : 1;
     if (CT.node().indices_.size() > split_threshold) {
       CT.appendSons(2);
       // set up bounding boxes for sons
@@ -69,7 +71,7 @@ template <> struct ClusterTreeInitializer<ClusterTree> {
             CT.sons(1).node());
       // let recursion handle the rest
       for (auto i = 0; i < CT.nSons(); ++i)
-        init_ClusterTree_impl<Derived>(CT.sons(i), min_cluster_size, P);
+        init_ClusterTree_impl<Derived>(CT.sons(i), min_csize, P);
       // make indices hierarchically
       CT.node().indices_.clear();
       for (auto i = 0; i < CT.nSons(); ++i)
@@ -107,27 +109,21 @@ template <> struct ClusterTreeInitializer<ClusterTree> {
         }
     } else {
       if (CT.node().indices_.size()) {
-        for (auto j = 0; j < P.rows(); ++j) {
-          bbmat(j, 0) = P(j, CT.node().indices_[0]);
-          bbmat(j, 1) = P(j, CT.node().indices_[0]);
-        }
-        for (auto i = 1; i < CT.node().indices_.size(); ++i)
-          for (auto j = 0; j < P.rows(); ++j) {
-            // determine minimum
-            bbmat(j, 0) = bbmat(j, 0) <= P(j, CT.node().indices_[i])
-                              ? bbmat(j, 0)
-                              : P(j, CT.node().indices_[i]);
-            // determine maximum
-            bbmat(j, 1) = bbmat(j, 1) >= P(j, CT.node().indices_[i])
-                              ? bbmat(j, 1)
-                              : P(j, CT.node().indices_[i]);
-          }
-        bbmat.col(0).array() -= 10 * FMCA_ZERO_TOLERANCE;
-        bbmat.col(1).array() += 10 * FMCA_ZERO_TOLERANCE;
-      } else {
-        // collapse empty box to its midpoint
-        bbmat.col(0) = 0.5 * (CT.node().bb_.col(0) + CT.node().bb_.col(1));
+        bbmat.col(0) = P.col(CT.node().indices_[0]);
         bbmat.col(1) = bbmat.col(0);
+        for (auto i = 1; i < CT.node().indices_.size(); ++i) {
+          // determine minimum
+          bbmat.col(0).array() =
+              P.col(CT.node().indices_[i]).array().min(bbmat.col(0).array());
+          // determine maximum
+          bbmat.col(1).array() =
+              P.col(CT.node().indices_[i]).array().max(bbmat.col(0).array());
+        }
+      } else {
+        // set everything to inf;
+        bbmat.setOnes();
+        bbmat.col(0) *= Scalar(1. / 0.);
+        bbmat.col(1) *= -Scalar(1. / 0.);
       }
     }
     bbmat.col(2) = bbmat.col(1) - bbmat.col(0);

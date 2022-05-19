@@ -20,23 +20,21 @@ namespace internal {
 template <> struct ClusterTreeInitializer<ClusterTreeMesh> {
   ClusterTreeInitializer() = delete;
   //////////////////////////////////////////////////////////////////////////////
-  template <typename Derived, typename Derived2, typename Derived3>
-  static void init(ClusterTreeBase<Derived> &CT, Index min_cluster_size,
-                   const Eigen::MatrixBase<Derived2> &V,
-                   const Eigen::MatrixBase<Derived3> &F) {
+  template <typename Derived>
+  static void init(ClusterTreeBase<Derived> &CT, Index min_csize,
+                   const Matrix &V, const iMatrix &F) {
+    typedef ClusterTreeInitializer<ClusterTree> CTInitializer;
     // we split according to midpoints and fix everything later
     Matrix P(V.cols(), F.rows());
     P.setZero();
     for (auto i = 0; i < P.cols(); ++i)
       for (auto j = 0; j < F.cols(); ++j)
         P.col(i) += V.row(F(i, j)).transpose() / F.cols();
-    ClusterTreeInitializer<ClusterTree>::init_BoundingBox_impl(
-        CT, min_cluster_size, P);
+    CTInitializer::init_BoundingBox_impl(CT, min_csize, P);
     CT.node().indices_begin_ = 0;
     CT.node().indices_.resize(P.cols());
     std::iota(CT.node().indices_.begin(), CT.node().indices_.end(), 0u);
-    ClusterTreeInitializer<ClusterTree>::init_ClusterTree_impl(
-        CT, min_cluster_size, P);
+    CTInitializer::init_ClusterTree_impl(CT, min_csize, P);
     shrinkToFit_impl(CT, V, F);
     Index i = 0;
     for (auto &it : CT) {
@@ -50,10 +48,9 @@ template <> struct ClusterTreeInitializer<ClusterTreeMesh> {
    *  \brief recursively shrink all bounding boxes to the minimal possible
    *         size
    **/
-  template <typename Derived, typename Derived2, typename Derived3>
-  static void shrinkToFit_impl(ClusterTreeBase<Derived> &CT,
-                               const Eigen::MatrixBase<Derived2> &V,
-                               const Eigen::MatrixBase<Derived3> &F) {
+  template <typename Derived>
+  static void shrinkToFit_impl(ClusterTreeBase<Derived> &CT, const Matrix &V,
+                               const iMatrix &F) {
     Matrix bbmat(V.cols(), 3);
     if (CT.nSons()) {
       // assert that all sons have fitted bb's
@@ -88,12 +85,11 @@ template <> struct ClusterTreeInitializer<ClusterTreeMesh> {
             bbmat.col(1).array() = bbmat.col(1).array().max(
                 V.row(F(CT.node().indices_[i], k)).transpose().array());
           }
-        bbmat.col(0).array() -= 10 * FMCA_ZERO_TOLERANCE;
-        bbmat.col(1).array() += 10 * FMCA_ZERO_TOLERANCE;
       } else {
-        // collapse empty box to its midpoint
-        bbmat.col(0) = 0.5 * (CT.node().bb_.col(0) + CT.node().bb_.col(1));
-        bbmat.col(1) = bbmat.col(0);
+        // set everything to inf;
+        bbmat.setOnes();
+        bbmat.col(0) *= Scalar(1. / 0.);
+        bbmat.col(1) *= -Scalar(1. / 0.);
       }
     }
     bbmat.col(2) = bbmat.col(1) - bbmat.col(0);
