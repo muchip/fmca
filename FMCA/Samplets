@@ -18,7 +18,6 @@
 #include <Eigen/Sparse>
 
 #include "Clustering"
-#include "Interpolators"
 #include "MatrixEvaluators"
 
 #include "src/util/ForwardDeclarations.h"

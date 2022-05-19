@@ -40,7 +40,6 @@ Vector matrixColumnGetter(const Matrix &P, const std::vector<Index> &idcs,
   return retval;
 }
 
-#if 0
 template <typename Functor, typename Derived>
 Scalar errorEstimatorSymmetricCompressor(
     const std::vector<Eigen::Triplet<Scalar>> &trips, const Functor &function,
@@ -62,7 +61,6 @@ Scalar errorEstimatorSymmetricCompressor(
   }
   return sqrt(err / nrm);
 }
-#endif
 } // namespace FMCA
 
 #endif
