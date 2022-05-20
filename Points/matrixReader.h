@@ -16,6 +16,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <vector>
 
 Eigen::MatrixXd readMatrix(const std::string &filename) {
   std::cout << "loading " << filename << std::flush;
@@ -31,11 +32,14 @@ Eigen::MatrixXd readMatrix(const std::string &filename) {
     std::getline(infile, line);
     int temp_cols = 0;
     std::stringstream stream(line);
-    while (!stream.eof()) stream >> buff[cols * rows + temp_cols++];
+    while (!stream.eof())
+      stream >> buff[cols * rows + temp_cols++];
 
-    if (temp_cols == 0) continue;
+    if (temp_cols == 0)
+      continue;
 
-    if (cols == 0) cols = temp_cols;
+    if (cols == 0)
+      cols = temp_cols;
 
     rows++;
   }
@@ -47,9 +51,11 @@ Eigen::MatrixXd readMatrix(const std::string &filename) {
   // Populate matrix with numbers.
   Eigen::MatrixXd result(rows, cols);
   for (int i = 0; i < rows; i++)
-    for (int j = 0; j < cols; j++) result(i, j) = buff[cols * i + j];
+    for (int j = 0; j < cols; j++)
+      result(i, j) = buff[cols * i + j];
   std::cout << " done.\n" << std::flush;
-  std::cout << "data size: " << rows << " x " << cols << std::endl << std::flush;
+  std::cout << "data size: " << rows << " x " << cols << std::endl
+            << std::flush;
   return result;
 };
 
