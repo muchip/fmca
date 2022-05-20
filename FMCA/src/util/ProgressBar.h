@@ -12,6 +12,8 @@
 #ifndef FMCA_UTIL_PROGRESSBAR_H_
 #define FMCA_UTIL_PROGRESSBAR_H_
 
+#include "Macros.h"
+
 namespace FMCA {
 
 class ProgressBar {
@@ -27,7 +29,6 @@ public:
     return;
   }
   void next() {
-#ifndef FMCA_CLUSTERSET_
     if (currStep_ < numSteps_)
       ++currStep_;
     percent_ = (100 * currStep_) / numSteps_;
@@ -40,7 +41,6 @@ public:
       std::cout << " (" << percent_ << "%)" << std::flush;
       displayNext_ += 1;
     }
-#endif
     return;
   }
 

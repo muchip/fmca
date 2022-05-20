@@ -18,6 +18,8 @@
 
 #include <Eigen/Dense>
 
+#include "Macros.h"
+
 namespace FMCA {
 class NormalDistribution {
 public:
@@ -26,7 +28,8 @@ public:
         _sigma(sigma) {
     _mt64.seed(time(NULL));
   };
-  NormalDistribution(Scalar mu, Scalar sigma, size_t seed)
+
+  NormalDistribution(Scalar mu, Scalar sigma, Index seed)
       : _normalDist(std::normal_distribution<Scalar>(mu, sigma)), _mu(mu),
         _sigma(sigma) {
     _mt64.seed(seed);
@@ -34,7 +37,7 @@ public:
   /*
    *  plot histogram of normal distribution
    */
-  void visDist(int intervals, int samples) {
+  void visDist(Index intervals, Index samples) {
     Scalar h = 6. * _sigma / intervals;
     Scalar rand_number;
     Eigen::VectorXd values;
@@ -66,7 +69,7 @@ public:
   /*
    *  get Matrix of normally distributed random variables
    */
-  const Matrix &get_randMat(Index m, Index n) {
+  const Matrix &randMat(Index m, Index n) {
     _randMat.resize(m, n);
     for (auto i = 0; i < m; ++i)
       for (auto j = 0; j < n; ++j)

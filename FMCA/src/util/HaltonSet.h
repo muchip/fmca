@@ -19,13 +19,15 @@
 
 #include <Eigen/Dense>
 
+#include "Macros.h"
+
 namespace FMCA {
-template <typename T, unsigned int S, unsigned int B> class HaltonSetBase {
+template <Index S, Index B> class HaltonSetBase {
 public:
   //////////////////////////////////////////////////////////////////////////////
   //  constructors
   //////////////////////////////////////////////////////////////////////////////
-  HaltonSetBase(unsigned int M) : M_(M) {
+  HaltonSetBase(Index M) : M_(M) {
     init_primes();
     init_HaltonVector();
   }
@@ -37,7 +39,7 @@ public:
   void next() {
     long double radInverse = 0;
     long double bInv = 0;
-    unsigned int digit = 0;
+    Index digit = 0;
     for (auto i = 0; i < M_; ++i) {
       // update index by adding 1 to each of the M_ bAdic representations
       for (digit = 0; digit < B; ++digit) {
@@ -60,7 +62,7 @@ public:
         radInverse = bInv * radInverse + bAdic_[i][j];
       radInverse *= bInv;
       // store the current point to the interfacing vector
-      HaltonVector_[i] = (T)radInverse;
+      HaltonVector_[i] = (Scalar)radInverse;
     }
     return;
   }
@@ -81,12 +83,11 @@ public:
   //////////////////////////////////////////////////////////////////////////////
   //  getter
   //////////////////////////////////////////////////////////////////////////////
-  const std::vector<T> &HaltonVector(void) const { return HaltonVector_; }
-  const Eigen::Map<const Eigen::Matrix<T, Eigen::Dynamic, 1>>
-  EigenHaltonVector(void) const {
-    return Eigen::Map<const Eigen::VectorXd>(HaltonVector_.data(), M_);
+  const std::vector<Scalar> &HaltonVector(void) const { return HaltonVector_; }
+  const Eigen::Map<const Vector> EigenHaltonVector(void) const {
+    return Eigen::Map<const Vector>(HaltonVector_.data(), M_);
   }
-  const std::vector<unsigned int> &primes(void) const { return primes_; }
+  const std::vector<Index> &primes(void) const { return primes_; }
   //////////////////////////////////////////////////////////////////////////////
   //  private members
   //////////////////////////////////////////////////////////////////////////////
@@ -94,9 +95,9 @@ private:
   // set up array of prime numbers
   void init_primes() {
     primes_.resize(M_);
-    unsigned int number_of_primes = 0;
+    Index number_of_primes = 0;
     // treat 2 and 3 explicitly to shortcout afterwards
-    unsigned int current_integer = 3;
+    Index current_integer = 3;
     if (M_ > 0) {
       primes_[0] = 2;
       ++number_of_primes;
@@ -115,8 +116,8 @@ private:
     return;
   }
   // compare with respect to the already found numbers if a number is prime
-  bool isPrime(unsigned int test_number, int number_of_primes) {
-    unsigned int upper = std::sqrt(test_number);
+  bool isPrime(Index test_number, Index number_of_primes) {
+    Index upper = std::sqrt(test_number);
     for (auto i = 0; i < number_of_primes && primes_[i] <= upper; ++i)
       if (!(test_number % primes_[i]))
         return false;
@@ -133,11 +134,11 @@ private:
   }
   // member variables (using std::vector since std::array is stack allocated
   // and strongly limited in storage)
-  std::vector<unsigned int> primes_;
-  std::vector<std::array<unsigned int, B>> bAdic_;
-  std::vector<unsigned int> maxDigit_;
-  std::vector<T> HaltonVector_;
-  unsigned int M_;
+  std::vector<Index> primes_;
+  std::vector<std::array<Index, B>> bAdic_;
+  std::vector<Index> maxDigit_;
+  std::vector<Scalar> HaltonVector_;
+  Index M_;
 };
 
 /**
@@ -145,7 +146,6 @@ private:
  *           maximum base length 40bits, i.e. for b=2
  *           maximum index is 1099511627776-1 \approx 10^12
  **/
-template <unsigned int S>
-using HaltonSet = HaltonSetBase<double, S, 40u>;
+template <Index S> using HaltonSet = HaltonSetBase<double, S, 40u>;
 } // namespace FMCA
 #endif

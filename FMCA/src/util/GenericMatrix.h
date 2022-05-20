@@ -11,6 +11,8 @@
 
 #include <vector>
 
+#include "Macros.h"
+
 namespace FMCA {
 template <typename T> class GenericMatrix {
 public:

@@ -80,9 +80,9 @@ template <typename Array> struct FMCA_Compare {
     typename Array::value_type nrma = 0;
     typename Array::value_type nrmb = 0;
     for (auto i = 0; i < a.size(); ++i)
-      nrma += std::abs(double(a[i]));
+      nrma += std::abs(Scalar(a[i]));
     for (auto i = 0; i < b.size(); ++i)
-      nrmb += std::abs(double(b[i]));
+      nrmb += std::abs(Scalar(b[i]));
     if (nrma != nrmb)
       return nrma < nrmb;
     else

@@ -23,3 +23,26 @@
  * \defgroup H2Matrix H2Matrix
  * \brief Defines H2-matrix related classes
  **/
+
+/**
+ * \defgroup Interpolators Interpolators
+ * \brief Defines classes for multivariate interpolation
+ **/
+
+/**
+ * \defgroup MatrixEvaluators MatrixEvaluators
+ * \brief Defines classes for the definition and evaluation
+ * of Nystrom/Collocation/Galerkin matrices
+ **/
+
+/**
+ * \defgroup Momemnts Moments
+ * \brief Defines classes for the Samplet/Wavelet
+ *  and multipole moments
+ **/
+
+/**
+ * \defgroup BEM BEM
+ * \brief Defines classes for the Wavelet
+ *  Boundary Element Method
+ **/

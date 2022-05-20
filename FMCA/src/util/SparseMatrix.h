@@ -10,12 +10,13 @@
 #ifndef FMCA_UTIL_SPARSEMATRIX_H_
 #define FMCA_UTIL_SPARSEMATRIX_H_
 
+#include "Macros.h"
+#include "Tictoc.h"
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <algorithm>
 #include <numeric>
 #include <vector>
-#include "Tictoc.h"
 
 namespace FMCA {
 /*
@@ -35,8 +36,7 @@ public:
   typedef typename std::vector<value_type> value_vector;
   typedef typename value_vector::size_type size_type;
   typedef typename std::vector<size_type> index_vector;
-  typedef typename Eigen::Matrix<value_type, Eigen::Dynamic, Eigen::Dynamic>
-      eigenMatrix;
+  typedef typename Matrix eigenMatrix;
 
   static void sortTripletsInPlace(std::vector<Eigen::Triplet<T>> &trips) {
     struct customLess {
@@ -87,23 +87,23 @@ public:
   }
   // move constructor
   SparseMatrix(SparseMatrix<value_type> &&S) {
-    //Tictoc TT;
-    //TT.tic();
+    // Tictoc TT;
+    // TT.tic();
     m_ = S.m_;
     n_ = S.n_;
     val_.swap(S.val_);
     idx_.swap(S.idx_);
-    //TT.toc("move construct Sparse ");
+    // TT.toc("move construct Sparse ");
   }
   // deep copy constructor, exploits deep copy of std::vector
   SparseMatrix(const SparseMatrix<value_type> &S) {
-    //Tictoc TT;
-    //TT.tic();
+    // Tictoc TT;
+    // TT.tic();
     m_ = S.m_;
     n_ = S.n_;
     val_ = S.val_;
     idx_ = S.idx_;
-    //TT.toc("copy construct Sparse ");
+    // TT.toc("copy construct Sparse ");
   }
   // assignment operator based on copy and swap idiom
   SparseMatrix<value_type> &operator=(SparseMatrix<value_type> S) {
@@ -418,10 +418,9 @@ public:
     return retval;
   }
 
-  static void
-  formatted_ABT(SparseMatrix<value_type> &retval,
-                const SparseMatrix<value_type> &M1,
-                const SparseMatrix<value_type> &M2) {
+  static void formatted_ABT(SparseMatrix<value_type> &retval,
+                            const SparseMatrix<value_type> &M1,
+                            const SparseMatrix<value_type> &M2) {
 #pragma omp parallel for
     for (auto i = 0; i < retval.m_; ++i)
       for (auto j = 0; j < retval.idx_[i].size(); ++j)
