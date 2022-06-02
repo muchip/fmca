@@ -46,7 +46,8 @@ struct GeometricBisection {
   }
 };
 
-template <typename Derived> struct CoordinateCompare {
+template <typename Derived>
+struct CoordinateCompare {
   const typename Eigen::MatrixBase<Derived> &P_;
   Eigen::Index cmp_;
   CoordinateCompare(const Eigen::MatrixBase<Derived> &P, Eigen::Index cmp)
@@ -84,6 +85,6 @@ struct CardinalityBisection {
   }
 };
 
-} // namespace ClusterSplitter
-} // namespace FMCA
+}  // namespace ClusterSplitter
+}  // namespace FMCA
 #endif

@@ -17,7 +17,8 @@ namespace internal {
 /** \ingroup internal
  *  \brief initializes a bounding box for the geometry
  **/
-template <> struct ClusterTreeInitializer<ClusterTree> {
+template <>
+struct ClusterTreeInitializer<ClusterTree> {
   ClusterTreeInitializer() = delete;
   //////////////////////////////////////////////////////////////////////////////
   template <typename Derived>
@@ -72,17 +73,12 @@ template <> struct ClusterTreeInitializer<ClusterTree> {
       // let recursion handle the rest
       for (auto i = 0; i < CT.nSons(); ++i)
         init_ClusterTree_impl<Derived>(CT.sons(i), min_csize, P);
-      // make indices hierarchically
-      auto indices_old = CT.node().indices_;
-      std::sort(indices_old.begin(), indices_old.end());
+      // add sorted indices to father cluster
       CT.node().indices_.clear();
       for (auto i = 0; i < CT.nSons(); ++i)
         CT.node().indices_.insert(CT.node().indices_.end(),
                                   CT.sons(i).node().indices_.begin(),
                                   CT.sons(i).node().indices_.end());
-      auto indices_new = CT.node().indices_;
-      std::sort(indices_new.begin(), indices_new.end());
-      assert(indices_new == indices_old && "mismatch after sons");
     }
     return;
   }
@@ -129,8 +125,8 @@ template <> struct ClusterTreeInitializer<ClusterTree> {
     return;
   }
 };
-} // namespace internal
+}  // namespace internal
 
-} // namespace FMCA
+}  // namespace FMCA
 
 #endif

@@ -12,6 +12,8 @@
 #ifndef FMCA_CLUSTERING_CLUSTERTREEMETRICS_H_
 #define FMCA_CLUSTERING_CLUSTERTREEMETRICS_H_
 
+#include "../util/Tictoc.h"
+
 namespace FMCA {
 
 enum Admissibility { Refine = 0, LowRank = 1, Dense = 2 };
@@ -34,7 +36,6 @@ bool inBoundingBox(const ClusterTreeBase<Derived> &TR,
 template <typename Derived>
 Scalar computeDistance(const ClusterTreeBase<Derived> &TR,
                        const ClusterTreeBase<Derived> &TC) {
-
   const Scalar row_radius = 0.5 * TR.bb().col(2).norm();
   const Scalar col_radius = 0.5 * TC.bb().col(2).norm();
   const Scalar dist =
@@ -66,106 +67,72 @@ Admissibility compareCluster(const ClusterTreeBase<Derived> &cluster1,
 }
 
 template <typename Derived>
-Scalar clusterSeparationRadius(Scalar separation_radius,
-                               const ClusterTreeBase<Derived> &cluster1,
-                               const ClusterTreeBase<Derived> &cluster2,
-                               const Matrix &P) {
-  Scalar retval = separation_radius;
-  Scalar rad = 0;
-  Scalar dist = computeDistance(cluster1, cluster2);
-  if (separation_radius >= 0.5 * dist) {
-    if (cluster2.nSons()) {
-      rad = 0.5 * (dist + cluster2.bb().col(2).norm());
-      separation_radius = separation_radius < rad ? separation_radius : rad;
-      for (auto i = 0; i < cluster2.nSons(); ++i) {
-        if (cluster2.sons(i).indices().size())
-          rad = clusterSeparationRadius(separation_radius, cluster1,
-                                        cluster2.sons(i), P);
-        retval = retval < rad ? retval : rad;
-      }
+void updateClusterMinDistance(Vector &min_dist, Scalar max_min_dist,
+                              const ClusterTreeBase<Derived> &c1,
+                              const ClusterTreeBase<Derived> &c2,
+                              const Matrix &P) {
+  Scalar dist = computeDistance(c1, c2);
+  if (max_min_dist >= dist) {
+    if (c2.nSons()) {
+      dist += c2.bb().col(2).norm();
+      max_min_dist = max_min_dist < dist ? max_min_dist : dist;
+      for (auto i = 0; i < c2.nSons(); ++i)
+        if (c2.sons(i).indices().size())
+          updateClusterMinDistance(min_dist, max_min_dist, c1, c2.sons(i), P);
     } else {
-      if (cluster1.block_id() != cluster2.block_id())
-        for (auto j = 0; j < cluster1.indices().size(); ++j)
-          for (auto i = 0; i < cluster2.indices().size(); ++i) {
-            rad = 0.5 *
-                  (P.col(cluster2.indices()[i]) - P.col(cluster1.indices()[j]))
-                      .norm();
-            retval = retval < rad ? retval : rad;
+      if (c1.block_id() < c2.block_id())
+        for (auto j = 0; j < c1.indices().size(); ++j)
+          for (auto i = 0; i < c2.indices().size(); ++i) {
+            dist = (P.col(c2.indices()[i]) - P.col(c1.indices()[j])).norm();
+            min_dist(c2.indices()[i]) = min_dist(c2.indices()[i]) > dist
+                                            ? dist
+                                            : min_dist(c2.indices()[i]);
+            min_dist(c1.indices()[j]) = min_dist(c1.indices()[j]) > dist
+                                            ? dist
+                                            : min_dist(c1.indices()[j]);
           }
-    }
-  }
-  return retval;
-}
-
-template <typename Derived>
-void clusterFillDistance(Vector &min_distance,
-                         const ClusterTreeBase<Derived> &cluster1,
-                         const ClusterTreeBase<Derived> &cluster2,
-                         const Matrix &P) {
-  Scalar dist = computeDistance(cluster1, cluster2);
-  // check cluster if there is the chance of improving the distance of a
-  // given point
-  if (min_distance.maxCoeff() >= dist) {
-    if (cluster2.nSons()) {
-      for (auto i = 0; i < cluster2.nSons(); ++i)
-        if (cluster2.sons(i).indices().size())
-          clusterFillDistance(min_distance, cluster1, cluster2.sons(i), P);
-    } else {
-      if (cluster1.block_id() != cluster2.block_id())
-        for (auto j = 0; j < cluster1.indices().size(); ++j)
-          for (auto i = 0; i < cluster2.indices().size(); ++i) {
-            dist = (P.col(cluster2.indices()[i]) - P.col(cluster1.indices()[j]))
-                       .norm();
-            min_distance(j) = min_distance(j) > dist ? dist : min_distance(j);
-          }
+      // determin max_min_distance within cluster
+      max_min_dist = 0;
+      for (auto j = 0; j < c1.indices().size(); ++j)
+        max_min_dist = max_min_dist < min_dist(c1.indices()[j])
+                           ? min_dist(c1.indices()[j])
+                           : max_min_dist;
     }
   }
   return;
 }
 
 template <typename Derived>
-Scalar separationRadius(const ClusterTreeBase<Derived> &CT, const Matrix &P) {
-  Scalar separation_radius = Scalar(1. / 0.);
-  for (auto it = CT.cbegin(); it != CT.cend(); ++it) {
-    if (!it->nSons() && it->indices().size()) {
-      Scalar rad = 0;
-      for (auto j = 0; j < it->indices().size(); ++j)
-        for (auto i = j + 1; i < it->indices().size(); ++i) {
-          rad =
-              0.5 * (P.col(it->indices()[i]) - P.col(it->indices()[j])).norm();
-          separation_radius = separation_radius < rad ? separation_radius : rad;
-        }
-      rad = clusterSeparationRadius(separation_radius, *it, CT, P);
-      separation_radius = separation_radius < rad ? separation_radius : rad;
-    }
-  }
-  return separation_radius;
-}
-
-template <typename Derived>
-Scalar fillDistance(const ClusterTreeBase<Derived> &CT, const Matrix &P) {
-  Scalar fill_distance = Scalar(0.);
-  Vector min_distance;
+Vector minDistanceVector(const ClusterTreeBase<Derived> &CT, const Matrix &P) {
+  Vector min_distance(P.cols());
+  Scalar max_min_distance = 0;
+  min_distance.setOnes();
+  min_distance /= Scalar(0.);
   Scalar dist = 0;
+  // compute min_distance at the leafs
   for (auto it = CT.cbegin(); it != CT.cend(); ++it) {
     if (!it->nSons() && it->indices().size()) {
-      min_distance.resize(it->indices().size());
-      min_distance.setOnes();
-      min_distance /= Scalar(0.);
-      // determine candidate distances within the cluster
+      // determine min_distances within the cluster
       for (auto j = 0; j < it->indices().size(); ++j)
         for (auto i = 0; i < j; ++i) {
           dist = (P.col(it->indices()[i]) - P.col(it->indices()[j])).norm();
-          min_distance(j) = min_distance(j) > dist ? dist : min_distance(j);
-          min_distance(i) = min_distance(i) > dist ? dist : min_distance(i);
+          min_distance(it->indices()[j]) = min_distance(it->indices()[j]) > dist
+                                               ? dist
+                                               : min_distance(it->indices()[j]);
+          min_distance(it->indices()[i]) = min_distance(it->indices()[i]) > dist
+                                               ? dist
+                                               : min_distance(it->indices()[i]);
         }
-      clusterFillDistance(min_distance, *it, CT, P);
-      const Scalar cluster_max_dist = min_distance.maxCoeff();
-      fill_distance =
-          fill_distance < cluster_max_dist ? cluster_max_dist : fill_distance;
+      // determin max_min_distance within cluster
+      max_min_distance = 0;
+      for (auto j = 0; j < it->indices().size(); ++j)
+        max_min_distance = max_min_distance < min_distance(it->indices()[j])
+                               ? min_distance(it->indices()[j])
+                               : max_min_distance;
+      updateClusterMinDistance(min_distance, max_min_distance, *it, CT, P);
     }
   }
-  return fill_distance;
+  return min_distance;
 }
 
 template <typename Derived>
@@ -178,10 +145,12 @@ void clusterTreeStatistics(const ClusterTreeBase<Derived> &CT,
   Scalar max_disc = 0;
   Scalar min_disc = 1. / 0.;
   Scalar mean_disc = 0;
-
+  Vector min_dist = minDistanceVector(CT, P);
+  Scalar min_min_dist = min_dist.minCoeff();
+  Scalar max_min_dist = min_dist.maxCoeff();
   for (auto it = CT.cbegin(); it != CT.cend(); ++it) {
     const auto &node = *it;
-    if (node.indices().size() > 1) {
+    if (!node.is_root() && node.indices().size()) {
       Scalar discrepancy = std::abs(Scalar(node.indices().size()) / N -
                                     node.bb().col(2).prod() / vol);
       disc_vec.push_back(discrepancy);
@@ -191,44 +160,76 @@ void clusterTreeStatistics(const ClusterTreeBase<Derived> &CT,
     }
   }
   mean_disc /= disc_vec.size();
-  std::cout << "number of clusters:         " << n_cluster << std::endl;
-  std::cout << "number of actual clusters:  " << disc_vec.size() << std::endl;
-  std::cout << "fill distance:              " << FMCA::fillDistance(CT, P)
+  std::cout << "------------------- Cluster tree metrics -------------------"
             << std::endl;
-  std::cout << "sep radius:                 " << FMCA::separationRadius(CT, P)
+  std::cout << "dimension:                " << P.rows() << std::endl;
+  std::cout << "number of points:         " << N << std::endl;
+  std::cout << "cluster splitting method: "
+            << FMCA::internal::traits<Derived>::Splitter::splitterName()
             << std::endl;
+  std::cout << "bounding box diameter:    " << CT.bb().col(2).norm()
+            << std::endl;
+  std::cout << "number of clusters:       " << n_cluster << std::endl;
+  std::cout << "fill distance:            " << max_min_dist << std::endl;
+  std::cout << "separation radius:        " << 0.5 * min_min_dist << std::endl;
   std::cout << std::scientific << std::setprecision(2)
-            << "min cluster discrepancy:    " << min_disc << std::endl
-            << "max cluster discrepancy:    " << max_disc << std::endl
-            << "mean cluster discrepancy:   " << mean_disc << std::endl;
-  FMCA::Scalar range = exp(log(mean_disc) - 2 * log(max_disc / mean_disc));
-  min_disc = min_disc < range ? range : min_disc;
-  std::cout << std::scientific << std::setprecision(2)
-            << "cluster discrepancy distribution in [" << min_disc << ","
-            << max_disc << ")" << std::endl;
-  FMCA::Index intervals = 20;
-  FMCA::Scalar h = log(max_disc / min_disc) / intervals;
-  FMCA::Vector values(intervals);
-  values.setZero();
-  for (auto &&it : disc_vec) {
-    auto j = 0;
-    for (; j < intervals; ++j)
-      if ((log(it) >= h * j + log(min_disc)) &&
-          (log(it) < h * (j + 1) + log(min_disc))) {
-        ++values(j);
-        break;
-      }
+            << "min cluster discrepancy:  " << min_disc << std::endl
+            << "max cluster discrepancy:  " << max_disc << std::endl
+            << "mean cluster discrepancy: " << mean_disc << std::endl;
+  {
+    std::cout << "pt. mindist distribution: " << std::endl;
+    FMCA::Index intervals = 15;
+    FMCA::Scalar h = (max_min_dist - min_min_dist) / intervals;
+    FMCA::Vector values(intervals);
+    values.setZero();
+    for (auto i = 0; i < min_dist.size(); ++i) {
+      auto j = 0;
+      for (; j < intervals; ++j)
+        if ((min_dist(i) >= h * j + min_min_dist) &&
+            (min_dist(i) < h * (j + 1) + min_min_dist)) {
+          ++values(j);
+          break;
+        }
+    }
+    FMCA::Scalar bar_factor = 40 * min_dist.size() / values.maxCoeff();
+    bar_factor = bar_factor < Scalar(1. / 0.) ? bar_factor : 0;
+    for (auto i = 0; i < intervals; ++i) {
+      std::cout << std::scientific << std::setprecision(2) << std::setw(9)
+                << h * (i + 0.5) * min_min_dist << "|";
+      std::cout << std::string(
+                       std::ceil(bar_factor * values(i) / min_dist.size()), '*')
+                << std::endl;
+    }
   }
-  FMCA::Scalar bar_factor = 60 * disc_vec.size() / values.maxCoeff();
-  bar_factor = bar_factor < Scalar(1. / 0.) ? bar_factor : 0;
-  for (auto i = 0; i < intervals; ++i) {
-    std::cout << std::scientific << std::setprecision(2) << std::setw(8)
-              << exp(h * (i + 0.5)) * min_disc << "|";
-    std::cout << std::string(
-                     std::round(bar_factor * values(i) / disc_vec.size()), '=')
-              << std::endl;
+
+  {
+    std::cout << "discrepancy distribution: " << std::endl;
+    FMCA::Index intervals = 15;
+    FMCA::Scalar h = log(max_disc / min_disc) / intervals;
+    FMCA::Vector values(intervals);
+    values.setZero();
+    for (auto &&it : disc_vec) {
+      auto j = 0;
+      for (; j < intervals; ++j)
+        if ((log(it) >= h * j + log(min_disc)) &&
+            (log(it) < h * (j + 1) + log(min_disc))) {
+          ++values(j);
+          break;
+        }
+    }
+    FMCA::Scalar bar_factor = 40 * disc_vec.size() / values.maxCoeff();
+    bar_factor = bar_factor < Scalar(1. / 0.) ? bar_factor : 0;
+    for (auto i = 0; i < intervals; ++i) {
+      std::cout << std::scientific << std::setprecision(2) << std::setw(9)
+                << exp(h * (i + 0.5)) * min_disc << "|";
+      std::cout << std::string(
+                       std::ceil(bar_factor * values(i) / disc_vec.size()), '*')
+                << std::endl;
+    }
   }
+  std::cout << std::string(60, '-') << std::endl;
+  return;
 }
 
-} // namespace FMCA
+}  // namespace FMCA
 #endif
