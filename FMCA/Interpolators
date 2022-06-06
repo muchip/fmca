@@ -17,6 +17,9 @@
 #include "src/util/MultiIndexSet.h"
 
 #include "src/Interpolators/LejaPoints.h"
+#include "src/Interpolators/evalLegendrePolynomials.h"
+#include "src/Interpolators/evalChebyshevPolynomials.h"
+#include "src/Interpolators/evalMonomials.h"
 #include "src/Interpolators/TensorProductInterpolator.h"
 #include "src/Interpolators/TotalDegreeInterpolator.h"
 #include "src/Interpolators/MonomialInterpolator.h"

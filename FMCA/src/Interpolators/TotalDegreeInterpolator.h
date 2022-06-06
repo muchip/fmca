@@ -42,30 +42,9 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
   template <typename Derived>
-  Matrix evalLegendrePolynomials1D(const Eigen::MatrixBase<Derived> &pt) const {
-    Matrix retval(pt.rows(), deg_ + 1);
-    Vector P0, P1;
-    P0.resize(pt.rows());
-    P1.resize(pt.rows());
-    P0.setZero();
-    P1.setOnes();
-    retval.col(0) = P1;
-    for (auto i = 1; i <= deg_; ++i) {
-      retval.col(i) = Scalar(2 * i - 1) / Scalar(i) *
-                          (2 * pt.array() - 1) * P1.array() -
-                      Scalar(i - 1) / Scalar(i) * P0.array();
-      P0 = P1;
-      P1 = retval.col(i);
-      // L2-normalize
-      retval.col(i) *= sqrt(2 * i + 1);
-    }
-    return retval;
-  }
-  //////////////////////////////////////////////////////////////////////////////
-  template <typename Derived>
   Matrix evalPolynomials(const Eigen::MatrixBase<Derived> &pt) const {
     Vector retval(idcs_.index_set().size());
-    Matrix p_values = evalLegendrePolynomials1D(pt);
+    Matrix p_values = evalLegendrePolynomials(deg_, pt);
     retval.setOnes();
     Index k = 0;
     for (const auto &it : idcs_.index_set()) {
@@ -79,6 +58,9 @@ public:
   const Matrix &Xi() const { return TD_xi_; }
   const Matrix &invV() const { return invV_; }
   const Matrix &V() const { return V_; }
+  const Index dim() const { return dim_; }
+  const Index deg() const { return deg_; }
+  const MultiIndexSet<TotalDegree> &idcs() const { return idcs_; }
 
 private:
   MultiIndexSet<TotalDegree> idcs_;

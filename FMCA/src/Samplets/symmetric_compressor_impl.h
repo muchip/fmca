@@ -11,7 +11,7 @@
 //
 #ifndef FMCA_SAMPLETS_SYMMETRICCOMPRESSORIMPL_H_
 #define FMCA_SAMPLETS_SYMMETRICCOMPRESSORIMPL_H_
-//#define FMCA_COMPRESSOR_BUFSIZE_
+#define FMCA_COMPRESSOR_BUFSIZE_
 
 namespace FMCA {
 
@@ -23,8 +23,6 @@ template <typename Derived> struct symmetric_compressor_impl {
     eta_ = eta;
     threshold_ = threshold;
     triplet_list_.clear();
-    triplet_list_.reserve(1230 * ST.derived().indices().size());
-    std::cout << "trips reserved\n" << std::flush;
     buffer_.clear();
     const Index n_samplet_blocks = std::distance(ST.cbegin(), ST.cend());
     buffer_.resize(n_samplet_blocks);
@@ -232,6 +230,19 @@ private:
   Index compute_block_calls_;
 };
 
+template <typename Derived>
+std::vector<std::vector<const Derived *>>
+blockPattern(const SampletTreeBase<Derived> &ST, Scalar eta = 0.8) {
+  std::vector<std::vector<const Derived *>> blocks;
+  std::vector<const Derived *> stack;
+  const Index n_samplet_blocks = std::distance(ST.cbegin(), ST.cend());
+  blocks.resize(n_samplet_blocks);
+  Index i = 0;
+  for (auto it = ST.cbegin(); it != ST.cend(); ++it) {
+    blocks[i].push_back(std::addressof(*it));
+  }
+  return blocks;
+}
 template <typename Derived>
 std::vector<Eigen::Triplet<Scalar>> symPattern(SampletTreeBase<Derived> &ST,
                                                Scalar eta = 0.8) {
