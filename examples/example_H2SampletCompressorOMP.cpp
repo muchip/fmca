@@ -66,7 +66,12 @@ int main(int argc, char *argv[]) {
     T.tic();
     auto told_data = hst.sampletTransform(data);
     T.toc("transform old: ");
-    std::cout << (tnew_data - told_data).norm() << std::endl;
+    std::cout << (tnew_data - told_data).norm() / told_data.norm() << std::endl;
+    T.tic();
+    auto ttnew_data = omp_transform.inverseTransform(tnew_data);
+    T.toc("inverse transform: ");
+
+    std::cout << (ttnew_data - data).norm() / data.norm() << std::endl;
 #if 0
     FMCA::symmetric_compressor_impl<H2SampletTree> symComp;
     T.tic();

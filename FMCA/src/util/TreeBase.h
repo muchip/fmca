@@ -76,6 +76,9 @@ public:
     return sons_[i].derived();
   }
   //////////////////////////////////////////////////////////////////////////////
+  Derived &dad() { return dad_->derived(); }
+  const Derived &dad() const { return dad_->derived(); }
+  //////////////////////////////////////////////////////////////////////////////
   typename std::vector<TreeBase>::size_type nSons() { return sons_.size(); }
   const typename std::vector<TreeBase>::size_type nSons() const {
     return sons_.size();

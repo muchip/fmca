@@ -51,6 +51,7 @@ struct SampletTreeBase : public ClusterTreeBase<Derived> {
   using Base::node;
   using Base::nSons;
   using Base::sons;
+  using Base::dad;
   //////////////////////////////////////////////////////////////////////////////
   void sampletTransformMatrix(Matrix &M) {
     M = sampletTransform(M);

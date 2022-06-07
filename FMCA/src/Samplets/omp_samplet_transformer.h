@@ -73,6 +73,45 @@ public:
     return retval;
   }
 
+  template <typename otherDerived>
+  Matrix inverseTransform(const Eigen::MatrixBase<otherDerived> &data) {
+    // to parallelize, we need to avoid that a core accesses data that
+    // has not been created yet to prevent this, we do a level wise blocking
+    Matrix retval(data.rows(), data.cols());
+    retval.setZero();
+    for (auto it = lvl_mapper_.begin(); it != lvl_mapper_.end(); ++it) {
+#pragma omp parallel for
+      for (auto i = 0; i < it->size(); ++i) {
+        const Derived &cluster = *((*it)[i]);
+        Matrix &block = tvec_[cluster.block_id()];
+        if (cluster.is_root())
+          block = data.middleRows(cluster.start_index(), cluster.Q().cols());
+        else {
+          // since we have here the parallel version, we need to find
+          // the chuck of scaling functions belonging to the current cluster
+          // in the scaling functions of the dad
+          Index data_offset = 0;
+          for (auto j = 0; j < cluster.dad().nSons(); ++j)
+            if (cluster.dad().sons(j).block_id() != cluster.block_id())
+              data_offset += cluster.dad().sons(j).nscalfs();
+            else
+              break;
+          block.topRows(cluster.nscalfs()) =
+              tvec_[cluster.dad().block_id()].middleRows(data_offset,
+                                                         cluster.nscalfs());
+          block.bottomRows(cluster.nsamplets()) =
+              data.middleRows(cluster.start_index(), cluster.nsamplets());
+        }
+        block = cluster.Q() * block;
+        // write data to output
+        if (!cluster.nSons())
+          retval.middleRows(cluster.indices_begin(), block.rows()) = block;
+      }
+    }
+
+    return retval;
+  }
+
 private:
   std::vector<Matrix> tvec_;
   std::vector<std::vector<const Derived *>> lvl_mapper_;
