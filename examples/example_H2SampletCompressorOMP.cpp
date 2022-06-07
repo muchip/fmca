@@ -57,11 +57,16 @@ int main(int argc, char *argv[]) {
     T.toc("tree setup: ");
     std::cout << std::flush;
     T.tic();
+    FMCA::Matrix data = FMCA::Matrix::Random(P.cols(), 10000);
     FMCA::ompSampletTransformer<H2SampletTree> omp_transform(hst);
     T.toc("omp init: ");
     T.tic();
-    omp_transform.transform(FMCA::Matrix::Random(P.cols(), 10000));
+    auto tnew_data = omp_transform.transform(data);
     T.toc("transform: ");
+    T.tic();
+    auto told_data = hst.sampletTransform(data);
+    T.toc("transform old: ");
+    std::cout << (tnew_data - told_data).norm() << std::endl;
 #if 0
     FMCA::symmetric_compressor_impl<H2SampletTree> symComp;
     T.tic();
