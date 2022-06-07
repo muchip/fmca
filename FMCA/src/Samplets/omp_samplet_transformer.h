@@ -45,8 +45,8 @@ public:
     retval.setZero();
     for (auto it = lvl_mapper_.rbegin(); it != lvl_mapper_.rend(); ++it) {
 #pragma omp parallel for
-      for (auto it2 = it->begin(); it2 != it->end(); ++it2) {
-        const Derived &cluster = **it2;
+      for (auto i = 0; i < it->size(); ++i) {
+        const Derived &cluster = *((*it)[i]);
         Matrix &block = tvec_[cluster.block_id()];
         if (!cluster.nSons())
           block = data.middleRows(cluster.indices_begin(),
