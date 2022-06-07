@@ -44,7 +44,7 @@ public:
     Matrix retval(data.rows(), data.cols());
     retval.setZero();
     for (auto it = lvl_mapper_.rbegin(); it != lvl_mapper_.rend(); ++it) {
-#pragma omp for
+#pragma omp parallel for
       for (auto it2 = it->begin(); it2 != it->end(); ++it2) {
         const Derived &cluster = **it2;
         Matrix &block = tvec_[cluster.block_id()];
