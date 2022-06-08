@@ -14,129 +14,201 @@
 
 namespace FMCA {
 
-template <typename Derived> class ompSampletCompressor {
-public:
+template <typename Derived>
+class ompSampletCompressor {
+ public:
   ompSampletCompressor() {}
   ompSampletCompressor(const SampletTreeBase<Derived> &ST, Scalar eta) {
     init(ST, eta);
   }
 
   void init(const SampletTreeBase<Derived> &ST, Scalar eta) {
-    max_level_ = 0;
-    n_blocks_ = 0;
+    n_clusters_ = std::distance(ST.cbegin(), ST.cend());
+    eta_ = eta;
+    mapper_.resize(n_clusters_);
+    m_blx_.resize(n_clusters_, n_clusters_);
     // first sweep to determine samplet tree characteristics
-    const Derived *TR = std::adrressof(ST.sons(0));
-    const Derived *TC = std::adrressof(ST.sons(0));
-    while (!TR->is_root()) {
-      // if there is another branch, lets follow it to a leaf
-      if (TR->block_id() != TR->dad().sons(TR->dad().nSons() - 1).block_id()) {
-        ++TR;
-        while (TR->nSons())
-          TR = std::addressof(TR->sons(0));
-        // do something with TR now
-
-      } else
-        TR = std::addressof(TR->dad());
-    }
-    
-    for (auto it = ST.cbegin(); it != ST.cend(); ++it) {
-      for (auto it2 = it; it2 != ST.cend(); ++it2) {
-
-        const Derived &cluster = it->derived();
-        max_level_ =
-            max_level_ < cluster.level() ? cluster.level() : max_level_;
-        ++n_blocks_;
+    std::vector<const Derived *> row_stack;
+    std::vector<const Derived *> col_stack;
+    row_stack.push_back(std::addressof(ST.derived()));
+    while (row_stack.size()) {
+      const Derived *pr = row_stack.back();
+      row_stack.pop_back();
+      mapper_[pr->block_id()] = pr;
+      for (auto i = 0; i < pr->nSons(); ++i)
+        row_stack.push_back(std::addressof(pr->sons(i)));
+      assert(col_stack.size() == 0 &&
+             "there is a non-empty col stack after return");
+      col_stack.push_back(std::addressof(ST.derived()));
+      while (col_stack.size()) {
+        const Derived *pc = col_stack.back();
+        col_stack.pop_back();
+        for (auto i = 0; i < pc->nSons(); ++i) {
+          if (compareCluster(pc->sons(i), *pr, eta) != LowRank)
+            col_stack.push_back(std::addressof(pc->sons(i)));
+        }
+        if (pr->block_id() <= pc->block_id())
+          m_blx_(pr->block_id(), pc->block_id()).resize(0, 0);
       }
-      tvec_.resize(n_blocks_);
-      lvl_mapper_.resize(max_level_ + 1);
-      // second sweep to map tree levels
-      for (auto it = ST.cbegin(); it != ST.cend(); ++it) {
-        const Derived &cluster = it->derived();
-        lvl_mapper_[cluster.level()].push_back(std::addressof(cluster));
-      }
-      return;
     }
-    template <typename otherDerived>
-    Matrix transform(const Eigen::MatrixBase<otherDerived> &data) {
-      // to parallelize, we need to avoid that a core accesses data that
-      // has not been created yet to prevent this, we do a level wise blocking
-      Matrix retval(data.rows(), data.cols());
-      retval.setZero();
-      for (auto it = lvl_mapper_.rbegin(); it != lvl_mapper_.rend(); ++it) {
+    assert(row_stack.size() == 0 &&
+           "there is a non-empty row stack after return");
+    return;
+  }
+  template <typename EntryGenerator>
+  void compress(const SampletTreeBase<Derived> &ST, const EntryGenerator &e_gen,
+                Scalar threshold = 1e-6) {
+    threshold_ = threshold;
+    for (int i = n_clusters_ - 1; i >= 0; --i) {
+      const auto &idx = m_blx_.idx()[i];
+      std::vector<Matrix> &val = m_blx_.val()[i];
+      const Derived *pr = mapper_[i];
 #pragma omp parallel for
-        for (auto i = 0; i < it->size(); ++i) {
-          const Derived &cluster = *((*it)[i]);
-          Matrix &block = tvec_[cluster.block_id()];
-          if (!cluster.nSons())
-            block = data.middleRows(cluster.indices_begin(),
-                                    cluster.indices().size());
-          else
-            for (auto i = 0; i < cluster.nSons(); ++i) {
-              block.conservativeResize(block.rows() + cluster.sons(i).nscalfs(),
-                                       data.cols());
-              block.bottomRows(cluster.sons(i).nscalfs()) =
-                  tvec_[cluster.sons(i).block_id()].topRows(
-                      cluster.sons(i).nscalfs());
+      for (int j = 0; j < idx.size(); ++j) {
+        const Derived *pc = mapper_[idx[j]];
+        val[j].resize(0, 0);
+        if (pr->nSons()) {
+          for (auto k = 0; k < pr->nSons(); ++k) {
+            auto pos = m_blx_.find(pr->sons(k).block_id(), pc->block_id());
+            if (pos != m_blx_.idx()[pr->sons(k).block_id()].size()) {
+              const Matrix &buffer = m_blx_.val()[pr->sons(k).block_id()][pos];
+              val[j].conservativeResize(buffer.cols(),
+                                        val[j].cols() + pr->sons(k).nscalfs());
+              val[j].rightCols(pr->sons(k).nscalfs()) =
+                  buffer.transpose().leftCols(pr->sons(k).nscalfs());
+            } else {
+              Matrix ret = recursivelyComputeBlock(pr->sons(k), *pc, e_gen);
+              val[j].conservativeResize(ret.cols(),
+                                        val[j].cols() + pr->sons(k).nscalfs());
+              val[j].rightCols(pr->sons(k).nscalfs()) =
+                  ret.transpose().leftCols(pr->sons(k).nscalfs());
             }
-          block = cluster.Q().transpose() * block;
-          // write data to output
-          if (cluster.is_root())
-            retval.middleRows(cluster.start_index(), cluster.Q().cols()) =
-                block.topRows(cluster.Q().cols());
-          else if (cluster.nsamplets())
-            retval.middleRows(cluster.start_index(), cluster.nsamplets()) =
-                block.bottomRows(cluster.nsamplets());
-        }
-      }
-
-      return retval;
-    }
-
-    template <typename otherDerived>
-    Matrix inverseTransform(const Eigen::MatrixBase<otherDerived> &data) {
-      // to parallelize, we need to avoid that a core accesses data that
-      // has not been created yet to prevent this, we do a level wise blocking
-      Matrix retval(data.rows(), data.cols());
-      retval.setZero();
-      for (auto it = lvl_mapper_.begin(); it != lvl_mapper_.end(); ++it) {
-#pragma omp parallel for
-        for (auto i = 0; i < it->size(); ++i) {
-          const Derived &cluster = *((*it)[i]);
-          Matrix &block = tvec_[cluster.block_id()];
-          if (cluster.is_root())
-            block = data.middleRows(cluster.start_index(), cluster.Q().cols());
-          else {
-            // since we have here the parallel version, we need to find
-            // the chuck of scaling functions belonging to the current cluster
-            // in the scaling functions of the dad
-            Index data_offset = 0;
-            for (auto j = 0; j < cluster.dad().nSons(); ++j)
-              if (cluster.dad().sons(j).block_id() != cluster.block_id())
-                data_offset += cluster.dad().sons(j).nscalfs();
-              else
-                break;
-            block.topRows(cluster.nscalfs()) =
-                tvec_[cluster.dad().block_id()].middleRows(data_offset,
-                                                           cluster.nscalfs());
-            block.bottomRows(cluster.nsamplets()) =
-                data.middleRows(cluster.start_index(), cluster.nsamplets());
           }
-          block = cluster.Q() * block;
-          // write data to output
-          if (!cluster.nSons())
-            retval.middleRows(cluster.indices_begin(), block.rows()) = block;
+          val[j] = (val[j] * pr->Q()).transpose();
+        } else {
+          if (!pc->nSons())
+            val[j] = recursivelyComputeBlock(*pr, *pc, e_gen);
+          else {
+            for (auto k = 0; k < pc->nSons(); ++k) {
+              auto pos = m_blx_.find(pr->block_id(), pc->sons(k).block_id());
+              if (pos != m_blx_.idx()[pc->sons(k).block_id()].size()) {
+                const Matrix &buffer =
+                    m_blx_.val()[pc->sons(k).block_id()][pos];
+                val[j].conservativeResize(
+                    buffer.rows(), val[j].cols() + pc->sons(k).nscalfs());
+                val[j].rightCols(pc->sons(k).nscalfs()) =
+                    buffer.leftCols(pc->sons(k).nscalfs());
+              } else {
+                Matrix ret = recursivelyComputeBlock(*pr, pc->sons(k), e_gen);
+                val[j].conservativeResize(
+                    ret.rows(), val[j].cols() + pc->sons(k).nscalfs());
+                val[j].rightCols(pc->sons(k).nscalfs()) =
+                    ret.leftCols(pc->sons(k).nscalfs());
+              }
+            }
+          }
+          val[j] = val[j] * pc->Q();
         }
+#if 0
+        if (!pr->is_root() && !pc->is_root())
+          storeBlock(
+              pr->start_index(), pc->start_index(), pr->nsamplets(),
+              pc->nsamplets(),
+              val[j].bottomRightCorner(pr->nsamplets(), pc->nsamplets()));
+        else if (!pc->is_root())
+          storeBlock(pr->start_index(), pc->start_index(), pr->Q().cols(),
+                     pc->nsamplets(), val[j].rightCols(pc->nsamplets()));
+        else if (pr->is_root() && pc->is_root())
+          storeBlock(pr->start_index(), pc->start_index(), pr->Q().cols(),
+                     pc->Q().cols(), val[j]);
+#endif
       }
-
-      return retval;
     }
 
-  private:
-    std::vector<Matrix> tvec_;
-    std::vector<std::vector<const Derived *>> lvl_mapper_;
-    Index n_blocks_;
-    Index max_level_;
-  };
-} // namespace FMCA
+    return;
+  }
+
+  const std::vector<Eigen::Triplet<Scalar>> &pattern_triplets() const {
+    return triplet_list_;
+  }
+
+ private:
+  /**
+   *  \brief recursively computes for a given pair of row and column
+   *clusters the four blocks [A^PhiPhi, A^PhiSigma; A^SigmaPhi,
+   *A^SigmaSigma]
+   **/
+  template <typename EntryGenerator>
+  Matrix recursivelyComputeBlock(const Derived &TR, const Derived &TC,
+                                 const EntryGenerator &e_gen) {
+    Matrix buf(0, 0);
+    Matrix retval(0, 0);
+    // check for admissibility
+    if (compareCluster(TR, TC, eta_) == LowRank) {
+      e_gen.interpolate_kernel(TR, TC, &buf);
+      retval = TR.V().transpose() * buf * TC.V();
+    } else {
+      if (!TR.nSons() && !TC.nSons()) {
+        // both are leafs: compute the block and return
+        e_gen.compute_dense_block(TR, TC, &buf);
+        retval = TR.Q().transpose() * buf * TC.Q();
+      } else if (!TR.nSons() && TC.nSons()) {
+        // the row cluster is a leaf cluster: recursion on the col cluster
+        for (auto j = 0; j < TC.nSons(); ++j) {
+          Matrix ret = recursivelyComputeBlock(TR, TC.sons(j), e_gen);
+          buf.conservativeResize(ret.rows(), buf.cols() + TC.sons(j).nscalfs());
+          buf.rightCols(TC.sons(j).nscalfs()) =
+              ret.leftCols(TC.sons(j).nscalfs());
+        }
+        retval = buf * TC.Q();
+      } else if (TR.nSons() && !TC.nSons()) {
+        // the col cluster is a leaf cluster: recursion on the row cluster
+        for (auto i = 0; i < TR.nSons(); ++i) {
+          Matrix ret = recursivelyComputeBlock(TR.sons(i), TC, e_gen);
+          buf.conservativeResize(ret.cols(), buf.cols() + TR.sons(i).nscalfs());
+          buf.rightCols(TR.sons(i).nscalfs()) =
+              ret.transpose().leftCols(TR.sons(i).nscalfs());
+        }
+        retval = (buf * TR.Q()).transpose();
+      } else {
+        // neither is a leaf, let recursion handle this
+        for (auto i = 0; i < TR.nSons(); ++i) {
+          Matrix ret1(0, 0);
+          for (auto j = 0; j < TC.nSons(); ++j) {
+            Matrix ret2 =
+                recursivelyComputeBlock(TR.sons(i), TC.sons(j), e_gen);
+            ret1.conservativeResize(ret2.rows(),
+                                    ret1.cols() + TC.sons(j).nscalfs());
+            ret1.rightCols(TC.sons(j).nscalfs()) =
+                ret2.leftCols(TC.sons(j).nscalfs());
+          }
+          ret1 = ret1 * TC.Q();
+          buf.conservativeResize(ret1.cols(),
+                                 buf.cols() + TR.sons(i).nscalfs());
+          buf.rightCols(TR.sons(i).nscalfs()) =
+              ret1.transpose().leftCols(TR.sons(i).nscalfs());
+        }
+        retval = (buf * TR.Q()).transpose();
+      }
+    }
+    return retval;
+  }
+  template <typename otherDerived>
+  void storeBlock(Index srow, Index scol, Index nrows, Index ncols,
+                  const Eigen::MatrixBase<otherDerived> &block) {
+    for (auto k = 0; k < ncols; ++k)
+      for (auto j = 0; j < nrows; ++j)
+        if (srow + j <= scol + k && abs(block(j, k)) > threshold_)
+          triplet_list_.push_back(
+              Eigen::Triplet<Scalar>(srow + j, scol + k, block(j, k)));
+  }
+  std::vector<Eigen::Triplet<Scalar>> triplet_list_;
+  FMCA::SparseMatrix<Matrix> m_blx_;
+  std::vector<const Derived *> mapper_;
+  Index n_clusters_;
+  Scalar eta_;
+  Scalar threshold_;
+};
+}  // namespace FMCA
 
 #endif

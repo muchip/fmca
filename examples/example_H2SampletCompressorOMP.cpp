@@ -11,13 +11,15 @@
 #define FMCA_CLUSTERSET_
 #include <iostream>
 ////////////////////////////////////////////////////////////////////////////////
+
 #include <Eigen/Dense>
 #include <FMCA/MatrixEvaluators>
 #include <FMCA/Samplets>
-#include <FMCA/src/util/Macros.h>
 ////////////////////////////////////////////////////////////////////////////////
+#include <FMCA/src/Samplets/omp_samplet_compressor.h>
 #include <FMCA/src/util/Errors.h>
 #include <FMCA/src/util/Tictoc.h>
+#include <FMCA/src/util/print2file.h>
 
 struct expKernel {
   template <typename derived, typename otherDerived>
@@ -36,13 +38,14 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
 int main(int argc, char *argv[]) {
   const FMCA::Index dim = atoi(argv[1]);
-  const FMCA::Index dtilde = 4;
+  const FMCA::Index dtilde = 3;
   const auto function = expKernel();
   const FMCA::Scalar eta = 0.8;
-  const FMCA::Index mp_deg = 6;
-  const FMCA::Scalar threshold = 1e-5;
+  const FMCA::Index mp_deg = 4;
+  const FMCA::Scalar threshold = 0;
   FMCA::Tictoc T;
   for (FMCA::Index npts : {1e3, 5e3, 1e4, 5e4, 1e5, 5e5, 1e6, 5e6}) {
+  //for (FMCA::Index npts : {1e4}) {
     std::cout << "N:" << npts << " dim:" << dim << " eta:" << eta
               << " mpd:" << mp_deg << " dt:" << dtilde
               << " thres: " << threshold << std::endl;
@@ -57,7 +60,7 @@ int main(int argc, char *argv[]) {
     T.toc("tree setup: ");
     std::cout << std::flush;
     T.tic();
-    FMCA::Matrix data = FMCA::Matrix::Random(P.cols(), 10000);
+    FMCA::Matrix data = FMCA::Matrix::Random(P.cols(), 100);
     FMCA::ompSampletTransformer<H2SampletTree> omp_transform(hst);
     T.toc("omp init: ");
     T.tic();
@@ -70,8 +73,26 @@ int main(int argc, char *argv[]) {
     T.tic();
     auto ttnew_data = omp_transform.inverseTransform(tnew_data);
     T.toc("inverse transform: ");
-
     std::cout << (ttnew_data - data).norm() / data.norm() << std::endl;
+    FMCA::ompSampletCompressor<H2SampletTree> comp;
+    T.tic();
+    comp.init(hst, 0.8);
+    T.toc("omp init: ");
+    T.tic();
+    comp.compress(hst, mat_eval, threshold);
+    T.toc("new compressor: ");
+    FMCA::symmetric_compressor_impl<H2SampletTree> symComp;
+    T.tic();
+    //symComp.compress(hst, mat_eval, eta, threshold);
+    T.toc("old compressor: ");
+    auto trips1 = comp.pattern_triplets();
+    auto trips2 = symComp.pattern_triplets();
+    Eigen::SparseMatrix<double> S1(npts, npts);
+    Eigen::SparseMatrix<double> S2(npts, npts);
+
+    S1.setFromTriplets(trips1.begin(), trips1.end());
+    S2.setFromTriplets(trips2.begin(), trips2.end());
+
 #if 0
     FMCA::symmetric_compressor_impl<H2SampletTree> symComp;
     T.tic();

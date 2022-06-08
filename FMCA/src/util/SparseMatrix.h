@@ -117,6 +117,12 @@ class SparseMatrix {
   size_type rows() const { return m_; }
 
   size_type cols() const { return n_; }
+
+  const std::vector<value_vector> &val() const { return val_; };
+  const std::vector<index_vector> &idx() const { return idx_; };
+
+  std::vector<value_vector> &val() { return val_; };
+  std::vector<index_vector> &idx() { return idx_; };
   /*
    *  resize current sparse matrix, data is maintained due to the
    *  properties of the std::vector class;
@@ -161,6 +167,17 @@ class SparseMatrix {
     n_ = 0;
     return *this;
   }
+
+  /*
+   *  function for insertion returns reference to element (i,j),
+   *  which is created if it does not already exist
+   */
+  size_type find(size_type i, size_type j) {
+    assert(i < m_ && j < n_ && "find out of bounds");
+    const size_type pos = binarySearch(idx_[i], j);
+    return pos;
+  }
+
   /*
    *  function for insertion returns reference to element (i,j),
    *  which is created if it does not already exist
@@ -169,7 +186,7 @@ class SparseMatrix {
     assert(i < m_ && j < n_ && "insert out of bounds");
     const size_type pos = binarySearch(idx_[i], j);
     if (pos == idx_[i].size() || idx_[i][pos] != j) {
-      val_[i].insert(val_[i].begin() + pos, 0);
+      val_[i].insert(val_[i].begin() + pos, value_type());
       idx_[i].insert(idx_[i].begin() + pos, j);
     }
     return val_[i][pos];
