@@ -22,64 +22,60 @@ class ompSampletCompressor {
     init(ST, eta);
   }
 
-  void init(const SampletTreeBase<Derived> &ST, Scalar eta) {
-    if (const char *env_p = std::getenv("OMP_NUM_THREADS"))
-      std::cout << "OMP_NUM_THREADS: " << env_p << std::endl;
-    n_clusters_ = std::distance(ST.cbegin(), ST.cend());
-    max_level_ = 0;
+  void init(const SampletTreeBase<Derived> &ST, Scalar eta,
+            Scalar threshold = 1e-6) {
     eta_ = eta;
+    threshold_ = threshold;
+    n_clusters_ = std::distance(ST.cbegin(), ST.cend());
+    if (const char *env_p = std::getenv("OMP_NUM_THREADS"))
+      std::cout << "OMP_NUM_THREADS:          " << env_p << std::endl;
     s_mapper_.resize(n_clusters_);
     m_blx_.resize(n_clusters_, n_clusters_);
-    // first sweep to determine samplet tree characteristics
-    std::vector<const Derived *> row_stack;
-    std::vector<const Derived *> col_stack;
-    row_stack.push_back(std::addressof(ST.derived()));
-    while (row_stack.size()) {
-      const Derived *pr = row_stack.back();
-      row_stack.pop_back();
-      s_mapper_[pr->block_id()] = pr;
-      max_level_ = max_level_ < pr->level() ? pr->level() : max_level_;
-      for (auto i = 0; i < pr->nSons(); ++i)
-        row_stack.push_back(std::addressof(pr->sons(i)));
-      assert(col_stack.size() == 0 &&
-             "there is a non-empty col stack after return");
-      col_stack.push_back(std::addressof(ST.derived()));
-      while (col_stack.size()) {
-        const Derived *pc = col_stack.back();
-        col_stack.pop_back();
-        for (auto i = 0; i < pc->nSons(); ++i) {
-          if (compareCluster(pc->sons(i), *pr, eta) != LowRank)
-            col_stack.push_back(std::addressof(pc->sons(i)));
+    max_level_ = 0;
+    {
+      // first sweep to determine samplet tree characteristics
+      std::vector<const Derived *> row_stack;
+      std::vector<const Derived *> col_stack;
+      row_stack.push_back(std::addressof(ST.derived()));
+      while (row_stack.size()) {
+        const Derived *pr = row_stack.back();
+        row_stack.pop_back();
+        s_mapper_[pr->block_id()] = pr;
+        max_level_ = max_level_ < pr->level() ? pr->level() : max_level_;
+        for (auto i = 0; i < pr->nSons(); ++i)
+          row_stack.push_back(std::addressof(pr->sons(i)));
+        assert(col_stack.size() == 0 && "col: non-empty stack at return");
+        col_stack.push_back(std::addressof(ST.derived()));
+        while (col_stack.size()) {
+          const Derived *pc = col_stack.back();
+          col_stack.pop_back();
+          for (auto i = 0; i < pc->nSons(); ++i) {
+            if (compareCluster(pc->sons(i), *pr, eta) != LowRank)
+              col_stack.push_back(std::addressof(pc->sons(i)));
+          }
+          // we create here the lower triangular pattern, which is later on
+          // used in the transposed way to obtain fast column access for
+          // the matrix assembly
+          if (pr->block_id() >= pc->block_id())
+            m_blx_(pr->block_id(), pc->block_id()).resize(0, 0);
         }
-        if (pr->block_id() >= pc->block_id())
-          m_blx_(pr->block_id(), pc->block_id()).resize(0, 0);
       }
+      assert(row_stack.size() == 0 && "row: non-empty stack at return");
     }
-    assert(row_stack.size() == 0 &&
-           "there is a non-empty row stack after return");
     return;
   }
 
-  void set_level_mapper_(Index i) {
-    lvl_mapper_.clear();
-    lvl_mapper_.resize(max_level_ + 1);
-    for (auto &&it : m_blx_.idx()[i]) {
-      const Derived *cluster = s_mapper_[it];
-      lvl_mapper_[cluster->level()].push_back(cluster);
-    }
-  }
   template <typename EntryGenerator>
   void compress(const SampletTreeBase<Derived> &ST, const EntryGenerator &e_gen,
                 Scalar threshold = 1e-6) {
-    threshold_ = threshold;
-    for (int i = n_clusters_ - 1; i >= 0; --i) {
-      const Derived *pc = s_mapper_[i];
-      set_level_mapper_(i);
+    for (int j = n_clusters_ - 1; j >= 0; --j) {
+      const Derived *pc = s_mapper_[j];
+      setup_level_mapper_(j);
       // set up the level mapper to avoid races in the row
       for (auto it = lvl_mapper_.rbegin(); it != lvl_mapper_.rend(); ++it) {
 #pragma omp parallel for
-        for (int j = 0; j < it->size(); ++j) {
-          const Derived *pr = (*it)[j];
+        for (int i = 0; i < it->size(); ++i) {
+          const Derived *pr = (*it)[i];
           Matrix &block = m_blx_(pr->block_id(), pc->block_id());
           block.resize(0, 0);
           if (pr->nSons() && pr->block_id() < pc->block_id()) {
@@ -129,6 +125,8 @@ class ompSampletCompressor {
   }
 
   const std::vector<Eigen::Triplet<Scalar>> &pattern_triplets() {
+    triplet_list_.clear();
+
     for (int i = n_clusters_ - 1; i >= 0; --i) {
       const auto &idx = m_blx_.idx()[i];
       const std::vector<Matrix> &val = m_blx_.val()[i];
@@ -152,6 +150,15 @@ class ompSampletCompressor {
   }
 
  private:
+  void setup_level_mapper_(Index i) {
+    lvl_mapper_.clear();
+    lvl_mapper_.resize(max_level_ + 1);
+    for (auto &&it : m_blx_.idx()[i]) {
+      const Derived *cluster = s_mapper_[it];
+      lvl_mapper_[cluster->level()].push_back(cluster);
+    }
+  }
+
   /**
    *  \brief recursively computes for a given pair of row and column
    *clusters the four blocks [A^PhiPhi, A^PhiSigma; A^SigmaPhi,
@@ -221,6 +228,7 @@ class ompSampletCompressor {
           triplet_list_.push_back(
               Eigen::Triplet<Scalar>(srow + j, scol + k, block(j, k)));
   }
+
   std::vector<Eigen::Triplet<Scalar>> triplet_list_;
   FMCA::SparseMatrix<Matrix> m_blx_;
   std::vector<const Derived *> s_mapper_;

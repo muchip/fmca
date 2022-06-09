@@ -43,39 +43,46 @@ int main(int argc, char *argv[]) {
   const FMCA::Index mp_deg = 6;
   const FMCA::Scalar threshold = 1e-5;
   FMCA::Tictoc T;
-  for (FMCA::Index npts : {1e3, 5e3, 1e4, 5e4, 1e5, 5e5, 1e6, 5e6}) {
-    std::cout << "N:" << npts << " dim:" << dim << " eta:" << eta
-              << " mpd:" << mp_deg << " dt:" << dtilde
-              << " thres: " << threshold << std::endl;
+  for (FMCA::Index npts : {1e3, 5e3, 1e4, 5e4, 1e5, 5e5, 1e6, 5e6, 1e7}) {
+    std::cout << "N:                        " << npts << std::endl
+              << "dim:                      " << dim << std::endl
+              << "eta:                      " << eta << std::endl
+              << "multipole degree:         " << mp_deg << std::endl
+              << "vanishing moments:        " << dtilde << std::endl
+              << "aposteriori threshold:    " << threshold << std::endl;
     T.tic();
-    const Eigen::MatrixXd P = 0.5 * Eigen::MatrixXd::Random(dim, npts).array() + 0.5;
-    T.toc("geometry generation: ");
+    const Eigen::MatrixXd P =
+        0.5 * Eigen::MatrixXd::Random(dim, npts).array() + 0.5;
+    T.toc("geometry generation:     ");
     const Moments mom(P, mp_deg);
     const MatrixEvaluator mat_eval(mom, function);
     const SampletMoments samp_mom(P, dtilde - 1);
     T.tic();
     const H2SampletTree hst(mom, samp_mom, 0, P);
-    T.toc("tree setup: ");
+    T.toc("tree setup:              ");
     std::cout << std::flush;
     FMCA::ompSampletCompressor<H2SampletTree> comp;
     comp.init(hst, 0.8);
-    T.toc("omp init: ");
+    T.toc("omp initializer:         ");
     T.tic();
     comp.compress(hst, mat_eval, threshold);
-    T.toc("compressor: ");
+    T.toc("compressor:              ");
     T.tic();
     const auto &trips = comp.pattern_triplets();
-    T.toc("generating triplets: ");
+    T.toc("generating triplets:     ");
     std::cout << std::flush;
     {
-      Eigen::VectorXd x(npts), y1(npts), y2(npts);
+      FMCA::Vector x(npts), y1(npts), y2(npts);
       FMCA::Scalar err = 0;
       FMCA::Scalar nrm = 0;
       const FMCA::Scalar tripSize = sizeof(Eigen::Triplet<FMCA::Scalar>);
       const FMCA::Scalar nTrips = trips.size();
-      std::cout << "nz(S): " << std::ceil(nTrips / npts) << std::endl;
-      std::cout << "memory: " << nTrips * tripSize / 1e9 << "GB\n"
-                << std::flush;
+      std::cout << "nz(S):                    " << std::ceil(nTrips / npts)
+                << std::endl;
+      std::cout << "nnz                       " << nTrips / npts / npts * 100
+                << "\%" << std::endl;
+      std::cout << "memory:                   " << nTrips * tripSize / 1e9
+                << "GB" << std::endl;
       T.tic();
       for (auto i = 0; i < 100; ++i) {
         FMCA::Index index = rand() % P.cols();
@@ -92,11 +99,12 @@ int main(int argc, char *argv[]) {
         err += (y1 - y2).squaredNorm();
         nrm += y1.squaredNorm();
       }
-      const FMCA::Scalar thet = T.toc("matrix vector time: ");
-      std::cout << "average matrix vector time " << thet / 100 << "sec."
+      const FMCA::Scalar theta = T.toc("matrix vector time:      ");
+      std::cout << "ave. matrix vector time:  " << theta / 100 << "sec."
                 << std::endl;
       err = sqrt(err / nrm);
-      std::cout << "compression error: " << err << std::endl << std::flush;
+      std::cout << "compression error:        " << err << std::endl
+                << std::flush;
     }
     std::cout << std::string(60, '-') << std::endl;
   }
