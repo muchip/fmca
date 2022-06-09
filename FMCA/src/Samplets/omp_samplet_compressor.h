@@ -24,8 +24,9 @@ class ompSampletCompressor {
 
   void init(const SampletTreeBase<Derived> &ST, Scalar eta) {
     n_clusters_ = std::distance(ST.cbegin(), ST.cend());
+    max_level_ = 0;
     eta_ = eta;
-    mapper_.resize(n_clusters_);
+    s_mapper_.resize(n_clusters_);
     m_blx_.resize(n_clusters_, n_clusters_);
     // first sweep to determine samplet tree characteristics
     std::vector<const Derived *> row_stack;
@@ -34,7 +35,8 @@ class ompSampletCompressor {
     while (row_stack.size()) {
       const Derived *pr = row_stack.back();
       row_stack.pop_back();
-      mapper_[pr->block_id()] = pr;
+      s_mapper_[pr->block_id()] = pr;
+      max_level_ = max_level_ < pr->level() ? pr->level() : max_level_;
       for (auto i = 0; i < pr->nSons(); ++i)
         row_stack.push_back(std::addressof(pr->sons(i)));
       assert(col_stack.size() == 0 &&
@@ -60,72 +62,60 @@ class ompSampletCompressor {
                 Scalar threshold = 1e-6) {
     threshold_ = threshold;
     for (int i = n_clusters_ - 1; i >= 0; --i) {
-      const auto &idx = m_blx_.idx()[i];
-      std::vector<Matrix> &val = m_blx_.val()[i];
-      const Derived *pr = mapper_[i];
+      const Derived *pr = s_mapper_[i];
+      // set up the level mapper to avoid races in the row
+      lvl_mapper_.clear();
+      lvl_mapper_.resize(max_level_ + 1);
+      for (auto &&it : m_blx_.idx()[i]) {
+        const Derived *cluster = s_mapper_[it];
+        lvl_mapper_[cluster->level()].push_back(cluster);
+      }
+      for (auto it = lvl_mapper_.rbegin(); it != lvl_mapper_.rend(); ++it) {
 #pragma omp parallel for
-      for (int j = idx.size() - 1; j >= 0; --j) {
-        const Derived *pc = mapper_[idx[j]];
-        val[j].resize(0, 0);
-        assert(pr->block_id() <= pc->block_id() && "upper triangle only");
-        if (pr->nSons() && pr->block_id() < pc->block_id()) {
-          for (auto k = 0; k < pr->nSons(); ++k) {
-            // check if pc is found in the row of pr's son
-            auto pos = m_blx_.find(pr->sons(k).block_id(), pc->block_id());
-            // if so, reuse the matrix block, otherwise recompute it
-            if (pos < m_blx_.idx()[pr->sons(k).block_id()].size()) {
-              const Matrix &ret = m_blx_.val()[pr->sons(k).block_id()][pos];
-              val[j].conservativeResize(ret.cols(),
-                                        val[j].cols() + pr->sons(k).nscalfs());
-              val[j].rightCols(pr->sons(k).nscalfs()) =
-                  ret.transpose().leftCols(pr->sons(k).nscalfs());
-            } else {
-              Matrix ret = recursivelyComputeBlock(pr->sons(k), *pc, e_gen);
-              val[j].conservativeResize(ret.cols(),
-                                        val[j].cols() + pr->sons(k).nscalfs());
-              val[j].rightCols(pr->sons(k).nscalfs()) =
-                  ret.transpose().leftCols(pr->sons(k).nscalfs());
-            }
-          }
-          val[j] = (val[j] * pr->Q()).transpose();
-        } else {
-          if (!pc->nSons())
-            val[j] = recursivelyComputeBlock(*pr, *pc, e_gen);
-          else {
-            for (auto k = 0; k < pc->nSons(); ++k) {
-              // check if pc's son is found in the row of pr
-              auto pos = m_blx_.find(pr->block_id(), pc->sons(k).block_id());
+        for (int j = 0; j < it->size(); ++j) {
+          const Derived *pc = (*it)[j];
+          Matrix &block = m_blx_(pr->block_id(), pc->block_id());
+          block.resize(0, 0);
+          if (pr->nSons() && pr->block_id() < pc->block_id()) {
+            for (auto k = 0; k < pr->nSons(); ++k) {
+              const Index nscalfs = pr->sons(k).nscalfs();
+              // check if pc is found in the row of pr's son
+              auto pos = m_blx_.find(pr->sons(k).block_id(), pc->block_id());
               // if so, reuse the matrix block, otherwise recompute it
-              if (false && pos < m_blx_.idx()[pr->block_id()].size()) {
-                const Matrix &ret = m_blx_.val()[pr->block_id()][pos];
-                val[j].conservativeResize(
-                    ret.rows(), val[j].cols() + pc->sons(k).nscalfs());
-                val[j].rightCols(pc->sons(k).nscalfs()) =
-                    ret.leftCols(pc->sons(k).nscalfs());
+              if (pos < m_blx_.idx()[pr->sons(k).block_id()].size()) {
+                const Matrix &ret = m_blx_.val()[pr->sons(k).block_id()][pos];
+                block.conservativeResize(ret.cols(), block.cols() + nscalfs);
+                block.rightCols(nscalfs) = ret.transpose().leftCols(nscalfs);
               } else {
-                Matrix ret = recursivelyComputeBlock(*pr, pc->sons(k), e_gen);
-                val[j].conservativeResize(
-                    ret.rows(), val[j].cols() + pc->sons(k).nscalfs());
-                val[j].rightCols(pc->sons(k).nscalfs()) =
-                    ret.leftCols(pc->sons(k).nscalfs());
+                Matrix ret = recursivelyComputeBlock(pr->sons(k), *pc, e_gen);
+                block.conservativeResize(ret.cols(), block.cols() + nscalfs);
+                block.rightCols(nscalfs) = ret.transpose().leftCols(nscalfs);
               }
             }
-            val[j] = val[j] * pc->Q();
+            block = (block * pr->Q()).transpose();
+          } else {
+            if (!pc->nSons())
+              block = recursivelyComputeBlock(*pr, *pc, e_gen);
+            else {
+              for (auto k = 0; k < pc->nSons(); ++k) {
+                const Index nscalfs = pc->sons(k).nscalfs();
+                // check if pc's son is found in the row of pr
+                auto pos = m_blx_.find(pr->block_id(), pc->sons(k).block_id());
+                // if so, reuse the matrix block, otherwise recompute it
+                if (pos < m_blx_.idx()[pr->block_id()].size()) {
+                  const Matrix &ret = m_blx_.val()[pr->block_id()][pos];
+                  block.conservativeResize(ret.rows(), block.cols() + nscalfs);
+                  block.rightCols(nscalfs) = ret.leftCols(nscalfs);
+                } else {
+                  Matrix ret = recursivelyComputeBlock(*pr, pc->sons(k), e_gen);
+                  block.conservativeResize(ret.rows(), block.cols() + nscalfs);
+                  block.rightCols(nscalfs) = ret.leftCols(nscalfs);
+                }
+              }
+              block = block * pc->Q();
+            }
           }
         }
-#if 0
-        if (!pr->is_root() && !pc->is_root())
-          storeBlock(
-              pr->start_index(), pc->start_index(), pr->nsamplets(),
-              pc->nsamplets(),
-              val[j].bottomRightCorner(pr->nsamplets(), pc->nsamplets()));
-        else if (!pc->is_root())
-          storeBlock(pr->start_index(), pc->start_index(), pr->Q().cols(),
-                     pc->nsamplets(), val[j].rightCols(pc->nsamplets()));
-        else if (pr->is_root() && pc->is_root())
-          storeBlock(pr->start_index(), pc->start_index(), pr->Q().cols(),
-                     pc->Q().cols(), val[j]);
-#endif
       }
     }
 
@@ -137,9 +127,9 @@ class ompSampletCompressor {
     for (int i = n_clusters_ - 1; i >= 0; --i) {
       const auto &idx = m_blx_.idx()[i];
       const std::vector<Matrix> &val = m_blx_.val()[i];
-      const Derived *pr = mapper_[i];
+      const Derived *pr = s_mapper_[i];
       for (int j = 0; j < idx.size(); ++j) {
-        const Derived *pc = mapper_[idx[j]];
+        const Derived *pc = s_mapper_[idx[j]];
         if (!pr->is_root() && !pc->is_root())
           storeBlock(
               pr->start_index(), pc->start_index(), pr->nsamplets(),
@@ -229,8 +219,10 @@ class ompSampletCompressor {
   }
   std::vector<Eigen::Triplet<Scalar>> triplet_list_;
   FMCA::SparseMatrix<Matrix> m_blx_;
-  std::vector<const Derived *> mapper_;
+  std::vector<const Derived *> s_mapper_;
+  std::vector<std::vector<const Derived *>> lvl_mapper_;
   Index n_clusters_;
+  Index max_level_;
   Scalar eta_;
   Scalar threshold_;
 };
