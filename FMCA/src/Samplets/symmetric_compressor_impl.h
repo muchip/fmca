@@ -11,7 +11,7 @@
 //
 #ifndef FMCA_SAMPLETS_SYMMETRICCOMPRESSORIMPL_H_
 #define FMCA_SAMPLETS_SYMMETRICCOMPRESSORIMPL_H_
-#define FMCA_COMPRESSOR_BUFSIZE_
+//#define FMCA_COMPRESSOR_BUFSIZE_
 
 namespace FMCA {
 
@@ -202,7 +202,7 @@ private:
       storeBlock(TR.start_index(), TC.start_index(), TR.Q().cols(),
                  TC.nsamplets(), (it->second).rightCols(TC.nsamplets()));
     buffer_[TR.block_id()].erase(it);
-    PB_.next();
+    //PB_.next();
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
