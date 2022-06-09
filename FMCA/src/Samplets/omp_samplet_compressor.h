@@ -23,6 +23,8 @@ class ompSampletCompressor {
   }
 
   void init(const SampletTreeBase<Derived> &ST, Scalar eta) {
+    if (const char *env_p = std::getenv("OMP_NUM_THREADS"))
+      std::cout << "OMP_NUM_THREADS: " << env_p << std::endl;
     n_clusters_ = std::distance(ST.cbegin(), ST.cend());
     max_level_ = 0;
     eta_ = eta;
@@ -127,7 +129,6 @@ class ompSampletCompressor {
   }
 
   const std::vector<Eigen::Triplet<Scalar>> &pattern_triplets() {
-#if 1
     for (int i = n_clusters_ - 1; i >= 0; --i) {
       const auto &idx = m_blx_.idx()[i];
       const std::vector<Matrix> &val = m_blx_.val()[i];
@@ -147,7 +148,6 @@ class ompSampletCompressor {
                      pc->Q().cols(), val[j]);
       }
     }
-#endif
     return triplet_list_;
   }
 

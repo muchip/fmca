@@ -11,7 +11,6 @@
 #define FMCA_CLUSTERSET_
 #include <iostream>
 ////////////////////////////////////////////////////////////////////////////////
-
 #include <Eigen/Dense>
 #include <FMCA/MatrixEvaluators>
 #include <FMCA/Samplets>
@@ -42,14 +41,14 @@ int main(int argc, char *argv[]) {
   const auto function = expKernel();
   const FMCA::Scalar eta = 0.8;
   const FMCA::Index mp_deg = 6;
-  const FMCA::Scalar threshold = 0;
+  const FMCA::Scalar threshold = 1e-5;
   FMCA::Tictoc T;
   for (FMCA::Index npts : {1e3, 5e3, 1e4, 5e4, 1e5, 5e5, 1e6, 5e6}) {
     std::cout << "N:" << npts << " dim:" << dim << " eta:" << eta
               << " mpd:" << mp_deg << " dt:" << dtilde
               << " thres: " << threshold << std::endl;
     T.tic();
-    const Eigen::MatrixXd P = Eigen::MatrixXd::Random(dim, npts);
+    const Eigen::MatrixXd P = 0.5 * Eigen::MatrixXd::Random(dim, npts).array() + 0.5;
     T.toc("geometry generation: ");
     const Moments mom(P, mp_deg);
     const MatrixEvaluator mat_eval(mom, function);
@@ -58,53 +57,22 @@ int main(int argc, char *argv[]) {
     const H2SampletTree hst(mom, samp_mom, 0, P);
     T.toc("tree setup: ");
     std::cout << std::flush;
-    T.tic();
-    FMCA::Matrix data = FMCA::Matrix::Random(P.cols(), 100);
-    FMCA::ompSampletTransformer<H2SampletTree> omp_transform(hst);
-    T.toc("omp init: ");
-    T.tic();
-    auto tnew_data = omp_transform.transform(data);
-    T.toc("transform: ");
-    T.tic();
-    auto told_data = hst.sampletTransform(data);
-    T.toc("transform old: ");
-    std::cout << (tnew_data - told_data).norm() / told_data.norm() << std::endl;
-    T.tic();
-    auto ttnew_data = omp_transform.inverseTransform(tnew_data);
-    T.toc("inverse transform: ");
-    std::cout << (ttnew_data - data).norm() / data.norm() << std::endl;
     FMCA::ompSampletCompressor<H2SampletTree> comp;
-    T.tic();
     comp.init(hst, 0.8);
     T.toc("omp init: ");
     T.tic();
     comp.compress(hst, mat_eval, threshold);
-    T.toc("new compressor: ");
-    FMCA::symmetric_compressor_impl<H2SampletTree> symComp;
+    T.toc("compressor: ");
     T.tic();
-    symComp.compress(hst, mat_eval, eta, threshold);
-    T.toc("old compressor: ");
-    auto trips1 = comp.pattern_triplets();
-    auto trips2 = symComp.pattern_triplets();
-    Eigen::SparseMatrix<double> S1(npts, npts);
-    Eigen::SparseMatrix<double> S2(npts, npts);
-
-    S1.setFromTriplets(trips1.begin(), trips1.end());
-    S2.setFromTriplets(trips2.begin(), trips2.end());
-    std::cout << (S1 - S2).norm() / S2.norm() << std::endl;
-#if 0
-    FMCA::symmetric_compressor_impl<H2SampletTree> symComp;
-    T.tic();
-    symComp.compress(hst, mat_eval, eta, threshold);
-    const FMCA::Scalar tcomp = T.toc("symmetric compressor: ");
+    const auto &trips = comp.pattern_triplets();
+    T.toc("generating triplets: ");
     std::cout << std::flush;
-
     {
       Eigen::VectorXd x(npts), y1(npts), y2(npts);
       FMCA::Scalar err = 0;
       FMCA::Scalar nrm = 0;
       const FMCA::Scalar tripSize = sizeof(Eigen::Triplet<FMCA::Scalar>);
-      const FMCA::Scalar nTrips = symComp.pattern_triplets().size();
+      const FMCA::Scalar nTrips = trips.size();
       std::cout << "nz(S): " << std::ceil(nTrips / npts) << std::endl;
       std::cout << "memory: " << nTrips * tripSize / 1e9 << "GB\n"
                 << std::flush;
@@ -116,10 +84,9 @@ int main(int argc, char *argv[]) {
         y1 = FMCA::matrixColumnGetter(P, hst.indices(), function, index);
         x = hst.sampletTransform(x);
         y2.setZero();
-        for (const auto &i : symComp.pattern_triplets()) {
+        for (const auto &i : trips) {
           y2(i.row()) += i.value() * x(i.col());
-          if (i.row() != i.col())
-            y2(i.col()) += i.value() * x(i.row());
+          if (i.row() != i.col()) y2(i.col()) += i.value() * x(i.row());
         }
         y2 = hst.inverseSampletTransform(y2);
         err += (y1 - y2).squaredNorm();
@@ -131,7 +98,6 @@ int main(int argc, char *argv[]) {
       err = sqrt(err / nrm);
       std::cout << "compression error: " << err << std::endl << std::flush;
     }
-#endif
     std::cout << std::string(60, '-') << std::endl;
   }
   return 0;
