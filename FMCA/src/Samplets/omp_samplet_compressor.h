@@ -49,7 +49,7 @@ class ompSampletCompressor {
           if (compareCluster(pc->sons(i), *pr, eta) != LowRank)
             col_stack.push_back(std::addressof(pc->sons(i)));
         }
-        if (pr->block_id() <= pc->block_id())
+        if (pr->block_id() >= pc->block_id())
           m_blx_(pr->block_id(), pc->block_id()).resize(0, 0);
       }
     }
@@ -57,23 +57,27 @@ class ompSampletCompressor {
            "there is a non-empty row stack after return");
     return;
   }
+
+  void set_level_mapper_(Index i) {
+    lvl_mapper_.clear();
+    lvl_mapper_.resize(max_level_ + 1);
+    for (auto &&it : m_blx_.idx()[i]) {
+      const Derived *cluster = s_mapper_[it];
+      lvl_mapper_[cluster->level()].push_back(cluster);
+    }
+  }
   template <typename EntryGenerator>
   void compress(const SampletTreeBase<Derived> &ST, const EntryGenerator &e_gen,
                 Scalar threshold = 1e-6) {
     threshold_ = threshold;
     for (int i = n_clusters_ - 1; i >= 0; --i) {
-      const Derived *pr = s_mapper_[i];
+      const Derived *pc = s_mapper_[i];
+      set_level_mapper_(i);
       // set up the level mapper to avoid races in the row
-      lvl_mapper_.clear();
-      lvl_mapper_.resize(max_level_ + 1);
-      for (auto &&it : m_blx_.idx()[i]) {
-        const Derived *cluster = s_mapper_[it];
-        lvl_mapper_[cluster->level()].push_back(cluster);
-      }
       for (auto it = lvl_mapper_.rbegin(); it != lvl_mapper_.rend(); ++it) {
 #pragma omp parallel for
         for (int j = 0; j < it->size(); ++j) {
-          const Derived *pc = (*it)[j];
+          const Derived *pr = (*it)[j];
           Matrix &block = m_blx_(pr->block_id(), pc->block_id());
           block.resize(0, 0);
           if (pr->nSons() && pr->block_id() < pc->block_id()) {
