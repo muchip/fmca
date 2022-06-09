@@ -63,7 +63,7 @@ class ompSampletCompressor {
       const auto &idx = m_blx_.idx()[i];
       std::vector<Matrix> &val = m_blx_.val()[i];
       const Derived *pr = mapper_[i];
-      //#pragma omp parallel for
+#pragma omp parallel for
       for (int j = idx.size() - 1; j >= 0; --j) {
         const Derived *pc = mapper_[idx[j]];
         val[j].resize(0, 0);
@@ -96,7 +96,7 @@ class ompSampletCompressor {
               // check if pc's son is found in the row of pr
               auto pos = m_blx_.find(pr->block_id(), pc->sons(k).block_id());
               // if so, reuse the matrix block, otherwise recompute it
-              if (pos < m_blx_.idx()[pr->block_id()].size()) {
+              if (false && pos < m_blx_.idx()[pr->block_id()].size()) {
                 const Matrix &ret = m_blx_.val()[pr->block_id()][pos];
                 val[j].conservativeResize(
                     ret.rows(), val[j].cols() + pc->sons(k).nscalfs());
@@ -113,6 +113,7 @@ class ompSampletCompressor {
             val[j] = val[j] * pc->Q();
           }
         }
+#if 0
         if (!pr->is_root() && !pc->is_root())
           storeBlock(
               pr->start_index(), pc->start_index(), pr->nsamplets(),
@@ -124,6 +125,7 @@ class ompSampletCompressor {
         else if (pr->is_root() && pc->is_root())
           storeBlock(pr->start_index(), pc->start_index(), pr->Q().cols(),
                      pc->Q().cols(), val[j]);
+#endif
       }
     }
 
@@ -131,7 +133,7 @@ class ompSampletCompressor {
   }
 
   const std::vector<Eigen::Triplet<Scalar>> &pattern_triplets() {
-#if 0
+#if 1
     for (int i = n_clusters_ - 1; i >= 0; --i) {
       const auto &idx = m_blx_.idx()[i];
       const std::vector<Matrix> &val = m_blx_.val()[i];

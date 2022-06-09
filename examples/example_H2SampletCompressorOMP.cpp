@@ -86,8 +86,8 @@ int main(int argc, char *argv[]) {
     T.toc("old compressor: ");
     auto trips1 = comp.pattern_triplets();
     auto trips2 = symComp.pattern_triplets();
-    FMCA::SparseMatrix<double> S1(npts, npts);
-    FMCA::SparseMatrix<double> S2(npts, npts);
+    Eigen::SparseMatrix<double> S1(npts, npts);
+    Eigen::SparseMatrix<double> S2(npts, npts);
 
     S1.setFromTriplets(trips1.begin(), trips1.end());
     S2.setFromTriplets(trips2.begin(), trips2.end());
