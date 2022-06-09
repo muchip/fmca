@@ -38,14 +38,13 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
 int main(int argc, char *argv[]) {
   const FMCA::Index dim = atoi(argv[1]);
-  const FMCA::Index dtilde = 3;
+  const FMCA::Index dtilde = 4;
   const auto function = expKernel();
   const FMCA::Scalar eta = 0.8;
-  const FMCA::Index mp_deg = 4;
+  const FMCA::Index mp_deg = 6;
   const FMCA::Scalar threshold = 0;
   FMCA::Tictoc T;
   for (FMCA::Index npts : {1e3, 5e3, 1e4, 5e4, 1e5, 5e5, 1e6, 5e6}) {
-  //for (FMCA::Index npts : {1e4}) {
     std::cout << "N:" << npts << " dim:" << dim << " eta:" << eta
               << " mpd:" << mp_deg << " dt:" << dtilde
               << " thres: " << threshold << std::endl;
@@ -83,16 +82,16 @@ int main(int argc, char *argv[]) {
     T.toc("new compressor: ");
     FMCA::symmetric_compressor_impl<H2SampletTree> symComp;
     T.tic();
-    //symComp.compress(hst, mat_eval, eta, threshold);
+    symComp.compress(hst, mat_eval, eta, threshold);
     T.toc("old compressor: ");
     auto trips1 = comp.pattern_triplets();
     auto trips2 = symComp.pattern_triplets();
-    Eigen::SparseMatrix<double> S1(npts, npts);
-    Eigen::SparseMatrix<double> S2(npts, npts);
+    FMCA::SparseMatrix<double> S1(npts, npts);
+    FMCA::SparseMatrix<double> S2(npts, npts);
 
     S1.setFromTriplets(trips1.begin(), trips1.end());
     S2.setFromTriplets(trips2.begin(), trips2.end());
-
+    std::cout << (S1 - S2).norm() / S2.norm() << std::endl;
 #if 0
     FMCA::symmetric_compressor_impl<H2SampletTree> symComp;
     T.tic();

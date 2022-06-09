@@ -175,7 +175,10 @@ class SparseMatrix {
   size_type find(size_type i, size_type j) {
     assert(i < m_ && j < n_ && "find out of bounds");
     const size_type pos = binarySearch(idx_[i], j);
-    return pos;
+    if (pos < idx_[i].size() && idx_[i][pos] == j)
+      return pos;
+    else
+      return idx_[i].size();
   }
 
   /*

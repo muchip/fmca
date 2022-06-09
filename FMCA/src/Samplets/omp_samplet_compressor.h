@@ -63,19 +63,22 @@ class ompSampletCompressor {
       const auto &idx = m_blx_.idx()[i];
       std::vector<Matrix> &val = m_blx_.val()[i];
       const Derived *pr = mapper_[i];
-#pragma omp parallel for
-      for (int j = 0; j < idx.size(); ++j) {
+      //#pragma omp parallel for
+      for (int j = idx.size() - 1; j >= 0; --j) {
         const Derived *pc = mapper_[idx[j]];
         val[j].resize(0, 0);
-        if (pr->nSons()) {
+        assert(pr->block_id() <= pc->block_id() && "upper triangle only");
+        if (pr->nSons() && pr->block_id() < pc->block_id()) {
           for (auto k = 0; k < pr->nSons(); ++k) {
+            // check if pc is found in the row of pr's son
             auto pos = m_blx_.find(pr->sons(k).block_id(), pc->block_id());
-            if (pos != m_blx_.idx()[pr->sons(k).block_id()].size()) {
-              const Matrix &buffer = m_blx_.val()[pr->sons(k).block_id()][pos];
-              val[j].conservativeResize(buffer.cols(),
+            // if so, reuse the matrix block, otherwise recompute it
+            if (pos < m_blx_.idx()[pr->sons(k).block_id()].size()) {
+              const Matrix &ret = m_blx_.val()[pr->sons(k).block_id()][pos];
+              val[j].conservativeResize(ret.cols(),
                                         val[j].cols() + pr->sons(k).nscalfs());
               val[j].rightCols(pr->sons(k).nscalfs()) =
-                  buffer.transpose().leftCols(pr->sons(k).nscalfs());
+                  ret.transpose().leftCols(pr->sons(k).nscalfs());
             } else {
               Matrix ret = recursivelyComputeBlock(pr->sons(k), *pc, e_gen);
               val[j].conservativeResize(ret.cols(),
@@ -90,14 +93,15 @@ class ompSampletCompressor {
             val[j] = recursivelyComputeBlock(*pr, *pc, e_gen);
           else {
             for (auto k = 0; k < pc->nSons(); ++k) {
+              // check if pc's son is found in the row of pr
               auto pos = m_blx_.find(pr->block_id(), pc->sons(k).block_id());
-              if (pos != m_blx_.idx()[pc->sons(k).block_id()].size()) {
-                const Matrix &buffer =
-                    m_blx_.val()[pc->sons(k).block_id()][pos];
+              // if so, reuse the matrix block, otherwise recompute it
+              if (pos < m_blx_.idx()[pr->block_id()].size()) {
+                const Matrix &ret = m_blx_.val()[pr->block_id()][pos];
                 val[j].conservativeResize(
-                    buffer.rows(), val[j].cols() + pc->sons(k).nscalfs());
+                    ret.rows(), val[j].cols() + pc->sons(k).nscalfs());
                 val[j].rightCols(pc->sons(k).nscalfs()) =
-                    buffer.leftCols(pc->sons(k).nscalfs());
+                    ret.leftCols(pc->sons(k).nscalfs());
               } else {
                 Matrix ret = recursivelyComputeBlock(*pr, pc->sons(k), e_gen);
                 val[j].conservativeResize(
@@ -106,10 +110,9 @@ class ompSampletCompressor {
                     ret.leftCols(pc->sons(k).nscalfs());
               }
             }
+            val[j] = val[j] * pc->Q();
           }
-          val[j] = val[j] * pc->Q();
         }
-#if 0
         if (!pr->is_root() && !pc->is_root())
           storeBlock(
               pr->start_index(), pc->start_index(), pr->nsamplets(),
@@ -121,14 +124,34 @@ class ompSampletCompressor {
         else if (pr->is_root() && pc->is_root())
           storeBlock(pr->start_index(), pc->start_index(), pr->Q().cols(),
                      pc->Q().cols(), val[j]);
-#endif
       }
     }
 
     return;
   }
 
-  const std::vector<Eigen::Triplet<Scalar>> &pattern_triplets() const {
+  const std::vector<Eigen::Triplet<Scalar>> &pattern_triplets() {
+#if 0
+    for (int i = n_clusters_ - 1; i >= 0; --i) {
+      const auto &idx = m_blx_.idx()[i];
+      const std::vector<Matrix> &val = m_blx_.val()[i];
+      const Derived *pr = mapper_[i];
+      for (int j = 0; j < idx.size(); ++j) {
+        const Derived *pc = mapper_[idx[j]];
+        if (!pr->is_root() && !pc->is_root())
+          storeBlock(
+              pr->start_index(), pc->start_index(), pr->nsamplets(),
+              pc->nsamplets(),
+              val[j].bottomRightCorner(pr->nsamplets(), pc->nsamplets()));
+        else if (!pc->is_root())
+          storeBlock(pr->start_index(), pc->start_index(), pr->Q().cols(),
+                     pc->nsamplets(), val[j].rightCols(pc->nsamplets()));
+        else if (pr->is_root() && pc->is_root())
+          storeBlock(pr->start_index(), pc->start_index(), pr->Q().cols(),
+                     pc->Q().cols(), val[j]);
+      }
+    }
+#endif
     return triplet_list_;
   }
 
