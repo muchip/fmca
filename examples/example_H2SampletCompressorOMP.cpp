@@ -43,8 +43,7 @@ int main(int argc, char *argv[]) {
   const FMCA::Index mp_deg = 6;
   const FMCA::Scalar threshold = 1e-5;
   FMCA::Tictoc T;
-  //for (FMCA::Index npts : {1e3, 5e3, 1e4, 5e4, 1e5, 5e5, 1e6, 5e6, 1e7}) {
-  for (FMCA::Index npts : {1e3}) {
+  for (FMCA::Index npts : {1e3, 5e3, 1e4, 5e4, 1e5, 5e5, 1e6, 5e6, 1e7}) {
     std::cout << "N:                        " << npts << std::endl
               << "dim:                      " << dim << std::endl
               << "eta:                      " << eta << std::endl
@@ -63,15 +62,16 @@ int main(int argc, char *argv[]) {
     T.toc("tree setup:              ");
     std::cout << std::flush;
     FMCA::ompSampletCompressor<H2SampletTree> comp;
-    comp.init(hst, 0.8);
+    comp.init(hst, 0.8, threshold);
     T.toc("omp initializer:         ");
     T.tic();
-    comp.compress(hst, mat_eval, threshold);
+    comp.compress(hst, mat_eval);
     T.toc("compressor:              ");
     T.tic();
     const auto &trips = comp.pattern_triplets();
     T.toc("generating triplets:     ");
     std::cout << std::flush;
+#if 0
     FMCA::symmetric_compressor_impl<H2SampletTree> symComp;
     T.tic();
     symComp.compress(hst, mat_eval, eta, threshold);
@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
     S2.setFromTriplets(trips2.begin(), trips2.end());
     FMCA::IO::print2m("dump.m", "S1", S1, "w");
     FMCA::IO::print2m("dump.m", "S2", S2, "a");
-
+#endif
     {
       FMCA::Vector x(npts), y1(npts), y2(npts);
       FMCA::Scalar err = 0;
@@ -106,7 +106,8 @@ int main(int argc, char *argv[]) {
         y2.setZero();
         for (const auto &i : trips) {
           y2(i.row()) += i.value() * x(i.col());
-          if (i.row() != i.col()) y2(i.col()) += i.value() * x(i.row());
+          if (i.row() != i.col())
+            y2(i.col()) += i.value() * x(i.row());
         }
         y2 = hst.inverseSampletTransform(y2);
         err += (y1 - y2).squaredNorm();
