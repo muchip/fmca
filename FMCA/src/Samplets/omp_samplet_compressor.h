@@ -84,7 +84,7 @@ public:
               auto pos = m_blx_.find(pr->sons(k).block_id(), pc->block_id());
               // if so, reuse the matrix block, otherwise recompute it
               if (pos < m_blx_.idx()[pr->sons(k).block_id()].size()) {
-                const Matrix &ret = m_blx_.val()[pr->sons(k).block_id()][pos];
+                Matrix &ret = m_blx_.val()[pr->sons(k).block_id()][pos];
                 block.conservativeResize(ret.cols(), block.cols() + nscalfs);
                 block.rightCols(nscalfs) = ret.transpose().leftCols(nscalfs);
               } else {
@@ -94,6 +94,12 @@ public:
               }
             }
             block = (block * pr->Q()).transpose();
+#ifdef FMCA_DEBUG_FLAG_
+            Matrix ret = recursivelyComputeBlock(*pr, *pc, e_gen);
+            assert(block.rows() == pr->Q().cols() && "row mismatch 1");
+            assert(block.cols() == pc->Q().cols() && "col mismatch 1");
+            assert((ret - block).norm() / ret.norm() < 1e-4 && "wtf1");
+#endif
           } else {
             if (!pc->nSons())
               block = recursivelyComputeBlock(*pr, *pc, e_gen);
@@ -104,9 +110,12 @@ public:
                 auto pos = m_blx_.find(pr->block_id(), pc->sons(k).block_id());
                 // if so, reuse the matrix block, otherwise recompute it
                 if (pos < m_blx_.idx()[pr->block_id()].size()) {
-                  const Matrix &ret = m_blx_.val()[pr->block_id()][pos];
+                  Matrix &ret = m_blx_.val()[pr->block_id()][pos];
                   block.conservativeResize(ret.rows(), block.cols() + nscalfs);
                   block.rightCols(nscalfs) = ret.leftCols(nscalfs);
+                  if (!pr->is_root())
+                    ret = ret.bottomRightCorner(pr->nsamplets(),
+                                                pc->sons(k).nsamplets());
                 } else {
                   Matrix ret = recursivelyComputeBlock(*pr, pc->sons(k), e_gen);
                   block.conservativeResize(ret.rows(), block.cols() + nscalfs);
@@ -114,10 +123,30 @@ public:
                 }
               }
               block = block * pc->Q();
+#ifdef FMCA_DEBUG_FLAG_
+              Matrix ret = recursivelyComputeBlock(*pr, *pc, e_gen);
+              assert(block.rows() == pr->Q().cols() && "row mismatch 2");
+              assert(block.cols() == pc->Q().cols() && "col mismatch 2");
+              assert((ret - block).norm() / ret.norm() < 1e-4 && "wtf2");
+#endif
             }
           }
         }
       }
+#if 0
+      // garbage collector
+      if (false && j < n_clusters_ - 1) {
+        const auto &idx = m_blx_.idx()[j + 1];
+        std::vector<Matrix> &val = m_blx_.val()[j + 1];
+        const Derived *pc = s_mapper_[j + 1];
+        for (int i = 0; i < idx.size(); ++i) {
+          const Derived *pr = s_mapper_[idx[i]];
+          if (!pr->is_root() && !pc->is_root() && val[i].size()) {
+            val[i] = val[i].bottomRightCorner(pr->nsamplets(), pc->nsamplets());
+          }
+        }
+      }
+#endif
     }
 
     return;
