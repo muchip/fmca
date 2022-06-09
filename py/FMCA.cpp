@@ -18,6 +18,7 @@
 //
 #include <FMCA/Clustering>
 #include <FMCA/Samplets>
+#include <FMCA/src/Samplets/omp_samplet_compressor.h>
 
 using Interpolator = FMCA::TotalDegreeInterpolator;
 using SampletInterpolator = FMCA::MonomialInterpolator;
@@ -76,7 +77,8 @@ struct pyCovarianceKernel {
   pyCovarianceKernel(const std::string &ktype, FMCA::Scalar l) : l_(l) {
     // transform string to upper and check if kernel is implemented
     ktype_ = ktype;
-    for (auto &c : ktype_) c = (char)toupper(c);
+    for (auto &c : ktype_)
+      c = (char)toupper(c);
     if (ktype_ == "GAUSSIAN")
       kernel_ = [this](FMCA::Scalar r) { return exp(-r * r / l_); };
     else if (ktype_ == "EXPONENTIAL")
@@ -112,7 +114,7 @@ using MatrixEvaluator =
 
 ////////////////////////////////////////////////////////////////////////////////
 PYBIND11_MODULE(FMCA, m) {
-  m.doc() = "pybind11 FMCA plugin";  // optional module docstring
+  m.doc() = "pybind11 FMCA plugin"; // optional module docstring
   //////////////////////////////////////////////////////////////////////////////
   // ClusterTree
   //////////////////////////////////////////////////////////////////////////////
@@ -203,19 +205,21 @@ PYBIND11_MODULE(FMCA, m) {
 
   m.def(
       "sampletCompressKernel",
-      [](const pyCovarianceKernel &ker, const pyH2SampletTree &tree,
-         const FMCA::Matrix &P, FMCA::Scalar eta, FMCA::Scalar thres) {
-        FMCA::symmetric_compressor_impl<H2SampletTree> symComp;
+      [](const pyCovarianceKernel &ker, pyH2SampletTree &tree,
+         const FMCA::Matrix &P, FMCA::Scalar eta,
+         FMCA::Scalar thres) -> Eigen::SparseMatrix<FMCA::Scalar> {
         std::cout << tree.dtilde_ << " " << tree.mp_deg_ << " "
                   << " " << eta << " " << thres << std::endl;
+        FMCA::ompSampletCompressor<H2SampletTree> comp;
+        comp.init(tree.H2ST_, eta, thres);
         const Moments mom(P, tree.mp_deg_);
         const MatrixEvaluator mat_eval(mom, ker);
-        symComp.compress(tree.H2ST_, mat_eval, eta, thres);
-        const auto &trips = symComp.pattern_triplets();
-
-        std::cout << "created retval" << std::endl;
-        // return retval;
-        return;
+        Eigen::SparseMatrix<FMCA::Scalar> K(tree.H2ST_.indices().size(),
+                                            tree.H2ST_.indices().size());
+        comp.compress(tree.H2ST_, mat_eval);
+        const auto &trips = comp.pattern_triplets();
+        K.setFromTriplets(trips.begin(), trips.end());
+        return K;
       },
       py::arg().noconvert(), py::arg().noconvert(), py::arg().noconvert(),
       py::arg(), py::arg(), "Performs a samplet compression of a kernel");

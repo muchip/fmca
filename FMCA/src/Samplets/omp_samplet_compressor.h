@@ -113,9 +113,6 @@ public:
                   Matrix &ret = m_blx_.val()[pr->block_id()][pos];
                   block.conservativeResize(ret.rows(), block.cols() + nscalfs);
                   block.rightCols(nscalfs) = ret.leftCols(nscalfs);
-                  if (!pr->is_root())
-                    ret = ret.bottomRightCorner(pr->nsamplets(),
-                                                pc->sons(k).nsamplets());
                 } else {
                   Matrix ret = recursivelyComputeBlock(*pr, pc->sons(k), e_gen);
                   block.conservativeResize(ret.rows(), block.cols() + nscalfs);
