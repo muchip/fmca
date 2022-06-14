@@ -43,7 +43,8 @@ int main(int argc, char *argv[]) {
   const FMCA::Index mp_deg = 6;
   const FMCA::Scalar threshold = 1e-5;
   FMCA::Tictoc T;
-  for (FMCA::Index npts : {1e3, 5e3, 1e4, 5e4, 1e5, 5e5, 1e6, 5e6, 1e7}) {
+  //for (FMCA::Index npts : {1e3, 5e3, 1e4, 5e4, 1e5, 5e5, 1e6, 5e6, 1e7}) {
+  for (FMCA::Index npts : {1e3, 5e3, 1e4, 5e4}) {
     std::cout << "N:                        " << npts << std::endl
               << "dim:                      " << dim << std::endl
               << "eta:                      " << eta << std::endl
@@ -67,7 +68,7 @@ int main(int argc, char *argv[]) {
     comp.compress(hst, mat_eval);
     T.toc("cummulative compressor:  ");
     T.tic();
-    const auto &trips = comp.pattern_triplets();
+    const auto &trips = comp.triplets();
     T.toc("generating triplets:     ");
     std::cout << std::flush;
 
@@ -84,7 +85,7 @@ int main(int argc, char *argv[]) {
       std::cout << "memory:                   " << nTrips * tripSize / 1e9
                 << "GB" << std::endl;
       T.tic();
-      for (auto i = 0; i < 100; ++i) {
+      for (auto i = 0; i < 10; ++i) {
         FMCA::Index index = rand() % P.cols();
         x.setZero();
         x(index) = 1;
@@ -106,7 +107,7 @@ int main(int argc, char *argv[]) {
       std::cout << "compression error:        " << err << std::endl
                 << std::flush;
     }
-#if 1
+#if 0
     {
       FMCA::symmetric_compressor_impl<H2SampletTree> symComp;
       T.tic();
