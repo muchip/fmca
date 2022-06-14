@@ -37,7 +37,6 @@ public:
       std::cout << "OMP_NUM_THREADS:          " << env_p << std::endl;
     s_mapper_.resize(n_clusters_);
     pattern_.resize(n_clusters_, n_clusters_);
-    m_blx_.resize(n_clusters_, n_clusters_);
     max_level_ = 0;
     {
       // first sweep to determine samplet tree characteristics
@@ -74,6 +73,7 @@ public:
 
   template <typename EntGenerator>
   void compress(const SampletTreeBase<Derived> &ST, const EntGenerator &e_gen) {
+    m_blx_.resize(n_clusters_);
     for (auto j = 1; j <= n_clusters_; ++j) {
       const Derived *pc = s_mapper_[n_clusters_ - j];
       const Index col_id = pc->block_id();
@@ -88,19 +88,19 @@ public:
         for (int i = 1; i <= it->size(); ++i) {
           const Derived *pr = (*it)[it->size() - i];
           const Index row_id = pr->block_id();
-          Matrix &block = m_blx_(col_id, row_id);
-          block.resize(0, 0);
+          const Matrix *buf = nullptr;
+          Matrix block(0, 0);
           if (pr->nSons() && row_id < col_id) {
             for (auto k = 0; k < pr->nSons(); ++k) {
               const Index nscalfs = pr->sons(k).nscalfs();
               const Index son_id = pr->sons(k).block_id();
-              // check if pc is found in the row of pr's son
-              const Index pos = m_blx_.find(col_id, son_id);
+              auto it = m_blx_[col_id].find(son_id);
               // if so, reuse the matrix block, otherwise recompute it
-              if (pos < m_blx_.idx()[col_id].size()) {
-                const Matrix &ret = m_blx_.val()[col_id][pos];
-                block.conservativeResize(ret.cols(), block.cols() + nscalfs);
-                block.rightCols(nscalfs) = ret.transpose().leftCols(nscalfs);
+              if (it != m_blx_[col_id].end()) {
+                block.conservativeResize((it->second).cols(),
+                                         block.cols() + nscalfs);
+                block.rightCols(nscalfs) =
+                    (it->second).transpose().leftCols(nscalfs);
               } else {
                 const Matrix ret =
                     recursivelyComputeBlock(pr->sons(k), *pc, e_gen);
@@ -111,19 +111,18 @@ public:
             block = (block * pr->Q()).transpose();
           } else {
             if (!pc->nSons()) {
-              e_gen.compute_dense_block(*pr, *pc, &block);
-              block = pr->Q().transpose() * block * pc->Q();
+              block = recursivelyComputeBlock(*pr, *pc, e_gen);
             } else {
               for (auto k = 0; k < pc->nSons(); ++k) {
                 const Index nscalfs = pc->sons(k).nscalfs();
                 const Index son_id = pc->sons(k).block_id();
                 // check if pc's son is found in the row of pr
-                const Index pos = m_blx_.find(son_id, row_id);
                 // if so, reuse the matrix block, otherwise recompute it
-                if (pos < m_blx_.idx()[son_id].size()) {
-                  const Matrix &ret = m_blx_.val()[son_id][pos];
-                  block.conservativeResize(ret.rows(), block.cols() + nscalfs);
-                  block.rightCols(nscalfs) = ret.leftCols(nscalfs);
+                auto it = m_blx_[son_id].find(row_id);
+                if (it != m_blx_[son_id].end()) {
+                  block.conservativeResize((it->second).rows(),
+                                           block.cols() + nscalfs);
+                  block.rightCols(nscalfs) = (it->second).leftCols(nscalfs);
                 } else {
                   const Matrix ret =
                       recursivelyComputeBlock(*pr, pc->sons(k), e_gen);
@@ -134,6 +133,7 @@ public:
               block = block * pc->Q();
             }
           }
+          m_blx_[col_id].emplace(std::make_pair(row_id, block));
         }
       }
     }
@@ -150,41 +150,26 @@ public:
     triplet_list_.clear();
 
     for (int i = n_clusters_ - 1; i >= 0; --i) {
-      const auto &idx = m_blx_.idx()[i];
-      const std::vector<Matrix> &val = m_blx_.val()[i];
       const Derived *pc = s_mapper_[i];
-      for (int j = 0; j < idx.size(); ++j) {
-        const Derived *pr = s_mapper_[idx[j]];
+      for (auto &&it : m_blx_[i]) {
+        const Derived *pr = s_mapper_[it.first];
         if (!pr->is_root() && !pc->is_root())
           storeBlock(
               pr->start_index(), pc->start_index(), pr->nsamplets(),
               pc->nsamplets(),
-              val[j].bottomRightCorner(pr->nsamplets(), pc->nsamplets()));
+              it.second.bottomRightCorner(pr->nsamplets(), pc->nsamplets()));
         else if (!pc->is_root())
           storeBlock(pr->start_index(), pc->start_index(), pr->Q().cols(),
-                     pc->nsamplets(), val[j].rightCols(pc->nsamplets()));
+                     pc->nsamplets(), it.second.rightCols(pc->nsamplets()));
         else if (pr->is_root() && pc->is_root())
           storeBlock(pr->start_index(), pc->start_index(), pr->Q().cols(),
-                     pc->Q().cols(), val[j]);
+                     pc->Q().cols(), it.second);
       }
     }
     return triplet_list_;
   }
 
 private:
-  /**
-   *  \brief maps a given block matrix column into a levelwise synchronized
-   *         container
-   **/
-  void setup_level_mapper_(Index i) {
-    lvl_mapper_.clear();
-    lvl_mapper_.resize(max_level_ + 1);
-    for (auto &&it : m_blx_.idx()[i]) {
-      const Derived *cluster = s_mapper_[it];
-      lvl_mapper_[cluster->level()].push_back(cluster);
-    }
-  }
-
   /**
    *  \brief recursively computes for a given pair of row and column
    *clusters the four blocks [A^PhiPhi, A^PhiSigma; A^SigmaPhi,
@@ -193,31 +178,31 @@ private:
   template <typename EntryGenerator>
   Matrix recursivelyComputeBlock(const Derived &TR, const Derived &TC,
                                  const EntryGenerator &e_gen) {
-    ++compute_calls_;
     Matrix buf(0, 0);
-    Matrix retval(0, 0);
+    ++compute_calls_;
     // check for admissibility
     if (compareCluster(TR, TC, eta_) == LowRank) {
       ++lowrank_calls_;
       e_gen.interpolate_kernel(TR, TC, &buf);
-      retval = TR.V().transpose() * buf * TC.V();
+      return TR.V().transpose() * buf * TC.V();
     } else {
-      if (!TR.nSons() && !TC.nSons()) {
+      const char the_case = 2 * (!TR.nSons()) + !TC.nSons();
+      switch (the_case) {
+      case 3:
         // both are leafs: compute the block and return
         e_gen.compute_dense_block(TR, TC, &buf);
-        retval = TR.Q().transpose() * buf * TC.Q();
-      } else if (!TR.nSons() && TC.nSons()) {
+        return TR.Q().transpose() * buf * TC.Q();
+      case 2:
         // the row cluster is a leaf cluster: recursion on the col cluster
         for (auto j = 0; j < TC.nSons(); ++j) {
           const Index row_id = TR.block_id();
           const Index son_id = TC.sons(j).block_id();
-          const Index pos = m_blx_.find(son_id, row_id);
-          if (pos < m_blx_.idx()[son_id].size()) {
-            const Matrix &ret = m_blx_.val()[son_id][pos];
-            buf.conservativeResize(ret.rows(),
+          auto it = m_blx_[son_id].find(row_id);
+          if (it != m_blx_[son_id].end()) {
+            buf.conservativeResize((it->second).rows(),
                                    buf.cols() + TC.sons(j).nscalfs());
             buf.rightCols(TC.sons(j).nscalfs()) =
-                ret.leftCols(TC.sons(j).nscalfs());
+                (it->second).leftCols(TC.sons(j).nscalfs());
           } else {
             Matrix ret = recursivelyComputeBlock(TR, TC.sons(j), e_gen);
             buf.conservativeResize(ret.rows(),
@@ -226,19 +211,18 @@ private:
                 ret.leftCols(TC.sons(j).nscalfs());
           }
         }
-        retval = buf * TC.Q();
-      } else if (TR.nSons() && !TC.nSons()) {
+        return buf * TC.Q();
+      case 1:
         // the col cluster is a leaf cluster: recursion on the row cluster
         for (auto i = 0; i < TR.nSons(); ++i) {
           const Index col_id = TC.block_id();
           const Index son_id = TR.sons(i).block_id();
-          const Index pos = m_blx_.find(col_id, son_id);
-          if (pos < m_blx_.idx()[col_id].size()) {
-            const Matrix &ret = m_blx_.val()[col_id][pos];
-            buf.conservativeResize(ret.cols(),
+          auto it = m_blx_[col_id].find(son_id);
+          if (it != m_blx_[col_id].end()) {
+            buf.conservativeResize((it->second).cols(),
                                    buf.cols() + TR.sons(i).nscalfs());
             buf.rightCols(TR.sons(i).nscalfs()) =
-                ret.transpose().leftCols(TR.sons(i).nscalfs());
+                (it->second).transpose().leftCols(TR.sons(i).nscalfs());
           } else {
             Matrix ret = recursivelyComputeBlock(TR.sons(i), TC, e_gen);
             buf.conservativeResize(ret.cols(),
@@ -247,18 +231,28 @@ private:
                 ret.transpose().leftCols(TR.sons(i).nscalfs());
           }
         }
-        retval = (buf * TR.Q()).transpose();
-      } else {
+        return (buf * TR.Q()).transpose();
+      case 0:
         // neither is a leaf, let recursion handle this
         for (auto i = 0; i < TR.nSons(); ++i) {
           Matrix ret1(0, 0);
+          const Index row_id = TR.sons(i).block_id();
           for (auto j = 0; j < TC.nSons(); ++j) {
-            Matrix ret2 =
-                recursivelyComputeBlock(TR.sons(i), TC.sons(j), e_gen);
-            ret1.conservativeResize(ret2.rows(),
-                                    ret1.cols() + TC.sons(j).nscalfs());
-            ret1.rightCols(TC.sons(j).nscalfs()) =
-                ret2.leftCols(TC.sons(j).nscalfs());
+            const Index col_id = TC.sons(j).block_id();
+            auto it = m_blx_[col_id].find(row_id);
+            if (it != m_blx_[col_id].end()) {
+              ret1.conservativeResize((it->second).rows(),
+                                      ret1.cols() + TC.sons(j).nscalfs());
+              ret1.rightCols(TC.sons(j).nscalfs()) =
+                  (it->second).leftCols(TC.sons(j).nscalfs());
+            } else {
+              Matrix ret2 =
+                  recursivelyComputeBlock(TR.sons(i), TC.sons(j), e_gen);
+              ret1.conservativeResize(ret2.rows(),
+                                      ret1.cols() + TC.sons(j).nscalfs());
+              ret1.rightCols(TC.sons(j).nscalfs()) =
+                  ret2.leftCols(TC.sons(j).nscalfs());
+            }
           }
           ret1 = ret1 * TC.Q();
           buf.conservativeResize(ret1.cols(),
@@ -266,10 +260,10 @@ private:
           buf.rightCols(TR.sons(i).nscalfs()) =
               ret1.transpose().leftCols(TR.sons(i).nscalfs());
         }
-        retval = (buf * TR.Q()).transpose();
+        return (buf * TR.Q()).transpose();
       }
     }
-    return retval;
+    return Matrix(0, 0);
   }
 
   /**
@@ -288,7 +282,7 @@ private:
 
   //////////////////////////////////////////////////////////////////////////////
   std::vector<Eigen::Triplet<Scalar>> triplet_list_;
-  FMCA::SparseMatrix<Matrix> m_blx_;
+  std::vector<std::map<Index, Matrix>> m_blx_;
   FMCA::SparseMatrix<char> pattern_;
   std::vector<const Derived *> s_mapper_;
   std::vector<std::vector<const Derived *>> lvl_mapper_;

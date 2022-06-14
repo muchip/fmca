@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
   const FMCA::Scalar threshold = 1e-5;
   FMCA::Tictoc T;
   // for (FMCA::Index npts : {1e3, 5e3, 1e4, 5e4, 1e5, 5e5, 1e6, 5e6, 1e7}) {
-  for (FMCA::Index npts : {1e3, 5e3, 1e4, 5e4}) {
+  for (FMCA::Index npts : {1e3, 5e3}) {
     std::cout << "N:                        " << npts << std::endl
               << "dim:                      " << dim << std::endl
               << "eta:                      " << eta << std::endl
