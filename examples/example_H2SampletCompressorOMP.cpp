@@ -15,7 +15,7 @@
 #include <FMCA/MatrixEvaluators>
 #include <FMCA/Samplets>
 ////////////////////////////////////////////////////////////////////////////////
-#include <FMCA/src/Samplets/omp_samplet_compressor.h>
+#include <FMCA/src/Samplets/omp_samplet_compressor_weird.h>
 #include <FMCA/src/util/Errors.h>
 #include <FMCA/src/util/Tictoc.h>
 #include <FMCA/src/util/print2file.h>

@@ -72,39 +72,33 @@ class ompSampletCompressor {
 
   template <typename EntGenerator>
   void compress(const SampletTreeBase<Derived> &ST, const EntGenerator &e_gen) {
-    block_misses_ = 0;
+    m_blx_.resize(n_clusters_, n_clusters_);
     for (auto j = 1; j <= n_clusters_; ++j) {
       const Derived *pc = s_mapper_[n_clusters_ - j];
       const Index col_id = pc->block_id();
-      lvl_mapper_.clear();
-      lvl_mapper_.resize(max_level_ + 1);
-      for (auto &&it : m_blx_.idx()[n_clusters_ - j]) {
-        const Derived *cluster = s_mapper_[it];
-        lvl_mapper_[cluster->level()].push_back(cluster);
-      }
+      setup_level_mapper_(n_clusters_ - j);
       for (auto it = lvl_mapper_.rbegin(); it != lvl_mapper_.rend(); ++it) {
 #pragma omp parallel for
-        for (int i = 1; i <= it->size(); ++i) {
-          const Derived *pr = (*it)[it->size() - i];
+        for (int i = 0; i < it->size(); ++i) {
+          const Derived *pr = (*it)[i];
           const Index row_id = pr->block_id();
-          const Index pos = m_blx_.find(col_id, row_id);
-          assert(pos < m_blx_.idx()[col_id].size() &&
-                 "this block is not fucking there");
-          Matrix &block = m_blx_.val()[col_id][pos];
+          const Index pos1 = m_blx_.find(row_id, col_id);
+          const Index pos2 = m_blx_.find(col_id, row_id);
+          if (pos2 < m_blx_.idx()[col_id].size()); else assert(false && "wtf");
+          Matrix &block = m_blx_(row_id, col_id);
           block.resize(0, 0);
           if (pr->nSons() && row_id < col_id) {
             for (auto k = 0; k < pr->nSons(); ++k) {
               const Index nscalfs = pr->sons(k).nscalfs();
               const Index son_id = pr->sons(k).block_id();
               // check if pc is found in the row of pr's son
-              const Index pos = m_blx_.find(col_id, son_id);
+              const Index pos = m_blx_.find(son_id, col_id);
               // if so, reuse the matrix block, otherwise recompute it
-              if (pos < m_blx_.idx()[col_id].size()) {
-                Matrix &ret = m_blx_.val()[col_id][pos];
+              if (pos < m_blx_.idx()[son_id].size()) {
+                Matrix &ret = m_blx_.val()[son_id][pos];
                 block.conservativeResize(ret.cols(), block.cols() + nscalfs);
                 block.rightCols(nscalfs) = ret.transpose().leftCols(nscalfs);
               } else {
-                ++block_misses_;
                 const Matrix ret =
                     recursivelyComputeBlock(pr->sons(k), *pc, e_gen);
                 block.conservativeResize(ret.cols(), block.cols() + nscalfs);
@@ -112,6 +106,12 @@ class ompSampletCompressor {
               }
             }
             block = (block * pr->Q()).transpose();
+#ifdef FMCA_DEBUG_FLAG_
+            Matrix ret = recursivelyComputeBlock(*pr, *pc, e_gen);
+            assert(block.rows() == pr->Q().cols() && "row mismatch 1");
+            assert(block.cols() == pc->Q().cols() && "col mismatch 1");
+            assert((ret - block).norm() / ret.norm() < 1e-4 && "wtf1");
+#endif
           } else {
             if (!pc->nSons())
               block = recursivelyComputeBlock(*pr, *pc, e_gen);
@@ -120,17 +120,13 @@ class ompSampletCompressor {
                 const Index nscalfs = pc->sons(k).nscalfs();
                 const Index son_id = pc->sons(k).block_id();
                 // check if pc's son is found in the row of pr
-                const Index pos = m_blx_.find(son_id, row_id);
+                const Index pos = m_blx_.find(row_id, son_id);
                 // if so, reuse the matrix block, otherwise recompute it
-                if (pos < m_blx_.idx()[son_id].size()) {
-                  Matrix &ret = m_blx_.val()[son_id][pos];
+                if (pos < m_blx_.idx()[row_id].size()) {
+                  const Matrix &ret = m_blx_.val()[row_id][pos];
                   block.conservativeResize(ret.rows(), block.cols() + nscalfs);
                   block.rightCols(nscalfs) = ret.leftCols(nscalfs);
-                  if (!pr->is_root())
-                    ret = ret.bottomRightCorner(pr->nsamplets(),
-                                                pc->sons(k).nsamplets());
                 } else {
-                  ++block_misses_;
                   const Matrix ret =
                       recursivelyComputeBlock(*pr, pc->sons(k), e_gen);
                   block.conservativeResize(ret.rows(), block.cols() + nscalfs);
@@ -138,12 +134,19 @@ class ompSampletCompressor {
                 }
               }
               block = block * pc->Q();
+#ifdef FMCA_DEBUG_FLAG_
+              Matrix ret = recursivelyComputeBlock(*pr, *pc, e_gen);
+              assert(block.rows() == pr->Q().cols() && "row mismatch 2");
+              assert(block.cols() == pc->Q().cols() && "col mismatch 2");
+              assert((ret - block).norm() / ret.norm() < 1e-4 && "wtf2");
+#endif
             }
           }
         }
       }
     }
-    std::cout << "block misses: " << block_misses_ << std::endl;
+    std::cout << "compute_calls: " << compute_calls_ << " percent low rank: "
+              << Scalar(lowrank_calls_) / compute_calls_ * 100 << std::endl;
     return;
   }
 
@@ -157,9 +160,9 @@ class ompSampletCompressor {
     for (int i = n_clusters_ - 1; i >= 0; --i) {
       const auto &idx = m_blx_.idx()[i];
       const std::vector<Matrix> &val = m_blx_.val()[i];
-      const Derived *pc = s_mapper_[i];
+      const Derived *pr = s_mapper_[i];
       for (int j = 0; j < idx.size(); ++j) {
-        const Derived *pr = s_mapper_[idx[j]];
+        const Derived *pc = s_mapper_[idx[j]];
         if (!pr->is_root() && !pc->is_root())
           storeBlock(
               pr->start_index(), pc->start_index(), pr->nsamplets(),
@@ -198,10 +201,12 @@ class ompSampletCompressor {
   template <typename EntryGenerator>
   Matrix recursivelyComputeBlock(const Derived &TR, const Derived &TC,
                                  const EntryGenerator &e_gen) {
+    ++compute_calls_;
     Matrix buf(0, 0);
     Matrix retval(0, 0);
     // check for admissibility
     if (compareCluster(TR, TC, eta_) == LowRank) {
+      ++lowrank_calls_;
       e_gen.interpolate_kernel(TR, TC, &buf);
       retval = TR.V().transpose() * buf * TC.V();
     } else {
@@ -272,7 +277,8 @@ class ompSampletCompressor {
   std::vector<std::vector<const Derived *>> lvl_mapper_;
   Index n_clusters_;
   Index max_level_;
-  Index block_misses_;
+  Index compute_calls_;
+  Index lowrank_calls_;
   Scalar eta_;
   Scalar threshold_;
 };
