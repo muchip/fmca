@@ -14,9 +14,8 @@
 
 namespace FMCA {
 
-template <typename Derived>
-class ompSampletCompressor {
- public:
+template <typename Derived> class ompSampletCompressor {
+public:
   ompSampletCompressor() {}
   ompSampletCompressor(const SampletTreeBase<Derived> &ST, Scalar eta) {
     init(ST, eta);
@@ -29,6 +28,8 @@ class ompSampletCompressor {
    **/
   void init(const SampletTreeBase<Derived> &ST, Scalar eta,
             Scalar threshold = 1e-6) {
+    compute_calls_ = 0;
+    lowrank_calls_ = 0;
     eta_ = eta;
     threshold_ = threshold;
     n_clusters_ = std::distance(ST.cbegin(), ST.cend());
@@ -109,9 +110,10 @@ class ompSampletCompressor {
             }
             block = (block * pr->Q()).transpose();
           } else {
-            if (!pc->nSons())
-              block = recursivelyComputeBlock(*pr, *pc, e_gen);
-            else {
+            if (!pc->nSons()) {
+              e_gen.compute_dense_block(*pr, *pc, &block);
+              block = pr->Q().transpose() * block * pc->Q();
+            } else {
               for (auto k = 0; k < pc->nSons(); ++k) {
                 const Index nscalfs = pc->sons(k).nscalfs();
                 const Index son_id = pc->sons(k).block_id();
@@ -169,7 +171,7 @@ class ompSampletCompressor {
     return triplet_list_;
   }
 
- private:
+private:
   /**
    *  \brief maps a given block matrix column into a levelwise synchronized
    *         container
@@ -207,19 +209,43 @@ class ompSampletCompressor {
       } else if (!TR.nSons() && TC.nSons()) {
         // the row cluster is a leaf cluster: recursion on the col cluster
         for (auto j = 0; j < TC.nSons(); ++j) {
-          Matrix ret = recursivelyComputeBlock(TR, TC.sons(j), e_gen);
-          buf.conservativeResize(ret.rows(), buf.cols() + TC.sons(j).nscalfs());
-          buf.rightCols(TC.sons(j).nscalfs()) =
-              ret.leftCols(TC.sons(j).nscalfs());
+          const Index row_id = TR.block_id();
+          const Index son_id = TC.sons(j).block_id();
+          const Index pos = m_blx_.find(son_id, row_id);
+          if (pos < m_blx_.idx()[son_id].size()) {
+            const Matrix &ret = m_blx_.val()[son_id][pos];
+            buf.conservativeResize(ret.rows(),
+                                   buf.cols() + TC.sons(j).nscalfs());
+            buf.rightCols(TC.sons(j).nscalfs()) =
+                ret.leftCols(TC.sons(j).nscalfs());
+          } else {
+            Matrix ret = recursivelyComputeBlock(TR, TC.sons(j), e_gen);
+            buf.conservativeResize(ret.rows(),
+                                   buf.cols() + TC.sons(j).nscalfs());
+            buf.rightCols(TC.sons(j).nscalfs()) =
+                ret.leftCols(TC.sons(j).nscalfs());
+          }
         }
         retval = buf * TC.Q();
       } else if (TR.nSons() && !TC.nSons()) {
         // the col cluster is a leaf cluster: recursion on the row cluster
         for (auto i = 0; i < TR.nSons(); ++i) {
-          Matrix ret = recursivelyComputeBlock(TR.sons(i), TC, e_gen);
-          buf.conservativeResize(ret.cols(), buf.cols() + TR.sons(i).nscalfs());
-          buf.rightCols(TR.sons(i).nscalfs()) =
-              ret.transpose().leftCols(TR.sons(i).nscalfs());
+          const Index col_id = TC.block_id();
+          const Index son_id = TR.sons(i).block_id();
+          const Index pos = m_blx_.find(col_id, son_id);
+          if (pos < m_blx_.idx()[col_id].size()) {
+            const Matrix &ret = m_blx_.val()[col_id][pos];
+            buf.conservativeResize(ret.cols(),
+                                   buf.cols() + TR.sons(i).nscalfs());
+            buf.rightCols(TR.sons(i).nscalfs()) =
+                ret.transpose().leftCols(TR.sons(i).nscalfs());
+          } else {
+            Matrix ret = recursivelyComputeBlock(TR.sons(i), TC, e_gen);
+            buf.conservativeResize(ret.cols(),
+                                   buf.cols() + TR.sons(i).nscalfs());
+            buf.rightCols(TR.sons(i).nscalfs()) =
+                ret.transpose().leftCols(TR.sons(i).nscalfs());
+          }
         }
         retval = (buf * TR.Q()).transpose();
       } else {
@@ -273,6 +299,6 @@ class ompSampletCompressor {
   Scalar eta_;
   Scalar threshold_;
 };
-}  // namespace FMCA
+} // namespace FMCA
 
 #endif

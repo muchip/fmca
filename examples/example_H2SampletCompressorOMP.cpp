@@ -15,7 +15,7 @@
 #include <FMCA/MatrixEvaluators>
 #include <FMCA/Samplets>
 ////////////////////////////////////////////////////////////////////////////////
-#include <FMCA/src/Samplets/omp_samplet_compressor_weird.h>
+#include <FMCA/src/Samplets/omp_samplet_compressor.h>
 #include <FMCA/src/util/Errors.h>
 #include <FMCA/src/util/Tictoc.h>
 #include <FMCA/src/util/print2file.h>
@@ -43,8 +43,8 @@ int main(int argc, char *argv[]) {
   const FMCA::Index mp_deg = 6;
   const FMCA::Scalar threshold = 1e-5;
   FMCA::Tictoc T;
-  for (FMCA::Index npts : {1e3, 5e3, 1e4, 5e4, 1e5, 5e5, 1e6, 5e6, 1e7}) {
-  //for (FMCA::Index npts : {1e3, 5e3, 1e4, 5e4}) {
+  // for (FMCA::Index npts : {1e3, 5e3, 1e4, 5e4, 1e5, 5e5, 1e6, 5e6, 1e7}) {
+  for (FMCA::Index npts : {1e3, 5e3, 1e4, 5e4}) {
     std::cout << "N:                        " << npts << std::endl
               << "dim:                      " << dim << std::endl
               << "eta:                      " << eta << std::endl
@@ -94,7 +94,8 @@ int main(int argc, char *argv[]) {
         y2.setZero();
         for (const auto &i : trips) {
           y2(i.row()) += i.value() * x(i.col());
-          if (i.row() != i.col()) y2(i.col()) += i.value() * x(i.row());
+          if (i.row() != i.col())
+            y2(i.col()) += i.value() * x(i.row());
         }
         y2 = hst.inverseSampletTransform(y2);
         err += (y1 - y2).squaredNorm();
