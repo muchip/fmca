@@ -14,8 +14,9 @@
 
 namespace FMCA {
 
-template <typename Derived> class ompSampletCompressor {
-public:
+template <typename Derived>
+class ompSampletCompressor {
+ public:
   ompSampletCompressor() {}
   ompSampletCompressor(const SampletTreeBase<Derived> &ST, Scalar eta) {
     init(ST, eta);
@@ -130,20 +131,6 @@ public:
           }
         }
       }
-#if 0
-      // garbage collector
-      if (false && j < n_clusters_ - 1) {
-        const auto &idx = m_blx_.idx()[j + 1];
-        std::vector<Matrix> &val = m_blx_.val()[j + 1];
-        const Derived *pc = s_mapper_[j + 1];
-        for (int i = 0; i < idx.size(); ++i) {
-          const Derived *pr = s_mapper_[idx[i]];
-          if (!pr->is_root() && !pc->is_root() && val[i].size()) {
-            val[i] = val[i].bottomRightCorner(pr->nsamplets(), pc->nsamplets());
-          }
-        }
-      }
-#endif
     }
 
     return;
@@ -174,7 +161,7 @@ public:
     return triplet_list_;
   }
 
-private:
+ private:
   void setup_level_mapper_(Index i) {
     lvl_mapper_.clear();
     lvl_mapper_.resize(max_level_ + 1);
@@ -263,6 +250,6 @@ private:
   Scalar eta_;
   Scalar threshold_;
 };
-} // namespace FMCA
+}  // namespace FMCA
 
 #endif

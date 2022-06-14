@@ -64,26 +64,13 @@ int main(int argc, char *argv[]) {
     FMCA::ompSampletCompressor<H2SampletTree> comp;
     comp.init(hst, 0.8, threshold);
     T.toc("omp initializer:         ");
-    T.tic();
     comp.compress(hst, mat_eval);
-    T.toc("compressor:              ");
+    T.toc("cummulative compressor:  ");
     T.tic();
     const auto &trips = comp.pattern_triplets();
     T.toc("generating triplets:     ");
     std::cout << std::flush;
-#if 0
-    FMCA::symmetric_compressor_impl<H2SampletTree> symComp;
-    T.tic();
-    symComp.compress(hst, mat_eval, eta, threshold);
-    const FMCA::Scalar tcomp = T.toc("symmetric compressor: ");
-    const auto &trips2 = symComp.pattern_triplets();
-    Eigen::SparseMatrix<double> S1(npts, npts);
-    Eigen::SparseMatrix<double> S2(npts, npts);
-    S1.setFromTriplets(trips.begin(), trips.end());
-    S2.setFromTriplets(trips2.begin(), trips2.end());
-    FMCA::IO::print2m("dump.m", "S1", S1, "w");
-    FMCA::IO::print2m("dump.m", "S2", S2, "a");
-#endif
+
     {
       FMCA::Vector x(npts), y1(npts), y2(npts);
       FMCA::Scalar err = 0;
@@ -106,8 +93,7 @@ int main(int argc, char *argv[]) {
         y2.setZero();
         for (const auto &i : trips) {
           y2(i.row()) += i.value() * x(i.col());
-          if (i.row() != i.col())
-            y2(i.col()) += i.value() * x(i.row());
+          if (i.row() != i.col()) y2(i.col()) += i.value() * x(i.row());
         }
         y2 = hst.inverseSampletTransform(y2);
         err += (y1 - y2).squaredNorm();
@@ -120,6 +106,39 @@ int main(int argc, char *argv[]) {
       std::cout << "compression error:        " << err << std::endl
                 << std::flush;
     }
+#if 1
+    {
+      FMCA::symmetric_compressor_impl<H2SampletTree> symComp;
+      T.tic();
+      symComp.compress(hst, mat_eval, eta, threshold);
+      const FMCA::Scalar tcomp = T.toc("symmetric compressor:    ");
+      const auto &trips2 = symComp.pattern_triplets();
+      const FMCA::Scalar nTrips = trips2.size();
+      std::cout << "old nz(S):                " << std::ceil(nTrips / npts)
+                << std::endl;
+      FMCA::Vector x(npts), y1(npts), y2(npts);
+      FMCA::Scalar err = 0;
+      FMCA::Scalar nrm = 0;
+      for (auto i = 0; i < 100; ++i) {
+        FMCA::Index index = rand() % P.cols();
+        x.setZero();
+        x(index) = 1;
+        y1 = FMCA::matrixColumnGetter(P, hst.indices(), function, index);
+        x = hst.sampletTransform(x);
+        y2.setZero();
+        for (const auto &i : trips) {
+          y2(i.row()) += i.value() * x(i.col());
+          if (i.row() != i.col()) y2(i.col()) += i.value() * x(i.row());
+        }
+        y2 = hst.inverseSampletTransform(y2);
+        err += (y1 - y2).squaredNorm();
+        nrm += y1.squaredNorm();
+      }
+      err = sqrt(err / nrm);
+      std::cout << "compression error old:    " << err << std::endl
+                << std::flush;
+    }
+#endif
     std::cout << std::string(60, '-') << std::endl;
   }
   return 0;
