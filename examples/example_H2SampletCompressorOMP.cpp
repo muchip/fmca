@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
   const FMCA::Scalar threshold = 1e-5;
   FMCA::Tictoc T;
   // for (FMCA::Index npts : {1e3, 5e3, 1e4, 5e4, 1e5, 5e5, 1e6, 5e6, 1e7}) {
-  for (FMCA::Index npts : {1e3, 5e3}) {
+  for (FMCA::Index npts : {5e4}) {
     std::cout << "N:                        " << npts << std::endl
               << "dim:                      " << dim << std::endl
               << "eta:                      " << eta << std::endl
@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
     T.toc("tree setup:              ");
     std::cout << std::flush;
     FMCA::ompSampletCompressor<H2SampletTree> comp;
-    comp.init(hst, 0.8, threshold);
+    comp.init(hst, eta, threshold);
     T.toc("omp initializer:         ");
     comp.compress(hst, mat_eval);
     T.toc("cummulative compressor:  ");
