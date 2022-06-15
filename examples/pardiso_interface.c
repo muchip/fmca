@@ -48,7 +48,11 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
   /* -------------------------------------------------------------------- */
   error = 0;
   solver = 0; /* use sparse direct solver */
+  printf("pardiso init: ");
   pardisoinit(pt, &mtype, &solver, iparm, dparm, &error);
+  printf("done.");
+  fflush(stdout);
+  /* -------------------------------------------------------------------- */
 #if 0
   if (error != 0) {
     if (error == -10) printf("No license file found \n");
@@ -91,7 +95,7 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
     b[i] = i + 1;
   }
 
-#if 0
+#if 1
 
   /* -------------------------------------------------------------------- */
   /*  .. pardiso_chk_matrix(...)                                          */
@@ -134,7 +138,8 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
   /*     all memory that is necessary for the factorization.              */
   /* -------------------------------------------------------------------- */
   phase = 11;
-
+  printf("starting phase 11");
+  fflush(stdout);
   pardiso(pt, &maxfct, &mnum, &mtype, &phase, &n, a, ia, ja, &idum, &nrhs,
           iparm, &msglvl, &ddum, &ddum, &error, dparm);
   if (error != 0) {

@@ -38,10 +38,10 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
 int main(int argc, char *argv[]) {
   const FMCA::Index dim = atoi(argv[1]);
-  const FMCA::Index dtilde = 2;
+  const FMCA::Index dtilde = 1;
   const auto function = expKernel();
   const FMCA::Scalar eta = 0.8;
-  const FMCA::Index mp_deg = 3;
+  const FMCA::Index mp_deg = 2;
   const FMCA::Scalar threshold = 1e-3;
   FMCA::Matrix Qpts;
   {
