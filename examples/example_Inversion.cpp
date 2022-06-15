@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
   const FMCA::Index dtilde = 4;
   const double eta = atof(argv[2]);
   const FMCA::Index mp_deg = 6;
-  const FMCA::Index dim = 3;
+  const FMCA::Index dim = 2;
   const FMCA::Index npts = atoi(argv[1]);
   const double threshold = 1e-5 / npts;
   const auto function = expKernel(npts);
@@ -125,7 +125,8 @@ int main(int argc, char *argv[]) {
   {
     FMCA::SparseMatrix<double> Sinput(npts, npts);
     Sinput.setFromTriplets(trips.begin(), trips.end());
-    for (auto i = 0; i < Sinput.rows(); ++i) Sinput(i, i) = Sinput(i, i) + 1e-4;
+    for (auto i = 0; i < Sinput.rows(); ++i)
+      Sinput(i, i) = Sinput(i, i) + 1e-4;
     trips = Sinput.toTriplets();
   }
   T.toc("added regularization:       ");
@@ -146,6 +147,9 @@ int main(int argc, char *argv[]) {
   std::cout << std::string(75, '=') << std::endl;
   output_file << 100 * double(trips.size()) / npts / npts << " \t"
               << std::flush;
+  //////////////////////////////////////////////////////////////////////////////
+  // PARDISO BLOCK
+  //////////////////////////////////////////////////////////////////////////////
   {
     int i = 0;
     int j = 0;
@@ -164,7 +168,8 @@ int main(int argc, char *argv[]) {
     // write rows
     ia[trips[0].row()] = 0;
     for (i = trips[0].row() + 1; i <= n; ++i) {
-      while (j < n_triplets && i - 1 == trips[j].row()) ++j;
+      while (j < n_triplets && i - 1 == trips[j].row())
+        ++j;
       ia[i] = j;
     }
     assert(j == n_triplets && "j is not ntriplets");
@@ -180,7 +185,10 @@ int main(int argc, char *argv[]) {
     pardiso_interface(ia, ja, a, n);
     std::cout << std::string(75, '=') << std::endl;
     const double tPard = T.toc("Wall time pardiso:          ");
-    output_file << tPard << " \t";
+    output_file << tPard << " \t" << std::flush;
+    std::printf("ia=%p ja=%p a=%p n=%i nnz=%i\n", ia, ja, a, n, ia[n]);
+    std::cout << std::flush;
+    std::cout << std::flush;
     inv_trips.reserve(n_triplets);
     for (i = 0; i < n; ++i)
       for (j = ia[i]; j < ia[i + 1]; ++j)
@@ -190,13 +198,15 @@ int main(int argc, char *argv[]) {
     free(ja);
     free(a);
   }
+  //////////////////////////////////////////////////////////////////////////////
   std::cout << "inverse entries:             "
             << 100. * inv_trips.size() / npts / npts << "\%" << std::endl;
   output_file << 100. * inv_trips.size() / npts / npts << " \t";
   {
     Eigen::MatrixXd rand = Eigen::MatrixXd::Random(npts, 100);
     Eigen::VectorXd nrms = rand.colwise().norm();
-    for (auto i = 0; i < rand.cols(); ++i) rand.col(i) /= nrms(i);
+    for (auto i = 0; i < rand.cols(); ++i)
+      rand.col(i) /= nrms(i);
     auto Srand =
         FMCA::SparseMatrix<double>::symTripletsTimesVector(trips, rand);
     auto Rrand =
