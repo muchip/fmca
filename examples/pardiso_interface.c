@@ -1,8 +1,8 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
+#include <unistd.h>
 
 /* PARDISO prototype. */
 void pardisoinit(void *, int *, int *, int *, double *, int *);
@@ -15,7 +15,6 @@ void pardiso_printstats(int *, int *, double *, int *, int *, int *, double *,
 
 int pardiso_interface(int *ia, int *ja, double *a, int n) {
   //////////////////////////////////////////////////////////////////////////////
-  printf("ia=%p ja=%p a=%p n=%i nnz=%i\n", ia, ja, a, n, ia[n]);
   fflush(stdout);
   int i = 0;
   int j = 0;
@@ -31,37 +30,46 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
   /* Pardiso control parameters. */
   int iparm[64];
   double dparm[64];
-  int maxfct, mnum, phase, error, msglvl, solver;
+  int maxfct = 0;
+  int mnum = 0;
+  int phase = 0;
+  int error = 0;
+  int msglvl = 0;
+  int solver = 0;
   /* Number of processors. */
-  int num_procs;
+  int num_procs = 0;
   /* Auxiliary variables. */
-  char *var;
-  int k;
-  double ddum; /* Double dummy */
-  int idum;    /* Integer dummy. */
+  char *var = NULL;
+  int k = 0;
+  double ddum = 0; /* Double dummy */
+  int idum = 0;    /* Integer dummy. */
   b = (double *)calloc(1, n * sizeof(double));
   x = (double *)calloc(1, n * sizeof(double));
   assert(b && x && "Nullptr in pardiso");
+  printf("ia=%p ja=%p a=%p n=%i nnz=%i\n", ia, ja, a, n, ia[n]);
+  printf("b=%p x=%p\n", b, x);
   fflush(stdout);
   /* -------------------------------------------------------------------- */
   /* ..  Setup Pardiso control parameters.                                */
   /* -------------------------------------------------------------------- */
+
   error = 0;
   solver = 0; /* use sparse direct solver */
-  printf("pardiso init: ");
   pardisoinit(pt, &mtype, &solver, iparm, dparm, &error);
-  printf("done.");
+  printf("pardisoinit done.\n");
   fflush(stdout);
-  /* -------------------------------------------------------------------- */
-#if 0
+
   if (error != 0) {
-    if (error == -10) printf("No license file found \n");
-    if (error == -11) printf("License is expired \n");
-    if (error == -12) printf("Wrong username or hostname \n");
+    if (error == -10)
+      printf("No license file found \n");
+    if (error == -11)
+      printf("License is expired \n");
+    if (error == -12)
+      printf("Wrong username or hostname \n");
     return 1;
   } else
     printf("[PARDISO]: License check was successful ... \n");
-#endif
+
   /* Numbers of processors, value of OMP_NUM_THREADS */
   var = getenv("OMP_NUM_THREADS");
   if (var != NULL)
@@ -71,6 +79,7 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
     exit(1);
   }
   iparm[2] = num_procs;
+  //iparm[2] = 2;
 
   maxfct = 1; /* Maximum number of numerical factorizations.  */
   mnum = 1;   /* Which factorization to use. */
@@ -82,6 +91,7 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
   /* ..  Convert matrix from 0-based C-notation to Fortran 1-based        */
   /*     notation.                                                        */
   /* -------------------------------------------------------------------- */
+
   for (i = 0; i < n + 1; i++) {
     ia[i] += 1;
   }
@@ -89,13 +99,14 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
   for (i = 0; i < nnz; i++) {
     ja[i] += 1;
   }
-
+  printf("matrix converted from 0-based to 1-based.\n");
+  fflush(stdout);
   /* Set right hand side to i. */
   for (i = 0; i < n; i++) {
     b[i] = i + 1;
   }
-
-#if 1
+  printf("rhs set to i.\n");
+  fflush(stdout);
 
   /* -------------------------------------------------------------------- */
   /*  .. pardiso_chk_matrix(...)                                          */
@@ -104,10 +115,13 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
   /* -------------------------------------------------------------------- */
 
   pardiso_chkmatrix(&mtype, &n, a, ia, ja, &error);
+  printf("pardiso_chkmatrix done.\n");
+  fflush(stdout);
   if (error != 0) {
     printf("\nERROR in consistency of matrix: %d", error);
     exit(1);
   }
+
   /* -------------------------------------------------------------------- */
   /* ..  pardiso_chkvec(...)                                              */
   /*     Checks the given vectors for infinite and NaN values             */
@@ -116,6 +130,8 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
   /* -------------------------------------------------------------------- */
 
   pardiso_chkvec(&n, &nrhs, b, &error);
+  printf("pardiso_chkvec done.\n");
+  fflush(stdout);
   if (error != 0) {
     printf("\nERROR  in right hand side: %d", error);
     exit(1);
@@ -128,20 +144,25 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
   /* -------------------------------------------------------------------- */
 
   pardiso_printstats(&mtype, &n, a, ia, ja, &nrhs, b, &error);
+  printf("pardiso_printstats done.\n");
+  fflush(stdout);
   if (error != 0) {
     printf("\nERROR right hand side: %d", error);
     exit(1);
   }
-#endif
+
   /* -------------------------------------------------------------------- */
   /* ..  Reordering and Symbolic Factorization.  This step also allocates */
   /*     all memory that is necessary for the factorization.              */
   /* -------------------------------------------------------------------- */
   phase = 11;
-  printf("starting phase 11");
+  printf("***phase=11 pardiso\n");
+  iparm[1] = 3; /* compute determinant */
   fflush(stdout);
   pardiso(pt, &maxfct, &mnum, &mtype, &phase, &n, a, ia, ja, &idum, &nrhs,
           iparm, &msglvl, &ddum, &ddum, &error, dparm);
+  printf(" done.\n");
+  fflush(stdout);
   if (error != 0) {
     printf("\nERROR during symbolic factorization: %d", error);
     exit(1);
@@ -155,11 +176,13 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
   /* -------------------------------------------------------------------- */
   phase = 22;
   iparm[32] = 1; /* compute determinant */
-
+  printf("***phase=22 pardiso\n");
+  fflush(stdout);
   pardiso(pt, &maxfct, &mnum, &mtype, &phase, &n, a, ia, ja, &idum, &nrhs,
           iparm, &msglvl, &ddum, &ddum, &error, dparm);
-
-  if (error != 0) {
+  printf(" done.\n");
+  fflush(stdout);
+  if(error != 0) {
     printf("\nERROR during numerical factorization: %d", error);
     exit(2);
   }
@@ -201,9 +224,12 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
     fflush(stdout);
     phase = -22;
     iparm[35] = 1; /*  no not overwrite internal factor L */
-
+    printf("***phase=-22 pardiso\n");
+    fflush(stdout);
     pardiso(pt, &maxfct, &mnum, &mtype, &phase, &n, a, ia, ja, &idum, &nrhs,
             iparm, &msglvl, b, x, &error, dparm);
+    printf(" done.\n");
+    fflush(stdout);
 #if 0
     /* print diagonal elements */
     for (k = 0; k < n; k++) {
@@ -223,6 +249,8 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
   /* -------------------------------------------------------------------- */
   /* ..  Convert matrix back to 0-based C-notation.                       */
   /* -------------------------------------------------------------------- */
+  printf("matrix converted from 1-based to 0-based.\n");
+  fflush(stdout);
   for (i = 0; i < n + 1; i++) {
     ia[i] -= 1;
   }
@@ -234,9 +262,11 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
   /* ..  Termination and release of memory.                               */
   /* -------------------------------------------------------------------- */
   phase = -1; /* Release internal memory. */
-
+  printf("phase=-1 pardiso");
+  fflush(stdout);
   pardiso(pt, &maxfct, &mnum, &mtype, &phase, &n, &ddum, ia, ja, &idum, &nrhs,
           iparm, &msglvl, &ddum, &ddum, &error, dparm);
-
+  printf(" done.\n");
+  fflush(stdout);
   return 0;
 }
