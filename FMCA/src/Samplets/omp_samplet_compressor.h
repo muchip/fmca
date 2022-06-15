@@ -30,8 +30,6 @@ class ompSampletCompressor {
    **/
   void init(const SampletTreeBase<Derived> &ST, Scalar eta,
             Scalar threshold = 1e-6) {
-    compute_calls_ = 0;
-    lowrank_calls_ = 0;
     eta_ = eta;
     threshold_ = threshold;
     n_clusters_ = std::distance(ST.cbegin(), ST.cend());
@@ -171,6 +169,7 @@ class ompSampletCompressor {
                      pc->Q().cols(), val[j]);
       }
     }
+    m_blx_.resize(0, 0);
     return triplet_list_;
   }
 

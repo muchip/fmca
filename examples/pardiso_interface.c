@@ -27,14 +27,10 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
   /* Internal solver memory pointer pt,                  */
   /* 32-bit: int pt[64]; 64-bit: long int pt[64]         */
   /* or void *pt[64] should be OK on both architectures  */
-  printf("got here\n");
-  fflush(stdout);
   void *pt[64];
   /* Pardiso control parameters. */
   int iparm[64];
   double dparm[64];
-  printf("got here\n");
-  fflush(stdout);
   int maxfct, mnum, phase, error, msglvl, solver;
   /* Number of processors. */
   int num_procs;
@@ -46,18 +42,13 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
   b = (double *)calloc(1, n * sizeof(double));
   x = (double *)calloc(1, n * sizeof(double));
   assert(b && x && "Nullptr in pardiso");
-  printf("b=%p x=%p\n", b, x);
   fflush(stdout);
   /* -------------------------------------------------------------------- */
   /* ..  Setup Pardiso control parameters.                                */
   /* -------------------------------------------------------------------- */
   error = 0;
   solver = 0; /* use sparse direct solver */
-  printf("got here pardiso_init\n");
-  fflush(stdout);
   pardisoinit(pt, &mtype, &solver, iparm, dparm, &error);
-  printf("got here pardiso_init2\n");
-  fflush(stdout);
 #if 0
   if (error != 0) {
     if (error == -10) printf("No license file found \n");
@@ -76,8 +67,6 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
     exit(1);
   }
   iparm[2] = num_procs;
-  printf("got here pardiso_init3\n");
-  fflush(stdout);
 
   maxfct = 1; /* Maximum number of numerical factorizations.  */
   mnum = 1;   /* Which factorization to use. */
@@ -97,16 +86,12 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
     ja[i] += 1;
   }
 
-  printf("got here pardiso_init4\n");
-  fflush(stdout);
   /* Set right hand side to i. */
   for (i = 0; i < n; i++) {
     b[i] = i + 1;
   }
 
-  printf("got here pardiso_init5\n");
-  fflush(stdout);
-#if 1
+#if 0
 
   /* -------------------------------------------------------------------- */
   /*  .. pardiso_chk_matrix(...)                                          */
@@ -115,8 +100,6 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
   /* -------------------------------------------------------------------- */
 
   pardiso_chkmatrix(&mtype, &n, a, ia, ja, &error);
-  printf("got here pardiso_init6\n");
-  fflush(stdout);
   if (error != 0) {
     printf("\nERROR in consistency of matrix: %d", error);
     exit(1);
@@ -129,8 +112,6 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
   /* -------------------------------------------------------------------- */
 
   pardiso_chkvec(&n, &nrhs, b, &error);
-  printf("got here pardiso_init7\n");
-  fflush(stdout);
   if (error != 0) {
     printf("\nERROR  in right hand side: %d", error);
     exit(1);
@@ -143,8 +124,6 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
   /* -------------------------------------------------------------------- */
 
   pardiso_printstats(&mtype, &n, a, ia, ja, &nrhs, b, &error);
-  printf("got here pardiso_init8\n");
-  fflush(stdout);
   if (error != 0) {
     printf("\nERROR right hand side: %d", error);
     exit(1);
@@ -158,8 +137,6 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
 
   pardiso(pt, &maxfct, &mnum, &mtype, &phase, &n, a, ia, ja, &idum, &nrhs,
           iparm, &msglvl, &ddum, &ddum, &error, dparm);
-  printf("got here pardiso_init9\n");
-  fflush(stdout);
   if (error != 0) {
     printf("\nERROR during symbolic factorization: %d", error);
     exit(1);

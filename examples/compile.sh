@@ -1,7 +1,6 @@
 echo Loading modules
 module load gcc
 module load eigen
-module load metis
 module load intel-mkl
 
 MainFile=example_Inversion
@@ -13,5 +12,5 @@ g++ -I../ -O3 -c $MainFile.cpp -fopenmp
 g++ $MainFile.o pardiso_interface.o ./libpardiso720-GNU840-X86-64.so \
 -fopenmp -lgfortran  -lmkl_intel_lp64 -lmkl_lapack95_lp64 -lmkl_sequential \
 -lmkl_core  -lgfortran   -lmkl_intel_lp64 -lmkl_lapack95_lp64 -lmkl_sequential \
--lmkl_core -lm -lmetis
+-lmkl_core -lm
 echo done
