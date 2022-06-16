@@ -127,20 +127,19 @@ struct pyPivotedCholesky {
     L_.resize(0, 0);
     B_.resize(0, 0);
     indices_.resize(0);
-    compute(ker, P);
+    compute(ker, P, tol);
   };
 
-  void compute(const pyCovarianceKernel &ker, const FMCA::Matrix &P) {
-    // we cap the maximum matrix size at 2GB
-    const FMCA::Index max_size = 250000000;
+  void compute(const pyCovarianceKernel &ker, const FMCA::Matrix &P,
+               FMCA::Scalar tol = 1e-3) {
     const FMCA::Index dim = P.cols();
-    const FMCA::Index max_cols = max_size / dim > dim ? dim : max_size / dim;
+    const FMCA::Index max_cols = max_size_ / dim > dim ? dim : max_size_ / dim;
     FMCA::Vector D(dim);
     FMCA::Index pivot = 0;
     FMCA::Scalar tr = 0;
-    FMCA::Scalar tol = tol_;
     L_.resize(dim, max_cols);
     indices_.resize(max_cols);
+    tol_ = tol;
     // compute the diagonal and the trace
     for (auto i = 0; i < dim; ++i) {
       const FMCA::Matrix wtf = ker.eval(P.col(i), P.col(i));
@@ -150,7 +149,6 @@ struct pyPivotedCholesky {
         return;
       }
     }
-
     tr = D.sum();
     // we guarantee the error tr(A-LL^T)/tr(A) < tol
     tol *= tr;
@@ -188,6 +186,41 @@ struct pyPivotedCholesky {
     return;
   }
 
+  void computeFullPiv(const pyCovarianceKernel &ker, const FMCA::Matrix &P,
+                      FMCA::Scalar tol = 1e-3) {
+    const FMCA::Index dim = P.cols();
+    const FMCA::Index max_cols = max_size_ / dim > dim ? dim : max_size_ / dim;
+    tol_ = tol;
+    if (max_cols < dim) {
+      info_ = 3;
+      return;
+    }
+    Eigen::SelfAdjointEigenSolver<FMCA::Matrix> es;
+    {
+      FMCA::Matrix K = ker.eval(P, P);
+      es.compute(K);
+      info_ = es.info();
+      if (es.info() != Eigen::Success)
+        return;
+    }
+    FMCA::Vector ev = es.eigenvalues().reverse();
+    std::cout << "lambda min: " << ev.minCoeff() << " "
+              << "lambda max: " << ev.maxCoeff();
+    FMCA::Scalar tr = ev.sum();
+    FMCA::Scalar cur_tr = 0;
+    FMCA::Index step = 0;
+    while (tr - cur_tr > tol * tr) {
+      cur_tr += ev(step);
+      ++step;
+    }
+    std::cout << " step: " << step << std::endl;
+    L_.resize(dim, step);
+    for (auto i = 1; i <= step; ++i)
+      L_.col(i - 1) = es.eigenvectors().col(dim - i);
+    L_ = L_ * ev.head(step).cwiseSqrt().asDiagonal();
+    return;
+  }
+
   const FMCA::Matrix &matrixB() { return B_; }
   const FMCA::Matrix &matrixL() { return L_; }
   const FMCA::iVector &indices() { return indices_; }
@@ -199,6 +232,8 @@ struct pyPivotedCholesky {
   FMCA::iVector indices_;
   FMCA::Scalar tol_;
   FMCA::Index info_;
+  // we cap the maximum matrix size at 2GB
+  const FMCA::Index max_size_ = 250000000;
 };
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -323,6 +358,14 @@ PYBIND11_MODULE(FMCA, m) {
   pyPivotedCholesky_.def(py::init<>());
   pyPivotedCholesky_.def(py::init<const pyCovarianceKernel &,
                                   const FMCA::Matrix &, FMCA::Scalar>());
+  pyPivotedCholesky_.def("compute", &pyPivotedCholesky::compute,
+                         py::arg().noconvert(), py::arg().noconvert(),
+                         py::arg(),
+                         "Computes the pivoted Cholesky decomposition");
+  pyPivotedCholesky_.def("computeFullPiv", &pyPivotedCholesky::computeFullPiv,
+                         py::arg().noconvert(), py::arg().noconvert(),
+                         py::arg(),
+                         "Computes the truncated spectral decomposition");
   pyPivotedCholesky_.def("indices", &pyPivotedCholesky::indices);
   pyPivotedCholesky_.def("matrixL", &pyPivotedCholesky::matrixL);
 }
