@@ -65,12 +65,12 @@ int main(int argc, char *argv[]) {
   /*npts dtilde mp_deg eta filldist seprad tcomp comperr nnzS tmult
     nnzS2 nnzS2apost S2err*/
   typedef std::vector<Eigen::Triplet<double>> TripletVector;
-  const FMCA::Index dtilde = 4;
+  const FMCA::Index dtilde = 3;
   const double eta = atof(argv[2]);
-  const FMCA::Index mp_deg = 6;
-  const FMCA::Index dim = 2;
+  const FMCA::Index mp_deg = 4;
+  const FMCA::Index dim = 3;
   const FMCA::Index npts = atoi(argv[1]);
-  const double threshold = 1e-5 / npts;
+  const double threshold = 1e-4 / npts;
   const auto function = expKernel(npts);
   std::fstream output_file;
   FMCA::HaltonSet<100> hs(dim);
@@ -126,10 +126,26 @@ int main(int argc, char *argv[]) {
     FMCA::SparseMatrix<double> Sinput(npts, npts);
     Sinput.setFromTriplets(trips.begin(), trips.end());
     for (auto i = 0; i < Sinput.rows(); ++i)
-      Sinput(i, i) = Sinput(i, i) + 1e-4;
+      Sinput(i, i) = Sinput(i, i) + 1e-3;
     trips = Sinput.toTriplets();
   }
   T.toc("added regularization:       ");
+#if 0
+  {
+    Eigen::MatrixXd mtrips(trips.size() + 1, 3);
+    FMCA::Index row = 1;
+    mtrips.row(0) << npts, 0, 0;
+    for (auto &&it : trips) {
+      mtrips.row(row) << it.row(), it.col(), it.value();
+      ++row;
+    }
+    FMCA::IO::print2bin("faulty.dat", mtrips);
+    Eigen::MatrixXd rtrips;
+    FMCA::IO::bin2Mat("faulty.dat", &rtrips);
+    assert((mtrips - rtrips).norm() < 1e-16 && "output error");
+    std::cout << "written matrix to file" << std::endl;
+  }
+#endif
   double lambda_max = 0;
   {
     Eigen::MatrixXd x = Eigen::VectorXd::Random(npts);
@@ -188,15 +204,16 @@ int main(int argc, char *argv[]) {
     output_file << tPard << " \t" << std::flush;
     std::printf("ia=%p ja=%p a=%p n=%i nnz=%i\n", ia, ja, a, n, ia[n]);
     std::cout << std::flush;
-    std::cout << std::flush;
     inv_trips.reserve(n_triplets);
     for (i = 0; i < n; ++i)
       for (j = ia[i]; j < ia[i + 1]; ++j)
         if (abs(a[j]) > 1e-12)
           inv_trips.push_back(Eigen::Triplet<double>(i, ja[j], a[j]));
+    std::cout << "writing triplets successful" << std::endl << std::flush;
     free(ia);
     free(ja);
     free(a);
+    std::cout << "released pardiso matrix" << std::endl << std::flush;
   }
   //////////////////////////////////////////////////////////////////////////////
   std::cout << "inverse entries:             "
