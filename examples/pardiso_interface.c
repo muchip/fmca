@@ -60,12 +60,9 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
   fflush(stdout);
 
   if (error != 0) {
-    if (error == -10)
-      printf("No license file found \n");
-    if (error == -11)
-      printf("License is expired \n");
-    if (error == -12)
-      printf("Wrong username or hostname \n");
+    if (error == -10) printf("No license file found \n");
+    if (error == -11) printf("License is expired \n");
+    if (error == -12) printf("Wrong username or hostname \n");
     return 1;
   } else
     printf("[PARDISO]: License check was successful ... \n");
@@ -79,7 +76,7 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
     exit(1);
   }
   iparm[2] = num_procs;
-  //iparm[2] = 2;
+  // iparm[2] = 2;
 
   maxfct = 1; /* Maximum number of numerical factorizations.  */
   mnum = 1;   /* Which factorization to use. */
@@ -92,10 +89,10 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
   /*     notation.                                                        */
   /* -------------------------------------------------------------------- */
 
+  int nnz = ia[n];
   for (i = 0; i < n + 1; i++) {
     ia[i] += 1;
   }
-  int nnz = ia[n];
   for (i = 0; i < nnz; i++) {
     ja[i] += 1;
   }
@@ -182,7 +179,7 @@ int pardiso_interface(int *ia, int *ja, double *a, int n) {
           iparm, &msglvl, &ddum, &ddum, &error, dparm);
   printf(" done.\n");
   fflush(stdout);
-  if(error != 0) {
+  if (error != 0) {
     printf("\nERROR during numerical factorization: %d", error);
     exit(2);
   }

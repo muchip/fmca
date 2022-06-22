@@ -8,12 +8,12 @@
 #include "pardiso_interface.h"
 #include "sampletMatrixGenerator.h"
 ////////////////////////////////////////////////////////////////////////////////
-int main() {
-  const unsigned int dtilde = 4;
+int main(int argc, char *argv[]) {
+  const unsigned int dtilde = 3;
   const double eta = 0.8;
-  const unsigned int mp_deg = 6;
+  const unsigned int mp_deg = 4;
   const unsigned int dim = 3;
-  const unsigned int n = 10000;
+  const unsigned int n = atoi(argv[1]);
   const double threshold = 1e-4;
   const double ridgep = 1e-4;
   Eigen::MatrixXd P = 0.5 * (Eigen::MatrixXd::Random(dim, n).array() + 1);
