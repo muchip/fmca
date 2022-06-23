@@ -9,14 +9,13 @@
 #include "sampletMatrixGenerator.h"
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
-  const unsigned int dtilde = 3;
+  const unsigned int dtilde = 4;
   const double eta = 0.8;
-  const unsigned int mp_deg = 4;
-  const unsigned int dim = 3;
+  const unsigned int mp_deg = 6;
+  const unsigned int dim = 2;
   const unsigned int n = atoi(argv[1]);
-  const double threshold = 0;
-  const double ridgep = 1e-4;
-  FMCA::Tictoc T;
+  const double threshold = 1e-5;
+  const double ridgep = 1e-2;
   Eigen::MatrixXd P = 0.5 * (Eigen::MatrixXd::Random(dim, n).array() + 1);
   CRSmatrix S =
       sampletMatrixGenerator(P, mp_deg, dtilde, eta, threshold, ridgep);
@@ -28,9 +27,7 @@ int main(int argc, char *argv[]) {
   std::printf("ia=%p ja=%p a=%p n=%i nnz=%i\n", invS.ia.data(), invS.ja.data(),
               invS.a.data(), n, invS.ia[n]);
   std::cout << std::flush;
-  T.tic();
   pardiso_interface(invS.ia.data(), invS.ja.data(), invS.a.data(), n);
-  T.toc("Wall time pardiso:       ");
   std::cout << std::string(75, '=') << std::endl;
   //////////////////////////////////////////////////////////////////////////////
   // error checking

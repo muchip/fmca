@@ -22,7 +22,8 @@ struct CRSmatrix {
   std::vector<double> a;
 
   std::vector<Eigen::Triplet<double>> toTriplets() {
-    std::vector<Eigen::Triplet<double>> trips.reserve(a.size());
+    std::vector<Eigen::Triplet<double>> trips;
+    trips.reserve(a.size());
     unsigned int n = ia.size() - 1;
     for (auto i = 0; i < n; ++i)
       for (auto j = ia[i]; j < ia[i + 1]; ++j)
