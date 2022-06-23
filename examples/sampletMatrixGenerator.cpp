@@ -22,7 +22,6 @@
 #include <FMCA/src/util/Tictoc.h>
 
 #include "sampletMatrixGenerator.h"
-
 ////////////////////////////////////////////////////////////////////////////////
 struct expKernel {
   expKernel(const FMCA::Index n) : n_(n) {}
@@ -56,12 +55,12 @@ using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
 using MatrixEvaluator = FMCA::NystromMatrixEvaluator<Moments, expKernel>;
 using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 ////////////////////////////////////////////////////////////////////////////////
-CRSmatrix
+SampletCRS
 sampletMatrixGenerator(const Eigen::MatrixXd &P, const unsigned int mp_deg = 4,
                        const unsigned int dtilde = 3, const double eta = 0.8,
                        double threshold = 1e-4, const double ridgep = 1e-6) {
   typedef std::vector<Eigen::Triplet<double>> TripletVector;
-  CRSmatrix retval;
+  SampletCRS retval;
   const unsigned int npts = P.cols();
   const unsigned int dim = P.rows();
   const auto function = expKernel(npts);
@@ -88,12 +87,13 @@ sampletMatrixGenerator(const Eigen::MatrixXd &P, const unsigned int mp_deg = 4,
   FMCA::Scalar max_min_dist = min_dist.maxCoeff();
   std::cout << "fill distance:               " << max_min_dist << std::endl;
   std::cout << "separation distance:         " << min_min_dist << std::endl;
+  retval.unif_const = max_min_dist / (0.5 * min_min_dist);
   T.tic();
   FMCA::ompSampletCompressor<H2SampletTree> comp;
   comp.init(hst, eta, threshold);
   T.toc("omp initializer:            ");
   comp.compress(hst, mat_eval);
-  T.toc("cummulative compressor:     ");
+  retval.comp_time = T.toc("cummulative compressor:     ");
   std::vector<Eigen::Triplet<double>> trips = comp.triplets();
   std::cout << "triplet size (\% of INT_MAX): "
             << (long double)(trips.size()) / (long double)(INT_MAX)*100
@@ -103,6 +103,7 @@ sampletMatrixGenerator(const Eigen::MatrixXd &P, const unsigned int mp_deg = 4,
       FMCA::errorEstimatorSymmetricCompressor(trips, function, hst, P);
   std::cout << "compression error:           " << comperr << std::endl
             << std::flush;
+  retval.comp_err = comperr;
   if (ridgep > 0) {
     T.tic();
     FMCA::SparseMatrix<double> Sinput(npts, npts);

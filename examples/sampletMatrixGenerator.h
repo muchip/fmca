@@ -16,10 +16,7 @@
 #include <Eigen/Sparse>
 
 #include <vector>
-struct CRSmatrix {
-  std::vector<int> ia;
-  std::vector<int> ja;
-  std::vector<double> a;
+struct SampletCRS {
 
   std::vector<Eigen::Triplet<double>> toTriplets() {
     std::vector<Eigen::Triplet<double>> trips;
@@ -35,11 +32,18 @@ struct CRSmatrix {
   double pnnz() {
     return double(a.size()) / (ia.size() - 1) / (ia.size() - 1) * 100.;
   }
+  //////////////////////////////////////////////////////////////////////////////
+  std::vector<double> a;
+  std::vector<int> ia;
+  std::vector<int> ja;
+  double unif_const;
+  double comp_time;
+  double comp_err;
 };
 
-CRSmatrix sampletMatrixGenerator(const Eigen::MatrixXd &P,
-                                 const unsigned int mp_deg,
-                                 const unsigned int dtilde, const double eta,
-                                 double threshold, const double ridgep);
+SampletCRS sampletMatrixGenerator(const Eigen::MatrixXd &P,
+                                  const unsigned int mp_deg,
+                                  const unsigned int dtilde, const double eta,
+                                  double threshold, const double ridgep);
 
 #endif

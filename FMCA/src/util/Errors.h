@@ -48,7 +48,7 @@ Scalar errorEstimatorSymmetricCompressor(
   Vector x(npts), y1(npts), y2(npts);
   Scalar err = 0;
   Scalar nrm = 0;
-  for (auto i = 0; i < 20; ++i) {
+  for (auto i = 0; i < 50; ++i) {
     Index index = rand() % P.cols();
     x.setZero();
     x(index) = 1;
