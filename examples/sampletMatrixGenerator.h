@@ -12,11 +12,28 @@
 #ifndef FMCA_SAMPLETMATRIXGENERATOR_
 #define FMCA_SAMPLETMATRIXGENERATOR_
 
+#include <Eigen/Dense>
+#include <Eigen/Sparse>
+
 #include <vector>
 struct CRSmatrix {
   std::vector<int> ia;
   std::vector<int> ja;
   std::vector<double> a;
+
+  std::vector<Eigen::Triplet<double>> toTriplets() {
+    std::vector<Eigen::Triplet<double>> trips.reserve(a.size());
+    unsigned int n = ia.size() - 1;
+    for (auto i = 0; i < n; ++i)
+      for (auto j = ia[i]; j < ia[i + 1]; ++j)
+        trips.push_back(Eigen::Triplet<double>(i, ja[j], a[j]));
+    return trips;
+  }
+
+  size_t nnz() { return a.size(); }
+  double pnnz() {
+    return double(a.size()) / (ia.size() - 1) / (ia.size() - 1) * 100.;
+  }
 };
 
 CRSmatrix sampletMatrixGenerator(const Eigen::MatrixXd &P,

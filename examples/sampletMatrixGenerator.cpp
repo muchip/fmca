@@ -103,15 +103,15 @@ sampletMatrixGenerator(const Eigen::MatrixXd &P, const unsigned int mp_deg = 4,
       FMCA::errorEstimatorSymmetricCompressor(trips, function, hst, P);
   std::cout << "compression error:           " << comperr << std::endl
             << std::flush;
-  T.tic();
-  {
+  if (ridgep > 0) {
+    T.tic();
     FMCA::SparseMatrix<double> Sinput(npts, npts);
     Sinput.setFromTriplets(trips.begin(), trips.end());
     for (auto i = 0; i < Sinput.rows(); ++i)
       Sinput(i, i) = Sinput(i, i) + ridgep;
     trips = Sinput.toTriplets();
+    T.toc("added regularization:       ");
   }
-  T.toc("added regularization:       ");
   // generate CRS matrix
   size_t n_triplets = trips.size();
   assert(n_triplets < INT_MAX && "exceeded INT_MAX");

@@ -14,8 +14,9 @@ int main(int argc, char *argv[]) {
   const unsigned int mp_deg = 4;
   const unsigned int dim = 3;
   const unsigned int n = atoi(argv[1]);
-  const double threshold = 1e-4;
+  const double threshold = 0;
   const double ridgep = 1e-4;
+  FMCA::Tictoc T;
   Eigen::MatrixXd P = 0.5 * (Eigen::MatrixXd::Random(dim, n).array() + 1);
   CRSmatrix S =
       sampletMatrixGenerator(P, mp_deg, dtilde, eta, threshold, ridgep);
@@ -27,8 +28,13 @@ int main(int argc, char *argv[]) {
   std::printf("ia=%p ja=%p a=%p n=%i nnz=%i\n", invS.ia.data(), invS.ja.data(),
               invS.a.data(), n, invS.ia[n]);
   std::cout << std::flush;
+  T.tic();
   pardiso_interface(invS.ia.data(), invS.ja.data(), invS.a.data(), n);
+  T.toc("Wall time pardiso:       ");
   std::cout << std::string(75, '=') << std::endl;
+  //////////////////////////////////////////////////////////////////////////////
+  // error checking
+  //////////////////////////////////////////////////////////////////////////////
   Eigen::MatrixXd x(n, 10), y(n, 10), z(n, 10);
   x.setRandom();
   Eigen::VectorXd nrms = x.colwise().norm();
@@ -52,5 +58,7 @@ int main(int argc, char *argv[]) {
     }
   std::cout << "inverse error:               " << (z - x).norm() / x.norm()
             << std::endl;
+  std::cout << "percent nnz in S:            " << S.pnnz() << std::endl;
+  std::cout << "percent nnz in invS:         " << invS.pnnz() << std::endl;
   return 0;
 }
