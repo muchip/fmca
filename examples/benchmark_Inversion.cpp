@@ -5,19 +5,40 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <sys/time.h>
 ////////////////////////////////////////////////////////////////////////////////
-//#include "pardiso_interface.h"
-#include "../FMCA/src/util/Tictoc.h"
+#include "pardiso_interface.h"
 #include "sampletMatrixGenerator.h"
 ////////////////////////////////////////////////////////////////////////////////
+class Tictoc {
+public:
+  void tic(void) { gettimeofday(&start, NULL); }
+  double toc(void) {
+    gettimeofday(&stop, NULL);
+    double dtime =
+        stop.tv_sec - start.tv_sec + 1e-6 * (stop.tv_usec - start.tv_usec);
+    return dtime;
+  }
+  double toc(const std::string &message) {
+    gettimeofday(&stop, NULL);
+    double dtime =
+        stop.tv_sec - start.tv_sec + 1e-6 * (stop.tv_usec - start.tv_usec);
+    std::cout << message << " " << dtime << "sec.\n";
+    return dtime;
+  }
+
+private:
+  struct timeval start; /* variables for timing */
+  struct timeval stop;
+};
+
 int main(int argc, char *argv[]) {
   const unsigned int dtilde = 4;
   const double eta = 0.8;
   const unsigned int mp_deg = 6;
   const unsigned int dim = 2;
   const double threshold = 0;
-  const double ridgep = 1e-2;
-  FMCA::Tictoc T;
+  Tictoc T;
   std::fstream output_file;
 
   output_file.open("output_Inversion_" + std::to_string(dim) + "D.txt",
@@ -33,8 +54,8 @@ int main(int argc, char *argv[]) {
               << "unif_cnst  "
               << "  inv_err  "
               << "pardiso_t  " << std::endl;
-  for (double ridgep : {0, 1e-6, 1e-4, 1e-2, 1})
-    for (unsigned int n : {1e3, 5e3, 1e4, 5e4, 1e5, 5e5, 1e6}) {
+  for (double ridgep : {1e-8, 1e-6, 1e-4, 1e-2, 1.})
+    for (unsigned int n : {1e3, 5e3, 1e4, 5e4, 1e5}) {
       Eigen::MatrixXd P = 0.5 * (Eigen::MatrixXd::Random(dim, n).array() + 1);
       SampletCRS S =
           sampletMatrixGenerator(P, mp_deg, dtilde, eta, threshold, ridgep);
@@ -58,7 +79,7 @@ int main(int argc, char *argv[]) {
                   invS.ja.data(), invS.a.data(), n, invS.ia[n]);
       std::cout << std::flush;
       T.tic();
-      // pardiso_interface(invS.ia.data(), invS.ja.data(), invS.a.data(), n);
+      pardiso_interface(invS.ia.data(), invS.ja.data(), invS.a.data(), n);
       double tpardiso = T.toc("wall time pardiso: ");
       std::cout << std::string(75, '=') << std::endl;
       //////////////////////////////////////////////////////////////////////////////
@@ -86,10 +107,10 @@ int main(int argc, char *argv[]) {
             z.row(invS.ja[j]) += invS.a[j] * y.row(i);
         }
       double err = (z - x).norm() / x.norm();
-      std::cout << "inverse error:               " << (z - x).norm() / x.norm()
+      std::cout << "inverse error:               " << err
                 << std::endl;
-      output_file << std::setw(9) << tpardiso << "  ";
       output_file << std::setw(9) << err << "  ";
+      output_file << std::setw(9) << tpardiso << "  ";
       output_file << std::endl;
     }
   output_file.close();
