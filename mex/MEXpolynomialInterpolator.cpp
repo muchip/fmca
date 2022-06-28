@@ -7,7 +7,6 @@
 #include <FMCA/src/Interpolators/LejaPoints.h>
 #include <FMCA/src/Interpolators/WeightedTotalDegreeInterpolator.h>
 
-
 #include "matrix.h"
 #include "mex.h"
 
