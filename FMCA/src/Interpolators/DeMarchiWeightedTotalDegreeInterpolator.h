@@ -9,15 +9,15 @@
 // any warranty, see <https://github.com/muchip/FMCA> for further
 // information.
 //
-#ifndef FMCA_INTERPOLATORS_WEIGHTEDTOTALDEGREEINTERPOLATOR2_H_
-#define FMCA_INTERPOLATORS_WEIGHTEDTOTALDEGREEINTERPOLATOR2_H_
+#ifndef FMCA_DEMARCHI_INTERPOLATORS_WEIGHTEDTOTALDEGREEINTERPOLATOR2_H_
+#define FMCA_DEMARCHI_INTERPOLATORS_WEIGHTEDTOTALDEGREEINTERPOLATOR2_H_
 #include "../util/HaltonSet.h"
 #include"../util/MultiIndexSet.h"
 #include "LejaPoints.h"
 #include <Eigen/LU>
 namespace FMCA {
 
-class WeightedTotalDegreeInterpolator {
+class DeMarchiWeightedTotalDegreeInterpolator {
 public:
   typedef FloatType ValueType;
   typedef Eigen::Matrix<FloatType, Eigen::Dynamic, 1> eigenVector;
