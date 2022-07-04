@@ -14,11 +14,9 @@
 
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
-
 #include <vector>
 struct SampletCRS {
-
-  std::vector<Eigen::Triplet<double>> toTriplets() {
+  std::vector<Eigen::Triplet<double>> toTriplets() const {
     std::vector<Eigen::Triplet<double>> trips;
     trips.reserve(a.size());
     unsigned int n = ia.size() - 1;
@@ -28,8 +26,8 @@ struct SampletCRS {
     return trips;
   }
 
-  size_t nnz() { return a.size(); }
-  double pnnz() {
+  size_t nnz() const { return a.size(); }
+  double pnnz() const {
     return double(a.size()) / (ia.size() - 1) / (ia.size() - 1) * 100.;
   }
   //////////////////////////////////////////////////////////////////////////////
@@ -41,9 +39,10 @@ struct SampletCRS {
   double comp_err;
 };
 
-SampletCRS sampletMatrixGenerator(const Eigen::MatrixXd &P,
-                                  const unsigned int mp_deg,
-                                  const unsigned int dtilde, const double eta,
-                                  double threshold, const double ridgep);
+Eigen::SparseMatrix<double, Eigen::RowMajor, long long int>
+sampletMatrixGenerator(const Eigen::MatrixXd &P, const unsigned int mp_deg,
+                       const unsigned int dtilde, const double eta,
+                       double threshold, const double ridgep,
+                       std::vector<double> *data_pack);
 
 #endif

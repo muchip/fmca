@@ -12,6 +12,8 @@
 #ifndef FMCA_SAMPLETS_OMPSAMPLETCOMPRESSOR_H_
 #define FMCA_SAMPLETS_OMPSAMPLETCOMPRESSOR_H_
 
+#include <Eigen/MetisSupport>
+
 namespace FMCA {
 
 template <typename Derived>
@@ -27,8 +29,7 @@ class ompSampletCompressor {
    *         admissibility condition
    *
    **/
-  void init(const SampletTreeBase<Derived> &ST, Scalar eta,
-            Scalar threshold = 1e-6) {
+  void init(SampletTreeBase<Derived> &ST, Scalar eta, Scalar threshold = 1e-6) {
     eta_ = eta;
     threshold_ = threshold;
     n_clusters_ = std::distance(ST.cbegin(), ST.cend());
@@ -69,7 +70,25 @@ class ompSampletCompressor {
       }
     }
     assert(row_stack.size() == 0 && "row: non-empty stack at return");
-
+    {
+      auto trips = pattern_.toTriplets();
+      Eigen::SparseMatrix<Index> pattern(n_clusters_, n_clusters_);
+      std::cout << trips.size() << std::endl;
+      pattern.setFromTriplets(trips.begin(), trips.end());
+      Eigen::MetisOrdering<int> the_orderer;
+      the_orderer(pattern, perm_);
+      const auto &indices = perm_.indices();
+      start_indices_.resize(indices.size());
+      Index sum = 0;
+      for (auto i = 0; i < indices.size(); ++i) {
+        start_indices_[indices(i)] = sum;
+        sum += s_mapper_[indices(i)]->nsamplets();
+        if (s_mapper_[indices(i)]->is_root())
+          sum += s_mapper_[indices(i)]->nscalfs();
+      }
+    }
+    for (auto &&bla : ST)
+      bla.node().start_index_ = start_indices_[bla.block_id()];
     return;
   }
 
@@ -147,24 +166,37 @@ class ompSampletCompressor {
    **/
   const std::vector<Eigen::Triplet<Scalar>> &triplets() {
     triplet_list_.clear();
-
     for (int i = n_clusters_ - 1; i >= 0; --i) {
       const auto &idx = m_blx_.idx()[i];
       const std::vector<Matrix> &val = m_blx_.val()[i];
       const Derived *pr = s_mapper_[i];
       for (int j = 0; j < idx.size(); ++j) {
         const Derived *pc = s_mapper_[idx[j]];
+        const Index rstart = start_indices_[pr->block_id()];
+        const Index cstart = start_indices_[pc->block_id()];
         if (!pr->is_root() && !pc->is_root())
-          storeBlock(
-              pr->start_index(), pc->start_index(), pr->nsamplets(),
-              pc->nsamplets(),
-              val[j].bottomRightCorner(pr->nsamplets(), pc->nsamplets()));
+          if (rstart > cstart)
+            storeBlock(cstart, rstart, pc->nsamplets(), pr->nsamplets(),
+                       val[j]
+                           .bottomRightCorner(pr->nsamplets(), pc->nsamplets())
+                           .transpose());
+          else
+            storeBlock(
+                rstart, cstart, pr->nsamplets(), pc->nsamplets(),
+                val[j].bottomRightCorner(pr->nsamplets(), pc->nsamplets()));
         else if (!pc->is_root())
-          storeBlock(pr->start_index(), pc->start_index(), pr->Q().cols(),
-                     pc->nsamplets(), val[j].rightCols(pc->nsamplets()));
+          if (rstart > cstart)
+            storeBlock(cstart, rstart, pc->nsamplets(), pr->Q().cols(),
+                       val[j].rightCols(pc->nsamplets()).transpose());
+          else
+            storeBlock(rstart, cstart, pr->Q().cols(), pc->nsamplets(),
+                       val[j].rightCols(pc->nsamplets()));
         else if (pr->is_root() && pc->is_root())
-          storeBlock(pr->start_index(), pc->start_index(), pr->Q().cols(),
-                     pc->Q().cols(), val[j]);
+          if (rstart > cstart)
+            storeBlock(cstart, rstart, pc->Q().cols(), pr->Q().cols(),
+                       val[j].transpose());
+          else
+            storeBlock(rstart, cstart, pr->Q().cols(), pc->Q().cols(), val[j]);
       }
     }
     m_blx_.resize(0, 0);
@@ -251,7 +283,9 @@ class ompSampletCompressor {
   std::vector<Eigen::Triplet<Scalar>> triplet_list_;
   FMCA::SparseMatrix<Matrix> m_blx_;
   FMCA::SparseMatrix<Index> pattern_;
+  Eigen::SparseMatrix<int> reorder_;
   std::vector<const Derived *> s_mapper_;
+  std::vector<Index> start_indices_;
   std::vector<std::vector<const Derived *>> lvl_mapper_;
   Index n_clusters_;
   Index max_level_;

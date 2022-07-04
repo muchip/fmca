@@ -16,7 +16,7 @@
 #include <FMCA/MatrixEvaluators>
 #include <FMCA/Samplets>
 ////////////////////////////////////////////////////////////////////////////////
-#include <FMCA/src/Samplets/omp_samplet_compressor.h>
+#include <FMCA/src/Samplets/omp_samplet_compressorND.h>
 #include <FMCA/src/util/Errors.h>
 #include <FMCA/src/util/SparseMatrix.h>
 #include <FMCA/src/util/Tictoc.h>
@@ -55,16 +55,16 @@ using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
 using MatrixEvaluator = FMCA::NystromMatrixEvaluator<Moments, expKernel>;
 using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 ////////////////////////////////////////////////////////////////////////////////
-SampletCRS
+Eigen::SparseMatrix<double, Eigen::RowMajor, long long int>
 sampletMatrixGenerator(const Eigen::MatrixXd &P, const unsigned int mp_deg = 4,
                        const unsigned int dtilde = 3, const double eta = 0.8,
-                       double threshold = 1e-4, const double ridgep = 1e-6) {
+                       double threshold = 1e-4, const double ridgep = 1e-6,
+                       std::vector<double> *data_pack = nullptr) {
   typedef std::vector<Eigen::Triplet<double>> TripletVector;
-  SampletCRS retval;
   const unsigned int npts = P.cols();
   const unsigned int dim = P.rows();
   const auto function = expKernel(npts);
-
+  Eigen::SparseMatrix<double, Eigen::RowMajor> retval(npts, npts);
   threshold /= npts;
   FMCA::Tictoc T;
   std::cout << std::string(75, '=') << std::endl;
@@ -87,13 +87,13 @@ sampletMatrixGenerator(const Eigen::MatrixXd &P, const unsigned int mp_deg = 4,
   FMCA::Scalar max_min_dist = min_dist.maxCoeff();
   std::cout << "fill distance:               " << max_min_dist << std::endl;
   std::cout << "separation distance:         " << min_min_dist << std::endl;
-  retval.unif_const = max_min_dist / (0.5 * min_min_dist);
+
   T.tic();
   FMCA::ompSampletCompressor<H2SampletTree> comp;
   comp.init(hst, eta, threshold);
   T.toc("omp initializer:            ");
   comp.compress(hst, mat_eval);
-  retval.comp_time = T.toc("cummulative compressor:     ");
+  double comp_time = T.toc("cummulative compressor:     ");
   std::vector<Eigen::Triplet<double>> trips = comp.triplets();
   std::cout << "triplet size (\% of INT_MAX): "
             << (long double)(trips.size()) / (long double)(INT_MAX)*100
@@ -103,19 +103,27 @@ sampletMatrixGenerator(const Eigen::MatrixXd &P, const unsigned int mp_deg = 4,
       FMCA::errorEstimatorSymmetricCompressor(trips, function, hst, P);
   std::cout << "compression error:           " << comperr << std::endl
             << std::flush;
-  retval.comp_err = comperr;
   if (ridgep > 0) {
     T.tic();
-    FMCA::SparseMatrix<double> Sinput(npts, npts);
-    Sinput.setFromTriplets(trips.begin(), trips.end());
-    for (auto i = 0; i < Sinput.rows(); ++i)
-      Sinput(i, i) = Sinput(i, i) + ridgep;
-    trips = Sinput.toTriplets();
+    retval.setFromTriplets(trips.begin(), trips.end());
+    for (auto i = 0; i < retval.rows(); ++i)
+      retval.coeffRef(i, i) = retval.coeffRef(i, i) + ridgep;
     T.toc("added regularization:       ");
   }
-  // generate CRS matrix
   size_t n_triplets = trips.size();
   assert(n_triplets < INT_MAX && "exceeded INT_MAX");
+  if (data_pack != nullptr) {
+    data_pack->resize(4);
+    (*data_pack)[0] = 2 * max_min_dist / min_min_dist;
+    (*data_pack)[1] = comp_time;
+    (*data_pack)[2] = (long double)(trips.size()) / npts / npts * 100;
+    (*data_pack)[3] = comperr;
+  }
+  retval.makeCompressed();
+  return retval;
+}
+
+#if 0
   retval.ia.resize(npts + 1);
   retval.ja.resize(n_triplets);
   retval.a.resize(n_triplets);
@@ -132,5 +140,4 @@ sampletMatrixGenerator(const Eigen::MatrixXd &P, const unsigned int mp_deg = 4,
     retval.ja[i] = trips[i].col();
     retval.a[i] = trips[i].value();
   }
-  return retval;
-} // namespace FMCA
+#endif

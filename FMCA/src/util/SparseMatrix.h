@@ -30,8 +30,9 @@ namespace FMCA {
  *         is log_2(_Srows[i].size()).
  */
 
-template <typename T> class SparseMatrix {
-public:
+template <typename T>
+class SparseMatrix {
+ public:
   //////////////////////////////////////////////////////////////////////////////
   typedef T value_type;
   typedef typename std::vector<value_type> value_vector;
@@ -54,15 +55,14 @@ public:
   }
 
   template <typename Derived>
-  static eigenMatrix
-  symTripletsTimesVector(const std::vector<Eigen::Triplet<T>> &trips,
-                         const Eigen::MatrixBase<Derived> &x) {
+  static eigenMatrix symTripletsTimesVector(
+      const std::vector<Eigen::Triplet<T>> &trips,
+      const Eigen::MatrixBase<Derived> &x) {
     eigenMatrix y(x.rows(), x.cols());
     y.setZero();
     for (const auto &i : trips) {
       y.row(i.row()) += i.value() * x.row(i.col());
-      if (i.row() != i.col())
-        y.row(i.col()) += i.value() * x.row(i.row());
+      if (i.row() != i.col()) y.row(i.col()) += i.value() * x.row(i.row());
     }
     return y;
   }
@@ -83,8 +83,7 @@ public:
     resize(M.rows(), M.cols());
     for (auto j = 0; j < M.cols(); ++j)
       for (auto i = 0; i < M.rows(); ++i)
-        if (M(i, j))
-          insert(i, j) = M(i, j);
+        if (M(i, j)) insert(i, j) = M(i, j);
   }
   // move constructor
   SparseMatrix(SparseMatrix<value_type> &&S) {
@@ -157,8 +156,7 @@ public:
   SparseMatrix<value_type> &setIdentity() {
     setZero();
     const size_type dlength = m_ > n_ ? n_ : m_;
-    for (auto i = 0; i < dlength; ++i)
-      coeffRef(i, i) = 1;
+    for (auto i = 0; i < dlength; ++i) coeffRef(i, i) = 1;
     return *this;
   }
 
@@ -238,8 +236,7 @@ public:
 
   size_type nnz() const {
     size_type retval = 0;
-    for (auto &&it : idx_)
-      retval += it.size();
+    for (auto &&it : idx_) retval += it.size();
     return retval;
   }
 
@@ -271,8 +268,7 @@ public:
       rows[(begin + idcs[0])->row()] = 0;
       size_type j = 0;
       for (auto i = (begin + idcs[0])->row() + 1; i <= m_; ++i) {
-        while (j < n_triplets && i - 1 == (begin + idcs[j])->row())
-          ++j;
+        while (j < n_triplets && i - 1 == (begin + idcs[j])->row()) ++j;
         rows[i] = j;
       }
     }
@@ -292,6 +288,25 @@ public:
     return *this;
   }
 
+  template <typename ROWS, typename COLS, typename VALS>
+  void setFromCRS(const ROWS &ia, const COLS &ja, const VALS &a, Index n) {
+    m_ = n;
+    n_ = n;
+    val_.clear();
+    idx_.clear();
+    val_.resize(n);
+    idx_.resize(n);
+    for (auto i = 0; i < n; ++i) {
+      val_[i].reserve(ia[i + 1] - ia[i]);
+      idx_[i].reserve(ia[i + 1] - ia[i]);
+      for (auto j = ia[i]; j < ia[i + 1]; ++j) {
+        val_[i].push_back(a[j]);
+        idx_[i].push_back(ja[j]);
+      }
+    }
+    return;
+  }
+
   std::vector<Eigen::Triplet<value_type>> toTriplets() const {
     std::vector<Eigen::Triplet<value_type>> triplets;
     for (auto i = 0; i < m_; ++i)
@@ -305,8 +320,7 @@ public:
   SparseMatrix<value_type> &setDiagonal(const Derived &diag) {
     SparseMatrix(diag.size(), diag.size());
     setZero();
-    for (auto i = 0; i < m_; ++i)
-      coeffRef(i, i) = diag[i];
+    for (auto i = 0; i < m_; ++i) coeffRef(i, i) = diag[i];
     return *this;
   }
 
@@ -314,8 +328,7 @@ public:
   SparseMatrix<value_type> &setPermutation(const Derived &perm) {
     SparseMatrix(perm.size(), perm.size());
     setZero();
-    for (auto i = 0; i < m_; ++i)
-      coeffRef(i, perm[i]) = 1;
+    for (auto i = 0; i < m_; ++i) coeffRef(i, perm[i]) = 1;
     return *this;
   }
   //////////////////////////////////////////////////////////////////////////////
@@ -451,10 +464,9 @@ public:
     return;
   }
 
-  static SparseMatrix<value_type>
-  formatted_BABT(const SparseMatrix<value_type> &P,
-                 const SparseMatrix<value_type> &A,
-                 const SparseMatrix<value_type> &B) {
+  static SparseMatrix<value_type> formatted_BABT(
+      const SparseMatrix<value_type> &P, const SparseMatrix<value_type> &A,
+      const SparseMatrix<value_type> &B) {
     SparseMatrix<value_type> retval = P;
 #pragma omp parallel for
     for (auto i = 0; i < retval.m_; ++i) {
@@ -477,10 +489,9 @@ public:
     return retval;
   }
 
-  static SparseMatrix<value_type>
-  formatted_BABT_sym(const SparseMatrix<value_type> &P,
-                     const SparseMatrix<value_type> &A,
-                     const SparseMatrix<value_type> &B) {
+  static SparseMatrix<value_type> formatted_BABT_sym(
+      const SparseMatrix<value_type> &P, const SparseMatrix<value_type> &A,
+      const SparseMatrix<value_type> &B) {
     SparseMatrix<value_type> retval = P;
 #pragma omp parallel for
     for (auto i = 0; i < retval.m_; ++i) {
@@ -557,8 +568,7 @@ public:
   SparseMatrix<value_type> &scale(value_type a) {
 #pragma omp parallel for
     for (auto i = 0; i < m_; ++i)
-      for (auto &&it : val_[i])
-        it *= a;
+      for (auto &&it : val_[i]) it *= a;
     return *this;
   }
 
@@ -610,21 +620,15 @@ public:
     auto j = 0;
     if (v1size < v2size)
       for (auto i = 0; i < v1size; ++i) {
-        while (j < v2size && iv2[j] < iv1[i])
-          ++j;
-        if (j >= v2size)
-          break;
-        if (iv2[j] == iv1[i])
-          retval += vv1[i] * vv2[j];
+        while (j < v2size && iv2[j] < iv1[i]) ++j;
+        if (j >= v2size) break;
+        if (iv2[j] == iv1[i]) retval += vv1[i] * vv2[j];
       }
     else
       for (auto i = 0; i < v2size; ++i) {
-        while (j < v1size && iv1[j] < iv2[i])
-          ++j;
-        if (j >= v1size)
-          break;
-        if (iv2[i] == iv1[j])
-          retval += vv1[j] * vv2[i];
+        while (j < v1size && iv1[j] < iv2[i]) ++j;
+        if (j >= v1size) break;
+        if (iv2[i] == iv1[j]) retval += vv1[j] * vv2[i];
       }
 
     return retval;
@@ -700,7 +704,7 @@ public:
     return pos;
   }
 
-private:
+ private:
   /*
    *  private member variables
    */
@@ -710,5 +714,5 @@ private:
   size_type n_;
 };
 
-} // namespace FMCA
+}  // namespace FMCA
 #endif
