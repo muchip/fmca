@@ -101,8 +101,9 @@ int main(int argc, char *argv[]) {
         //FMCA::SparseMatrix<double>::formatted_ABT(X, S, Xold);
         //ImXS = I2 - X;
         //FMCA::SparseMatrix<double>::formatted_ABT(X, S, ImXS);
-            X = X * (I2 - (S  * X));
-        X.compress(1e-8);
+        X = I2 * X - FMCA::SparseMatrix<double>::formatted_BABT(S, S, X);
+        //    X = X * (I2 - (S  * X));
+        X.compress(1e-8/n);
         X.symmetrize();
         err_old = err;
         err = ((X * (S * randFilter)) - randFilter).norm() / randFilter.norm();

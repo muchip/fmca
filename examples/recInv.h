@@ -19,8 +19,7 @@ inline void formatted_set_sparse(tIndex *tidx, const tSize tsze, tVal *target,
   auto j = 0;
   if (tsze < ssze)
     for (tSize i = 0; i < tsze; ++i) {
-      while (j < ssze && sidx[j] < tidx[i])
-        ++j;
+      while (j < ssze && sidx[j] < tidx[i]) ++j;
       if (j >= ssze)
         break;
       else if (sidx[j] == tidx[i])
@@ -28,8 +27,7 @@ inline void formatted_set_sparse(tIndex *tidx, const tSize tsze, tVal *target,
     }
   else
     for (sSize i = 0; i < ssze; ++i) {
-      while (j < tsze && tidx[j] < sidx[i])
-        ++j;
+      while (j < tsze && tidx[j] < sidx[i]) ++j;
       if (j >= tsze)
         break;
       else if (sidx[i] == tidx[j])
@@ -48,8 +46,7 @@ inline double sparse_dot_product(tIndex *tidx, const tSize tsze, tVal *target,
   auto j = 0;
   if (tsze < ssze)
     for (tSize i = 0; i < tsze; ++i) {
-      while (j < ssze && sidx[j] < tidx[i])
-        ++j;
+      while (j < ssze && sidx[j] < tidx[i]) ++j;
       if (j >= ssze)
         break;
       else if (sidx[j] == tidx[i])
@@ -57,8 +54,7 @@ inline double sparse_dot_product(tIndex *tidx, const tSize tsze, tVal *target,
     }
   else
     for (sSize i = 0; i < ssze; ++i) {
-      while (j < tsze && tidx[j] < sidx[i])
-        ++j;
+      while (j < tsze && tidx[j] < sidx[i]) ++j;
       if (j >= tsze)
         break;
       else if (sidx[i] == tidx[j])
@@ -77,8 +73,7 @@ inline void formatted_sparse_axpy(tIndex *tidx, const tSize tsze, tVal *target,
   auto j = 0;
   if (tsze < ssze)
     for (tSize i = 0; i < tsze; ++i) {
-      while (j < ssze && sidx[j] < tidx[i])
-        ++j;
+      while (j < ssze && sidx[j] < tidx[i]) ++j;
       if (j >= ssze)
         break;
       else if (sidx[j] == tidx[i])
@@ -86,8 +81,7 @@ inline void formatted_sparse_axpy(tIndex *tidx, const tSize tsze, tVal *target,
     }
   else
     for (sSize i = 0; i < ssze; ++i) {
-      while (j < tsze && tidx[j] < sidx[i])
-        ++j;
+      while (j < tsze && tidx[j] < sidx[i]) ++j;
       if (j >= tsze)
         break;
       else if (sidx[i] == tidx[j])
@@ -199,16 +193,31 @@ largeSparse recInv(const largeSparse &M, const int splitn) {
     retval = M;
     const long long int n = M.rows();
     const long long int n2 = M.rows() / 2;
-    largeSparse M11 = M.topLeftCorner(n2, n2);
-    largeSparse M12 = M.topRightCorner(n2, n - n2);
-    largeSparse M22 = M.bottomRightCorner(n - n2, n - n2);
-    largeSparse invM11 = recInv(M11, splitn);
-    largeSparse T = formatted_sparse_multiplicationSG(M12, invM11, M12);
-    largeSparse S = M22 - formatted_sparse_multiplicationGTG(M22, M12, T);
-    largeSparse invS = recInv(S, splitn).selfadjointView<Eigen::Upper>();
-    largeSparse R = -formatted_sparse_multiplication(M12, T, invS);
-    largeSparse V =
-        invM11 - formatted_sparse_multiplication(invM11, T, R.transpose());
+    largeSparse invS;
+    largeSparse R;
+    largeSparse V;
+    {
+      largeSparse invM11;
+      {
+        largeSparse M11 = M.topLeftCorner(n2, n2);
+        invM11 = recInv(M11, splitn);
+      }
+      {
+        largeSparse S;
+        largeSparse T;
+        {
+          largeSparse M12 = M.topRightCorner(n2, n - n2);
+          T = formatted_sparse_multiplicationSG(M12, invM11, M12);
+          largeSparse M22 = M.bottomRightCorner(n - n2, n - n2);
+          S = M22 - formatted_sparse_multiplicationGTG(M22, M12, T);
+        }
+        invS = recInv(S, splitn);
+        R = -formatted_sparse_multiplication(T, T, invS);
+        R -= formatted_sparse_multiplication(
+            T, T, invS.triangularView<Eigen::StrictlyUpper>().transpose());
+        V = invM11 - formatted_sparse_multiplication(invM11, T, R.transpose());
+      }
+    }
     {
       retval.makeCompressed();
       V.makeCompressed();
@@ -226,12 +235,9 @@ largeSparse recInv(const largeSparse &M, const int splitn) {
       largeSparse::StorageIndex *ia4 = invS.outerIndexPtr();
       largeSparse::StorageIndex *ja4 = invS.innerIndexPtr();
       largeSparse::Scalar *a4 = invS.valuePtr();
-      for (auto i = 0; i < ia[n]; ++i)
-        a[i] = 0;
-      for (auto i = 0; i < ia3[n2]; ++i)
-        ja3[i] += n2;
-      for (auto i = 0; i < ia4[n - n2]; ++i)
-        ja4[i] += n2;
+      for (auto i = 0; i < ia[n]; ++i) a[i] = 0;
+      for (auto i = 0; i < ia3[n2]; ++i) ja3[i] += n2;
+      for (auto i = 0; i < ia4[n - n2]; ++i) ja4[i] += n2;
 #pragma omp parallel for
       for (auto i = 0; i < n2; ++i) {
         formatted_set_sparse(ja + ia[i], ia[i + 1] - ia[i], a + ia[i],

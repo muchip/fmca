@@ -64,7 +64,7 @@ sampletMatrixGenerator(const Eigen::MatrixXd &P, const unsigned int mp_deg = 4,
   const unsigned int npts = P.cols();
   const unsigned int dim = P.rows();
   const auto function = expKernel(npts);
-  Eigen::SparseMatrix<double, Eigen::RowMajor> retval(npts, npts);
+  Eigen::SparseMatrix<double, Eigen::RowMajor, long long int> retval(npts, npts);
   threshold /= npts;
   FMCA::Tictoc T;
   std::cout << std::string(75, '=') << std::endl;
@@ -98,6 +98,9 @@ sampletMatrixGenerator(const Eigen::MatrixXd &P, const unsigned int mp_deg = 4,
   std::cout << "triplet size (\% of INT_MAX): "
             << (long double)(trips.size()) / (long double)(INT_MAX)*100
             << std::endl;
+  std::cout << "triplet size (\% of LLI_MAX): "
+            << (long double)(trips.size()) / (long double)(LLONG_MAX)*100
+            << std::endl;
   FMCA::SparseMatrix<double>::sortTripletsInPlace(trips);
   double comperr =
       FMCA::errorEstimatorSymmetricCompressor(trips, function, hst, P);
@@ -111,7 +114,7 @@ sampletMatrixGenerator(const Eigen::MatrixXd &P, const unsigned int mp_deg = 4,
     T.toc("added regularization:       ");
   }
   size_t n_triplets = trips.size();
-  assert(n_triplets < INT_MAX && "exceeded INT_MAX");
+  //assert(n_triplets < INT_MAX && "exceeded INT_MAX");
   if (data_pack != nullptr) {
     data_pack->resize(4);
     (*data_pack)[0] = 2 * max_min_dist / min_min_dist;
