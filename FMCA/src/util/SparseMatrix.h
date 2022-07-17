@@ -456,11 +456,12 @@ class SparseMatrix {
                             const SparseMatrix<value_type> &M1,
                             const SparseMatrix<value_type> &M2) {
 #pragma omp parallel for
-    for (auto i = 0; i < retval.m_; ++i)
+    for (auto i = 0; i < retval.m_; ++i) {
       for (auto j = 0; j < retval.idx_[i].size(); ++j)
         retval.val_[i][j] =
             dotProduct(M1.idx_[i], M1.val_[i], M2.idx_[retval.idx_[i][j]],
                        M2.val_[retval.idx_[i][j]]);
+    }
     return;
   }
 
@@ -600,6 +601,7 @@ class SparseMatrix {
         retval += val_[i][j] * val_[i][j];
     return sqrt(retval);
   }
+
   template <typename Derived>
   SparseMatrix<value_type> &setSparseRow(size_type row, const Derived &vec) {
     for (auto i = 0; i < idx_[row].size(); ++i)

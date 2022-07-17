@@ -90,86 +90,79 @@ inline void formatted_sparse_axpy(tIndex *tidx, const tSize tsze, tVal *target,
   return;
 }
 
-largeSparse formatted_sparse_multiplication(const largeSparse &pattern,
-                                            const largeSparse &mat1,
-                                            const largeSparse &mat2) {
+void formatted_sparse_multiplication(largeSparse &pattern,
+                                     const largeSparse &mat1,
+                                     const largeSparse &mat2, double scal = 1) {
   eigen_assert(mat1.cols() == mat2.rows() && "dimension mismatch");
   long long int n = pattern.rows();
-  long long int k = mat2.rows();
-  largeSparse retval = pattern;
-  largeSparse::StorageIndex *ia = retval.outerIndexPtr();
-  largeSparse::StorageIndex *ja = retval.innerIndexPtr();
-  largeSparse::Scalar *a = retval.valuePtr();
+  largeSparse::StorageIndex *ia = pattern.outerIndexPtr();
+  largeSparse::StorageIndex *ja = pattern.innerIndexPtr();
+  largeSparse::Scalar *a = pattern.valuePtr();
   const largeSparse::StorageIndex *ia2 = mat1.outerIndexPtr();
   const largeSparse::StorageIndex *ja2 = mat1.innerIndexPtr();
   const largeSparse::Scalar *a2 = mat1.valuePtr();
   const largeSparse::StorageIndex *ia3 = mat2.outerIndexPtr();
   const largeSparse::StorageIndex *ja3 = mat2.innerIndexPtr();
   const largeSparse::Scalar *a3 = mat2.valuePtr();
-  memset(a, 0, ia[n] * sizeof(largeSparse::Scalar));
 #pragma omp parallel for
   for (auto i = 0; i < n; ++i) {
     for (auto j = ia2[i]; j < ia2[i + 1]; ++j)
       if (std::abs(a2[j]) > 1e-15)
         formatted_sparse_axpy(ja + ia[i], ia[i + 1] - ia[i], a + ia[i],
                               ja3 + ia3[ja2[j]], ia3[ja2[j] + 1] - ia3[ja2[j]],
-                              a3 + ia3[ja2[j]], a2[j]);
+                              a3 + ia3[ja2[j]], scal * a2[j]);
   }
-  return retval;
+  return;
 }
 
-largeSparse formatted_sparse_multiplicationGTG(const largeSparse &pattern,
-                                               const largeSparse &mat1,
-                                               const largeSparse &mat2) {
+void formatted_sparse_multiplicationGTG(largeSparse &pattern,
+                                        const largeSparse &mat1,
+                                        const largeSparse &mat2,
+                                        double scal = 1) {
   eigen_assert(mat1.cols() == mat2.rows() && "dimension mismatch");
   long long int n = pattern.rows();
-  long long int k = mat2.rows();
-  largeSparse retval = pattern;
-  largeSparse::StorageIndex *ia = retval.outerIndexPtr();
-  largeSparse::StorageIndex *ja = retval.innerIndexPtr();
-  largeSparse::Scalar *a = retval.valuePtr();
+  largeSparse::StorageIndex *ia = pattern.outerIndexPtr();
+  largeSparse::StorageIndex *ja = pattern.innerIndexPtr();
+  largeSparse::Scalar *a = pattern.valuePtr();
   const largeSparse::StorageIndex *ia2 = mat1.outerIndexPtr();
   const largeSparse::StorageIndex *ja2 = mat1.innerIndexPtr();
   const largeSparse::Scalar *a2 = mat1.valuePtr();
   const largeSparse::StorageIndex *ia3 = mat2.outerIndexPtr();
   const largeSparse::StorageIndex *ja3 = mat2.innerIndexPtr();
   const largeSparse::Scalar *a3 = mat2.valuePtr();
-  memset(a, 0, ia[n] * sizeof(largeSparse::Scalar));
   for (auto i = 0; i < n; ++i) {
 #pragma omp parallel for
     for (auto j = ia2[i]; j < ia2[i + 1]; ++j)
       if (std::abs(a2[j]) > 1e-15)
         formatted_sparse_axpy(ja + ia[ja2[j]], ia[ja2[j] + 1] - ia[ja2[j]],
                               a + ia[ja2[j]], ja3 + ia3[i], ia3[i + 1] - ia3[i],
-                              a3 + ia3[i], a2[j]);
+                              a3 + ia3[i], scal * a2[j]);
   }
-  return retval;
+  return;
 }
 
-largeSparse formatted_sparse_multiplicationSG(const largeSparse &pattern,
-                                              const largeSparse &mat1,
-                                              const largeSparse &mat2) {
+void formatted_sparse_multiplicationSG(largeSparse &pattern,
+                                       const largeSparse &mat1,
+                                       const largeSparse &mat2,
+                                       double scal = 1) {
   eigen_assert(mat1.cols() == mat2.rows() && "dimension mismatch");
   long long int n = pattern.rows();
-  long long int k = mat2.rows();
-  largeSparse retval = pattern;
-  largeSparse::StorageIndex *ia = retval.outerIndexPtr();
-  largeSparse::StorageIndex *ja = retval.innerIndexPtr();
-  largeSparse::Scalar *a = retval.valuePtr();
+  largeSparse::StorageIndex *ia = pattern.outerIndexPtr();
+  largeSparse::StorageIndex *ja = pattern.innerIndexPtr();
+  largeSparse::Scalar *a = pattern.valuePtr();
   const largeSparse::StorageIndex *ia2 = mat1.outerIndexPtr();
   const largeSparse::StorageIndex *ja2 = mat1.innerIndexPtr();
   const largeSparse::Scalar *a2 = mat1.valuePtr();
   const largeSparse::StorageIndex *ia3 = mat2.outerIndexPtr();
   const largeSparse::StorageIndex *ja3 = mat2.innerIndexPtr();
   const largeSparse::Scalar *a3 = mat2.valuePtr();
-  memset(a, 0, ia[n] * sizeof(largeSparse::Scalar));
 #pragma omp parallel for
   for (auto i = 0; i < n; ++i) {
     for (auto j = ia2[i]; j < ia2[i + 1]; ++j)
       if (std::abs(a2[j]) > 1e-15)
         formatted_sparse_axpy(ja + ia[i], ia[i + 1] - ia[i], a + ia[i],
                               ja3 + ia3[ja2[j]], ia3[ja2[j] + 1] - ia3[ja2[j]],
-                              a3 + ia3[ja2[j]], a2[j]);
+                              a3 + ia3[ja2[j]], scal * a2[j]);
   }
   for (auto i = 0; i < n; ++i) {
 #pragma omp parallel for
@@ -177,9 +170,9 @@ largeSparse formatted_sparse_multiplicationSG(const largeSparse &pattern,
       if (i < ja2[j] && std::abs(a2[j]) > 1e-15)
         formatted_sparse_axpy(ja + ia[ja2[j]], ia[ja2[j] + 1] - ia[ja2[j]],
                               a + ia[ja2[j]], ja3 + ia3[i], ia3[i + 1] - ia3[i],
-                              a3 + ia3[i], a2[j]);
+                              a3 + ia3[i], scal * a2[j]);
   }
-  return retval;
+  return;
 }
 
 /**
@@ -187,45 +180,44 @@ largeSparse formatted_sparse_multiplicationSG(const largeSparse &pattern,
  *         using block inversion
  **/
 #if 1
-largeSparse recInv(const largeSparse &M, const int splitn) {
-  largeSparse retval;
+void recInv(largeSparse &M, const int splitn) {
   if (M.rows() > splitn) {
-    retval = M;
     const long long int n = M.rows();
     const long long int n2 = M.rows() / 2;
     largeSparse invS;
     largeSparse R;
     largeSparse V;
     {
-      largeSparse invM11;
+      largeSparse invM11 = M.topLeftCorner(n2, n2);
+      recInv(invM11, splitn);
       {
-        largeSparse M11 = M.topLeftCorner(n2, n2);
-        invM11 = recInv(M11, splitn);
-      }
-      {
-        largeSparse S;
         largeSparse T;
         {
           largeSparse M12 = M.topRightCorner(n2, n - n2);
-          T = formatted_sparse_multiplicationSG(M12, invM11, M12);
+          T = M12;
+          memset(T.valuePtr(), 0, T.nonZeros() * sizeof(largeSparse::Scalar));
+          formatted_sparse_multiplicationSG(T, invM11, M12);
           largeSparse M22 = M.bottomRightCorner(n - n2, n - n2);
-          S = M22 - formatted_sparse_multiplicationGTG(M22, M12, T);
+          invS = M22;
+          formatted_sparse_multiplicationGTG(invS, M12, T, -1);
         }
-        invS = recInv(S, splitn);
-        R = -formatted_sparse_multiplication(T, T, invS);
-        R -= formatted_sparse_multiplication(
-            T, T, invS.triangularView<Eigen::StrictlyUpper>().transpose());
-        V = invM11 - formatted_sparse_multiplication(invM11, T, R.transpose());
+        recInv(invS, splitn);
+        R = T;
+        memset(R.valuePtr(), 0, R.nonZeros() * sizeof(largeSparse::Scalar));
+        formatted_sparse_multiplication(R, T, invS, -1);
+        formatted_sparse_multiplication(
+            R, T, invS.triangularView<Eigen::StrictlyUpper>().transpose(), -1);
+        V = invM11;
+        formatted_sparse_multiplication(V, T, R.transpose(), -1);
       }
     }
     {
-      retval.makeCompressed();
       V.makeCompressed();
       R.makeCompressed();
       invS.makeCompressed();
-      largeSparse::StorageIndex *ia = retval.outerIndexPtr();
-      largeSparse::StorageIndex *ja = retval.innerIndexPtr();
-      largeSparse::Scalar *a = retval.valuePtr();
+      largeSparse::StorageIndex *ia = M.outerIndexPtr();
+      largeSparse::StorageIndex *ja = M.innerIndexPtr();
+      largeSparse::Scalar *a = M.valuePtr();
       largeSparse::StorageIndex *ia2 = V.outerIndexPtr();
       largeSparse::StorageIndex *ja2 = V.innerIndexPtr();
       largeSparse::Scalar *a2 = V.valuePtr();
@@ -259,10 +251,11 @@ largeSparse recInv(const largeSparse &M, const int splitn) {
     Sparse temp = M;
     pardiso_interface(temp.outerIndexPtr(), temp.innerIndexPtr(),
                       temp.valuePtr(), temp.rows());
-    retval = temp;
+    memcpy(M.valuePtr(), temp.valuePtr(),
+           M.nonZeros() * sizeof(largeSparse::Scalar));
   }
 
-  return retval;
+  return;
 }
 #endif
 #endif
