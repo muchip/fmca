@@ -9,17 +9,19 @@
 // any warranty, see <https://github.com/muchip/FMCA> for further
 // information.
 //
-#ifndef FMCA_SAMPLETS_OMPSAMPLETCOMPRESSOR_H_
-#define FMCA_SAMPLETS_OMPSAMPLETCOMPRESSOR_H_
+#ifndef FMCA_SAMPLETS_OMPSAMPLETCOMPRESSORUNSYM_H_
+#define FMCA_SAMPLETS_OMPSAMPLETCOMPRESSORUNSYM_H_
 
 namespace FMCA {
 
 template <typename Derived>
-class ompSampletCompressor {
+class ompSampletCompressorUnsymmetric {
  public:
-  ompSampletCompressor() {}
-  ompSampletCompressor(const SampletTreeBase<Derived> &ST, Scalar eta) {
-    init(ST, eta);
+  ompSampletCompressorUnsymmetric() {}
+  ompSampletCompressorUnsymmetric(const SampletTreeBase<Derived> &TR,
+                                  const SampletTreeBase<Derived> &TC,
+                                  Scalar eta) {
+    init(TR, TC, eta);
   }
 
   /**
@@ -27,33 +29,40 @@ class ompSampletCompressor {
    *         admissibility condition
    *
    **/
-  void init(const SampletTreeBase<Derived> &ST, Scalar eta,
+  void init(const SampletTreeBase<Derived> &TR,
+            const SampletTreeBase<Derived> &TC, Scalar eta,
             Scalar threshold = 1e-6) {
     eta_ = eta;
     threshold_ = threshold;
-    n_clusters_ = std::distance(ST.cbegin(), ST.cend());
+    m_clusters_ = std::distance(TR.cbegin(), TR.cend());
+    n_clusters_ = std::distance(TC.cbegin(), TC.cend());
     if (const char *env_p = std::getenv("OMP_NUM_THREADS"))
       std::cout << "OMP_NUM_THREADS:             " << env_p << std::endl;
-    s_mapper_.resize(n_clusters_);
-    pattern_.resize(n_clusters_, n_clusters_);
+    row_mapper_.resize(m_clusters_);
+    col_mapper_.resize(n_clusters_);
+    pattern_.resize(n_clusters_, m_clusters_);
     max_level_ = 0;
     // first sweep to determine samplet tree characteristics
     std::vector<const Derived *> row_stack;
     std::vector<const Derived *> col_stack;
-    row_stack.push_back(std::addressof(ST.derived()));
+    row_stack.resize(0);
+    col_stack.resize(0);
+    row_stack.push_back(std::addressof(TR.derived()));
+    // outer loop over the row tree
     while (row_stack.size()) {
       const Derived *pr = row_stack.back();
       row_stack.pop_back();
-      s_mapper_[pr->block_id()] = pr;
+      row_mapper_[pr->block_id()] = pr;
       max_level_ = max_level_ < pr->level() ? pr->level() : max_level_;
       for (auto i = 0; i < pr->nSons(); ++i)
         row_stack.push_back(std::addressof(pr->sons(i)));
       assert(col_stack.size() == 0 && "col: non-empty stack at return");
-      col_stack.push_back(std::addressof(ST.derived()));
+      col_stack.push_back(std::addressof(TC.derived()));
+      // inner loop over the col tree
       while (col_stack.size()) {
         const Derived *pc = col_stack.back();
         col_stack.pop_back();
-        char available_sons = 0;
+        Index available_sons = 0;
         for (auto i = 0; i < pc->nSons(); ++i) {
           available_sons *= 2;
           if (compareCluster(pc->sons(i), *pr, eta) != LowRank) {
@@ -61,28 +70,34 @@ class ompSampletCompressor {
             col_stack.push_back(std::addressof(pc->sons(i)));
           }
         }
-        // we create here the lower triangular pattern, which is later on
-        // used in the transposed way to obtain fast column access for
-        // the matrix assembly
-        if (pr->block_id() >= pc->block_id())
-          pattern_(pr->block_id(), pc->block_id()) = available_sons;
+        pattern_(pc->block_id(), pr->block_id()) = available_sons;
       }
     }
     assert(row_stack.size() == 0 && "row: non-empty stack at return");
-
+    col_stack.push_back(std::addressof(TC.derived()));
+    while (col_stack.size()) {
+      const Derived *pc = col_stack.back();
+      col_stack.pop_back();
+      col_mapper_[pc->block_id()] = pc;
+      max_level_ = max_level_ < pc->level() ? pc->level() : max_level_;
+      for (auto i = 0; i < pc->nSons(); ++i)
+        col_stack.push_back(std::addressof(pc->sons(i)));
+    }
+    assert(col_stack.size() == 0 && "col: non-empty stack at return");
     return;
   }
 
   template <typename EntGenerator>
-  void compress(const SampletTreeBase<Derived> &ST, const EntGenerator &e_gen) {
-    m_blx_.resize(n_clusters_, n_clusters_);
+  void compress(const SampletTreeBase<Derived> &TR,
+                const SampletTreeBase<Derived> &TC, const EntGenerator &e_gen) {
+    m_blx_.resize(m_clusters_, n_clusters_);
     for (auto j = 1; j <= n_clusters_; ++j) {
-      const Derived *pc = s_mapper_[n_clusters_ - j];
+      const Derived *pc = col_mapper_[n_clusters_ - j];
       const Index col_id = pc->block_id();
       lvl_mapper_.clear();
       lvl_mapper_.resize(max_level_ + 1);
       for (auto &&it : pattern_.idx()[n_clusters_ - j]) {
-        const Derived *cluster = s_mapper_[it];
+        const Derived *cluster = row_mapper_[it];
         lvl_mapper_[cluster->level()].push_back(cluster);
       }
       for (auto it = lvl_mapper_.rbegin(); it != lvl_mapper_.rend(); ++it) {
@@ -147,24 +162,26 @@ class ompSampletCompressor {
    **/
   const std::vector<Eigen::Triplet<Scalar>> &triplets() {
     triplet_list_.clear();
-
-    for (int i = n_clusters_ - 1; i >= 0; --i) {
+    for (int i = m_clusters_ - 1; i >= 0; --i) {
       const auto &idx = m_blx_.idx()[i];
       const std::vector<Matrix> &val = m_blx_.val()[i];
-      const Derived *pr = s_mapper_[i];
+      const Derived *pr = row_mapper_[i];
       for (int j = 0; j < idx.size(); ++j) {
-        const Derived *pc = s_mapper_[idx[j]];
+        const Derived *pc = col_mapper_[idx[j]];
         if (!pr->is_root() && !pc->is_root())
           storeBlock(
               pr->start_index(), pc->start_index(), pr->nsamplets(),
               pc->nsamplets(),
               val[j].bottomRightCorner(pr->nsamplets(), pc->nsamplets()));
-        else if (!pc->is_root())
-          storeBlock(pr->start_index(), pc->start_index(), pr->Q().cols(),
-                     pc->nsamplets(), val[j].rightCols(pc->nsamplets()));
         else if (pr->is_root() && pc->is_root())
           storeBlock(pr->start_index(), pc->start_index(), pr->Q().cols(),
                      pc->Q().cols(), val[j]);
+        else if (!pr->is_root() && pc->is_root())
+          storeBlock(pr->start_index(), pc->start_index(), pr->nsamplets(),
+                     pc->Q().cols(), val[j].bottomRows(pr->nsamplets()));
+        else if (pr->is_root() && !pc->is_root())
+          storeBlock(pr->start_index(), pc->start_index(), pr->Q().cols(),
+                     pc->nsamplets(), val[j].rightCols(pc->nsamplets()));
       }
     }
     m_blx_.resize(0, 0);
@@ -241,19 +258,19 @@ class ompSampletCompressor {
                   const Eigen::MatrixBase<otherDerived> &block) {
     for (auto k = 0; k < ncols; ++k)
       for (auto j = 0; j < nrows; ++j)
-        if ((srow + j <= scol + k && abs(block(j, k)) > threshold_) ||
-            srow + j == scol + k)
+        if (abs(block(j, k)) > threshold_ || srow + j == scol + k)
           triplet_list_.push_back(
               Eigen::Triplet<Scalar>(srow + j, scol + k, block(j, k)));
   }
 
   //////////////////////////////////////////////////////////////////////////////
-  Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic, int> perm_;
   std::vector<Eigen::Triplet<Scalar>> triplet_list_;
   FMCA::SparseMatrix<Matrix> m_blx_;
   FMCA::SparseMatrix<Index> pattern_;
-  std::vector<const Derived *> s_mapper_;
+  std::vector<const Derived *> row_mapper_;
+  std::vector<const Derived *> col_mapper_;
   std::vector<std::vector<const Derived *>> lvl_mapper_;
+  Index m_clusters_;
   Index n_clusters_;
   Index max_level_;
   Scalar eta_;

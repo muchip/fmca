@@ -20,8 +20,29 @@
 #include <FMCA/Samplets>
 ////////////////////////////////////////////////////////////////////////////////
 #include <FMCA/src/Samplets/omp_samplet_compressor.h>
+#include <FMCA/src/Samplets/omp_samplet_compressor_unsymmetric.h>
 #include <FMCA/src/util/Errors.h>
 #include <FMCA/src/util/IO.h>
+////////////////////////////////////////////////////////////////////////////////
+void plotGrid(const std::string &fileName, const Eigen::MatrixXd &P, int nx,
+              int ny, int nz, const Eigen::VectorXd &color) {
+  std::ofstream myfile;
+  myfile.open(fileName);
+  myfile << "# vtk DataFile Version 3.1\n";
+  myfile << "this file hopefully represents my surface now\n";
+  myfile << "ASCII\n";
+  myfile << "DATASET STRUCTURED_GRID\n";
+  myfile << "DIMENSIONS " << nx << " " << ny << " " << nz << std::endl;
+  myfile << "POINTS " << P.cols() << " FLOAT" << std::endl;
+  for (auto i = 0; i < P.cols(); ++i)
+    myfile << P(0, i) << " " << P(1, i) << " " << P(2, i) << std::endl;
+  myfile << "POINT_DATA " << color.size() << "\n";
+  myfile << "SCALARS value FLOAT\n";
+  myfile << "LOOKUP_TABLE default\n";
+  for (auto i = 0; i < color.size(); ++i) myfile << color(i) << std::endl;
+  myfile.close();
+}
+////////////////////////////////////////////////////////////////////////////////
 struct thinPCov {
   thinPCov(const double R) : R_(R), R3_(R * R * R) {}
   template <typename derived, typename otherDerived>
@@ -40,30 +61,35 @@ using Moments = FMCA::NystromMoments<Interpolator>;
 using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
 using MatrixEvaluator = FMCA::NystromMatrixEvaluator<Moments, thinPCov>;
 using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
+using MatrixEvaluatorUS =
+    FMCA::unsymmetricNystromMatrixEvaluator<Moments, thinPCov>;
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
   const unsigned int dtilde = 4;
   const double eta = 0.8;
   const unsigned int mp_deg = 6;
-  const double ridgep = 1;
+  const double ridgep = atof(argv[4]);
   double threshold = 1e-5;
   FMCA::Tictoc T;
   std::fstream output_file;
   Eigen::MatrixXd P;
   Eigen::MatrixXd Peval;
+  const unsigned int nx = 100;
+  const unsigned int ny = 100;
+  const unsigned int nz = 60;
   Eigen::VectorXd y;
+  //////////////////////////////////////////////////////////////////////////////
+  // init data points and evaluation points
+  //////////////////////////////////////////////////////////////////////////////
   {
-    const unsigned int ninner = 1000;
-    const unsigned int nouter = 1000;
-    const unsigned int nbdry = 10000;
-    const unsigned int neval = 20000;
-    Eigen::MatrixXd Pts = readMatrix("../Points/David.txt");
-    Eigen::MatrixXd mean = Pts.colwise().sum() / Pts.rows();
-    std::cout << mean << std::endl;
-    Pts = Pts - Eigen::MatrixXd::Ones(Pts.rows(), 1) * mean;
-    const double scal = Pts.rowwise().norm().maxCoeff();
-    std::cout << "geometry enc ball radius: " << scal << std::endl;
-    Pts /= scal;
+    const unsigned int ninner = atoi(argv[1]);
+    const unsigned int nouter = atoi(argv[2]);
+    const unsigned int nbdry = atoi(argv[3]);
+    Eigen::MatrixXd Pts = readMatrix("../Points/bunnySurface.txt");
+    Eigen::MatrixXd pts_min = Pts.colwise().minCoeff();
+    Eigen::MatrixXd pts_max = Pts.colwise().maxCoeff();
+    pts_min *= 1.1;
+    pts_max *= 1.1;
     std::vector<int> subsample(Pts.rows());
     std::iota(subsample.begin(), subsample.end(), 0);
     std::random_shuffle(subsample.begin(), subsample.end());
@@ -72,33 +98,38 @@ int main(int argc, char *argv[]) {
     for (auto i = 0; i < ninner; ++i) {
       Eigen::Vector3d rdm;
       rdm.setRandom();
-      while (rdm.norm() > 0.1) rdm.setRandom();
-      P.col(i) = rdm;
+      P.col(i) = 0.1 * rdm / rdm.norm();
+      // P(2, i) += 0.2;
       y(i) = 1;
     }
     for (auto i = ninner; i < ninner + nbdry; ++i) {
       P.col(i) = Pts.row(subsample[i]).transpose();
       y(i) = 0;
     }
+    Peval.resize(P.rows(), nx * ny * nz);
+    double hx = (pts_max(0) - pts_min(0)) / (nx - 1);
+    double hy = (pts_max(1) - pts_min(1)) / (ny - 1);
+    double hz = (pts_max(2) - pts_min(2)) / (nz - 1);
     for (auto i = ninner + nbdry; i < P.cols(); ++i) {
       Eigen::Vector3d rdm;
       rdm.setRandom();
-      while (rdm.norm() < 0.6 || rdm.norm() > 0.9) rdm.setRandom();
-      P.col(i) = 2 * rdm;
+      rdm /= rdm.cwiseAbs().maxCoeff();
+      rdm = 0.5 * (rdm.array() + 1);
+      P.col(i) = (pts_max - pts_min).transpose().array() * rdm.array() +
+                 pts_min.transpose().array();
       y(i) = -1;
     }
-    Peval.resize(P.rows(), neval);
-    for (auto i = 0; i < Peval.cols(); ++i) {
-      Eigen::Vector3d rdm;
-      rdm.setRandom();
-      while (rdm.norm() > 0.9) rdm.setRandom();
-      Peval.col(i) = 2 * rdm;
-    }
+    auto l = 0;
+    for (auto k = 0; k < nz; ++k)
+      for (auto j = 0; j < ny; ++j)
+        for (auto i = 0; i < nx; ++i, ++l)
+          Peval.col(l) << pts_min(0) + hx * i, pts_min(1) + hy * j,
+              pts_min(2) + hz * k;
+
+    FMCA::IO::plotPointsColor("initalSetup.vtk", P, y);
   }
-  FMCA::IO::plotPointsColor("initalSetup.vtk", P, y);
-  // P = Eigen::MatrixXd::Random(3, 10000);
-  // Eigen::MatrixXd normP = P.colwise().norm();
-  // for (auto i = 0; i < P.cols(); ++i) P.col(i) /= normP(i);
+  //////////////////////////////////////////////////////////////////////////////
+  // init samplet matrix at data sites
   //////////////////////////////////////////////////////////////////////////////
   const unsigned int npts = P.cols();
   const unsigned int dim = P.rows();
@@ -110,7 +141,8 @@ int main(int argc, char *argv[]) {
             << "multipole degree:            " << mp_deg << std::endl
             << "vanishing moments:           " << dtilde << std::endl
             << "aposteriori threshold:       " << threshold << std::endl
-            << "ridge parameter:             " << ridgep << std::endl;
+            << "ridge parameter:             " << ridgep << std::endl
+            << "number of evaluation points: " << nx * ny * nz << std::endl;
   const Moments mom(P, mp_deg);
   const MatrixEvaluator mat_eval(mom, function);
   const SampletMoments samp_mom(P, dtilde - 1);
@@ -124,22 +156,17 @@ int main(int argc, char *argv[]) {
   std::cout << "separation distance:         " << min_min_dist << std::endl;
   T.tic();
   FMCA::ompSampletCompressor<H2SampletTree> comp;
-  comp.init(hst, eta, threshold);
-  T.toc("omp initializer:            ");
+  comp.init(hst, eta, 0);
   comp.compress(hst, mat_eval);
   double comp_time = T.toc("cummulative compressor:     ");
   std::vector<Eigen::Triplet<double>> trips = comp.triplets();
-  std::cout << "triplet size (\% of INT_MAX): "
-            << (long double)(trips.size()) / (long double)(INT_MAX)*100
+  std::cout << "anz:                         " << (double)(trips.size()) / npts
             << std::endl;
-  std::cout << "anz:                         "
-            << (long double)(trips.size()) / npts << std::endl;
   FMCA::SparseMatrix<double>::sortTripletsInPlace(trips);
   double comperr =
       FMCA::errorEstimatorSymmetricCompressor(trips, function, hst, P);
-  std::cout << "compression error:           " << comperr << std::endl
-            << std::flush;
-  Eigen::SparseMatrix<double, Eigen::RowMajor> K(npts, npts);
+  std::cout << "compression error:           " << comperr << std::endl;
+  Eigen::SparseMatrix<double> K(npts, npts);
   K.setFromTriplets(trips.begin(), trips.end());
   if (ridgep > 0) {
     T.tic();
@@ -148,6 +175,9 @@ int main(int argc, char *argv[]) {
     T.toc("added regularization:       ");
   }
   K.makeCompressed();
+  //////////////////////////////////////////////////////////////////////////////
+  // invert samplet matrix
+  //////////////////////////////////////////////////////////////////////////////
   Eigen::SparseMatrix<double, Eigen::RowMajor> invK = K;
   T.tic();
   pardiso_interface(invK.outerIndexPtr(), invK.innerIndexPtr(), invK.valuePtr(),
@@ -166,15 +196,51 @@ int main(int argc, char *argv[]) {
     err = (z - x).norm() / x.norm();
   }
   std::cout << "inverse error:               " << err << std::endl;
-  auto I = hst.Indices();
-  Eigen::VectorXd yI = y;
-  Eigen::MatrixXd PI = P;
-  for (auto i = 0; i < I.size(); ++i) yI(i) = y(I(i));
-  for (auto i = 0; i < I.size(); ++i) PI.col(i) = P.col(I(i));
-  Eigen::MatrixXd Keval(Peval.cols(), PI.cols());
-  for (auto i = 0; i < PI.cols(); ++i)
-    for (auto j = 0; j < Peval.cols(); ++j)
-      Keval(j, i) = function(Peval.col(j), PI.col(i));
-
+  //////////////////////////////////////////////////////////////////////////////
+  // evaluate posterior mean
+  //////////////////////////////////////////////////////////////////////////////
+  std::cout << std::string(75, '=') << std::endl;
+  std::cout << "evaluation phase" << std::endl;
+  const Moments mom2(Peval, mp_deg);
+  const MatrixEvaluator mat_eval2(mom2, function);
+  const SampletMoments samp_mom2(Peval, dtilde - 1);
+  T.tic();
+  H2SampletTree hst_eval(mom2, samp_mom2, 0, Peval);
+  T.toc("evaluation tree setup:      ");
+  T.tic();
+  FMCA::ompSampletCompressorUnsymmetric<H2SampletTree> comp_unsym;
+  comp_unsym.init(hst_eval, hst, eta, threshold);
+  T.toc("omp initializer unsymmetric:");
+  const MatrixEvaluatorUS mat_eval_us(mom2, mom, function);
+  comp_unsym.compress(hst_eval, hst, mat_eval_us);
+  comp_time = T.toc("cummulative compressor usym:");
+  std::vector<Eigen::Triplet<double>> trips_eval = comp_unsym.triplets();
+  std::cout << "anz:                         "
+            << (double)(trips_eval.size()) / npts << std::endl;
+  auto J = hst.indices();
+  auto I = hst_eval.indices();
+  Eigen::SparseMatrix<double> Keval(I.size(), J.size());
+  Keval.setFromTriplets(trips_eval.begin(), trips_eval.end());
+  Eigen::VectorXd yJ = y;
+  Eigen::MatrixXd PJ = P;
+  Eigen::MatrixXd PevalI = Peval;
+  for (auto i = 0; i < J.size(); ++i) yJ(i) = y(J[i]);
+  for (auto i = 0; i < J.size(); ++i) PJ.col(i) = P.col(J[i]);
+  for (auto i = 0; i < I.size(); ++i) PevalI.col(i) = Peval.col(I[i]);
+  Eigen::VectorXd TyJ = hst.sampletTransform(yJ);
+  Eigen::VectorXd Tmu = invK.selfadjointView<Eigen::Upper>() * TyJ;
+  err = (K.selfadjointView<Eigen::Upper>() * Tmu - TyJ).norm() / TyJ.norm();
+  std::cout << err << std::endl;
+  for (auto i = 0; i < 20; ++i) {
+    Eigen::VectorXd res = TyJ - K.selfadjointView<Eigen::Upper>() * Tmu;
+    Tmu += 0.9 * (invK.selfadjointView<Eigen::Upper>() * res).eval();
+    err = (K.selfadjointView<Eigen::Upper>() * Tmu - TyJ).norm() / TyJ.norm();
+    std::cout << err << std::endl;
+  }
+  Eigen::VectorXd mu = hst.inverseSampletTransform(Tmu);
+  Eigen::VectorXd predI = hst_eval.inverseSampletTransform(Keval * Tmu);
+  Eigen::VectorXd pred = predI;
+  for (auto i = 0; i < pred.size(); ++i) pred(I[i]) = predI(i);
+  plotGrid("prediction.vtk", Peval, nx, ny, nz, pred);
   return 0;
 }
