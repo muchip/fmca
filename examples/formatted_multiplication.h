@@ -161,13 +161,13 @@ void formatted_sparse_multiplication(largeSparse &pattern,
   const largeSparse::StorageIndex *ia3 = mat2.outerIndexPtr();
   const largeSparse::StorageIndex *ja3 = mat2.innerIndexPtr();
   const largeSparse::Scalar *a3 = mat2.valuePtr();
-  std::cout << "using axpy\n";
+  std::cout << "using axpy2\n";
 
 #pragma omp parallel for
   for (auto i = 0; i < n; ++i) {
     for (auto j = ia2[i]; j < ia2[i + 1]; ++j)
       if (std::abs(a2[j]) > 1e-15)
-        formatted_sparse_axpy(ja + ia[i], ia[i + 1] - ia[i], a + ia[i],
+        formatted_sparse_axpy2(ja + ia[i], ia[i + 1] - ia[i], a + ia[i],
                               ja3 + ia3[ja2[j]], ia3[ja2[j] + 1] - ia3[ja2[j]],
                               a3 + ia3[ja2[j]], scal * a2[j]);
   }

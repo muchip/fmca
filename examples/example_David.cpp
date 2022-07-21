@@ -39,7 +39,8 @@ void plotGrid(const std::string &fileName, const Eigen::MatrixXd &P, int nx,
   myfile << "POINT_DATA " << color.size() << "\n";
   myfile << "SCALARS value FLOAT\n";
   myfile << "LOOKUP_TABLE default\n";
-  for (auto i = 0; i < color.size(); ++i) myfile << color(i) << std::endl;
+  for (auto i = 0; i < color.size(); ++i)
+    myfile << color(i) << std::endl;
   myfile.close();
 }
 ////////////////////////////////////////////////////////////////////////////////
@@ -74,8 +75,8 @@ int main(int argc, char *argv[]) {
   std::fstream output_file;
   Eigen::MatrixXd P;
   Eigen::MatrixXd Peval;
-  const unsigned int nx = 100;
-  const unsigned int ny = 100;
+  const unsigned int nx = 60;
+  const unsigned int ny = 60;
   const unsigned int nz = 60;
   Eigen::VectorXd y;
   //////////////////////////////////////////////////////////////////////////////
@@ -98,8 +99,7 @@ int main(int argc, char *argv[]) {
     for (auto i = 0; i < ninner; ++i) {
       Eigen::Vector3d rdm;
       rdm.setRandom();
-      P.col(i) = 0.1 * rdm / rdm.norm();
-      // P(2, i) += 0.2;
+      P.col(i) = 0.05 * rdm / rdm.norm();
       y(i) = 1;
     }
     for (auto i = ninner; i < ninner + nbdry; ++i) {
@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
   //////////////////////////////////////////////////////////////////////////////
   const unsigned int npts = P.cols();
   const unsigned int dim = P.rows();
-  const auto function = thinPCov(2);
+  const auto function = thinPCov(1.6);
   std::cout << std::string(75, '=') << std::endl;
   std::cout << "N:                           " << npts << std::endl
             << "dim:                         " << dim << std::endl
@@ -188,7 +188,8 @@ int main(int argc, char *argv[]) {
     Eigen::MatrixXd x(npts, 10), y(npts, 10), z(npts, 10);
     x.setRandom();
     Eigen::VectorXd nrms = x.colwise().norm();
-    for (auto i = 0; i < x.cols(); ++i) x.col(i) /= nrms(i);
+    for (auto i = 0; i < x.cols(); ++i)
+      x.col(i) /= nrms(i);
     y.setZero();
     z.setZero();
     y = K.selfadjointView<Eigen::Upper>() * x;
@@ -224,9 +225,12 @@ int main(int argc, char *argv[]) {
   Eigen::VectorXd yJ = y;
   Eigen::MatrixXd PJ = P;
   Eigen::MatrixXd PevalI = Peval;
-  for (auto i = 0; i < J.size(); ++i) yJ(i) = y(J[i]);
-  for (auto i = 0; i < J.size(); ++i) PJ.col(i) = P.col(J[i]);
-  for (auto i = 0; i < I.size(); ++i) PevalI.col(i) = Peval.col(I[i]);
+  for (auto i = 0; i < J.size(); ++i)
+    yJ(i) = y(J[i]);
+  for (auto i = 0; i < J.size(); ++i)
+    PJ.col(i) = P.col(J[i]);
+  for (auto i = 0; i < I.size(); ++i)
+    PevalI.col(i) = Peval.col(I[i]);
   Eigen::VectorXd TyJ = hst.sampletTransform(yJ);
   Eigen::VectorXd Tmu = invK.selfadjointView<Eigen::Upper>() * TyJ;
   err = (K.selfadjointView<Eigen::Upper>() * Tmu - TyJ).norm() / TyJ.norm();
@@ -239,8 +243,19 @@ int main(int argc, char *argv[]) {
   }
   Eigen::VectorXd mu = hst.inverseSampletTransform(Tmu);
   Eigen::VectorXd predI = hst_eval.inverseSampletTransform(Keval * Tmu);
-  Eigen::VectorXd pred = predI;
-  for (auto i = 0; i < pred.size(); ++i) pred(I[i]) = predI(i);
+  igen::VectorXd pred = predI;
+  for (auto i = 0; i < pred.size(); ++i)
+    pred(I[i]) = predI(i);
   plotGrid("prediction.vtk", Peval, nx, ny, nz, pred);
+  largeMatrix invKl;
+  {
+    largeMatrix bla = invK;
+    invKl = invK.selfadjointView<Eigen::Upper>();
+  }
+  largeMatrix Kevall(Keval.rows(), Keval.cols());
+  Kevall.setFromTriplets(trips_eval.begin(), trips_eval.end());
+  largeSparse invKK = Kevall;
+  memset(invKK.valuePtr(), 0, invKK.nonZeros() * sizeof(double));
+  formatted_multiplication(invKK, invKl, Kevall);
   return 0;
 }
