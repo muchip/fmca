@@ -32,18 +32,27 @@ information.
 #
 #   in this file, and comment out the line  
 
-find_package (Eigen3 3.3 REQUIRED NO_MODULE)
+#find_package (Eigen3 3.3 REQUIRED NO_MODULE)
+cmake_minimum_required (VERSION 3.0)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+find_package(Eigen3 REQUIRED)
+
+include_directories(${EIGEN3_INCLUDE_DIR})
+message("${CMAKE_MODULE_PATH}")
+message("${EIGEN3_INCLUDE_DIR}")
 
 #   below. Then place the eigen3 directory obtained from downloading 
 #   Eigen in Bembels root directory, where this CMake file sits. 
 #   Afterwards, comment or remove the 
 #
-#   target_link_libraries(example_Quadrature.out Eigen3::Eigen)
+#   target_link_libraries(example_Quadrature.out Eigen3::${PROJECT_SOURCE_DIR}Eigen)
 #
 #   lines in the CMake-Files of "\examples" and "\tests".
 
 
-set (FMCA_PATH "${PROJECT_SOURCE_DIR}")
+set (FMCA_PATH ${PROJECT_SOURCE_DIR})
+
+message("${PROJECT_SOURCE_DIR}")
 
 include(CheckCXXCompilerFlag)
 CHECK_CXX_COMPILER_FLAG("-march=native" MARCHNATIVE)
