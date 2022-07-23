@@ -1,0 +1,31 @@
+// This file is part of FMCA, the Fast Multiresolution Covariance Analysis
+// package.
+//
+// Copyright (c) 2022, Michael Multerer
+//
+// All rights reserved.
+//
+// This source code is subject to the GNU General Public License version 3
+// license and without any warranty, see <https://github.com/muchip/FMCA>
+// for further information.
+//
+#ifndef FMCA_SAMPLETS_MODULE_
+#define FMCA_SAMPLETS_MODULE_
+
+#include <Eigen/Dense>
+#include <Eigen/QR>
+#include <Eigen/SVD>
+#include <Eigen/Sparse>
+
+#include "Clustering"
+#include "Moments"
+#include "Interpolators"
+
+#include "src/util/ForwardDeclarations.h"
+#include "src/util/Macros.h"
+
+#include "src/Samplets/SampletTreeBase.h"
+#include "src/Samplets/SampletMapper.h"
+#include "src/Samplets/SampletTree.h"
+
+#endif

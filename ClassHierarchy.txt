@@ -1,0 +1,20 @@
+// This file is part of FMCA, the Fast Multiresolution Covariance Analysis
+// package.
+//
+// Copyright (c) 2022, Michael Multerer
+//
+// All rights reserved.
+//
+// This source code is subject to the GNU General Public License version 3
+// license and without any warranty, see <https://github.com/muchip/FMCA>
+// for further information.
+//
+
+TreeBase<Derived>
+   <-- ClusterTreeBase<Derived>
+      <-- ClusterTree
+      <-- H2ClusterTreeBase<Derived>
+         <-- H2ClusterTree
+      <-- SampletTreeBase<Derived>
+         <-- H2SampletTreeBase<Derived>
+            <-- H2SampletTree

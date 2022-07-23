@@ -1,0 +1,33 @@
+// This file is part of FMCA, the Fast Multiresolution Covariance Analysis
+// package.
+//
+// Copyright (c) 2022, Michael Multerer
+//
+// All rights reserved.
+//
+// This source code is subject to the GNU General Public License version 3
+// license and without any warranty, see <https://github.com/muchip/FMCA>
+// for further information.
+//
+#ifndef FMCA_CLUSTERING_MODULE_
+#define FMCA_CLUSTERING_MODULE_
+
+#include <algorithm>
+#include <iomanip>
+#include <iostream>
+#include <numeric>
+#include <string>
+
+#include <Eigen/Dense>
+
+#include "src/util/ForwardDeclarations.h"
+#include "src/util/Macros.h"
+#include "src/util/TreeBase.h"
+
+#include "src/Clustering/ClusterTreeBase.h"
+#include "src/Clustering/ClusterTreeInitializer_ClusterTree.h"
+#include "src/Clustering/ClusterTreeMetrics.h"
+#include "src/Clustering/ClusterTreeSplitter.h"
+#include "src/Clustering/ClusterTree.h"
+
+#endif
