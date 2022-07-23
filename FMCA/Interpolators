@@ -1,0 +1,22 @@
+// This file is part of FMCA, the Fast Multiresolution Covariance Analysis
+// package.
+//
+// Copyright (c) 2022, Michael Multerer
+//
+// All rights reserved.
+//
+// This source code is subject to the GNU Affero General Public License v3.0
+// license and without any warranty, see <https://github.com/muchip/FMCA>
+// for further information.
+//
+#ifndef FMCA_INTERPOLATORS_MODULE_
+#define FMCA_INTERPOLATORS_MODULE_
+
+#include <Eigen/Dense>
+
+#include "src/util/MultiIndexSet.h"
+
+#include "src/Interpolators/LejaPoints.h"
+#include "src/Interpolators/MonomialInterpolator.h"
+
+#endif
