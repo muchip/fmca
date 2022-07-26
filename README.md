@@ -10,5 +10,4 @@ interface for python, which can be compiled using cmake:
 mkdir build
 cd build
 cmake ../
-make release
 ```
