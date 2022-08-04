@@ -16,10 +16,11 @@ The left panel shows the kernel matrix, the middle panel the reordered matrix an
 
 
 ## Installation
-FMCA is a header only library
+FMCA is a header only library. It depends on [Eigen](https://eigen.tuxfamily.org),
+which has to be installed in advance.
 
-The current implementation provides a pybind11
-interface for python, which can be compiled using cmake:
+Moreover, thanks to [pybind11](https://github.com/pybind/pybind11), FMCA may be compiled into a python module.
+To this end, pybind11 needs to be installed as well. Afterwards, the module can simply be compiled using cmake:
 ```
 mkdir build
 cd build
