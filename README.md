@@ -15,6 +15,7 @@ signal sampled at 100000 random locations like
 the first 500 coefficients of the transformed signal looks like this
 ![What is this](assets/Tsignal.png)
 
+The example above can be found and modified in the jupyter notebook FMCA_Samplets
 
 
 ## Details
@@ -25,6 +26,7 @@ interface for python, which can be compiled using cmake:
 ```
 mkdir build
 cd build
-cmake ../
+cmake -DCMAKE_BUILD_TYPE=Release ../
 make
 ```
+example files and the compiled library are then located in build/py
