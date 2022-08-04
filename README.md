@@ -1,5 +1,5 @@
 # FMCA
-**Fast multiresolution covariance approximation**
+**Fast multiresolution covariance analysis**
 
 FMCA is a header only library for the multiresolution analysis of scattered data and kernel matrices. It is developed
 at the [Università della Svizzera italiana](https://www.usi.ch) in the research group of [Michael Multerer](http://usi.to/3ps).
