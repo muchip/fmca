@@ -1,6 +1,9 @@
 # FMCA
 **Fast multiresolution covariance approximation**
 
+FMCA is a header only library for the multiresolution analysis of scattered data and kernel matrices. It is developed
+at the [Università della Svizzera italiana](https://www.usi.ch) in the research group of [Michael Multerer](http://usi.to/3ps).
+
 Currently, the library features the construction of samplet bases and different versions of the pivoted Cholesky decomposition.
 The fast samplet covariance compression introduced in 
 [Samplets: Construction and scattered data compression](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4053305)
@@ -16,7 +19,7 @@ The left panel shows the kernel matrix, the middle panel the reordered matrix an
 
 
 ## Installation
-FMCA is a header only library. It depends on [Eigen](https://eigen.tuxfamily.org),
+FMCA is header only. It depends on [Eigen](https://eigen.tuxfamily.org),
 which has to be installed in advance.
 
 Moreover, thanks to [pybind11](https://github.com/pybind/pybind11), FMCA may be compiled into a python module.
