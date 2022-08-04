@@ -32,7 +32,7 @@ example files and the compiled library are then located in build/py
 ## Samplets
 
 FMCA features a samplet basis, which can be used to localize a given signal in the frequency domain. Given for example a
-signal sampled at 100000 random locations like
+signal sampled at 100000 random locations, e.g.,
 ![What is this](assets/signal.png)
 
 the first 500 coefficients of the transformed signal looks like this
