@@ -2,7 +2,7 @@
 **Fast multiresolution covariance approximation**
 
 Currently, the library features the construction of samplet bases and different versions of the pivoted Cholesky decomposition.
-The samplet covariance compression introduced in 
+The fast samplet covariance compression introduced in 
 [Samplets: Construction and scattered data compression](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4053305)
 will be added soon.
 
