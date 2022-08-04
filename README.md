@@ -6,6 +6,15 @@ The samplet covariance compression introduced in
 [Samplets: Construction and scattered data compression](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4053305)
 will be added soon.
 
+Different scaling distributions and samplets on a Sigma shaped point cloud my look for example like depicted below.
+![What is this](assets/samplets.png)
+
+Representing an exponential covariance kernel with respect to this basis and truncating small entries leads to a sparse matrix
+which can be factorized using nested dissection
+![What is this](assets/compressed_kernel.png)
+The left panel shows the kernel matrix, the middle panel the reordered matrix and the right panel the Cholesky factor.
+
+
 ## Installation
 FMCA is a header only library
 
