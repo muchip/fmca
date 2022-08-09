@@ -40,6 +40,10 @@ struct pySampletTree {
     return Eigen::Map<const FMCA::iVector>(ST_.indices().data(),
                                            ST_.indices().size());
   }
+  FMCA::iVector levels() {
+    std::vector<FMCA::Index> lvl = FMCA::internal::sampletLevelMapper(ST_);
+    return Eigen::Map<const FMCA::iVector>(lvl.data(), lvl.size());
+  }
   FMCA::Index dtilde_;
   SampletTree ST_;
 };
@@ -54,8 +58,7 @@ struct pyCovarianceKernel {
   pyCovarianceKernel(const std::string &ktype, FMCA::Scalar l) : l_(l) {
     // transform string to upper and check if kernel is implemented
     ktype_ = ktype;
-    for (auto &c : ktype_)
-      c = (char)toupper(c);
+    for (auto &c : ktype_) c = (char)toupper(c);
     if (ktype_ == "GAUSSIAN")
       kernel_ = [this](FMCA::Scalar r) { return exp(-r * r / l_); };
     else if (ktype_ == "EXPONENTIAL")
@@ -175,8 +178,7 @@ struct pyPivotedCholesky {
       FMCA::Matrix K = ker.eval(P, P);
       es.compute(K);
       info_ = es.info();
-      if (es.info() != Eigen::Success)
-        return;
+      if (es.info() != Eigen::Success) return;
     }
     FMCA::Vector ev = es.eigenvalues().reverse();
     std::cout << "lambda min: " << ev.minCoeff() << " "
@@ -213,7 +215,7 @@ struct pyPivotedCholesky {
 ////////////////////////////////////////////////////////////////////////////////
 
 PYBIND11_MODULE(FMCA, m) {
-  m.doc() = "pybind11 FMCA plugin"; // optional module docstring
+  m.doc() = "pybind11 FMCA plugin";  // optional module docstring
   //////////////////////////////////////////////////////////////////////////////
   // ClusterTree
   //////////////////////////////////////////////////////////////////////////////
@@ -234,6 +236,7 @@ PYBIND11_MODULE(FMCA, m) {
   pySampletTree_.def(py::init<>());
   pySampletTree_.def(py::init<const FMCA::Matrix &, FMCA::Index>());
   pySampletTree_.def("indices", &pySampletTree::indices);
+  pySampletTree_.def("levels", &pySampletTree::levels);
 
   m.def(
       "sampletTreeStatistics",
