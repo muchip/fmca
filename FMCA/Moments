@@ -24,5 +24,6 @@
 #include "src/Moments/SampletHelper.h"
 #include "src/Moments/NystromMoments.h"
 #include "src/Moments/NystromSampletMoments.h"
+#include "src/Moments/MinNystromSampletMoments.h"
 
 #endif
