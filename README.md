@@ -54,4 +54,4 @@ posterior mean (read) and posterior standard deviation (green) conditioned on th
 
 The example above can be found and modified in the jupyter notebook FMCA_GP
 
-A samplet matrix compression based approach will be added in the future, allowing for huge amounts of conditioning variables.
+A samplet matrix compression based approach will be added in the future (allowing for huge amounts of conditioning variables).
