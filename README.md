@@ -42,3 +42,16 @@ the first 500 coefficients of the transformed signal looks like this
 ![What is this](assets/Tsignal.png)
 
 The example above can be found and modified in the jupyter notebook FMCA_Samplets
+
+## Gaussian process learning
+
+FMCA provides different variants of the pivoted (truncated) Cholesky decomposition, cp.
+[On the low-rank approximation by the pivoted Cholesky decomposition](https://www.sciencedirect.com/science/article/pii/S0168927411001814)
+and the references therein, that can be used for Gaussian process learning.
+
+posterior mean (read) and posterior standard deviation (green) conditioned on the blue dots
+![What is this](assets/gaussian_process.png)
+
+The example above can be found and modified in the jupyter notebook FMCA_GP
+
+A samplet matrix compression based approach will be added in the future (allowing for huge amounts of conditioning variables).
