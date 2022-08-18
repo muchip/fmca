@@ -27,5 +27,6 @@
 #include "src/Samplets/SampletTreeBase.h"
 #include "src/Samplets/SampletMapper.h"
 #include "src/Samplets/SampletTree.h"
+#include "src/Samplets/samplet_transformer.h"
 
 #endif

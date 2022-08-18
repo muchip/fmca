@@ -10,4 +10,7 @@ add_test(SampletBasis test_SampletBasis.out)
 add_executable(test_ClusterTreeMetrics.out test_ClusterTreeMetrics.cpp)
 add_test(ClusterTreeMetrics test_ClusterTreeMetrics.out)
 
+add_executable(test_SampletTransformer.out test_SampletTransformer.cpp)
+add_test(SampletTransformer test_SampletTransformer.out)
+
 enable_testing()
