@@ -261,6 +261,16 @@ PYBIND11_MODULE(FMCA, m) {
       },
       py::arg().noconvert(), py::arg().noconvert(),
       "Performs inverse samplet transform of data");
+
+  m.def(
+      "sampletTransformMinLevel",
+      [](const pySampletTree &tree, const FMCA::Matrix &data,
+         const FMCA::Index min_level) {
+        FMCA::SampletTransformer<SampletTree> s_trafo(tree.ST_, min_level);
+        return s_trafo.transform(data);
+      },
+      py::arg().noconvert(), py::arg().noconvert(), py::arg().noconvert(),
+      "Performs samplet transform of data");
   //////////////////////////////////////////////////////////////////////////////
   // CovarianceKernel
   //////////////////////////////////////////////////////////////////////////////
