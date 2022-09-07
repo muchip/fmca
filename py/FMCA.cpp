@@ -98,6 +98,7 @@ struct pyPivotedCholesky {
     B_.resize(0, 0);
     indices_.resize(0);
     tol_ = 0;
+    mineig_ = 0;
   };
   pyPivotedCholesky(const pyCovarianceKernel &ker, const FMCA::Matrix &P,
                     FMCA::Scalar tol = 1e-3)
@@ -105,6 +106,7 @@ struct pyPivotedCholesky {
     L_.resize(0, 0);
     B_.resize(0, 0);
     indices_.resize(0);
+    mineig_ = 0;
     compute(ker, P, tol);
   };
 
@@ -183,6 +185,7 @@ struct pyPivotedCholesky {
     FMCA::Vector ev = es.eigenvalues().reverse();
     std::cout << "lambda min: " << ev.minCoeff() << " "
               << "lambda max: " << ev.maxCoeff();
+    mineig_ = ev.minCoeff();
     FMCA::Scalar tr = ev.sum();
     FMCA::Scalar cur_tr = 0;
     FMCA::Index step = 0;
@@ -203,12 +206,14 @@ struct pyPivotedCholesky {
   const FMCA::iVector &indices() { return indices_; }
   const FMCA::Scalar &tol() { return tol_; }
   const FMCA::Index &info() { return info_; }
+  const FMCA::Scalar& mineig() { return mineig_; }
 
   FMCA::Matrix L_;
   FMCA::Matrix B_;
   FMCA::iVector indices_;
   FMCA::Scalar tol_;
   FMCA::Index info_;
+  FMCA::Scalar mineig_;
   // we cap the maximum matrix size at 2GB
   const FMCA::Index max_size_ = 250000000;
 };
@@ -297,4 +302,6 @@ PYBIND11_MODULE(FMCA, m) {
                          "Computes the truncated spectral decomposition");
   pyPivotedCholesky_.def("indices", &pyPivotedCholesky::indices);
   pyPivotedCholesky_.def("matrixL", &pyPivotedCholesky::matrixL);
+  pyPivotedCholesky_.def("mineig", &pyPivotedCholesky::mineig);
+
 }

@@ -20,10 +20,10 @@
 int main() {
   FMCA::Tictoc T;
   FMCA::Scalar fill_distance = 0;
-  FMCA::Scalar separation_radius = 1. / 0.;
+  FMCA::Scalar separation_radius = FMCA_INF;
   const FMCA::Matrix P = Eigen::MatrixXd::Random(DIM, NPTS);
   for (auto j = 0; j < P.cols(); ++j) {
-    FMCA::Scalar dist = FMCA::Scalar(1. / 0.);
+    FMCA::Scalar dist = FMCA_INF;
     for (auto i = 0; i < P.cols(); ++i) {
       if (i != j) {
         FMCA::Scalar rad = 0.5 * (P.col(i) - P.col(j)).norm();

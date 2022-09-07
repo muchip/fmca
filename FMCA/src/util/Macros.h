@@ -21,6 +21,7 @@ namespace FMCA {
 #define FMCA_BBOX_THREASHOLD 1e-2
 #define FMCA_ZERO_TOLERANCE 2e-16
 
+#define FMCA_INF  std::numeric_limits<double>::infinity()
 typedef unsigned int Index;
 
 typedef double Scalar;

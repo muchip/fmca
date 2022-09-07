@@ -143,7 +143,7 @@ void clusterTreeStatistics(const ClusterTreeBase<Derived> &CT,
   Index n_cluster = std::distance(CT.cbegin(), CT.cend());
   Scalar vol = CT.bb().col(2).prod();
   Scalar max_disc = 0;
-  Scalar min_disc = 1. / 0.;
+  Scalar min_disc = FMCA_INF;
   Scalar mean_disc = 0;
   Vector min_dist = minDistanceVector(CT, P);
   Scalar min_min_dist = min_dist.minCoeff();
@@ -193,7 +193,7 @@ void clusterTreeStatistics(const ClusterTreeBase<Derived> &CT,
         }
     }
     FMCA::Scalar bar_factor = 40 * min_dist.size() / values.maxCoeff();
-    bar_factor = bar_factor < Scalar(1. / 0.) ? bar_factor : 0;
+    bar_factor = bar_factor < FMCA_INF ? bar_factor : 0;
     for (auto i = 0; i < intervals; ++i) {
       std::cout << std::scientific << std::setprecision(2) << std::setw(9)
                 << h * (i + 0.5) * min_min_dist << "|";
@@ -219,7 +219,7 @@ void clusterTreeStatistics(const ClusterTreeBase<Derived> &CT,
         }
     }
     FMCA::Scalar bar_factor = 40 * disc_vec.size() / values.maxCoeff();
-    bar_factor = bar_factor < Scalar(1. / 0.) ? bar_factor : 0;
+    bar_factor = bar_factor < FMCA_INF ? bar_factor : 0;
     for (auto i = 0; i < intervals; ++i) {
       std::cout << std::scientific << std::setprecision(2) << std::setw(9)
                 << exp(h * (i + 0.5)) * min_disc << "|";

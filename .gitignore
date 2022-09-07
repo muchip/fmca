@@ -3,3 +3,4 @@
 *.out
 Documentation/
 build/
+build_alpine/

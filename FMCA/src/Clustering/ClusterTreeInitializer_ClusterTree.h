@@ -117,8 +117,8 @@ struct ClusterTreeInitializer<ClusterTree> {
     } else {
       // set everything to inf;
       bbmat.setOnes();
-      bbmat.col(0) *= Scalar(1. / 0.);
-      bbmat.col(1) *= -Scalar(1. / 0.);
+      bbmat.col(0) *= FMCA_INF;
+      bbmat.col(1) *= -FMCA_INF;
     }
     bbmat.col(2) = bbmat.col(1) - bbmat.col(0);
     CT.node().bb_ = bbmat;
