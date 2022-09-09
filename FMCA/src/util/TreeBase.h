@@ -21,10 +21,12 @@
 namespace FMCA {
 
 namespace internal {
-template <typename Derived> struct traits {};
+template <typename Derived>
+struct traits {};
 
-} // namespace internal
-template <typename Derived> struct NodeBase {
+}  // namespace internal
+template <typename Derived>
+struct NodeBase {
   // return a reference to the derived object
   Derived &derived() { return *static_cast<Derived *>(this); }
   // return a const reference to the derived object */
@@ -36,8 +38,9 @@ template <typename Derived> struct NodeBase {
  *  \brief manages a generic tree providing tree topology and a node
  *         iterator
  */
-template <typename Derived> class TreeBase {
-public:
+template <typename Derived>
+class TreeBase {
+ public:
   typedef typename internal::traits<Derived>::Node Node;
   // when a tree is constructed, we add at least the memory for its node
   TreeBase() noexcept : dad_(nullptr), level_(0) {
@@ -55,7 +58,8 @@ public:
   const Derived &derived() const { return *static_cast<const Derived *>(this); }
   //////////////////////////////////////////////////////////////////////////////
   // exposed the trees init routine
-  template <typename... Ts> void init(Ts &&...ts) {
+  template <typename... Ts>
+  void init(Ts &&...ts) {
     derived().init(std::forward<Ts>(ts)...);
   }
   //////////////////////////////////////////////////////////////////////////////
@@ -64,6 +68,11 @@ public:
   //////////////////////////////////////////////////////////////////////////////
   iterator begin() { return iterator(static_cast<Derived *>(this), 0); }
   iterator end() { return iterator(nullptr, 0); }
+  // the following guys are added to not break range based loop in const case
+  const_iterator begin() const {
+    return const_iterator(static_cast<const Derived *>(this), 0);
+  }
+  const_iterator end() const { return iterator(nullptr, 0); }
   const_iterator cbegin() const {
     return const_iterator(static_cast<const Derived *>(this), 0);
   }
@@ -99,20 +108,18 @@ public:
   //////////////////////////////////////////////////////////////////////////////
   // provide a levelwise ordered output of the tree for debugging purposes only
   void exportTreeStructure(std::vector<std::vector<Index>> &tree) {
-    if (level() >= tree.size())
-      tree.resize(level() + 1);
+    if (level() >= tree.size()) tree.resize(level() + 1);
     tree[level()].push_back(node().indices_.size());
-    for (auto i = 0; i < nSons(); ++i)
-      sons(i).exportTreeStructure(tree);
+    for (auto i = 0; i < nSons(); ++i) sons(i).exportTreeStructure(tree);
   }
   //////////////////////////////////////////////////////////////////////////////
-private:
+ private:
   std::vector<TreeBase> sons_;
   std::unique_ptr<NodeBase<Node>> node_;
   TreeBase *dad_;
   Index level_;
 };
 
-} // namespace FMCA
+}  // namespace FMCA
 
 #endif

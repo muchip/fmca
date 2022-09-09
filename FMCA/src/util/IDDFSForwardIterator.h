@@ -19,7 +19,8 @@ namespace FMCA {
  *  \brief realizes a levelwise traversal of a tree using an
  *         iterative deepening depth-first search
  **/
-template <typename T, bool IS_CONST> struct IDDFSForwardIterator {
+template <typename T, bool IS_CONST>
+struct IDDFSForwardIterator {
   using value_type = typename std::conditional<IS_CONST, const T, T>::type;
   using iterator_category = std::forward_iterator_tag;
   using difference_type = std::ptrdiff_t;
@@ -27,13 +28,15 @@ template <typename T, bool IS_CONST> struct IDDFSForwardIterator {
   using reference = value_type &;
 
   explicit IDDFSForwardIterator(pointer ptr, Index depth)
-      : ptr_(ptr), depth_(depth), max_depth_(0) {}
+      : prev_(nullptr), ptr_(ptr), depth_(depth), max_depth_(0) {}
 
   reference operator*() const { return *ptr_; }
   pointer operator->() const { return ptr_; }
 
   // Prefix increment
   IDDFSForwardIterator &operator++() {
+    // store previous state
+    prev_ = ptr_;
     // as our search terminated, we are at a leaf with the current allowed
     // depth. Check if there are more of them by going up
     while (ptr_->dad_ != nullptr) {
@@ -44,8 +47,7 @@ template <typename T, bool IS_CONST> struct IDDFSForwardIterator {
           ptr_ = static_cast<pointer>(std::addressof(ptr_->sons_.front()));
         // did we find a valid next node? if so return it
         max_depth_ = max_depth_ < ptr_->level_ ? ptr_->level_ : max_depth_;
-        if (ptr_->level_ == depth_)
-          return *this;
+        if (ptr_->level_ == depth_) return *this;
       } else
         ptr_ = static_cast<pointer>(ptr_->dad_);
     }
@@ -56,8 +58,7 @@ template <typename T, bool IS_CONST> struct IDDFSForwardIterator {
         ptr_ = static_cast<pointer>(std::addressof(ptr_->sons_.front()));
       max_depth_ = max_depth_ < ptr_->level_ ? ptr_->level_ : max_depth_;
       // did we find a valid next node? if so return it
-      if (ptr_->level_ != depth_)
-        ++(*this);
+      if (ptr_->level_ != depth_) ++(*this);
     } else
       ptr_ = nullptr;
     return *this;
@@ -81,12 +82,13 @@ template <typename T, bool IS_CONST> struct IDDFSForwardIterator {
     return IDDFSForwardIterator<T, true>(ptr_, depth_);
   }
 
-private:
+ private:
+  pointer prev_;
   pointer ptr_;
   Index depth_;
   Index max_depth_;
   // give iterator access to const_iterator::m_ptr
   friend IDDFSForwardIterator<T, false>;
 };
-} // namespace FMCA
+}  // namespace FMCA
 #endif
