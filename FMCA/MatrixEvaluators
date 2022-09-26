@@ -9,15 +9,11 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#ifndef FMCA_INTERPOLATORS_MODULE_
-#define FMCA_INTERPOLATORS_MODULE_
+#ifndef FMCA_MATRIXEVALUATORS_MODULE_
+#define FMCA_MATRIXEVALUATORS_MODULE_
 
-#include <Eigen/Dense>
+#include "Moments"
 
-#include "src/util/MultiIndexSet.h"
-
-#include "src/Interpolators/LejaPoints.h"
-#include "src/Interpolators/MonomialInterpolator.h"
-#include "src/Interpolators/TensorProductInterpolator.h"
+#include "src/MatrixEvaluators/NystromEvaluator.h"
 
 #endif
