@@ -13,7 +13,7 @@
 #define FMCA_H2MATRIX_H2FORWRDTRANSFORM_IMPL_H_
 
 namespace FMCA {
-
+namespace internal {
 /**
  *  \ingroup H2Matrix
  *  \brief implements the forward transform for the matrix times vector product
@@ -42,5 +42,6 @@ std::vector<Matrix> forward_transform_impl(
   forward_transform_recursion(*(mat.ccluster()), &retval, vec);
   return retval;
 };
+}  // namespace internal
 }  // namespace FMCA
 #endif
