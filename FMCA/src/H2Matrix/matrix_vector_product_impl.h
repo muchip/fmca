@@ -13,6 +13,7 @@
 #define FMCA_H2MATRIX_MATRIXVECTORPRODUCTIMPL_H_
 
 namespace FMCA {
+namespace internal {
 template <typename Derived, typename otherDerived>
 Matrix matrix_vector_product_impl(const Derived &H2,
                                   const Eigen::MatrixBase<otherDerived> &rhs) {
@@ -37,5 +38,6 @@ Matrix matrix_vector_product_impl(const Derived &H2,
   backward_transform_recursion(*(H2.rcluster()), &lhs, tlhs);
   return lhs;
 }
+}  // namespace internal
 }  // namespace FMCA
 #endif

@@ -65,35 +65,35 @@ class H2Matrix {
   const Matrix &matrixS() const { return S_; }
   //////////////////////////////////////////////////////////////////////////////
   // (m, n, fblocks, lrblocks, nz(A), mem)
-  std::vector<double> get_statistics() const {
-    std::vector<double> retval;
+  Matrix get_statistics() const {
+    Matrix retval(6, 1);
     Index low_rank_blocks = 0;
     Index full_blocks = 0;
     Index memory = 0;
     getStatisticsRecursion(&low_rank_blocks, &full_blocks, &memory);
-    std::cout << "matrix size: " << row_cluster_->indices().size() << " x "
+    std::cout << "matrix size:                  "
+              << row_cluster_->indices().size() << " x "
               << col_cluster_->indices().size() << std::endl;
-    retval.push_back(row_cluster_->indices().size());
-    retval.push_back(col_cluster_->indices().size());
-    std::cout << "number of low rank blocks: " << low_rank_blocks << std::endl;
-    retval.push_back(low_rank_blocks);
-
-    std::cout << "number of full blocks: " << full_blocks << std::endl;
-    retval.push_back(full_blocks);
-
-    std::cout << "nz per row: "
+    retval(0, 0) = row_cluster_->indices().size();
+    retval(1, 0) = col_cluster_->indices().size();
+    std::cout << "number of low rank blocks:    " << low_rank_blocks
+              << std::endl;
+    retval(2, 0) = low_rank_blocks;
+    std::cout << "number of full blocks:        " << full_blocks << std::endl;
+    retval(3, 0) = full_blocks;
+    std::cout << "nz per row:                   "
               << round(Scalar(memory) / col_cluster_->indices().size())
               << std::endl;
-    retval.push_back(round(Scalar(memory) / col_cluster_->indices().size()));
-    std::cout << "storage size: " << Scalar(memory * sizeof(Scalar)) / 1e9
-              << "GB" << std::endl;
-    retval.push_back(Scalar(memory * sizeof(Scalar)) / 1e9);
+    retval(4, 0) = round(Scalar(memory) / col_cluster_->indices().size());
+    std::cout << "storage size:                 "
+              << Scalar(memory * sizeof(Scalar)) / 1e9 << "GB" << std::endl;
+    retval(5, 0) = Scalar(memory * sizeof(Scalar)) / 1e9;
     return retval;
   }
 
   template <typename otherDerived>
   Matrix operator*(const Eigen::MatrixBase<otherDerived> &rhs) const {
-    return matrix_vector_product_impl(*this, rhs);
+    return internal::matrix_vector_product_impl(*this, rhs);
   }
   //////////////////////////////////////////////////////////////////////////////
   Matrix full() const {

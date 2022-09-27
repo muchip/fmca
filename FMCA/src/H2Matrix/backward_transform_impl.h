@@ -13,7 +13,7 @@
 #define FMCA_H2MATRIX_H2BACKWARDTRANSFORM_IMPL_H_
 
 namespace FMCA {
-
+namespace internal {
 /**
  *  \ingroup H2Matrix
  *  \brief implements the forward transform for the matrix times vector product
@@ -39,5 +39,6 @@ Matrix backward_transform_impl(const Derived &mat, std::vector<Matrix> &vec) {
   backward_transform_recursion(*(mat.rcluster()), &retval, vec);
   return retval;
 };
+}  // namespace internal
 }  // namespace FMCA
 #endif
