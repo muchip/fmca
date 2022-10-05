@@ -19,7 +19,7 @@
 
 #include "../FMCA/src/Samplets/samplet_matrix_compressor.h"
 
-#define NPTS 300
+#define NPTS 10000
 #define DIM 2
 #define MPOLE_DEG 3
 #define LEAFSIZE 10
@@ -54,20 +54,24 @@ int main() {
       FMCA::internal::SampletMatrixCompressor<H2SampletTree> Scomp;
       Scomp.init(hst, eta, 0);
       T.toc("planner:");
+      T.tic();
+      Scomp.compress(mat_eval);
+      T.toc("compressor:");
+      std::cout << "comp calls: " << Scomp.comp_calls_ << std::endl;
+      std::cout << "recycled blocks: " << Scomp.rec_blocks_ << std::endl;
 
-#if 0
-      Scomp.compress(hst, hst, mat_eval, eta, threshold);
-      const auto &trips = Scomp.pattern_triplets();
+      T.tic();
+      const auto &trips = Scomp.triplets();
+      T.toc("triplets:");
       Eigen::MatrixXd K;
       mat_eval.compute_dense_block(hst, hst, &K);
       hst.sampletTransformMatrix(K);
-      // K.triangularView<Eigen::StrictlyLower>().setZero();
+      K.triangularView<Eigen::StrictlyLower>().setZero();
       Eigen::SparseMatrix<double> S(K.rows(), K.cols());
       S.setFromTriplets(trips.begin(), trips.end());
       std::cout << "compression error: " << (S - K).norm() / K.norm()
                 << std::endl;
       std::cout << std::string(60, '-') << std::endl;
-#endif
     }
   }
   return 0;
