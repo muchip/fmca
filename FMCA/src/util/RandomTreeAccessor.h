@@ -46,8 +46,8 @@ class RandomTreeAccessor {
   }
 
   Index max_level() const { return max_level_; }
-  std::vector<const Derived *> nodes() const { return nodes_; }
-  std::vector<Index> levels() const { return levels_; }
+  const std::vector<const Derived *> &nodes() const { return nodes_; }
+  const std::vector<Index> &levels() const { return levels_; }
 
  private:
   std::vector<const Derived *> nodes_;
