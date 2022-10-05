@@ -13,4 +13,10 @@ add_test(ClusterTreeMetrics test_ClusterTreeMetrics.out)
 add_executable(test_SampletTransformer.out test_SampletTransformer.cpp)
 add_test(SampletTransformer test_SampletTransformer.out)
 
+add_executable(test_TreeIterator.out test_TreeIterator.cpp)
+add_test(TreeIterator test_TreeIterator.out)
+
+add_executable(test_H2Matrix.out test_H2Matrix.cpp)
+add_test(H2Matrix test_H2Matrix.out)
+
 enable_testing()
