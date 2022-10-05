@@ -32,8 +32,7 @@ class SampletTransformer {
     max_level_ = 0;
     n_blocks_ = 0;
     // first sweep to determine samplet tree characteristics
-    for (auto it = ST.cbegin(); it != ST.cend(); ++it) {
-      const Derived &cluster = it->derived();
+    for (const auto &cluster : ST) {
       max_level_ = max_level_ < cluster.level() ? cluster.level() : max_level_;
       ++n_blocks_;
     }
@@ -42,8 +41,7 @@ class SampletTransformer {
     lvl_mapper_.resize(max_level_ + 1 - min_level_);
     // second sweep to map tree levels
     Index start = 0;
-    for (auto it = ST.cbegin(); it != ST.cend(); ++it) {
-      const Derived &cluster = it->derived();
+    for (const auto &cluster : ST) {
       if (cluster.level() >= min_level_) {
         lvl_mapper_[cluster.level() - min_level_].push_back(
             std::addressof(cluster));

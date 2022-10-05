@@ -18,14 +18,19 @@
 #include <iostream>
 ////////////////////////////////////////////////////////////////////////////////
 #include <FMCA/Clustering>
+#include <FMCA/H2Matrix>
 #include <FMCA/Samplets>
 ////////////////////////////////////////////////////////////////////////////////
 namespace py = pybind11;
-
+// Samplets
 using SampletInterpolator = FMCA::MonomialInterpolator;
 using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
 using SampletTree = FMCA::SampletTree<FMCA::ClusterTree>;
-
+// H2Matrix
+using Interpolator = FMCA::TensorProductInterpolator;
+using Moments = FMCA::NystromMoments<Interpolator>;
+using H2ClusterTree = FMCA::H2ClusterTree<FMCA::ClusterTree>;
+using H2Matrix = FMCA::H2Matrix<H2ClusterTree>;
 /**
  *  \brief wrapper class for a samplet tree
  *
@@ -87,7 +92,33 @@ struct pyCovarianceKernel {
   FMCA::Scalar l_;
 };
 ////////////////////////////////////////////////////////////////////////////////
-
+/**
+ *  \brief wrapper class for an H2Matrix
+ *
+ **/
+struct pyH2Matrix {
+  pyH2Matrix(){};
+  pyH2Matrix(const pyCovarianceKernel &ker, const FMCA::Matrix &P,
+             const FMCA::Index p = 3, const FMCA::Scalar eta = 0.8) {
+    init(ker, P, p, eta);
+  };
+  void init(const pyCovarianceKernel &ker, const FMCA::Matrix &P,
+            const FMCA::Index p = 3, const FMCA::Scalar eta = 0.8) {
+    p_ = p;
+    eta_ = eta;
+    using MatrixEvaluator = FMCA::NystromEvaluator<Moments, pyCovarianceKernel>;
+    const Moments mom(P, p_);
+    const MatrixEvaluator mat_eval(mom, ker);
+    ct_.init(mom, 0, P);
+    hmat_.init(ct_, mat_eval, eta);
+  }
+  FMCA::Matrix statistics() const { return hmat_.get_statistics(); }
+  H2Matrix hmat_;
+  H2ClusterTree ct_;
+  FMCA::Index p_;
+  FMCA::Scalar eta_;
+};
+////////////////////////////////////////////////////////////////////////////////
 /**
  *  \brief class providing Cholesky kernel approximations
  *
@@ -285,6 +316,17 @@ PYBIND11_MODULE(FMCA, m) {
   pyCovarianceKernel_.def("kernelType", &pyCovarianceKernel::kernelType);
   pyCovarianceKernel_.def("eval", &pyCovarianceKernel::eval,
                           py::arg().noconvert(), py::arg().noconvert());
+  //////////////////////////////////////////////////////////////////////////////
+  // H2Matrix
+  //////////////////////////////////////////////////////////////////////////////
+  py::class_<pyH2Matrix> pyH2Matrix_(m, "H2Matrix");
+  pyH2Matrix_.def(py::init<>());
+  pyH2Matrix_.def(py::init<const pyCovarianceKernel &, const FMCA::Matrix &,
+                           const FMCA::Index, const FMCA::Scalar>());
+  pyH2Matrix_.def("compute", &pyH2Matrix::init, py::arg().noconvert(),
+                  py::arg().noconvert(), py::arg(), py::arg(),
+                  "Computes the H2Matrix");
+  pyH2Matrix_.def("statistics", &pyH2Matrix::statistics);
   //////////////////////////////////////////////////////////////////////////////
   // pivoted Cholesky decomposition
   //////////////////////////////////////////////////////////////////////////////

@@ -16,6 +16,8 @@ namespace FMCA {
 
 template <typename Derived> struct ClusterTreeBase;
 
+template <typename Derived> struct H2ClusterTreeBase;
+
 namespace internal {
 template <typename Derived> struct ClusterTreeInitializer;
 }
@@ -24,9 +26,13 @@ class ClusterTree;
 
 template <typename ClusterTreeType> class SampletTree;
 
+template <typename ClusterTreeType> class H2ClusterTree;
+
 struct ClusterTreeNode;
 
 struct SampletTreeNode;
+
+struct H2ClusterTreeNode;
 
 } // namespace FMCA
 

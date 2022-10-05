@@ -6,7 +6,7 @@ at the [Università della Svizzera italiana](https://www.usi.ch) in the research
 
 Currently, the library features the construction of samplet bases and different versions of the pivoted Cholesky decomposition.
 The fast samplet covariance compression introduced in 
-[Samplets: Construction and scattered data compression](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4053305)
+[Samplets: Construction and scattered data compression](https://doi.org/10.1016/j.jcp.2022.111616)
 will be added soon.
 
 Different scaling distributions and samplets on a Sigma shaped point cloud my look for example like depicted below.
