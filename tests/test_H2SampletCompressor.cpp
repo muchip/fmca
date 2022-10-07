@@ -19,16 +19,28 @@
 
 #include "../FMCA/src/Samplets/samplet_matrix_compressor.h"
 
-#define NPTS 10000
+#define NPTS 20000
 #define DIM 2
 #define MPOLE_DEG 3
 #define LEAFSIZE 10
 
 struct exponentialKernel {
   double operator()(const FMCA::Matrix &x, const FMCA::Matrix &y) const {
-    return exp(-10 * (x - y).norm());
+    return exp(-(x - y).norm());
   }
 };
+
+namespace FMCA {
+template <typename Functor>
+Vector matrixColumnGetter(const Matrix &P, const std::vector<Index> &idcs,
+                          const Functor &fun, Index colID) {
+  Vector retval(P.cols());
+  retval.setZero();
+  for (auto i = 0; i < retval.size(); ++i)
+    retval(i) = fun(P.col(idcs[i]), P.col(idcs[colID]));
+  return retval;
+}
+} // namespace FMCA
 
 using Interpolator = FMCA::TensorProductInterpolator;
 using SampletInterpolator = FMCA::MonomialInterpolator;
@@ -40,37 +52,52 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 int main() {
   FMCA::Tictoc T;
   const auto function = exponentialKernel();
-  const Eigen::MatrixXd P = Eigen::MatrixXd::Random(DIM, NPTS);
-  const double threshold = 1e-15;
+  const FMCA::Matrix P = 0.5 * (FMCA::Matrix::Random(DIM, NPTS).array() + 1);
+  const FMCA::Scalar threshold = 1e-4;
   const Moments mom(P, MPOLE_DEG);
   const MatrixEvaluator mat_eval(mom, function);
 
   for (int dtilde = 1; dtilde <= 4; ++dtilde) {
-    for (double eta = 1; eta >= 0; eta -= 0.5) {
+    for (double eta = 1.2; eta >= 0.4; eta -= 0.2) {
       std::cout << "dtilde= " << dtilde << " eta= " << eta << std::endl;
       const SampletMoments samp_mom(P, dtilde - 1);
       H2SampletTree hst(mom, samp_mom, 0, P);
       T.tic();
       FMCA::internal::SampletMatrixCompressor<H2SampletTree> Scomp;
-      Scomp.init(hst, eta, 0);
+      Scomp.init(hst, eta, threshold);
       T.toc("planner:");
       T.tic();
       Scomp.compress(mat_eval);
       T.toc("compressor:");
       std::cout << "comp calls: " << Scomp.comp_calls_ << std::endl;
       std::cout << "recycled blocks: " << Scomp.rec_blocks_ << std::endl;
-
       T.tic();
       const auto &trips = Scomp.triplets();
       T.toc("triplets:");
-      Eigen::MatrixXd K;
-      mat_eval.compute_dense_block(hst, hst, &K);
-      hst.sampletTransformMatrix(K);
-      K.triangularView<Eigen::StrictlyLower>().setZero();
-      Eigen::SparseMatrix<double> S(K.rows(), K.cols());
-      S.setFromTriplets(trips.begin(), trips.end());
-      std::cout << "compression error: " << (S - K).norm() / K.norm()
+      std::cout << "anz: " << std::round(trips.size() / FMCA::Scalar(NPTS))
                 << std::endl;
+      FMCA::Vector x(NPTS), y1(NPTS), y2(NPTS);
+      FMCA::Scalar err = 0;
+      FMCA::Scalar nrm = 0;
+      for (auto i = 0; i < 10; ++i) {
+        FMCA::Index index = rand() % P.cols();
+        x.setZero();
+        x(index) = 1;
+        y1 = FMCA::matrixColumnGetter(P, hst.indices(), function, index);
+        x = hst.sampletTransform(x);
+        y2.setZero();
+        for (const auto &i : trips) {
+          y2(i.row()) += i.value() * x(i.col());
+          if (i.row() != i.col())
+            y2(i.col()) += i.value() * x(i.row());
+        }
+        y2 = hst.inverseSampletTransform(y2);
+        err += (y1 - y2).squaredNorm();
+        nrm += y1.squaredNorm();
+      }
+      err = sqrt(err / nrm);
+      std::cout << "compression error:        " << err << std::endl
+                << std::flush;
       std::cout << std::string(60, '-') << std::endl;
     }
   }
