@@ -13,7 +13,7 @@
 #define FMCA_SAMPLETS_SAMPLETTRANSFORMER_H_
 
 namespace FMCA {
-
+namespace internal {
 /**
  *  \ingroup Samplets
  *  \brief class which performs a samplet transform given a samplet tree
@@ -144,6 +144,7 @@ class SampletTransformer {
   Index min_level_;
   Index max_level_;
 };
+}  // namespace internal
 }  // namespace FMCA
 
 #endif

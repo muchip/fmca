@@ -30,13 +30,13 @@ int main() {
   X.setRandom();
   auto Yref = st.sampletTransform(X);
   {
-    FMCA::SampletTransformer<SampletTree> s_transform(st, 0);
+    FMCA::internal::SampletTransformer<SampletTree> s_transform(st, 0);
     auto Y = s_transform.transform(X);
     assert((Yref - Y).norm() / Yref.norm() < FMCA_ZERO_TOLERANCE &&
            "error in samplet transformer for min_level = 0");
   }
   for (auto lvl = 1; lvl < 10; ++lvl) {
-    FMCA::SampletTransformer<SampletTree> s_transform(st, lvl);
+    FMCA::internal::SampletTransformer<SampletTree> s_transform(st, lvl);
     auto TtTX = s_transform.inverseTransform(s_transform.transform(X));
     assert((X - TtTX).norm() / X.norm() < 10 * FMCA_ZERO_TOLERANCE &&
            "error in samplet transformer for min_level > 0");
