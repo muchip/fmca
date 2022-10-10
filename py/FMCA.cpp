@@ -14,6 +14,7 @@
 #include <pybind11/pybind11.h>
 ////////////////////////////////////////////////////////////////////////////////
 #include <Eigen/Dense>
+#include <Eigen/Sparse>
 #include <functional>
 #include <iostream>
 ////////////////////////////////////////////////////////////////////////////////
@@ -136,7 +137,7 @@ struct pySampletKernelCompressor {
                             const pyCovarianceKernel &ker,
                             const FMCA::Matrix &P, const FMCA::Scalar eta = 0.8,
                             const FMCA::Scalar thres = 0)
-      : eta_(eta), thres_(thres) {
+      : eta_(eta), thres_(thres), n_(P.cols()) {
     init(hst, ker, P, eta, thres);
   }
   template <typename Functor>
@@ -154,17 +155,22 @@ struct pySampletKernelCompressor {
             const FMCA::Scalar thres = 0) {
     const Moments mom(P, hst.p_);
     const MatrixEvaluator mat_eval(mom, ker);
+    n_ = P.cols();
     eta_ = eta;
     thres_ = thres;
     std::cout << "mpole deg:                    " << hst.p_ << std::endl;
     std::cout << "dtilde:                       " << hst.dtilde_ << std::endl;
     std::cout << "eta:                          " << eta << std::endl;
     std::cout << "thres:                        " << thres << std::endl;
-    scomp_.init(hst.ST_, eta, thres);
-    scomp_.compress(mat_eval);
-    const auto &trips = scomp_.triplets();
+    {
+      FMCA::internal::SampletMatrixCompressor<H2SampletTree> scomp;
+      scomp.init(hst.ST_, eta, thres);
+      scomp.compress(mat_eval);
+      trips_ = scomp.triplets();
+    }
     std::cout << "anz:                          "
-              << std::round(trips.size() / FMCA::Scalar(P.cols())) << std::endl;
+              << std::round(trips_.size() / FMCA::Scalar(P.cols()))
+              << std::endl;
     FMCA::Vector x(P.cols()), y1(P.cols()), y2(P.cols());
     FMCA::Scalar err = 0;
     FMCA::Scalar nrm = 0;
@@ -175,7 +181,7 @@ struct pySampletKernelCompressor {
       y1 = matrixColumnGetter(P, hst.ST_.indices(), ker, index);
       x = hst.ST_.sampletTransform(x);
       y2.setZero();
-      for (const auto &i : trips) {
+      for (const auto &i : trips_) {
         y2(i.row()) += i.value() * x(i.col());
         if (i.row() != i.col())
           y2(i.col()) += i.value() * x(i.row());
@@ -185,12 +191,17 @@ struct pySampletKernelCompressor {
       nrm += y1.squaredNorm();
     }
     err = sqrt(err / nrm);
-    std::cout << "compression error:            " << err << std::endl
-              << std::flush;
+    std::cout << "compression error:            " << err << std::endl;
   }
-  FMCA::internal::SampletMatrixCompressor<H2SampletTree> scomp_;
+  Eigen::SparseMatrix<FMCA::Scalar> matrix() {
+    Eigen::SparseMatrix<FMCA::Scalar> retval(n_, n_);
+    retval.setFromTriplets(trips_.begin(), trips_.end());
+    return retval;
+  }
+  std::vector<Eigen::Triplet<FMCA::Scalar>> trips_;
   FMCA::Scalar eta_;
   FMCA::Scalar thres_;
+  FMCA::Index n_;
 };
 
 /**
@@ -411,6 +422,8 @@ PYBIND11_MODULE(FMCA, m) {
                                  py::arg().noconvert(), py::arg().noconvert(),
                                  py::arg().noconvert(), py::arg(), py::arg(),
                                  "Computes the compressed kernel");
+  pySampletKernelCompressor_.def("matrix", &pySampletKernelCompressor::matrix,
+                                 "returns the compressed kernel matrix");
   //////////////////////////////////////////////////////////////////////////////
   // pivoted Cholesky decomposition
   //////////////////////////////////////////////////////////////////////////////
