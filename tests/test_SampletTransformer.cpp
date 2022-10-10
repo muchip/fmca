@@ -30,7 +30,7 @@ int main() {
   X.setRandom();
   auto Yref = st.sampletTransform(X);
   {
-    FMCA::SampletTransformer<SampletTree> s_transform(st, 0);
+    FMCA::internal::SampletTransformer<SampletTree> s_transform(st, 0);
     auto Y = s_transform.transform(X);
     assert((Yref - Y).norm() / Yref.norm() < FMCA_ZERO_TOLERANCE &&
            "error in samplet transformer for min_level = 0");
