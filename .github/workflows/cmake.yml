@@ -2,9 +2,9 @@ name: CMake
 
 on:
   push:
-    branches: [ "dbaroli/multivariateGP" ]
+    branches: [ "daved-dev/cmake-action" ]
   pull_request:
-    branches: [ "dbaroli/multivariateGP" ]
+    branches: [ "daved-dev/cmake-action" ]
    # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:   
     
