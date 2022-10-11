@@ -58,6 +58,7 @@ if (NOT TARGET Eigen3::Eigen)
     if(USE_SYSTEM_EIGEN AND ${Eigen3_FOUND})
         set_package_properties(Eigen3 PROPERTIES TYPE REQUIRED PURPOSE "C++ vector data structures")
         message(STATUS "Found Eigen3 Version: ${Eigen3_VERSION} Path: ${Eigen3_DIR}")
+    endif()		
 else()
 
     FetchContent_Declare(
