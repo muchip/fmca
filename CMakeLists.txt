@@ -15,7 +15,7 @@ execute_process(COMMAND python3-config --includes
                     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                     RESULT_VARIABLE PYTHON_HEADER)
 message("python header are ${PYTHON_HEADER}")
-
+message("python env variable for header ${PYTHON_INCLUDE_DIRS}")
 message(STATUS "
 ****************************************************************************
 *                  ______   __    __    ______    ______                   * 
