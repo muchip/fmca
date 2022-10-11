@@ -5,6 +5,9 @@ on:
     branches: [ "dbaroli/multivariateGP" ]
   pull_request:
     branches: [ "dbaroli/multivariateGP" ]
+   # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:   
+    
 
 
 
