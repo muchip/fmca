@@ -74,8 +74,9 @@ if (NOT TARGET Eigen3::Eigen)
 	  add_subdirectory(${eigen3_SOURCE_DIR} ${eigen3_BINARY_DIR})
 	  message("SRC; ${Eigen3_SOURCE_DIR}") # Apparently empty?
 	  message("BIN: ${Eigen3_BINARY_DIR}") # Apparently empty?
-	  FetchContent_MakeAvailable(eigen3)
-	  message( "${CMAKE_CURRENT_BINARY_DIR}/_dep/Eigen_install/include/eigen3")
+	  include_directories(${eigen3_SOURCE_DIR})
+	  #FetchContent_MakeAvailable(eigen3)
+	  message( "ls ${eigen3_SOURCE_DIR}")
 	endif()
 endif()
 
