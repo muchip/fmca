@@ -62,7 +62,7 @@ FetchContent_Declare(
  )
 
 FetchContent_GetProperties(Eigen3)
-if(NOT Eigen_POPULATED)
+if(NOT Eigen3_POPULATED)
   FetchContent_Populate(Eigen3)
         
   message("SRC; ${Eigen3_SOURCE_DIR}") # Apparently empty?
