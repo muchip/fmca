@@ -2,7 +2,9 @@ cmake_minimum_required(VERSION 3.21)
 project(FMCA CXX)
 # Fetch dependency 
 include(FetchContent)
+ # More verbose Output for libraries using set_package_properties
 
+include(FeatureSummary)
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.18.0")
   find_package(Python 3.9 COMPONENTS Interpreter Development.Module REQUIRED)
 else()
