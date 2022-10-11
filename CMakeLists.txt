@@ -83,6 +83,7 @@ else()
 	  message("BIN: ${Eigen3_BINARY_DIR}") # Apparently empty?
 	  FetchContent_MakeAvailable(eigen3)
 	  message( "${CMAKE_CURRENT_BINARY_DIR}/_dep/Eigen_install/include/eigen3")
+	endif()
 endif()
 
 
