@@ -11,7 +11,10 @@ else()
   find_package(Python 3.9 COMPONENTS Interpreter Development REQUIRED)
 endif()
 
-message(python3-config --includes)
+execute_process(COMMAND python3-config --includes 
+                    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                    RESULT_VARIABLE PYTHON_HEADER)
+message("python header are ${PYTHON_HEADER}")
 
 message(STATUS "
 ****************************************************************************
