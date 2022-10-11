@@ -34,5 +34,5 @@ set_target_properties(FMCA PROPERTIES PREFIX "${PYTHON_MODULE_PREFIX}"
 SUFFIX "${PYTHON_MODULE_EXTENSION}")
 target_link_libraries(FMCA PRIVATE  pybind11::module)
 else() 
-target_link_libraries(FMCA PUBBLIC pybind11::module)
+target_link_libraries(FMCA INTERFACE pybind11::module Eigen::Eigen3)
 endif()
