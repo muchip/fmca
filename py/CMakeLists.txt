@@ -32,6 +32,6 @@ target_link_libraries(FMCA PRIVATE pybind11::module)
 if( ${CMAKE_HOST_WIN32}) # 
 set_target_properties(FMCA PROPERTIES PREFIX "${PYTHON_MODULE_PREFIX}"
 SUFFIX "${PYTHON_MODULE_EXTENSION}")
-else 
+else() 
 target_link_libraries(FMCA PUBBLIC pybind11::module)
 endif()
