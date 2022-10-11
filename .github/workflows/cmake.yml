@@ -35,7 +35,7 @@ jobs:
         include:
           - toolchain: linux-gcc
             os: ubuntu-latest
-            compiler: gcc
+            compiler: [gcc]
 
           - toolchain: macos-clang
             os: macos-latest
@@ -48,7 +48,10 @@ jobs:
     steps:
     - name: Checkout Code
       uses: actions/checkout@v2
-
+    - name: Load python3
+      uses: actions/setup-python@v4
+      with:
+          python-version: '3.10' 
     - name: Configure (${{ matrix.configuration }})
       run: cmake -S . -Bbuild -DCMAKE_BUILD_TYPE=${{ matrix.configuration }}
 
