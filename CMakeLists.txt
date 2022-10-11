@@ -63,7 +63,13 @@ if(NOT Eigen_POPULATED)
   message("SRC; ${Eigen3_SOURCE_DIR}") # Apparently empty?
   message("BIN: ${Eigen3_BINARY_DIR}") # Apparently empty?
   add_subdirectory(${eigen3_SOURCE_DIR} ${eigen3_BINARY_DIR})
-  include_directories(${eigen3_INCLUDE_DIR})
+  find_path(Eigen3_INCLUDE_DIR
+  NAMES signature_of_eigen3_matrix_library
+	PATHS
+	  ${Eigen3-submodule_SOURCE_DIR}
+  )
+
+include_directories(${Eigen3_INCLUDE_DIR})
 
 else()
   find_package(Eigen3 REQUIRED)
