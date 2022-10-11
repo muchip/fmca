@@ -11,6 +11,7 @@ else()
   find_package(Python 3.9 COMPONENTS Interpreter Development REQUIRED)
 endif()
 
+message(python3-config --includes)
 
 message(STATUS "
 ****************************************************************************
