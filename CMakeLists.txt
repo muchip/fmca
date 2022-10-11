@@ -55,11 +55,16 @@ FetchContent_Declare(
   Eigen3
   GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
   GIT_TAG        3.4.0
-)
+  QUIET
+  CMAKE_ARGS
+        -DEIGEN_TEST_CXX11:BOOL=OFF
+        -DBUILD_TESTING:BOOL=OFF
+ )
 
 FetchContent_GetProperties(Eigen3)
 if(NOT Eigen_POPULATED)
   FetchContent_Populate(Eigen3)
+        
   message("SRC; ${Eigen3_SOURCE_DIR}") # Apparently empty?
   message("BIN: ${Eigen3_BINARY_DIR}") # Apparently empty?
   add_subdirectory(${eigen3_SOURCE_DIR} ${eigen3_BINARY_DIR})
