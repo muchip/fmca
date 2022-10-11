@@ -10,12 +10,22 @@ if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.18.0")
 else()
   find_package(Python 3.9 COMPONENTS Interpreter Development REQUIRED)
 endif()
-
+# Get include directory of Python
 execute_process(COMMAND python3-config --includes
                     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-                    RESULT_VARIABLE PYTHON_HEADER)
-message("python header are ${PYTHON_HEADER}")
+                    RESULT_VARIABLE _PYTHON_HEADERS
+		    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+# for some reason the include dir is returned twice
+# and with -I prepended which must be removed. 
+separate_arguments(_INCLDIRS_LIST UNIX_COMMAND "${_PYTHON_HEADERS}")  # Convert to list
+list(GET _INCLDIRS_LIST 0 PYTHON_HEADER_0)  # save the 1st element
+string(REPLACE "-I" "" PYTHON_INCLUDE_DIRS ${PYTHON_HEADER_0})  # chop off leading -I, save result
+ 
+message("python header are ${_PYTHON_HEADERS}")
 message("python env variable for header ${PYTHON_INCLUDE_DIRS}")
+
 message(STATUS "
 ****************************************************************************
 *                  ______   __    __    ______    ______                   * 
