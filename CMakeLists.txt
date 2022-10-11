@@ -54,14 +54,7 @@ else()
 endif()
 
 if (NOT TARGET Eigen3::Eigen)
-    option(USE_SYSTEM_EIGEN "Use the system Eigen" ON)
-    find_package(Eigen3 NO_MODULE)
-    include_directories(${eigen3_INCLUDE_DIR})
-    if(USE_SYSTEM_EIGEN AND ${Eigen3_FOUND})
-        set_package_properties(Eigen3 PROPERTIES TYPE REQUIRED PURPOSE "C++ vector data structures")
-        message(STATUS "Found Eigen3 Version: ${Eigen3_VERSION} Path: ${Eigen3_DIR}")
-    endif()		
-else()
+
 
     FetchContent_Declare(
 	  Eigen3
