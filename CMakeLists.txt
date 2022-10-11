@@ -6,12 +6,12 @@ include(FetchContent)
 
 include(FeatureSummary)
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.18.0")
-  find_package(Python 3.9 COMPONENTS Interpreter Development.Module REQUIRED)
+  find_package(Python 3.9 COMPONENTS Interpreter Development.Module Development.Embed REQUIRED)
 else()
   find_package(Python 3.9 COMPONENTS Interpreter Development REQUIRED)
 endif()
 
-execute_process(COMMAND ls $(python3-config --includes)
+execute_process(COMMAND python3-config --includes
                     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                     RESULT_VARIABLE PYTHON_HEADER)
 message("python header are ${PYTHON_HEADER}")
