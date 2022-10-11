@@ -51,35 +51,35 @@ else()
 
 endif()
 
-FetchContent_Declare(
-  Eigen3
-  GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
-  GIT_TAG        3.4.0
-  QUIET
-  CMAKE_ARGS
-        -DEIGEN_TEST_CXX11:BOOL=OFF
-        -DBUILD_TESTING:BOOL=OFF
- )
-
-FetchContent_GetProperties(Eigen3)
-if(NOT Eigen3_POPULATED)
-  FetchContent_Populate(Eigen3)
-        
-  message("SRC; ${Eigen3_SOURCE_DIR}") # Apparently empty?
-  message("BIN: ${Eigen3_BINARY_DIR}") # Apparently empty?
-  add_subdirectory(${eigen3_SOURCE_DIR} ${eigen3_BINARY_DIR})
-  find_path(Eigen3_INCLUDE_DIR
-  NAMES signature_of_eigen3_matrix_library
-	PATHS
-	  ${Eigen3-submodule_SOURCE_DIR}
-  )
-
-include_directories(${Eigen3_INCLUDE_DIR})
-
+if (NOT TARGET Eigen3::Eigen)
+    option(USE_SYSTEM_EIGEN "Use the system Eigen" ON)
+    find_package(Eigen3 REQUIRED)
+    include_directories(${eigen3_INCLUDE_DIR})
+    if(USE_SYSTEM_EIGEN AND ${Eigen3_FOUND})
+        set_package_properties(Eigen3 PROPERTIES TYPE REQUIRED PURPOSE "C++ vector data structures")
+        message(STATUS "Found Eigen3 Version: ${Eigen3_VERSION} Path: ${Eigen3_DIR}")
 else()
-  find_package(Eigen3 REQUIRED)
-  include_directories(${eigen3_INCLUDE_DIR})
 
+    FetchContent_Declare(
+	  Eigen3
+	  GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+	  GIT_TAG        3.4.0
+	  QUIET
+	  CMAKE_ARGS
+		-DEIGEN_TEST_CXX11:BOOL=OFF
+		-DBUILD_TESTING:BOOL=OFF
+		-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/_dep/Eigen_install
+	 )
+      
+    FetchContent_GetProperties(Eigen3)
+    if(NOT Eigen3_POPULATED)
+  	FetchContent_Populate(Eigen3)
+  	        
+	  add_subdirectory(${eigen3_SOURCE_DIR} ${eigen3_BINARY_DIR})
+	  message("SRC; ${Eigen3_SOURCE_DIR}") # Apparently empty?
+	  message("BIN: ${Eigen3_BINARY_DIR}") # Apparently empty?
+	  FetchContent_MakeAvailable(eigen3)
+	  message( "${CMAKE_CURRENT_BINARY_DIR}/_dep/Eigen_install/include/eigen3")
 endif()
 
 
