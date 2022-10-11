@@ -4,10 +4,9 @@
 FMCA is a header only library for the multiresolution analysis of scattered data and kernel matrices. It is developed
 at the [Università della Svizzera italiana](https://www.usi.ch) in the research group of [Michael Multerer](http://usi.to/3ps).
 
-Currently, the library features the construction of samplet bases and different versions of the pivoted Cholesky decomposition.
-The fast samplet covariance compression introduced in 
-[Samplets: Construction and scattered data compression](https://doi.org/10.1016/j.jcp.2022.111616)
-will be added soon.
+Currently, the library features the construction of samplet bases and different versions of the pivoted Cholesky decomposition,
+as well as the fast samplet covariance compression introduced in 
+[Samplets: Construction and scattered data compression](https://doi.org/10.1016/j.jcp.2022.111616).
 
 Different scaling distributions and samplets on a Sigma shaped point cloud my look for example like depicted below.
 ![What is this](assets/samplets.png)
@@ -52,6 +51,9 @@ and the references therein, that can be used for Gaussian process learning.
 posterior mean (read) and posterior standard deviation (green) conditioned on the blue dots
 ![What is this](assets/gaussian_process.png)
 
-The example above can be found and modified in the jupyter notebook FMCA_GP
+The example above can be found and modified in the jupyter notebook [FMCA_GP](https://github.com/muchip/fmca/blob/master/py/FMCA_GP.ipynb).
 
-A samplet matrix compression based approach will be added in the future (allowing for huge amounts of conditioning variables).
+A samplet matrix compression based approach is also available. It particular allows for filtering of the (compressed) kernel
+matrix, thus mitigating the very ill-conditioning of the kernel matrix. An example using a Gaussian kernel and very noisy data
+can be found [here](https://github.com/muchip/fmca/blob/master/py/FMCA_Samplet_GP_Filtering.ipynb).
+
