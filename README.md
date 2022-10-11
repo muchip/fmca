@@ -51,6 +51,9 @@ and the references therein, that can be used for Gaussian process learning.
 posterior mean (read) and posterior standard deviation (green) conditioned on the blue dots
 ![What is this](assets/gaussian_process.png)
 
-The example above can be found and modified in the jupyter notebook FMCA_GP
+The example above can be found and modified in the jupyter notebook [FMCA_GP](https://github.com/muchip/fmca/blob/master/py/FMCA_GP.ipynb).
 
-A samplet matrix compression based approach will be added in the future (allowing for huge amounts of conditioning variables).
+A samplet matrix compression based approach is also available. It particular allows for filtering of the (compressed) kernel
+matrix, thus mitigating the very ill-conditioning of the kernel matrix. An example using a Gaussian kernel and very noisy data
+can be found [here](https://github.com/muchip/fmca/blob/master/py/FMCA_Samplet_GP_Filtering.ipynb).
+
