@@ -1,8 +1,9 @@
 find_package(Eigen3 REQUIRED)
 
-link_directories(${CMAKE_SOURCE_DIR}/FMCA)
+link_directories(${CMAKE_SOURCE_DIR}/FMCA INTERFACE Eigen3)
 
 include_directories(${CMAKE_SOURCE_DIR}/FMCA)
+
 
 add_library(FMCA MODULE FMCA.cpp)
 execute_process(OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND 
