@@ -35,7 +35,7 @@ jobs:
         include:
           - toolchain: linux-gcc
             os: ubuntu-latest
-            compiler: [gcc]
+            compiler: gcc
 
           - toolchain: macos-clang
             os: macos-latest
@@ -51,12 +51,28 @@ jobs:
     - name: Load python3
       uses: actions/setup-python@v4
       with:
-          python-version: '3.10' 
+          python-version: '3.9' 
+    - name: Setup cmake
+      uses: jwlawson/actions-setup-cmake@v1.13
+      with:
+        cmake-version: '3.24.2'
+ 
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install flake8 pytest numpy 
+        #scipy matplotlib
+    - name: Python enviroment
+      run: |
+           python3-config --includes  && \
+           export CPPFLAGS=$(python3-config --includes)
+    - name: Use cmake
+      run: cmake --version
     - name: Configure (${{ matrix.configuration }})
-      run: cmake -S . -Bbuild -DCMAKE_BUILD_TYPE=${{ matrix.configuration }}
+      run: cmake -S . -Bbuild -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} 
 
     - name: Build with ${{ matrix.compiler }}
-      run: cmake --build build
+      run: cmake --build build VERBOSE=1
 
     - name: Test
       working-directory: build

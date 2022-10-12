@@ -1,16 +1,36 @@
 find_package(Eigen3 REQUIRED)
 
+
+
 link_directories(${CMAKE_SOURCE_DIR}/FMCA INTERFACE Eigen3)
 
 include_directories(${CMAKE_SOURCE_DIR}/FMCA)
 
 
 add_library(FMCA MODULE FMCA.cpp)
+
 execute_process(OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND 
 python3-config --extension-suffix OUTPUT_VARIABLE FMCA_SUFFIX)
 message("Library suffix: ${FMCA_SUFFIX}")
-SET_TARGET_PROPERTIES(FMCA PROPERTIES PREFIX "")
+
+
+execute_process( COMMAND  python3-config "--includes" 
+                 OUTPUT_VARIABLE PYTHON_INCLUDE
+                 RESULT_VARIABLE PYTHON_INCLUDE_RESULT
+                 ERROR_QUIET    OUTPUT_STRIP_TRAILING_WHITESPACE
+                 )
+if(NOT PYTHON_INCLUDE_RESULT)
+message(STATUS "Found python include at directory ${PYTHON_INCLUDE}")
+target_include_directories(FMCA PRIVATE ${PYTHON_INCLUDE})
+else()
+  message(FATAL_ERROR "PYTHON Include could not be found.")
+endif()
+
+
+#SET_TARGET_PROPERTIES(FMCA PROPERTIES PREFIX "${PYTHON_INCLUDE}")
 SET_TARGET_PROPERTIES(FMCA PROPERTIES SUFFIX "${FMCA_SUFFIX}")
+
+
 
 add_custom_command(TARGET FMCA POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy
 ${CMAKE_SOURCE_DIR}/py/FMCA_Samplets.ipynb

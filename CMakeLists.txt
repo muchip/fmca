@@ -11,25 +11,10 @@ else()
   find_package(Python 3.9 COMPONENTS Interpreter Development REQUIRED)
 endif()
 
-set(PYTHON_INCLUDE_DIRS NOTFOUND)
-# Get include directory of Python
-execute_process(COMMAND python3-config "--includes"
-                    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-                    RESULT_VARIABLE PYTHON_HEADERS
-		    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-message("python header are ${PYTHON_HEADERS}")
 
-# for some reason the include dir is returned twice
-# and with -I prepended which must be removed. 
-separate_arguments(_INCLDIRS_LIST UNIX_COMMAND "${PYTHON_HEADERS}")  # Convert to list
-
-list(GET _INCLDIRS_LIST 0 PYTHON_HEADER_0)  # save the 1st element
-message("python header is ${PYTHON_HEADER_0}")
-string(REPLACE "-I" "" PYTHON_INCLUDE_DIRS ${PYTHON_HEADER_0})  # chop off leading -I, save result
- 
-message("python env variable for header ${PYTHON_INCLUDE_DIRS}")
-
+#Python3 include missed
+##python3-config --includes
+#include_directories(${Python3_ROOT_DIR}/include)
 message(STATUS "
 ****************************************************************************
 *                  ______   __    __    ______    ______                   * 
@@ -57,6 +42,10 @@ FetchContent_Declare(
         pybind11
         GIT_REPOSITORY https://github.com/pybind/pybind11.git
         GIT_TAG v2.10.0 
+	CMAKE_ARGS
+	    -DPYBIND11_FINDPYTHON=ON
+	    -DPYTHON_EXECUTABLE=$(python -c "import sys; print(sys.executable)")
+	    
 )
 FetchContent_GetProperties(pybind11)
 if(NOT pybind11_POPULATED)
@@ -99,15 +88,19 @@ if (NOT TARGET Eigen3::Eigen)
 endif()
 
 
+
+#include_directories(${Python3_ROOT_DIR}/include)
+
 set(PYBIND11_CPP_STANDARD -std=c++11)
 message("${CMAKE_MODULE_PATH}")
 message("${eigen3_INCLUDE_DIR}")
 message("${pybind11_INCLUDE_DIR}")
+message("${Python3_ROOT_DIR}/include")
 
 set (FMCA_PATH ${PROJECT_SOURCE_DIR})
 message("${PROJECT_SOURCE_DIR}")
 
-set(CMAKE_CXX_FLAGS "-std=c++11 -I${FMCA_PATH}")
+set(CMAKE_CXX_FLAGS "-std=c++11 -I${FMCA_PATH} ")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
