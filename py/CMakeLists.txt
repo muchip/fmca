@@ -14,7 +14,7 @@ python3-config --extension-suffix OUTPUT_VARIABLE FMCA_SUFFIX)
 message("Library suffix: ${FMCA_SUFFIX}")
 
 
-execute_process( COMMAND  python3-config ""--includes" 
+execute_process( COMMAND  python3-config "--includes" 
                  OUTPUT_VARIABLE PYTHON_INCLUDE
                  RESULT_VARIABLE PYTHON_INCLUDE_RESULT
                  ERROR_QUIET    OUTPUT_STRIP_TRAILING_WHITESPACE
