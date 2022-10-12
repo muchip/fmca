@@ -64,7 +64,9 @@ jobs:
         #numpy scipy matplotlib
     - name: Python enviroment
       run: |
-           python3-config --includes
+           find / -iname 'Python.h' &&\ 
+           python3-config --includes  && \
+           export CPPFLAGS=$(python3-config --includes)
     - name: Use cmake
       run: cmake --version
     - name: Configure (${{ matrix.configuration }})
