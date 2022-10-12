@@ -12,7 +12,10 @@ else()
 endif()
 
 message("include python directory ${Python3_INCLUDE_DIRS}")
-include_directories(${Python3_INCLUDE_DIRS})
+message("Root python directory ${Python3_ROOT_DIR}")
+
+
+include_directories(${Python3_ROOT_DIR}/include)
 message(STATUS "
 ****************************************************************************
 *                  ______   __    __    ______    ______                   * 
