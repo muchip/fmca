@@ -44,6 +44,8 @@ FetchContent_Declare(
         GIT_TAG v2.10.0 
 	CMAKE_ARGS
 	    -DPYBIND11_FINDPYTHON=ON
+	    -DPYTHON_EXECUTABLE=$(python -c "import sys; print(sys.executable)")
+	    
 )
 FetchContent_GetProperties(pybind11)
 if(NOT pybind11_POPULATED)
