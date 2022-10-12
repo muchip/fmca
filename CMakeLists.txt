@@ -11,8 +11,7 @@ else()
   find_package(Python 3.9 COMPONENTS Interpreter Development REQUIRED)
 endif()
 
-message("include python directory ${Python3_INCLUDE_DIRS}")
-message("Root python directory ${Python3_ROOT_DIR}")
+
 #Python3 include missed
 ##python3-config --includes
 #include_directories(${Python3_ROOT_DIR}/include)
@@ -43,6 +42,8 @@ FetchContent_Declare(
         pybind11
         GIT_REPOSITORY https://github.com/pybind/pybind11.git
         GIT_TAG v2.10.0 
+	CMAKE_ARGS
+	    -DPYBIND11_FINDPYTHON=ON
 )
 FetchContent_GetProperties(pybind11)
 if(NOT pybind11_POPULATED)
