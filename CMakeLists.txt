@@ -11,9 +11,7 @@ else()
   find_package(Python 3.9 COMPONENTS Interpreter Development REQUIRED)
 endif()
 
-if(DEFINED ${PYTHONINCLUDEDIRS})
-	include_directories(${PYTHONINCLUDEDIRS})
-endif()
+include(GNUInstallDirs)
 
 # Get include directory of Python
 execute_process(COMMAND python3-config "--includes"
