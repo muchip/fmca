@@ -13,30 +13,6 @@ endif()
 
 include(GNUInstallDirs)
 
-# Get include directory of Python
-execute_process(COMMAND python3-config "--includes"
-                    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-                    RESULT_VARIABLE PYTHON_INCLUDE_DIR
-		    OUTPUT_STRIP_TRAILING_WHITESPACE)
-		    
-string(REGEX REPLACE "^[-I]" "" PYTHON_INCLUDE_DIR "${PYTHON_INCLUDE_DIR}")
-string(REGEX REPLACE "[ ]-I" " " PYTHON_INCLUDE_DIR "${PYTHON_INCLUDE_DIR}")
-separate_arguments(PYTHON_INCLUDE_DIR)
-set(PYTHON_INCLUDE_DIR "${Python3_INCLUDE_DIRS}")
-
-message("python header are ${PYTHON_HEADERS}")
-message("python headers are ${Python3_INCLUDE_DIRS}")
-
-
-# for some reason the include dir is returned twice
-# and with -I prepended which must be removed. 
-separate_arguments(_INCLDIRS_LIST UNIX_COMMAND "${PYTHON_HEADERS}")  # Convert to list
-
-list(GET _INCLDIRS_LIST 0 PYTHON_HEADER_0)  # save the 1st element
-message("python header is ${PYTHON_HEADER_0}")
-string(REPLACE "-I" "" PYTHON_INCLUDE_DIRS ${PYTHON_HEADER_0})  # chop off leading -I, save result
- 
-message("python env variable for header ${PYTHON_INCLUDE_DIRS}")
 
 message(STATUS "
 ****************************************************************************
