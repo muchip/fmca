@@ -89,7 +89,7 @@ endif()
 
 
 
-include_directories(${Python3_ROOT_DIR}/include)
+#include_directories(${Python3_ROOT_DIR}/include)
 
 set(PYBIND11_CPP_STANDARD -std=c++11)
 message("${CMAKE_MODULE_PATH}")
