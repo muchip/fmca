@@ -64,7 +64,7 @@ jobs:
         #numpy scipy matplotlib
     - name: Python enviroment
       run: |
-           python-config --includes
+           python3-config --includes
     - name: Use cmake
       run: cmake --version
     - name: Configure (${{ matrix.configuration }})
