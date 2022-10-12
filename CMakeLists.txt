@@ -11,9 +11,8 @@ else()
   find_package(Python 3.9 COMPONENTS Interpreter Development REQUIRED)
 endif()
 
-include(GNUInstallDirs)
-
-
+message("include python directory ${Python3_INCLUDE_DIRS}")
+include_directories(${Python3_INCLUDE_DIRS})
 message(STATUS "
 ****************************************************************************
 *                  ______   __    __    ______    ______                   * 
@@ -91,7 +90,7 @@ message("${pybind11_INCLUDE_DIR}")
 set (FMCA_PATH ${PROJECT_SOURCE_DIR})
 message("${PROJECT_SOURCE_DIR}")
 
-set(CMAKE_CXX_FLAGS "-std=c++11 -I${FMCA_PATH}")
+set(CMAKE_CXX_FLAGS "-std=c++11 -I${FMCA_PATH} ${shell python3-config --includes}")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
