@@ -96,7 +96,7 @@ message("${pybind11_INCLUDE_DIR}")
 set (FMCA_PATH ${PROJECT_SOURCE_DIR})
 message("${PROJECT_SOURCE_DIR}")
 
-set(CMAKE_CXX_FLAGS "-std=c++11 -I${FMCA_PATH}")
+set(CMAKE_CXX_FLAGS "-std=c++11 -I${FMCA_PATH} $(python3-config --includes)")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
