@@ -56,6 +56,10 @@ jobs:
       uses: jwlawson/actions-setup-cmake@v1.13
       with:
         cmake-version: '3.24.2'
+    - name: Python enviroment
+      run: |
+           ls ${Python3_ROOT_DIR}/include &&\
+           python-config "--includes"
     - name: Use cmake
       run: cmake --version
     - name: Configure (${{ matrix.configuration }})
