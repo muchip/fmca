@@ -11,7 +11,10 @@ else()
   find_package(Python 3.9 COMPONENTS Interpreter Development REQUIRED)
 endif()
 
-set(PYTHON_INCLUDE_DIRS NOTFOUND)
+if(DEFINED ${PYTHONINCLUDEDIRS})
+	include_directories(${PYTHONINCLUDEDIRS})
+endif()
+
 # Get include directory of Python
 execute_process(COMMAND python3-config "--includes"
                     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
@@ -19,6 +22,7 @@ execute_process(COMMAND python3-config "--includes"
 		    OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 message("python header are ${PYTHON_HEADERS}")
+
 
 # for some reason the include dir is returned twice
 # and with -I prepended which must be removed. 
