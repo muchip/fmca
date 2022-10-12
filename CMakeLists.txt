@@ -18,10 +18,16 @@ endif()
 # Get include directory of Python
 execute_process(COMMAND python3-config "--includes"
                     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-                    RESULT_VARIABLE PYTHON_HEADERS
-		    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
+                    RESULT_VARIABLE PYTHON_INCLUDE_DIR
+		    OUTPUT_STRIP_TRAILING_WHITESPACE)
+		    
+string(REGEX REPLACE "^[-I]" "" PYTHON_INCLUDE_DIR "${PYTHON_INCLUDE_DIR}")
+string(REGEX REPLACE "[ ]-I" " " PYTHON_INCLUDE_DIR "${PYTHON_INCLUDE_DIR}")
+separate_arguments(PYTHON_INCLUDE_DIR)
+set(PYTHON_INCLUDE_DIR "${Python3_INCLUDE_DIRS}")
+
 message("python header are ${PYTHON_HEADERS}")
+message("python headers are ${Python3_INCLUDE_DIRS}")
 
 
 # for some reason the include dir is returned twice
