@@ -1,4 +1,6 @@
 find_package(Eigen3 REQUIRED)
+find_package(Python3 REQUIRED)
+
 
 link_directories(${CMAKE_SOURCE_DIR}/FMCA INTERFACE Eigen3)
 
@@ -14,7 +16,7 @@ message("Library suffix: ${FMCA_SUFFIX}")
 
 execute_process(OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND 
 python3-config --includes OUTPUT_VARIABLE PYTHON_INCLUDE)
-message("Library suffix: ${PYTHON_INCLUDE}")
+message("Library prefix: ${PYTHON_INCLUDE}")
 
 
 SET_TARGET_PROPERTIES(FMCA PROPERTIES PREFIX "${PYTHON_INCLUDE}")
