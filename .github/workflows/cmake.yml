@@ -63,7 +63,12 @@ jobs:
            python3-config --includes  
            export CPPFLAGS=$(python3-config --includes)
            echo ${CPPFLAGS}
-           find ${CPPFLAGS} "Python.h"
+           for i in $(echo ${CPPFLAGS} | sed 's/-I/ /g'); do echo $i; done | head -n 1
+           echo ${CPPFLAGS}
+           export PYTHON_INC=$(for i in $(echo ${CPPFLAGS} | sed 's/-I/ /g'); do echo $i; done | head -n 1)
+           echo ${PYTHON_INC}
+           
+           find ${PYTHON_INC} -name 'Python.h'
     - name: Use cmake
       run: cmake --version
     - name: Configure (${{ matrix.configuration }})
