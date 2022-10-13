@@ -65,10 +65,11 @@ jobs:
            export PYTHON_INC=$(for i in $(echo ${CPPFLAGS} | sed 's/-I/ /g'); do echo $i; done | head -n 1)
            echo ${PYTHON_INC}
            find ${PYTHON_INC} -name 'Python.h'
+           export CXXFLAGS="-I${PYTHON_INC}"
     - name: Use cmake
       run: cmake --version
     - name: Configure (${{ matrix.configuration }})
-      run: cmake -S . -Bbuild -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} -DCMAKE_CXXFLAGS=-I${PYTHON_INC} 
+      run: cmake -S . -Bbuild -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} 
 
     - name: Build with ${{ matrix.compiler }}
       run: cmake --build build 
