@@ -71,25 +71,15 @@ struct pyCovarianceKernel {
     ktype_ = ktype;
     for (auto &c : ktype_)
       c = (char)toupper(c);
-    if (ktype_ == "GAUSSIAN")
+    if (ktype_ == "GAUSSIAN" or ktype_ == "DERIVATIVEGAUSSIANSCALAR" )
       kernel_ = [this](FMCA::Scalar r) { return exp(-r * r / l_); };
     else if (ktype_ == "EXPONENTIAL")
       kernel_ = [this](FMCA::Scalar r) { return exp(-r / l_); };
     else
       assert(false && "desired kernel not implemented");
   }
-  pyCovarianceKernel(const std::string &ktype, FMCA::Scalar l, FMCA::Index dim ) : l_(l), dim_(dim) {
-    // transform string to upper and check if kernel is implemented
-    ktype_ = ktype;
-    for (auto &c : ktype_)
-      c = (char)toupper(c);
-    if (ktype_ == "DERIVATIVEGAUSSIANSCALAR")
-      kernel_ = [this](FMCA::Scalar r) { return exp(-r * r / l_); };
-    else
-      assert(false && "desired kernel not implemented");
-  }
-
-
+  
+ 
   template <typename derived, typename otherDerived>
   FMCA::Scalar operator()(const Eigen::MatrixBase<derived> &x,
                           const Eigen::MatrixBase<otherDerived> &y) const {
@@ -109,7 +99,8 @@ struct pyCovarianceKernel {
 
   std::string kernelType() const { return ktype_; }
   FMCA::Index dim() const { return dim_; }
-
+  FMCA::Index set_derivative_dim(FMCA::Index &dim) const { dim_ = dim;}
+  
   std::function<FMCA::Scalar(FMCA::Scalar)> kernel_;
   std::string ktype_;
   FMCA::Index dim_;
@@ -420,10 +411,8 @@ PYBIND11_MODULE(FMCA, m) {
   py::class_<pyCovarianceKernel> pyCovarianceKernel_(m, "CovarianceKernel");
   pyCovarianceKernel_.def(py::init<>());
   pyCovarianceKernel_.def(py::init<const std::string &, FMCA::Scalar>());
-  pyCovarianceKernel_.def(py::init<const std::string &, FMCA::Scalar(),FMCA::Index>());
-  pyCovarianceKernel_.def("kernelType", &pyCovarianceKernel::kernelType);
-  pyCovarianceKernel_.def("dim_dX", &pyCovarianceKernel::dim);
-  
+  pyCovarianceKernel_.def("set_derivative_dimension", &pyCovarianceKernel::set_derivative_dim);
+  pyCovarianceKernel_.def("kernelType", &pyCovarianceKernel::kernelType);  
   pyCovarianceKernel_.def("eval", &pyCovarianceKernel::eval,
                           py::arg().noconvert(), py::arg().noconvert());
   //////////////////////////////////////////////////////////////////////////////
