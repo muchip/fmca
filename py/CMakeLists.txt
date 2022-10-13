@@ -13,7 +13,7 @@ execute_process(OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND
 python3-config --extension-suffix OUTPUT_VARIABLE FMCA_SUFFIX)
 message("Library suffix: ${FMCA_SUFFIX}")
 
-if(NOT ${CMAKE_HOST_WIN32})
+
   execute_process( COMMAND  python3-config "--includes"
                    OUTPUT_VARIABLE PYTHON_INCLUDE
                    RESULT_VARIABLE PYTHON_INCLUDE_RESULT
@@ -29,7 +29,7 @@ if(NOT ${CMAKE_HOST_WIN32})
   endif()
 
   set_target_properties(FMCA PROPERTIES COMPILE_FLAGS ${PYTHON_INCLUDE} )
-endif()
+
 set_target_properties(FMCA PROPERTIES SUFFIX "${FMCA_SUFFIX}")
 
 
