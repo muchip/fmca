@@ -13,23 +13,23 @@ execute_process(OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND
 python3-config --extension-suffix OUTPUT_VARIABLE FMCA_SUFFIX)
 message("Library suffix: ${FMCA_SUFFIX}")
 
+if(NOT ${CMAKE_HOST_WIN32})
+  execute_process( COMMAND  python3-config "--includes"
+                   OUTPUT_VARIABLE PYTHON_INCLUDE
+                   RESULT_VARIABLE PYTHON_INCLUDE_RESULT
+                   ERROR_QUIET    OUTPUT_STRIP_TRAILING_WHITESPACE
+                   )
 
-execute_process( COMMAND  python3-config "--includes"
-                 OUTPUT_VARIABLE PYTHON_INCLUDE
-                 RESULT_VARIABLE PYTHON_INCLUDE_RESULT
-                 ERROR_QUIET    OUTPUT_STRIP_TRAILING_WHITESPACE
-                 )
-                 
-if(NOT PYTHON_INCLUDE_RESULT)
-message(STATUS "Found python include at directory ${PYTHON_INCLUDE}")
-add_compile_options("${PYTHON_INCLUDE}")
-target_include_directories(FMCA PRIVATE ${PYTHON_INCLUDE})
-else()
-  message(STATUS "PYTHON Include could not be found by execute process.")
+  if(NOT PYTHON_INCLUDE_RESULT)
+  message(STATUS "Found python include at directory ${PYTHON_INCLUDE}")
+  add_compile_options("${PYTHON_INCLUDE}")
+  target_include_directories(FMCA PRIVATE ${PYTHON_INCLUDE})
+  else()
+    message(STATUS "PYTHON Include could not be found by execute process.")
+  endif()
+
+  set_target_properties(FMCA PROPERTIES COMPILE_FLAGS ${PYTHON_INCLUDE} )
 endif()
-
-set_target_properties(FMCA PROPERTIES COMPILE_FLAGS ${PYTHON_INCLUDE} )
-
 set_target_properties(FMCA PROPERTIES SUFFIX "${FMCA_SUFFIX}")
 
 
