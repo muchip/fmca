@@ -78,7 +78,7 @@ struct pyCovarianceKernel {
     else
       assert(false && "desired kernel not implemented");
   }
-  pyCovarianceKernel(const std::string &ktype, , FMCA::Scalar l, FMCA::Scalar dim ) : l_(l), dim_(dim) {
+  pyCovarianceKernel(const std::string &ktype, FMCA::Scalar l, FMCA::Index dim ) : l_(l), dim_(dim) {
     // transform string to upper and check if kernel is implemented
     ktype_ = ktype;
     for (auto &c : ktype_)
@@ -108,11 +108,11 @@ struct pyCovarianceKernel {
   }
 
   std::string kernelType() const { return ktype_; }
-  std::Scalar dim() const { return dim_; }
+  FMCA::Index dim() const { return dim_; }
 
   std::function<FMCA::Scalar(FMCA::Scalar)> kernel_;
   std::string ktype_;
-  FMCA::Scalar dim_;
+  FMCA::Index dim_;
   FMCA::Scalar l_;
 };
 
@@ -420,7 +420,7 @@ PYBIND11_MODULE(FMCA, m) {
   py::class_<pyCovarianceKernel> pyCovarianceKernel_(m, "CovarianceKernel");
   pyCovarianceKernel_.def(py::init<>());
   pyCovarianceKernel_.def(py::init<const std::string &, FMCA::Scalar>());
-  pyCovarianceKernel_.def(py::init<const std::string &, FMCA::Scalar>(),FMCA::Scalar>());
+  pyCovarianceKernel_.def(py::init<const std::string &, FMCA::Scalar(),FMCA::Index>());
   pyCovarianceKernel_.def("kernelType", &pyCovarianceKernel::kernelType);
   pyCovarianceKernel_.def("dim_dX", &pyCovarianceKernel::dim);
   
