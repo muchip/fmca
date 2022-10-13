@@ -27,7 +27,7 @@ jobs:
         toolchain:
           - linux-gcc
           - macos-clang
-          - windows-msvc
+          #- windows-msvc
 
         configuration:
           - Debug
@@ -41,9 +41,9 @@ jobs:
             os: macos-latest
             compiler: clang
 
-          - toolchain: windows-msvc
-            os: windows-latest
-            compiler: msvc
+         # - toolchain: windows-msvc
+         #   os: windows-latest
+         #   compiler: msvc
 
     steps:
     - name: Checkout Code
