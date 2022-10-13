@@ -71,7 +71,7 @@ struct pyCovarianceKernel {
     ktype_ = ktype;
     for (auto &c : ktype_)
       c = (char)toupper(c);
-    if (ktype_ == "GAUSSIAN" or ktype_ == "DERIVATIVEGAUSSIANSCALAR" )
+    if (ktype_ == "GAUSSIAN" || ktype_ == "DERIVATIVEGAUSSIANSCALAR" )
       kernel_ = [this](FMCA::Scalar r) { return exp(-r * r / l_); };
     else if (ktype_ == "EXPONENTIAL")
       kernel_ = [this](FMCA::Scalar r) { return exp(-r / l_); };
