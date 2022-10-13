@@ -14,7 +14,7 @@ python3-config --extension-suffix OUTPUT_VARIABLE FMCA_SUFFIX)
 message("Library suffix: ${FMCA_SUFFIX}")
 
 
-execute_process( COMMAND  for i in "echo $(python3-config "--includes")" | sed 's/:/ /g'); do echo $i; done | head -n 1  
+execute_process( COMMAND  python3-config "--includes"
                  OUTPUT_VARIABLE PYTHON_INCLUDE
                  RESULT_VARIABLE PYTHON_INCLUDE_RESULT
                  ERROR_QUIET    OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -22,12 +22,12 @@ execute_process( COMMAND  for i in "echo $(python3-config "--includes")" | sed '
                  
 if(NOT PYTHON_INCLUDE_RESULT)
 message(STATUS "Found python include at directory ${PYTHON_INCLUDE}")
+add_compile_options("${PYTHON_INCLUDE}")
 target_include_directories(FMCA PRIVATE ${PYTHON_INCLUDE})
 else()
   message(STATUS "PYTHON Include could not be found by execute process.")
 endif()
 
-add_compile_options("-I/${PYTHON_INCLUDE}")
 
 SET_TARGET_PROPERTIES(FMCA PROPERTIES SUFFIX "${FMCA_SUFFIX}")
 
