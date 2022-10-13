@@ -84,7 +84,7 @@ struct pyCovarianceKernel {
   FMCA::Scalar operator()(const Eigen::MatrixBase<derived> &x,
                           const Eigen::MatrixBase<otherDerived> &y) const {
     if (ktype_ == "DERIVATIVEGAUSSIANSCALAR")
-      return  -1.0*(x(dim)-y(dim))/l_ *kernel_((x - y).norm());
+      return  -1.0*(x(dim_)-y(dim_))/l_ *kernel_((x - y).norm());
     else
       return kernel_((x - y).norm());
  
@@ -99,7 +99,7 @@ struct pyCovarianceKernel {
 
   std::string kernelType() const { return ktype_; }
   FMCA::Index dim() const { return dim_; }
-  FMCA::Index set_derivative_dim(FMCA::Index &dim) const { dim_ = dim;}
+  FMCA::Index set_derivative_dim(FMCA::Index &dim) { dim_ = dim;}
   
   std::function<FMCA::Scalar(FMCA::Scalar)> kernel_;
   std::string ktype_;
