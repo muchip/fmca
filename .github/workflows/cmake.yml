@@ -66,7 +66,7 @@ jobs:
            echo ${PYTHON_INC}
            find ${PYTHON_INC} -name 'Python.h'
     - name: Use cmake
-      run: cmake --versio
+      run: cmake --version
     - name: Configure (${{ matrix.configuration }})
       run: cmake -S . -Bbuild -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} -DCMAKE_CXXFLAGS=-I${PYTHON_INC} 
 
