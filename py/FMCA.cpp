@@ -99,7 +99,7 @@ struct pyCovarianceKernel {
 
   std::string kernelType() const { return ktype_; }
   FMCA::Index dim() const { return dim_; }
-  FMCA::Index set_derivative_dim(FMCA::Index &dim) { dim_ = dim;}
+  void set_derivative_dim(FMCA::Index &dim) { dim_ = dim;}
   
   std::function<FMCA::Scalar(FMCA::Scalar)> kernel_;
   std::string ktype_;
