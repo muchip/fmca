@@ -28,7 +28,7 @@ else()
   message(STATUS "PYTHON Include could not be found by execute process.")
 endif()
 
-set_target_properties(mylib PROPERTIES COMPILE_FLAGS ${PYTHON_INCLUDE} )
+set_target_properties(FMCA PROPERTIES COMPILE_FLAGS ${PYTHON_INCLUDE} )
 
 set_target_properties(FMCA PROPERTIES SUFFIX "${FMCA_SUFFIX}")
 
