@@ -16,6 +16,8 @@
 
 namespace FMCA {
 namespace internal {
+
+using the_map = std::map<Index, Matrix, std::greater<Index>>;
 template <typename Derived> class SampletMatrixCompressor {
 public:
   Index comp_calls_ = 0;
@@ -64,15 +66,41 @@ public:
 
   template <typename EntGenerator> void compress(const EntGenerator &e_gen) {
     // the column cluster tree is traversed bottom up
+    using the_iterator = the_map::iterator;
     const auto &clusters = rta_.nodes();
     for (auto it = clusters.rbegin(); it != clusters.rend(); ++it) {
       const Derived *pc = *it;
       const Index col_id = pc->block_id();
-      std::map<Index, Matrix> &col = pattern_[col_id];
-      for (auto it2 = col.rbegin(); it2 != col.rend(); ++it2) {
-        const Derived *pr = rta_.nodes()[it2->first];
+      /*
+       *  thoughts: pattern_ stores for each column the rows that have to be
+       *            calculated
+       *            if we put it into a random access container, we have
+       *            to look up elements with own binary search
+       *            in fact, WE NEED to look up elements in the columns in
+       *            the back for recycling
+       *            To allow parallelism, we need to assert that a father was
+       *            processed before all its children
+       */
+      the_map &col = pattern_[col_id];
+#if 0
+      const int maxlvl = clusters[col.begin()->first]->level();
+      const int minlvl = clusters[col.rbegin()->first]->level();
+      the_iterator blvl = col.begin();
+      the_iterator elvl = blvl;
+      for (int lvl = maxlvl; lvl >= minlvl; --lvl) {
+        blvl = elvl;
+        std::vector<the_iterator> fqueue;
+        while (elvl != col.end() && clusters[elvl->first]->level() == lvl) {
+          fqueue.push_back(elvl);
+          ++elvl;
+        }
+#pragma omp parallel for
+        for (auto it2 = fqueue.begin(); it2 != fqueue.end(); ++it2) {
+#endif
+      for (auto it2 = col.begin(); it2 != col.end(); ++it2) {
+        const Derived *pr = rta_.nodes()[(it2)->first];
         const Index row_id = pr->block_id();
-        Matrix &block = it2->second;
+        Matrix &block = (it2)->second;
         block.resize(0, 0);
         // preferred, we pick blocks from the right
         if (pc->nSons()) {
@@ -120,7 +148,9 @@ public:
           }
         }
       }
+      // in loop
     }
+
     return;
   }
   /**
@@ -231,7 +261,7 @@ private:
 
   //////////////////////////////////////////////////////////////////////////////
   std::vector<Eigen::Triplet<Scalar>> triplet_list_;
-  std::vector<std::map<Index, Matrix>> pattern_;
+  std::vector<the_map> pattern_;
   RandomTreeAccessor<Derived> rta_;
   Scalar eta_;
   Scalar threshold_;

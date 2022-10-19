@@ -59,7 +59,6 @@ struct pySampletTree {
   FMCA::Index dtilde_;
 };
 ////////////////////////////////////////////////////////////////////////////////
-
 /**
  *  \brief wrapper class for covariance kernel
  *
@@ -71,10 +70,31 @@ struct pyCovarianceKernel {
     ktype_ = ktype;
     for (auto &c : ktype_)
       c = (char)toupper(c);
-    if (ktype_ == "GAUSSIAN")
-      kernel_ = [this](FMCA::Scalar r) { return exp(-r * r / l_); };
-    else if (ktype_ == "EXPONENTIAL")
+    if (ktype_ == "EXPONENTIAL")
       kernel_ = [this](FMCA::Scalar r) { return exp(-r / l_); };
+    else if (ktype_ == "MATERN32")
+      kernel_ = [this](FMCA::Scalar r) {
+      return (1. + sqrt(3) / l_ * r) * exp(-sqrt(3) * r / l_);
+      };
+    else if (ktype_ == "MATERN52")
+      kernel_ = [this](FMCA::Scalar r) {
+        return (1. + sqrt(5) / l_ * r + 5 * r * r / (3 * l_ * l_)) *
+               exp(-sqrt(5) * r / l_);
+      };
+    else if (ktype_ == "MATERN72")
+      kernel_ = [this](FMCA::Scalar r) {
+        return (1. + sqrt(7) / l_ * r + 14. / 5 * pow(r / l_, 2.) +
+                7. * sqrt(7) / 15. * pow(r / l_, 3.)) *
+               exp(-sqrt(7) * r / l_);
+      };
+    else if (ktype_ == "MATERN92")
+      kernel_ = [this](FMCA::Scalar r) {
+        return (1. + 3. / l_ * r + 27. / 7. * pow(r / l_, 2.) +
+                18. / 7. * pow(r / l_, 3.) + 27. / 35. * pow(r / l_, 4.)) *
+               exp(-3 * r / l_);
+      };
+    else if (ktype_ == "GAUSSIAN")
+      kernel_ = [this](FMCA::Scalar r) { return exp(-r * r / l_); };
     else
       assert(false && "desired kernel not implemented");
   }
@@ -84,6 +104,7 @@ struct pyCovarianceKernel {
                           const Eigen::MatrixBase<otherDerived> &y) const {
     return kernel_((x - y).norm());
   }
+
   FMCA::Matrix eval(const FMCA::Matrix &PR, const FMCA::Matrix &PC) const {
     FMCA::Matrix retval(PR.cols(), PC.cols());
     for (auto j = 0; j < PC.cols(); ++j)
@@ -94,6 +115,7 @@ struct pyCovarianceKernel {
 
   std::string kernelType() const { return ktype_; }
 
+  // member variables
   std::function<FMCA::Scalar(FMCA::Scalar)> kernel_;
   std::string ktype_;
   FMCA::Scalar l_;
@@ -121,6 +143,8 @@ struct pyH2Matrix {
     hmat_.init(ct_, mat_eval, eta);
   }
   FMCA::Matrix statistics() const { return hmat_.get_statistics(); }
+
+  // member variables
   H2Matrix hmat_;
   H2ClusterTree ct_;
   FMCA::Index p_;
@@ -140,6 +164,7 @@ struct pySampletKernelCompressor {
       : eta_(eta), thres_(thres), n_(P.cols()) {
     init(hst, ker, P, eta, thres);
   }
+
   template <typename Functor>
   FMCA::Vector matrixColumnGetter(const FMCA::Matrix &P,
                                   const std::vector<FMCA::Index> &idcs,
@@ -150,6 +175,7 @@ struct pySampletKernelCompressor {
       retval(i) = fun(P.col(idcs[i]), P.col(idcs[colID]));
     return retval;
   }
+
   void init(const pySampletTree &hst, const pyCovarianceKernel &ker,
             const FMCA::Matrix &P, const FMCA::Scalar eta = 0.8,
             const FMCA::Scalar thres = 0) {
@@ -193,17 +219,20 @@ struct pySampletKernelCompressor {
     err = sqrt(err / nrm);
     std::cout << "compression error:            " << err << std::endl;
   }
+
   Eigen::SparseMatrix<FMCA::Scalar> matrix() {
     Eigen::SparseMatrix<FMCA::Scalar> retval(n_, n_);
     retval.setFromTriplets(trips_.begin(), trips_.end());
     return retval;
   }
+
+  // member variables
   std::vector<Eigen::Triplet<FMCA::Scalar>> trips_;
   FMCA::Scalar eta_;
   FMCA::Scalar thres_;
   FMCA::Index n_;
 };
-
+////////////////////////////////////////////////////////////////////////////////
 /**
  *  \brief class providing Cholesky kernel approximations
  *
@@ -214,7 +243,8 @@ struct pyPivotedCholesky {
     B_.resize(0, 0);
     indices_.resize(0);
     tol_ = 0;
-  };
+  }
+
   pyPivotedCholesky(const pyCovarianceKernel &ker, const FMCA::Matrix &P,
                     FMCA::Scalar tol = 1e-3)
       : tol_(tol) {
@@ -222,7 +252,7 @@ struct pyPivotedCholesky {
     B_.resize(0, 0);
     indices_.resize(0);
     compute(ker, P, tol);
-  };
+  }
 
   void compute(const pyCovarianceKernel &ker, const FMCA::Matrix &P,
                FMCA::Scalar tol = 1e-3) {
@@ -321,6 +351,7 @@ struct pyPivotedCholesky {
   const FMCA::Scalar &tol() { return tol_; }
   const FMCA::Index &info() { return info_; }
 
+  // member variables
   FMCA::Matrix L_;
   FMCA::Matrix B_;
   FMCA::iVector indices_;
@@ -330,7 +361,6 @@ struct pyPivotedCholesky {
   const FMCA::Index max_size_ = 250000000;
 };
 ////////////////////////////////////////////////////////////////////////////////
-
 PYBIND11_MODULE(FMCA, m) {
   m.doc() = "pybind11 FMCA plugin"; // optional module docstring
   //////////////////////////////////////////////////////////////////////////////
