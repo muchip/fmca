@@ -9,20 +9,17 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-
-#define FMCA_CLUSTERSET_
+//#define EIGEN_DONT_PARALLELIZE
 #include <Eigen/Dense>
 #include <iostream>
 
 #include "../FMCA/Samplets"
+#include "../FMCA/src/Samplets/samplet_matrix_compressor.h"
 #include "../FMCA/src/util/Tictoc.h"
 
-#include "../FMCA/src/Samplets/samplet_matrix_compressor.h"
-
-#define NPTS 20000
+#define NPTS 200000
 #define DIM 2
-#define MPOLE_DEG 3
-#define LEAFSIZE 10
+#define MPOLE_DEG 6
 
 struct exponentialKernel {
   double operator()(const FMCA::Matrix &x, const FMCA::Matrix &y) const {
@@ -40,9 +37,9 @@ Vector matrixColumnGetter(const Matrix &P, const std::vector<Index> &idcs,
     retval(i) = fun(P.col(idcs[i]), P.col(idcs[colID]));
   return retval;
 }
-} // namespace FMCA
+}  // namespace FMCA
 
-using Interpolator = FMCA::TensorProductInterpolator;
+using Interpolator = FMCA::TotalDegreeInterpolator;
 using SampletInterpolator = FMCA::MonomialInterpolator;
 using Moments = FMCA::NystromMoments<Interpolator>;
 using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
@@ -57,7 +54,7 @@ int main() {
   const Moments mom(P, MPOLE_DEG);
   const MatrixEvaluator mat_eval(mom, function);
 
-  for (int dtilde = 1; dtilde <= 4; ++dtilde) {
+  for (int dtilde = 4; dtilde <= 4; ++dtilde) {
     for (double eta = 1.2; eta >= 0.4; eta -= 0.2) {
       std::cout << "dtilde= " << dtilde << " eta= " << eta << std::endl;
       const SampletMoments samp_mom(P, dtilde - 1);
@@ -69,8 +66,6 @@ int main() {
       T.tic();
       Scomp.compress(mat_eval);
       T.toc("compressor:");
-      std::cout << "comp calls: " << Scomp.comp_calls_ << std::endl;
-      std::cout << "recycled blocks: " << Scomp.rec_blocks_ << std::endl;
       T.tic();
       const auto &trips = Scomp.triplets();
       T.toc("triplets:");
@@ -88,8 +83,7 @@ int main() {
         y2.setZero();
         for (const auto &i : trips) {
           y2(i.row()) += i.value() * x(i.col());
-          if (i.row() != i.col())
-            y2(i.col()) += i.value() * x(i.row());
+          if (i.row() != i.col()) y2(i.col()) += i.value() * x(i.row());
         }
         y2 = hst.inverseSampletTransform(y2);
         err += (y1 - y2).squaredNorm();
