@@ -15,11 +15,14 @@
 
 #include "../FMCA/Samplets"
 #include "../FMCA/src/Samplets/samplet_matrix_compressor.h"
+#include "../FMCA/src/Samplets/omp_samplet_compressor.h"
 #include "../FMCA/src/util/Tictoc.h"
 
 #define NPTS 1000000
 #define DIM 3
+#define DTILDE 4
 #define MPOLE_DEG 6
+#define THRES 1e-5
 
 struct exponentialKernel {
   double operator()(const FMCA::Matrix &x, const FMCA::Matrix &y) const {
@@ -50,26 +53,29 @@ int main() {
   FMCA::Tictoc T;
   const auto function = exponentialKernel();
   const FMCA::Matrix P = 0.5 * (FMCA::Matrix::Random(DIM, NPTS).array() + 1);
-  const FMCA::Scalar threshold = 1e-4;
+  const FMCA::Scalar threshold = THRES;
+  const FMCA::Scalar eta = 0.8;
   const Moments mom(P, MPOLE_DEG);
   const MatrixEvaluator mat_eval(mom, function);
-
-  for (int dtilde = 4; dtilde <= 4; ++dtilde) {
-    for (double eta = 1.2; eta >= 0.4; eta -= 0.2) {
-      std::cout << "dtilde= " << dtilde << " eta= " << eta << std::endl;
-      const SampletMoments samp_mom(P, dtilde - 1);
-      H2SampletTree hst(mom, samp_mom, 0, P);
-      T.tic();
-      FMCA::internal::SampletMatrixCompressor<H2SampletTree> Scomp;
-      Scomp.init(hst, eta, threshold);
-      T.toc("planner:");
-      T.tic();
-      Scomp.compress(mat_eval);
-      T.toc("compressor:");
-      T.tic();
-      const auto &trips = Scomp.triplets();
-      T.toc("triplets:");
-      std::cout << "anz: " << std::round(trips.size() / FMCA::Scalar(NPTS))
+  if (const char *env_p = std::getenv("OMP_NUM_THREADS"))
+    std::cout << "omp threads=" << env_p << std::endl;
+  std::cout << "dtilde= " << DTILDE << " eta= " << eta << std::endl;
+  const SampletMoments samp_mom(P, DTILDE - 1);
+  const H2SampletTree hst(mom, samp_mom, 0, P);
+  T.tic();
+  //FMCA::internal::SampletMatrixCompressor<H2SampletTree> Scomp;
+  FMCA::ompSampletCompressor<H2SampletTree> Scomp;
+  //Scomp.init(hst, eta, threshold);
+  Scomp.init(hst, eta, threshold);
+  T.toc("planner:");
+  T.tic();
+  //Scomp.compress(mat_eval);
+  Scomp.compress(hst, mat_eval);
+  T.toc("compressor:");
+  T.tic();
+  const auto &trips = Scomp.triplets();
+  T.toc("triplets:");
+  std::cout << "non-zeros (\%): " << trips.size() / FMCA::Scalar(NPTS) / FMCA::Scalar(NPTS)
                 << std::endl;
       FMCA::Vector x(NPTS), y1(NPTS), y2(NPTS);
       FMCA::Scalar err = 0;
@@ -93,7 +99,5 @@ int main() {
       std::cout << "compression error:        " << err << std::endl
                 << std::flush;
       std::cout << std::string(60, '-') << std::endl;
-    }
-  }
   return 0;
 }
