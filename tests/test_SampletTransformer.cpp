@@ -23,7 +23,7 @@ using SampletTree = FMCA::SampletTree<FMCA::ClusterTree>;
 
 int main() {
   const FMCA::Matrix P = Eigen::MatrixXd::Random(DIM, NPTS);
-  const FMCA::Index dtilde = 3;
+  const FMCA::Index dtilde = 5;
   const SampletMoments samp_mom(P, dtilde - 1);
   const SampletTree st(samp_mom, 0, P);
   FMCA::Matrix X(NPTS, 100);
@@ -38,6 +38,7 @@ int main() {
   for (auto lvl = 1; lvl < 10; ++lvl) {
     FMCA::internal::SampletTransformer<SampletTree> s_transform(st, lvl);
     auto TtTX = s_transform.inverseTransform(s_transform.transform(X));
+    std::cout << (X - TtTX).norm() / X.norm() << std::endl;
     assert((X - TtTX).norm() / X.norm() < 10 * FMCA_ZERO_TOLERANCE &&
            "error in samplet transformer for min_level > 0");
   }
