@@ -29,7 +29,7 @@ int main() {
   const FMCA::ClusterTree CT(P, 10);
   T.toc("Tree setup: ");
   T.tic();
-  const FMCA::RandomTreeAccessor<FMCA::ClusterTree> rta(CT);
+  const FMCA::internal::RandomTreeAccessor<FMCA::ClusterTree> rta(CT);
   T.toc("Accessor setup: ");
   FMCA::Index max_level = 0;
   for (auto &&node : CT) {
