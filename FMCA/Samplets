@@ -32,5 +32,6 @@
 #include "src/Samplets/H2SampletTree.h"
 #include "src/Samplets/samplet_transformer.h"
 #include "src/Samplets/samplet_matrix_compressor.h"
+#include "src/Samplets/samplet_matrix_compressor_unsymmetric.h"
 
 #endif

@@ -9,20 +9,21 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#ifndef FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_H_
-#define FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_H_
+#ifndef FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_UNSYMMETRIC_H_
+#define FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_UNSYMMETRIC_H_
 
 #include "../util/RandomTreeAccessor.h"
 
 namespace FMCA {
 namespace internal {
 template <typename Derived>
-class SampletMatrixCompressor {
+class SampletMatrixCompressorUnsymmetric {
  public:
-  SampletMatrixCompressor() {}
-  SampletMatrixCompressor(const SampletTreeBase<Derived> &ST, Scalar eta,
-                          Scalar threshold = 0) {
-    init(ST, eta, threshold);
+  SampletMatrixCompressorUnsymmetric() {}
+  SampletMatrixCompressorUnsymmetric(const SampletTreeBase<Derived> &TR,
+                                     const SampletTreeBase<Derived> &TC,
+                                     Scalar eta, Scalar threshold = 0) {
+    init(TR, TC, eta, threshold);
   }
 
   /**
@@ -30,15 +31,17 @@ class SampletMatrixCompressor {
    *         admissibility condition
    *
    **/
-  void init(const SampletTreeBase<Derived> &ST, Scalar eta,
+  void init(const SampletTreeBase<Derived> &TR,
+            const SampletTreeBase<Derived> &TC, Scalar eta,
             Scalar threshold = 0) {
     eta_ = eta;
     threshold_ = threshold;
-    rta_.init(ST, ST.indices().size());
-    pattern_.resize(rta_.nodes().size());
+    r_rta_.init(TR, TR.indices().size());
+    c_rta_.init(TC, TC.indices().size());
+    pattern_.resize(c_rta_.nodes().size());
 #pragma omp parallel for
-    for (Index j = 0; j < rta_.nodes().size(); ++j) {
-      const Derived *pc = rta_.nodes()[j];
+    for (Index j = 0; j < c_rta_.nodes().size(); ++j) {
+      const Derived *pc = c_rta_.nodes()[j];
       /*
        *  For the moment, the compression does not exploit inheritance
        *  relations in the column clusters. Thus, to obtain an NlogN
@@ -46,7 +49,7 @@ class SampletMatrixCompressor {
        *  This is facilitated by starting a DFS for each column cluster.
        */
       std::vector<const Derived *> row_stack;
-      row_stack.push_back(std::addressof(ST.derived()));
+      row_stack.push_back(std::addressof(TR.derived()));
       while (row_stack.size()) {
         const Derived *pr = row_stack.back();
         row_stack.pop_back();
@@ -54,8 +57,7 @@ class SampletMatrixCompressor {
         for (auto i = 0; i < pr->nSons(); ++i)
           if (compareCluster(pr->sons(i), *pc, eta) != LowRank)
             row_stack.push_back(std::addressof(pr->sons(i)));
-        if (pc->block_id() >= pr->block_id())
-          pattern_[pc->block_id()].insert({pr->block_id(), Matrix(0, 0)});
+        pattern_[pc->block_id()].insert({pr->block_id(), Matrix(0, 0)});
       }
     }
     return;
@@ -64,20 +66,21 @@ class SampletMatrixCompressor {
   template <typename EntGenerator>
   void compress(const EntGenerator &e_gen) {
     // the column cluster tree is traversed bottom up
-    const auto &clusters = rta_.nodes();
-    for (auto it = clusters.rbegin(); it != clusters.rend(); ++it) {
+    const auto &rclusters = r_rta_.nodes();
+    const auto &cclusters = c_rta_.nodes();
+    for (auto it = cclusters.rbegin(); it != cclusters.rend(); ++it) {
       const Derived *pc = *it;
       const Index col_id = pc->block_id();
       std::map<Index, Matrix, std::greater<Index>> &col = pattern_[col_id];
       std::vector<std::pair<const Index, Matrix> *> stack(col.size());
       Index i = 0;
-      Index cur_lvl = clusters[col.begin()->first]->level();
+      Index cur_lvl = cclusters[col.begin()->first]->level();
       std::vector<Index> lvls;
       lvls.push_back(0);
       for (std::pair<const Index, Matrix> &it2 : col) {
         stack[i] = std::addressof(it2);
-        if (cur_lvl != clusters[it2.first]->level()) {
-          cur_lvl = clusters[it2.first]->level();
+        if (cur_lvl != cclusters[it2.first]->level()) {
+          cur_lvl = cclusters[it2.first]->level();
           lvls.push_back(i);
         }
         ++i;
@@ -86,7 +89,7 @@ class SampletMatrixCompressor {
       for (Index k = 0; k < lvls.size() - 1; ++k)
 #pragma omp parallel for
         for (Index i = lvls[k]; i < lvls[k + 1]; ++i) {
-          const Derived *pr = clusters[stack[i]->first];
+          const Derived *pr = rclusters[stack[i]->first];
           Matrix &block = stack[i]->second;
           const Index row_id = pr->block_id();
           block.resize(0, 0);
@@ -146,20 +149,23 @@ class SampletMatrixCompressor {
     triplet_list_.clear();
 
     for (Index i = 0; i < pattern_.size(); ++i) {
-      const Derived *pc = rta_.nodes()[i];
+      const Derived *pc = c_rta_.nodes()[i];
       for (auto &&it : pattern_[i]) {
-        const Derived *pr = rta_.nodes()[it.first];
+        const Derived *pr = r_rta_.nodes()[it.first];
         if (!pr->is_root() && !pc->is_root())
           storeBlock(
               pr->start_index(), pc->start_index(), pr->nsamplets(),
               pc->nsamplets(),
               it.second.bottomRightCorner(pr->nsamplets(), pc->nsamplets()));
-        else if (!pc->is_root())
-          storeBlock(pr->start_index(), pc->start_index(), pr->Q().cols(),
-                     pc->nsamplets(), it.second.rightCols(pc->nsamplets()));
         else if (pr->is_root() && pc->is_root())
           storeBlock(pr->start_index(), pc->start_index(), pr->Q().cols(),
                      pc->Q().cols(), it.second);
+        else if (!pr->is_root() && pc->is_root())
+          storeBlock(pr->start_index(), pc->start_index(), pr->nsamplets(),
+                     pc->Q().cols(), it.second.bottomRows(pr->nsamplets()));
+        else if (pr->is_root() && !pc->is_root())
+          storeBlock(pr->start_index(), pc->start_index(), pr->Q().cols(),
+                     pc->nsamplets(), it.second.rightCols(pc->nsamplets()));
         it.second.resize(0, 0);
       }
     }
@@ -237,8 +243,7 @@ class SampletMatrixCompressor {
                   const Eigen::MatrixBase<otherDerived> &block) {
     for (auto k = 0; k < ncols; ++k)
       for (auto j = 0; j < nrows; ++j)
-        if ((srow + j <= scol + k && abs(block(j, k)) > threshold_) ||
-            srow + j == scol + k)
+        if ((abs(block(j, k)) > threshold_) || srow + j == scol + k)
           triplet_list_.push_back(
               Eigen::Triplet<Scalar>(srow + j, scol + k, block(j, k)));
   }
@@ -246,7 +251,8 @@ class SampletMatrixCompressor {
   //////////////////////////////////////////////////////////////////////////////
   std::vector<Eigen::Triplet<Scalar>> triplet_list_;
   std::vector<std::map<Index, Matrix, std::greater<Index>>> pattern_;
-  RandomTreeAccessor<Derived> rta_;
+  RandomTreeAccessor<Derived> r_rta_;
+  RandomTreeAccessor<Derived> c_rta_;
   Scalar eta_;
   Scalar threshold_;
 };

@@ -19,5 +19,6 @@
 #include "src/Interpolators/LejaPoints.h"
 #include "src/Interpolators/MonomialInterpolator.h"
 #include "src/Interpolators/TensorProductInterpolator.h"
+#include "src/Interpolators/TotalDegreeInterpolator.h"
 
 #endif
