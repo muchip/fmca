@@ -15,5 +15,6 @@
 #include "Moments"
 
 #include "src/MatrixEvaluators/NystromEvaluator.h"
+#include "src/MatrixEvaluators/unsymmetricNystromEvaluator.h"
 
 #endif

@@ -17,7 +17,7 @@
 #include "../FMCA/src/Samplets/samplet_matrix_compressor.h"
 #include "../FMCA/src/util/Tictoc.h"
 
-#define NPTS 1000000
+#define NPTS 10000
 #define DIM 3
 #define MPOLE_DEG 6
 
