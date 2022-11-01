@@ -74,13 +74,13 @@ class SampletMatrixCompressorUnsymmetric {
       std::map<Index, Matrix, std::greater<Index>> &col = pattern_[col_id];
       std::vector<std::pair<const Index, Matrix> *> stack(col.size());
       Index i = 0;
-      Index cur_lvl = cclusters[col.begin()->first]->level();
+      Index cur_lvl = rclusters[col.begin()->first]->level();
       std::vector<Index> lvls;
       lvls.push_back(0);
       for (std::pair<const Index, Matrix> &it2 : col) {
         stack[i] = std::addressof(it2);
-        if (cur_lvl != cclusters[it2.first]->level()) {
-          cur_lvl = cclusters[it2.first]->level();
+        if (cur_lvl != rclusters[it2.first]->level()) {
+          cur_lvl = rclusters[it2.first]->level();
           lvls.push_back(i);
         }
         ++i;
