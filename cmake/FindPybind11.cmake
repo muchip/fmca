@@ -21,15 +21,17 @@ else()
   find_package(pybind11  REQUIRED CONFIG HINTS ${PYBIND11_DIR} ${PYBIND11_ROOT}
   $ENV{PYBIND11_DIR} $ENV{PYBIND11_ROOT})
 
+
+endif()
+
+
+## Something from Python Include needed for CI 
 	find_path(PYBIND11_INCLUDE_DIR
 	NAMES pybind11/pybind11.h pybind11/eigen.h
 	HINTS ${PYBIND11_DIR}/include
 	)
 	include_directories(${PYBIND11_DIR}/include)
 	find_package_handle_standard_args(Pybind11 DEFAULT_MSG PYBIND11_INCLUDE_DIR)
-endif()
-
-## Something from Python Include needed for CI 
 
 if(DEFINED ${PYTHONINCLUDEDIRS})
 	include_directories(${PYTHONINCLUDEDIRS})
