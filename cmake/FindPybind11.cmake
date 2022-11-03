@@ -2,6 +2,7 @@
 include(FindPackageHandleStandardArgs)
 include(FetchContent)
 
+if (NOT TARGET pybind11::pybind11)
 
 FetchContent_Declare(
         pybind11
@@ -22,6 +23,7 @@ else()
   $ENV{PYBIND11_DIR} $ENV{PYBIND11_ROOT})
 
 
+endif()
 endif()
 
 
