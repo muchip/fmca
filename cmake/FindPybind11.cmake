@@ -2,7 +2,6 @@
 include(FindPackageHandleStandardArgs)
 include(FetchContent)
 
-if (NOT TARGET pybind11::headers)
 
 
 FetchContent_Declare(
@@ -36,7 +35,6 @@ endif()
 	include_directories(${PYBIND11_DIR}/include)
 	find_package_handle_standard_args(Pybind11 DEFAULT_MSG PYBIND11_INCLUDE_DIR)
 
-endif()
 
 
 if(DEFINED ${PYTHONINCLUDEDIRS})
