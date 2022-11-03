@@ -12,14 +12,7 @@ else()
 endif()
 
 
-<<<<<<< Updated upstream
-#Python3 include missed
-##python3-config --includes
-#include_directories(${Python3_ROOT_DIR}/include)
-=======
 
-
->>>>>>> Stashed changes
 message(STATUS "
 ****************************************************************************
 *                  ______   __    __    ______    ______                   * 
@@ -41,62 +34,9 @@ license and without any warranty, see <https://github.com/muchip/FMCA>
 for further information.
 ")
 
-#list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
-
-FetchContent_Declare(
-        pybind11
-        GIT_REPOSITORY https://github.com/pybind/pybind11.git
-        GIT_TAG v2.10.0 
-	CMAKE_ARGS
-	    -DPYBIND11_FINDPYTHON=ON
-	    -DPYTHON_EXECUTABLE=$(python -c "import sys; print(sys.executable)")
-	    
-)
-FetchContent_GetProperties(pybind11)
-if(NOT pybind11_POPULATED)
-    FetchContent_Populate(pybind11)
-    add_subdirectory(${pybind11_SOURCE_DIR} ${pybind11_BINARY_DIR})
-    include_directories(${pybind11_SOURCE_DIR}/include)
-else()
-  find_package(pybind11  REQUIRED CONFIG HINTS ${PYBIND11_DIR} ${PYBIND11_ROOT}
-  $ENV{PYBIND11_DIR} $ENV{PYBIND11_ROOT})
-  set(pybind11_INCLUDE_DIR ${PYBIND11_DIR}/include)
-  include_directories(${pybind11_INCLUDE_DIR})
-
-endif()
-if(DEFINED ${PYTHONINCLUDEDIRS})
-	include_directories(${PYTHONINCLUDEDIRS})
-endif()
-if (NOT TARGET Eigen3::Eigen)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 
-    FetchContent_Declare(
-	  Eigen3
-	  GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
-	  GIT_TAG        3.4.0
-	  QUIET
-	  CMAKE_ARGS
-		-DEIGEN_TEST_CXX11:BOOL=OFF
-		-DBUILD_TESTING:BOOL=OFF
-		-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/_dep/Eigen_install
-	 )
-      
-    FetchContent_GetProperties(Eigen3)
-    if(NOT Eigen3_POPULATED)
-  	FetchContent_Populate(Eigen3)
-  	        
-	  add_subdirectory(${eigen3_SOURCE_DIR} ${eigen3_BINARY_DIR})
-	  message("SRC; ${Eigen3_SOURCE_DIR}") # Apparently empty?
-	  message("BIN: ${Eigen3_BINARY_DIR}") # Apparently empty?
-	  include_directories(${eigen3_SOURCE_DIR})
-	  #FetchContent_MakeAvailable(eigen3)
-	  message( "ls ${eigen3_SOURCE_DIR}")
-	endif()
-endif()
-
-
-
-#include_directories(${Python3_ROOT_DIR}/include)
 
 set(PYBIND11_CPP_STANDARD -std=c++11)
 message("${CMAKE_MODULE_PATH}")

@@ -1,22 +1,39 @@
 # Include these modules to handle the QUIETLY and REQUIRED arguments.
 include(FindPackageHandleStandardArgs)
+include(FetchContent)
 
-#=============================================================================
-# If the user has provided ``PYBIND11_DIR``, use it!  Choose items found
-# at this location over system locations.
-if( EXISTS "$ENV{PYBIND11_DIR}" )
-  file( TO_CMAKE_PATH "$ENV{PYBIND11_DIR}" PYBIND11_DIR )
-  set( PYBIND11_DIR "${PYBIND11_DIR}" CACHE PATH "Prefix for Pybind11 installation." )
-endif()
 
-#=============================================================================
-# Set PYBIND11_INCLUDE_DIRS.
-# Try to find pybind11 at $PYBIND11_DIR (if provided) or in standard
-# system locations.
-find_path(PYBIND11_INCLUDE_DIR
+FetchContent_Declare(
+        pybind11
+        GIT_REPOSITORY https://github.com/pybind/pybind11.git
+        GIT_TAG v2.10.0 
+	CMAKE_ARGS
+	    -DPYBIND11_FINDPYTHON=ON
+	    -DPYTHON_EXECUTABLE=$(python -c "import sys; print(sys.executable)")
+	    
+)
+FetchContent_GetProperties(pybind11)
+if(NOT pybind11_POPULATED)
+    FetchContent_Populate(pybind11)
+    add_subdirectory(${pybind11_SOURCE_DIR} ${pybind11_BINARY_DIR})
+    include_directories(${pybind11_SOURCE_DIR}/include)
+else()
+  find_package(pybind11  REQUIRED CONFIG HINTS ${PYBIND11_DIR} ${PYBIND11_ROOT}
+  $ENV{PYBIND11_DIR} $ENV{PYBIND11_ROOT})
+
+	find_path(PYBIND11_INCLUDE_DIR
 	NAMES pybind11/pybind11.h pybind11/eigen.h
 	HINTS ${PYBIND11_DIR}/include
 	)
-include_directories(${PYBIND11_DIR}/include)
+	include_directories(${PYBIND11_DIR}/include)
+	find_package_handle_standard_args(Pybind11 DEFAULT_MSG PYBIND11_INCLUDE_DIR)
+endif()
 
-find_package_handle_standard_args(Pybind11 DEFAULT_MSG PYBIND11_INCLUDE_DIR)
+## Something from Python Include needed for CI 
+
+if(DEFINED ${PYTHONINCLUDEDIRS})
+	include_directories(${PYTHONINCLUDEDIRS})
+endif()
+
+
+
