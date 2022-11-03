@@ -37,7 +37,7 @@ else()
 endif()
 find_package(OpenMP REQUIRED)
 find_package(Eigen3 REQUIRED)
-find_package(Pybind11 REQUIRED)
+find_package(Pybind11 CONFIG)
 
 set(PYBIND11_CPP_STANDARD -std=c++11)
 message("${CMAKE_MODULE_PATH}")
