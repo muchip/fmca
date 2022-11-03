@@ -2,6 +2,8 @@
 include(FindPackageHandleStandardArgs)
 include(FetchContent)
 
+if (NOT TARGET pybind11::headers)
+
 
 FetchContent_Declare(
         pybind11
@@ -25,6 +27,7 @@ else()
 endif()
 
 
+
 ## Something from Python Include needed for CI 
 	find_path(PYBIND11_INCLUDE_DIR
 	NAMES pybind11/pybind11.h pybind11/eigen.h
@@ -32,6 +35,9 @@ endif()
 	)
 	include_directories(${PYBIND11_DIR}/include)
 	find_package_handle_standard_args(Pybind11 DEFAULT_MSG PYBIND11_INCLUDE_DIR)
+
+endif()
+
 
 if(DEFINED ${PYTHONINCLUDEDIRS})
 	include_directories(${PYTHONINCLUDEDIRS})
