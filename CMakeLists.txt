@@ -5,11 +5,6 @@ include(FetchContent)
  # More verbose Output for libraries using set_package_properties
 
 include(FeatureSummary)
-if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.18.0")
-  find_package(Python 3.9 COMPONENTS Interpreter Development.Module Development.Embed REQUIRED)
-else()
-  find_package(Python 3.9 COMPONENTS Interpreter Development REQUIRED)
-endif()
 
 
 
@@ -35,8 +30,14 @@ for further information.
 ")
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
-
-
+if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.18.0")
+  find_package(Python 3.9 COMPONENTS Interpreter Development.Module Development.Embed REQUIRED)
+else()
+  find_package(Python 3.9 COMPONENTS Interpreter Development REQUIRED)
+endif()
+find_package(OpenMP CONFIG)
+find_package(Eigen3 CONFIG)
+find_package(pybind11 CONFIG)
 
 set(PYBIND11_CPP_STANDARD -std=c++11)
 message("${CMAKE_MODULE_PATH}")
