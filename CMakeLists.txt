@@ -12,9 +12,14 @@ else()
 endif()
 
 
+<<<<<<< Updated upstream
 #Python3 include missed
 ##python3-config --includes
 #include_directories(${Python3_ROOT_DIR}/include)
+=======
+
+
+>>>>>>> Stashed changes
 message(STATUS "
 ****************************************************************************
 *                  ______   __    __    ______    ______                   * 
@@ -59,7 +64,9 @@ else()
   include_directories(${pybind11_INCLUDE_DIR})
 
 endif()
-
+if(DEFINED ${PYTHONINCLUDEDIRS})
+	include_directories(${PYTHONINCLUDEDIRS})
+endif()
 if (NOT TARGET Eigen3::Eigen)
 
 
