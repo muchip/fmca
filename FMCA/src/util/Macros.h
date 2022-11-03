@@ -29,7 +29,7 @@ namespace FMCA {
 #define FMCA_ZERO_TOLERANCE std::numeric_limits<FMCA_SCALAR>::epsilon()
 #define FMCA_BBOX_THREASHOLD FMCA_ZERO_TOLERANCE
 
-#define FMCA_INF  std::numeric_limits<double>::infinity()
+
 typedef unsigned int Index;
 
 typedef FMCA_SCALAR Scalar;
