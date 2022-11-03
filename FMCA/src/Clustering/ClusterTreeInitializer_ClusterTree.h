@@ -17,8 +17,7 @@ namespace internal {
 /** \ingroup internal
  *  \brief initializes a bounding box for the geometry
  **/
-template <>
-struct ClusterTreeInitializer<ClusterTree> {
+template <> struct ClusterTreeInitializer<ClusterTree> {
   ClusterTreeInitializer() = delete;
   //////////////////////////////////////////////////////////////////////////////
   template <typename Derived>
@@ -121,12 +120,20 @@ struct ClusterTreeInitializer<ClusterTree> {
       bbmat.col(1) *= -FMCA_INF;
     }
     bbmat.col(2) = bbmat.col(1) - bbmat.col(0);
+    // fix potential flat bounding boxes
+    for (auto i = 0; i < bbmat.rows(); ++i)
+      if (bbmat(i, 1) - bbmat(i, 0) < FMCA_ZERO_TOLERANCE) {
+        bbmat(i, 1) += 10 * FMCA_BBOX_THREASHOLD;
+        bbmat(i, 0) -= 10 * FMCA_BBOX_THREASHOLD;
+        bbmat(i, 2) = 20 * FMCA_BBOX_THREASHOLD;
+      }
+
     CT.node().bb_ = bbmat;
     return;
   }
 };
-}  // namespace internal
+} // namespace internal
 
-}  // namespace FMCA
+} // namespace FMCA
 
 #endif

@@ -9,12 +9,11 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#ifndef FMCA_MATRIXEVALUATORS_MODULE_
-#define FMCA_MATRIXEVALUATORS_MODULE_
+#ifndef FMCA_PIVOTEDCHOLESKY_MODULE_
+#define FMCA_PIVOTEDCHOLESKY_MODULE_
 
-#include "Moments"
+#include "CovarianceKernel"
 
-#include "src/MatrixEvaluators/NystromEvaluator.h"
-#include "src/MatrixEvaluators/unsymmetricNystromEvaluator.h"
+#include "src/PivotedCholesky/PivotedCholesky.h"
 
 #endif

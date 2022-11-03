@@ -9,12 +9,13 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#ifndef FMCA_MATRIXEVALUATORS_MODULE_
-#define FMCA_MATRIXEVALUATORS_MODULE_
+#ifndef FMCA_COVARIANCEKERNEL_MODULE_
+#define FMCA_COVARIANCEKERNEL_MODULE_
 
-#include "Moments"
+#include <string>
 
-#include "src/MatrixEvaluators/NystromEvaluator.h"
-#include "src/MatrixEvaluators/unsymmetricNystromEvaluator.h"
+#include "src/util/Macros.h"
+
+#include "src/CovarianceKernel/CovarianceKernel.h"
 
 #endif

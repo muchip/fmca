@@ -51,9 +51,18 @@ add_custom_command(TARGET FMCA POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy
   ${CMAKE_SOURCE_DIR}/py/FMCA_H2Matrix.ipynb
 ${CMAKE_CURRENT_BINARY_DIR}/FMCA_H2Matrix.ipynb)
 
+
+add_custom_command(TARGET FMCA POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy
+  ${CMAKE_SOURCE_DIR}/py/FMCA_Samplet_GP_Filtering.ipynb
+${CMAKE_CURRENT_BINARY_DIR}/FMCA_Samplet_GP_Filtering.ipynb)
+
 if( ${CMAKE_HOST_WIN32}) # 
 set_target_properties(FMCA PROPERTIES PREFIX "${PYTHON_MODULE_PREFIX}"
 SUFFIX "${PYTHON_MODULE_EXTENSION}")
+add_custom_command(TARGET FMCA POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy
+  ${CMAKE_SOURCE_DIR}/py/FMCA_Samplet_GP_Filtering.ipynb
+${CMAKE_CURRENT_BINARY_DIR}/FMCA_Samplet_GP_Filtering.ipynb)
+
 target_link_libraries(FMCA PRIVATE  pybind11::module)
 else() 
 target_link_libraries(FMCA INTERFACE pybind11::module Eigen::Eigen3)

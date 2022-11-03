@@ -53,7 +53,19 @@ posterior mean (read) and posterior standard deviation (green) conditioned on th
 
 The example above can be found and modified in the jupyter notebook [FMCA_GP](https://github.com/muchip/fmca/blob/master/py/FMCA_GP.ipynb).
 
+## Samplet Gaussian process filtering
+
 A samplet matrix compression based approach is also available. It particular allows for filtering of the (compressed) kernel
-matrix, thus mitigating the very ill-conditioning of the kernel matrix. An example using a Gaussian kernel and very noisy data
-can be found [here](https://github.com/muchip/fmca/blob/master/py/FMCA_Samplet_GP_Filtering.ipynb).
+matrix, thus mitigating the very ill-conditioning of the kernel matrix. 
+
+![What is this](assets/kernel.png)![What is this](assets/filteredKernel.png)
+
+For the Matern-3/2 kernel shown on the left, just considering the diagonal block associated to the 40 largest entries, shown on the right,
+leads to a relative approximation error of about 3e-5 of the kernel matrix in the Frobenius norm. Solving the associated system for the noisy
+data set shown below, leads to an effective denoising. The corresponding exepctation is shown in orange.
+
+![What is this](assets/filteredGP.png)
+
+This example
+can be found [FMCA_Samplet_GP_Filtering](https://github.com/muchip/fmca/blob/master/py/FMCA_Samplet_GP_Filtering.ipynb).
 
