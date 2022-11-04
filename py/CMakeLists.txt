@@ -1,8 +1,11 @@
 find_package(Eigen3 REQUIRED)
 find_package(Pybind11 REQUIRED)
 
-
+if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.18.0")
 link_directories(${CMAKE_SOURCE_DIR}/FMCA INTERFACE Eigen3)
+else()
+link_directories(${CMAKE_SOURCE_DIR}/FMCA)
+endif()
 
 include_directories(${CMAKE_SOURCE_DIR}/FMCA)
 
@@ -65,5 +68,10 @@ ${CMAKE_CURRENT_BINARY_DIR}/FMCA_Samplet_GP_Filtering.ipynb)
 
 target_link_libraries(FMCA PRIVATE  pybind11::module)
 else() 
-target_link_libraries(FMCA INTERFACE pybind11::module Eigen::Eigen3)
+  if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.18.0")
+  target_link_libraries(FMCA INTERFACE pybind11::module Eigen::Eigen3)
+  else()
+  target_link_libraries(FMCA PUBLIC pybind11::module)
+  endif()
+
 endif()
