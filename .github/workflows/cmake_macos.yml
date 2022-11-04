@@ -2,9 +2,9 @@ name: CMake MacOS
 
 on:
   push:
-    branches: [ "daveb-dev-patch-1" ]
+    branches: [ "master" ]
   pull_request:
-    branches: [ "daveb-dev-patch-1" ]
+    branches: [ "master" ]
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:   
 
