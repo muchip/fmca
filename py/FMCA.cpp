@@ -35,6 +35,7 @@ using Interpolator = FMCA::TensorProductInterpolator;
 using Moments = FMCA::NystromMoments<Interpolator>;
 using H2ClusterTree = FMCA::H2ClusterTree<FMCA::ClusterTree>;
 using H2Matrix = FMCA::H2Matrix<H2ClusterTree>;
+
 /**
  *  \brief wrapper class for a samplet tree (for convenience, we only use H2
  *         trees)
@@ -62,46 +63,7 @@ struct pySampletTree {
 };
 ////////////////////////////////////////////////////////////////////////////////
 
-/**
- *  \brief wrapper class for covariance kernel
- *
- **/
-struct pyCovarianceKernel {
-  pyCovarianceKernel(){};
-  pyCovarianceKernel(const std::string &ktype, FMCA::Scalar l) : l_(l) {
-    // transform string to upper and check if kernel is implemented
-    ktype_ = ktype;
-    for (auto &c : ktype_)
-      c = (char)toupper(c);
-    if (ktype_ == "GAUSSIAN")
-      kernel_ = [this](FMCA::Scalar r) { return exp(-r * r / l_); };
-    else if (ktype_ == "EXPONENTIAL")
-      kernel_ = [this](FMCA::Scalar r) { return exp(-r / l_); };
-    else
-      assert(false && "desired kernel not implemented");
-  }
-
-  template <typename derived, typename otherDerived>
-  FMCA::Scalar operator()(const Eigen::MatrixBase<derived> &x,
-                          const Eigen::MatrixBase<otherDerived> &y) const {
-    return kernel_((x - y).norm());
-  }
-  FMCA::Matrix eval(const FMCA::Matrix &PR, const FMCA::Matrix &PC) const {
-    FMCA::Matrix retval(PR.cols(), PC.cols());
-    for (auto j = 0; j < PC.cols(); ++j)
-      for (auto i = 0; i < PR.cols(); ++i)
-        retval(i, j) = operator()(PR.col(i), PC.col(j));
-    return retval;
-  }
-
-  std::string kernelType() const { return ktype_; }
-
-  std::function<FMCA::Scalar(FMCA::Scalar)> kernel_;
-  std::string ktype_;
-  FMCA::Scalar l_;
-};
-
-using MatrixEvaluator = FMCA::NystromEvaluator<Moments, pyCovarianceKernel>;
+using MatrixEvaluator = FMCA::NystromEvaluator<Moments, FMCA::CovarianceKernel>;
 ////////////////////////////////////////////////////////////////////////////////
 /**
  *  \brief wrapper class for an H2Matrix
@@ -211,132 +173,7 @@ struct pySampletKernelCompressor {
   FMCA::Scalar thres_;
   FMCA::Index n_;
 };
-////////////////////////////////////////////////////////////////////////////////
-/**
- *  \brief class providing Cholesky kernel approximations
- *
- **/
-struct pyPivotedCholesky {
-  pyPivotedCholesky() {
-    L_.resize(0, 0);
-    B_.resize(0, 0);
-    indices_.resize(0);
-    tol_ = 0;
-  };
-  pyPivotedCholesky(const pyCovarianceKernel &ker, const FMCA::Matrix &P,
-                    FMCA::Scalar tol = 1e-3)
-      : tol_(tol) {
-    L_.resize(0, 0);
-    B_.resize(0, 0);
-    indices_.resize(0);
-    compute(ker, P, tol);
-  };
 
-  void compute(const pyCovarianceKernel &ker, const FMCA::Matrix &P,
-               FMCA::Scalar tol = 1e-3) {
-    const FMCA::Index dim = P.cols();
-    const FMCA::Index max_cols = max_size_ / dim > dim ? dim : max_size_ / dim;
-    FMCA::Vector D(dim);
-    FMCA::Index pivot = 0;
-    FMCA::Scalar tr = 0;
-    L_.resize(dim, max_cols);
-    indices_.resize(max_cols);
-    tol_ = tol;
-    // compute the diagonal and the trace
-    for (auto i = 0; i < dim; ++i) {
-      const FMCA::Matrix wtf = ker.eval(P.col(i), P.col(i));
-      D(i) = wtf(0, 0);
-      if (D(i) < 0) {
-        info_ = 1;
-        return;
-      }
-    }
-    tr = D.sum();
-    // we guarantee the error tr(A-LL^T)/tr(A) < tol
-    tol *= tr;
-    // perform pivoted Cholesky decomposition
-    std::cout << "N: " << dim << " max number of cols: " << max_cols
-              << " rel tol: " << tol << " initial trace: " << tr << std::endl;
-    FMCA::Index step = 0;
-    while ((step < max_cols) && (tol < tr)) {
-      D.maxCoeff(&pivot);
-      indices_(step) = pivot;
-      // get new column from C
-      L_.col(step) = ker.eval(P, P.col(pivot));
-      // update column with the current matrix Lmatrix_
-      L_.col(step) -= L_.leftCols(step) * L_.row(pivot).head(step).transpose();
-      if (L_(pivot, step) <= 0) {
-        info_ = 2;
-        std::cout << "breaking with non positive pivot\n";
-        break;
-      }
-      L_.col(step) /= sqrt(L_(pivot, step));
-      // update the diagonal and the trace
-      D.array() -= L_.col(step).array().square();
-      // compute the trace of the Schur complement
-      tr = D.sum();
-      ++step;
-    }
-    std::cout << "steps: " << step << " trace error: " << tr << std::endl;
-    if (tr < 0)
-      info_ = 2;
-    else
-      info_ = 0;
-    // crop L, indices to their actual size
-    L_.conservativeResize(dim, step);
-    indices_.conservativeResize(step);
-    return;
-  }
-
-  void computeFullPiv(const pyCovarianceKernel &ker, const FMCA::Matrix &P,
-                      FMCA::Scalar tol = 1e-3) {
-    const FMCA::Index dim = P.cols();
-    const FMCA::Index max_cols = max_size_ / dim > dim ? dim : max_size_ / dim;
-    tol_ = tol;
-    if (max_cols < dim) {
-      info_ = 3;
-      return;
-    }
-    Eigen::SelfAdjointEigenSolver<FMCA::Matrix> es;
-    {
-      FMCA::Matrix K = ker.eval(P, P);
-      es.compute(K);
-      info_ = es.info();
-      if (es.info() != Eigen::Success)
-        return;
-    }
-    FMCA::Vector ev = es.eigenvalues().reverse();
-    std::cout << "lambda min: " << ev.minCoeff() << " "
-              << "lambda max: " << ev.maxCoeff();
-    FMCA::Scalar tr = ev.sum();
-    FMCA::Scalar cur_tr = 0;
-    FMCA::Index step = 0;
-    while (tr - cur_tr > tol * tr) {
-      cur_tr += ev(step);
-      ++step;
-    }
-    std::cout << " step: " << step << std::endl;
-    L_.resize(dim, step);
-    for (auto i = 1; i <= step; ++i)
-      L_.col(i - 1) = es.eigenvectors().col(dim - i);
-    L_ = L_ * ev.head(step).cwiseSqrt().asDiagonal();
-    return;
-  }
-
-  const FMCA::Matrix &matrixB() { return B_; }
-  const FMCA::Matrix &matrixL() { return L_; }
-  const FMCA::iVector &indices() { return indices_; }
-  const FMCA::Scalar &tol() { return tol_; }
-  const FMCA::Index &info() { return info_; }
-
-  FMCA::Matrix L_;
-  FMCA::Matrix B_;
-  FMCA::iVector indices_;
-  FMCA::Scalar tol_;
-  FMCA::Index info_;
-  // we cap the maximum matrix size at 2GB
-  const FMCA::Index max_size_ = 250000000;
-};
 ////////////////////////////////////////////////////////////////////////////////
 PYBIND11_MODULE(FMCA, m) {
   m.doc() = "pybind11 FMCA plugin";  // optional module docstring
@@ -402,8 +239,8 @@ PYBIND11_MODULE(FMCA, m) {
   py::class_<FMCA::CovarianceKernel> pyCovarianceKernel_(m, "CovarianceKernel");
   pyCovarianceKernel_.def(py::init<>());
   pyCovarianceKernel_.def(py::init<const std::string &, FMCA::Scalar>());
-  pyCovarianceKernel_.def("kernelType", &pyCovarianceKernel::kernelType);
-  pyCovarianceKernel_.def("eval", &pyCovarianceKernel::eval,
+  pyCovarianceKernel_.def("kernelType", &FMCA::CovarianceKernel::kernelType);
+  pyCovarianceKernel_.def("eval", &FMCA::CovarianceKernel::eval,
                           py::arg().noconvert(), py::arg().noconvert());
   //////////////////////////////////////////////////////////////////////////////
   // H2Matrix
@@ -434,7 +271,7 @@ PYBIND11_MODULE(FMCA, m) {
   //////////////////////////////////////////////////////////////////////////////
   // pivoted Cholesky decomposition
   //////////////////////////////////////////////////////////////////////////////
-  py::class_<FMCA::PivotedCholesky> pyPivotedCholesky_(m, "PivotedCholesky");
+   py::class_<FMCA::PivotedCholesky> pyPivotedCholesky_(m, "PivotedCholesky");
   pyPivotedCholesky_.def(py::init<>());
   pyPivotedCholesky_.def(py::init<const FMCA::CovarianceKernel &,
                                   const FMCA::Matrix &, FMCA::Scalar>());
@@ -442,10 +279,10 @@ PYBIND11_MODULE(FMCA, m) {
                          py::arg().noconvert(), py::arg().noconvert(),
                          py::arg(),
                          "Computes the pivoted Cholesky decomposition");
-  pyPivotedCholesky_.def("computeFullPiv", &pyPivotedCholesky::computeFullPiv,
-                         py::arg().noconvert(), py::arg().noconvert(),
-                         py::arg(),
-                         "Computes the truncated spectral decomposition");
-  pyPivotedCholesky_.def("indices", &pyPivotedCholesky::indices);
-  pyPivotedCholesky_.def("matrixL", &pyPivotedCholesky::matrixL);
+  pyPivotedCholesky_.def(
+      "computeFullPiv", &FMCA::PivotedCholesky::computeFullPiv,
+      py::arg().noconvert(), py::arg().noconvert(), py::arg(),
+      "Computes the truncated spectral decomposition");
+  pyPivotedCholesky_.def("indices", &FMCA::PivotedCholesky::indices);
+  pyPivotedCholesky_.def("matrixL", &FMCA::PivotedCholesky::matrixL);
 }
