@@ -1,8 +1,6 @@
 FetchContent_Declare(OpenMP
     URL
-        https://github.com/llvm/llvm-project/releases/download/llvmorg-11.1.0/openmp-11.1.0.src.tar.xz
-    URL_HASH
-        SHA256=d187483b75b39acb3ff8ea1b7d98524d95322e3cb148842957e9b0fbb866052e
+       https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.5/openmp-15.0.5.src.tar.xz
 )
 
 set(OPENMP_STANDALONE_BUILD TRUE)
