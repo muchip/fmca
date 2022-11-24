@@ -16,6 +16,48 @@
 
 namespace FMCA {
 
+class kMinList {
+ public:
+  using entryType = std::pair<Index, Scalar>;
+  struct my_less {
+    bool operator()(const entryType &a, const entryType &b) {
+      return a.second < b.second;
+    }
+  };
+  kMinList() noexcept { k_ = 0; }
+  kMinList(Index k) noexcept { k_ = k; }
+  void insert(const entryType &tuple) {
+    if (queue_.size() < k_)
+      queue_.push(tuple);
+    else if (queue_.top().second > tuple.second) {
+      queue_.pop();
+      queue_.push(tuple);
+    }
+  }
+  std::vector<Index> indices() {
+    std::vector<Index> retval;
+    std::priority_queue<entryType, std::vector<entryType>, my_less> queue =
+        queue_;
+    std::vector<entryType> data;
+    while (queue.size()) {
+      data.emplace_back(queue.top());
+      queue.pop();
+    }
+    std::sort(data.begin(), data.end(), my_less());
+    for (auto &&it : data) retval.push_back(it.first);
+    return retval;
+  }
+
+  const std::priority_queue<entryType, std::vector<entryType>, my_less> &list()
+      const {
+    return queue_;
+  }
+
+ private:
+  std::priority_queue<entryType, std::vector<entryType>, my_less> queue_;
+  Index k_;
+};
+
 enum Admissibility { Refine = 0, LowRank = 1, Dense = 2 };
 
 template <typename Derived, typename Derived2>
@@ -136,6 +178,77 @@ Vector minDistanceVector(const ClusterTreeBase<Derived> &CT, const Matrix &P) {
 }
 
 template <typename Derived>
+void updateClusterKMinDistance(std::vector<kMinList> &min_dist,
+                               Scalar max_min_dist,
+                               const ClusterTreeBase<Derived> &c1,
+                               const ClusterTreeBase<Derived> &c2,
+                               const Matrix &P) {
+  Scalar dist = computeDistance(c1, c2);
+  if (max_min_dist >= dist) {
+    if (c2.nSons()) {
+      dist += c2.bb().col(2).norm();
+      max_min_dist = max_min_dist < dist ? max_min_dist : dist;
+      for (auto i = 0; i < c2.nSons(); ++i)
+        if (c2.sons(i).indices().size())
+          updateClusterKMinDistance(min_dist, max_min_dist, c1, c2.sons(i), P);
+    } else {
+      if (c1.block_id() < c2.block_id())
+        for (auto j = 0; j < c1.indices().size(); ++j)
+          for (auto i = 0; i < c2.indices().size(); ++i) {
+            dist = (P.col(c2.indices()[i]) - P.col(c1.indices()[j])).norm();
+            min_dist[c2.indices()[i]].insert(
+                std::make_pair(c1.indices()[j], dist));
+            min_dist[c1.indices()[j]].insert(
+                std::make_pair(c2.indices()[i], dist));
+          }
+      // determin max_min_distance within cluster
+      max_min_dist = 0;
+      for (auto j = 0; j < c1.indices().size(); ++j) {
+        const Scalar dist = min_dist[c1.indices()[j]].list().top().second;
+        max_min_dist = max_min_dist < dist ? dist : max_min_dist;
+      }
+    }
+  }
+  return;
+}
+
+template <typename Derived>
+iMatrix kMinDistance(const ClusterTreeBase<Derived> &CT, const Matrix &P,
+                     const Index k = 1) {
+  iMatrix kmin_distance(P.cols(), k);
+  std::vector<kMinList> qvec(P.cols());
+  Scalar max_min_distance = 0;
+  kmin_distance.array() = FMCA_INF;
+  for (auto &&it : qvec) it = kMinList(k);
+  // compute min_distance at the leafs
+  for (auto it = CT.cbegin(); it != CT.cend(); ++it) {
+    if (!it->nSons() && it->indices().size()) {
+      // determine min_distances within the cluster
+      for (auto j = 0; j < it->indices().size(); ++j)
+        for (auto i = 0; i < j; ++i) {
+          const Scalar dist =
+              (P.col(it->indices()[i]) - P.col(it->indices()[j])).norm();
+          qvec[it->indices()[i]].insert(std::make_pair(it->indices()[j], dist));
+          qvec[it->indices()[j]].insert(std::make_pair(it->indices()[i], dist));
+        }
+      // determin max_min_distance within cluster
+      max_min_distance = 0;
+      for (auto j = 0; j < it->indices().size(); ++j) {
+        const Scalar dist = qvec[it->indices()[j]].list().top().second;
+        max_min_distance = max_min_distance < dist ? dist : max_min_distance;
+      }
+      updateClusterKMinDistance(qvec, max_min_distance, *it, CT, P);
+    }
+  }
+  for (Index i = 0; i < qvec.size(); ++i) {
+    std::vector<Index> idx = qvec[i].indices();
+    for (Index j = 0; j < idx.size(); ++j)
+      kmin_distance(CT.indices()[i], j) = idx[j];
+  }
+  return kmin_distance;
+}
+
+template <typename Derived>
 void clusterTreeStatistics(const ClusterTreeBase<Derived> &CT,
                            const Matrix &P) {
   std::vector<Scalar> disc_vec;
@@ -232,5 +345,5 @@ void clusterTreeStatistics(const ClusterTreeBase<Derived> &CT,
   return;
 }
 
-} // namespace FMCA
+}  // namespace FMCA
 #endif

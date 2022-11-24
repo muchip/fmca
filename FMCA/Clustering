@@ -17,6 +17,8 @@
 #include <iostream>
 #include <numeric>
 #include <string>
+#include <queue>
+#include <vector>
 
 #include <Eigen/Dense>
 
