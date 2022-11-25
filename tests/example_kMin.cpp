@@ -17,10 +17,10 @@
 #include "IO.h"
 
 #define DIM 3
-#define NPTS 300000
+#define NPTS 10
 
 int main() {
-  const FMCA::Index leaf_size = 10;
+  const FMCA::Index leaf_size = 20;
   FMCA::Matrix P = FMCA::Matrix::Random(DIM, NPTS);
   {
     FMCA::Matrix Q = FMCA::Matrix::Random(DIM, NPTS);
@@ -49,7 +49,21 @@ int main() {
              << " " << P(1, i) << " " << P(2, i) << std::endl;
     myfile.close();
   }
+
   FMCA::ClusterTree CT(P, leaf_size);
+  FMCA::iMatrix kMins = kMinDistance(CT, P, 5);
+  std::cout << kMins << std::endl;
+  auto idcs = CT.indices();
+  for (auto i = 0; i < P.cols(); ++i) {
+    for (auto j = 0; j < 5; ++j)
+      std::cout << (P.col(idcs[i]) - P.col(kMins(i, j))).norm() << " ";
+    std::cout << std::endl;
+  }
+  FMCA::Matrix distMat(P.cols(), P.cols());
+  for (auto j = 0; j < P.cols(); ++j)
+    for (auto i = 0; i < P.cols(); ++i)
+      distMat(i, j) = (P.col(idcs[i]) - P.col(idcs[j])).norm();
+  std::cout << distMat << std::endl;
   std::vector<const FMCA::TreeBase<FMCA::ClusterTree> *> leafs;
   for (auto level = 0; level < 16; ++level) {
     std::vector<Eigen::MatrixXd> bbvec;
@@ -63,8 +77,6 @@ int main() {
     if (!node.nSons()) bbvec.push_back(node.derived().bb());
   }
   FMCA::IO::plotBoxes("boxesLeafs.vtk", bbvec);
-  FMCA::iMatrix kmd = kMinDistance(CT, P, 10);
-  std::cout << kmd << std::endl;
   FMCA::Vector colrs(P.cols());
   for (auto &node : CT) {
     if (!node.nSons()) {

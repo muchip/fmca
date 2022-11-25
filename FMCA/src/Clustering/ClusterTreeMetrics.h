@@ -44,7 +44,11 @@ class kMinList {
       queue.pop();
     }
     std::sort(data.begin(), data.end(), my_less());
-    for (auto &&it : data) retval.push_back(it.first);
+    std::cout << "------" << std::endl;
+    for (auto &&it : data) {
+      std::cout << it.first << " " << it.second << std::endl;
+      retval.push_back(it.first);
+    }
     return retval;
   }
 
@@ -242,8 +246,7 @@ iMatrix kMinDistance(const ClusterTreeBase<Derived> &CT, const Matrix &P,
   }
   for (Index i = 0; i < qvec.size(); ++i) {
     std::vector<Index> idx = qvec[i].indices();
-    for (Index j = 0; j < idx.size(); ++j)
-      kmin_distance(CT.indices()[i], j) = idx[j];
+    for (Index j = 0; j < idx.size(); ++j) kmin_distance(i, j) = idx[j];
   }
   return kmin_distance;
 }
