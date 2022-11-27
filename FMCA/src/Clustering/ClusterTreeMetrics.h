@@ -12,55 +12,12 @@
 #ifndef FMCA_CLUSTERING_CLUSTERTREEMETRICS_H_
 #define FMCA_CLUSTERING_CLUSTERTREEMETRICS_H_
 
+#include <memory>
+
+#include "../util/KMinList.h"
 #include "../util/Tictoc.h"
 
 namespace FMCA {
-
-class kMinList {
- public:
-  using entryType = std::pair<Index, Scalar>;
-  struct my_less {
-    bool operator()(const entryType &a, const entryType &b) {
-      return a.second < b.second;
-    }
-  };
-  kMinList() noexcept { k_ = 0; }
-  kMinList(Index k) noexcept { k_ = k; }
-  void insert(const entryType &tuple) {
-    if (queue_.size() < k_)
-      queue_.push(tuple);
-    else if (queue_.top().second > tuple.second) {
-      queue_.pop();
-      queue_.push(tuple);
-    }
-  }
-  std::vector<Index> indices() {
-    std::vector<Index> retval;
-    std::priority_queue<entryType, std::vector<entryType>, my_less> queue =
-        queue_;
-    std::vector<entryType> data;
-    while (queue.size()) {
-      data.emplace_back(queue.top());
-      queue.pop();
-    }
-    std::sort(data.begin(), data.end(), my_less());
-    std::cout << "------" << std::endl;
-    for (auto &&it : data) {
-      std::cout << it.first << " " << it.second << std::endl;
-      retval.push_back(it.first);
-    }
-    return retval;
-  }
-
-  const std::priority_queue<entryType, std::vector<entryType>, my_less> &list()
-      const {
-    return queue_;
-  }
-
- private:
-  std::priority_queue<entryType, std::vector<entryType>, my_less> queue_;
-  Index k_;
-};
 
 enum Admissibility { Refine = 0, LowRank = 1, Dense = 2 };
 
@@ -182,7 +139,7 @@ Vector minDistanceVector(const ClusterTreeBase<Derived> &CT, const Matrix &P) {
 }
 
 template <typename Derived>
-void updateClusterKMinDistance(std::vector<kMinList> &min_dist,
+void updateClusterKMinDistance(std::vector<KMinList> &min_dist,
                                Scalar max_min_dist,
                                const ClusterTreeBase<Derived> &c1,
                                const ClusterTreeBase<Derived> &c2,
@@ -208,7 +165,7 @@ void updateClusterKMinDistance(std::vector<kMinList> &min_dist,
       // determin max_min_distance within cluster
       max_min_dist = 0;
       for (auto j = 0; j < c1.indices().size(); ++j) {
-        const Scalar dist = min_dist[c1.indices()[j]].list().top().second;
+        const Scalar dist = min_dist[c1.indices()[j]].list().rbegin()->second;
         max_min_dist = max_min_dist < dist ? dist : max_min_dist;
       }
     }
@@ -220,33 +177,39 @@ template <typename Derived>
 iMatrix kMinDistance(const ClusterTreeBase<Derived> &CT, const Matrix &P,
                      const Index k = 1) {
   iMatrix kmin_distance(P.cols(), k);
-  std::vector<kMinList> qvec(P.cols());
+  std::vector<KMinList> qvec(P.cols());
   Scalar max_min_distance = 0;
   kmin_distance.array() = FMCA_INF;
-  for (auto &&it : qvec) it = kMinList(k);
+  for (auto &&it : qvec) it = KMinList(k);
   // compute min_distance at the leafs
   for (auto it = CT.cbegin(); it != CT.cend(); ++it) {
     if (!it->nSons() && it->indices().size()) {
-      // determine min_distances within the cluster
-      for (auto j = 0; j < it->indices().size(); ++j)
+      const Derived *node = std::addressof(*it);
+      while (node->indices().size() <= k) node = std::addressof(node->dad());
+      const std::vector<Index> &idcs = node->indices();
+      //const std::vector<Index> &idcs = it->indices();
+      for (auto j = 0; j < idcs.size(); ++j)
         for (auto i = 0; i < j; ++i) {
-          const Scalar dist =
-              (P.col(it->indices()[i]) - P.col(it->indices()[j])).norm();
-          qvec[it->indices()[i]].insert(std::make_pair(it->indices()[j], dist));
-          qvec[it->indices()[j]].insert(std::make_pair(it->indices()[i], dist));
+          const Scalar dist = (P.col(idcs[i]) - P.col(idcs[j])).norm();
+          qvec[idcs[i]].insert(std::make_pair(idcs[j], dist));
+          qvec[idcs[j]].insert(std::make_pair(idcs[i], dist));
         }
-      // determin max_min_distance within cluster
+      // determine max_min_distance within cluster
       max_min_distance = 0;
       for (auto j = 0; j < it->indices().size(); ++j) {
-        const Scalar dist = qvec[it->indices()[j]].list().top().second;
+        const Scalar dist = qvec[it->indices()[j]].list().rbegin()->second;
         max_min_distance = max_min_distance < dist ? dist : max_min_distance;
       }
       updateClusterKMinDistance(qvec, max_min_distance, *it, CT, P);
     }
   }
   for (Index i = 0; i < qvec.size(); ++i) {
-    std::vector<Index> idx = qvec[i].indices();
-    for (Index j = 0; j < idx.size(); ++j) kmin_distance(i, j) = idx[j];
+    Index j = 0;
+    for (const auto &it : qvec[i].list()) {
+      kmin_distance(i, j++) = it.first;
+      std::cout << it.second << " " << it.first << std::endl;
+    }
+    std::cout << "-----\n";
   }
   return kmin_distance;
 }

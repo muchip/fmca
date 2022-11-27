@@ -18,9 +18,10 @@
 
 #define DIM 3
 #define NPTS 10
+#define KMINS 2
 
 int main() {
-  const FMCA::Index leaf_size = 20;
+  const FMCA::Index leaf_size = 1;
   FMCA::Matrix P = FMCA::Matrix::Random(DIM, NPTS);
   {
     FMCA::Matrix Q = FMCA::Matrix::Random(DIM, NPTS);
@@ -42,28 +43,31 @@ int main() {
     std::iota(subsample.begin(), subsample.end(), 0);
     std::random_shuffle(subsample.begin(), subsample.end());
     for (auto i = 0; i < NPTS; ++i) P.col(i) = Q.col(subsample[i]);
+#if 0
     std::ofstream myfile;
     myfile.open("pts.txt");
     for (auto i = 0; i < P.cols(); ++i)
       myfile << P(0, i) << " "
              << " " << P(1, i) << " " << P(2, i) << std::endl;
     myfile.close();
+#endif
   }
 
   FMCA::ClusterTree CT(P, leaf_size);
-  FMCA::iMatrix kMins = kMinDistance(CT, P, 5);
+  FMCA::iMatrix kMins = kMinDistance(CT, P, KMINS);
   std::cout << kMins << std::endl;
   auto idcs = CT.indices();
   for (auto i = 0; i < P.cols(); ++i) {
-    for (auto j = 0; j < 5; ++j)
-      std::cout << (P.col(idcs[i]) - P.col(kMins(i, j))).norm() << " ";
+    for (auto j = 0; j < KMINS; ++j)
+      std::cout << (P.col(i) - P.col(kMins(i, j))).norm() << " ";
     std::cout << std::endl;
   }
   FMCA::Matrix distMat(P.cols(), P.cols());
   for (auto j = 0; j < P.cols(); ++j)
     for (auto i = 0; i < P.cols(); ++i)
-      distMat(i, j) = (P.col(idcs[i]) - P.col(idcs[j])).norm();
+      distMat(i, j) = (P.col(i) - P.col(j)).norm();
   std::cout << distMat << std::endl;
+#if 0
   std::vector<const FMCA::TreeBase<FMCA::ClusterTree> *> leafs;
   for (auto level = 0; level < 16; ++level) {
     std::vector<Eigen::MatrixXd> bbvec;
@@ -86,5 +90,6 @@ int main() {
     }
   }
   FMCA::IO::plotPointsColor("points.vtk", P, colrs);
+#endif
   return 0;
 }
