@@ -29,4 +29,7 @@ add_test(SampletTransformer test_SampletTransformer.out)
 add_executable(test_TreeIterator.out test_TreeIterator.cpp)
 add_test(TreeIterator test_TreeIterator.out)
 
+add_executable(test_kNN.out test_kNN.cpp)
+add_test(kNN test_kNN.out)
+
 enable_testing()

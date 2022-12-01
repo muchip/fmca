@@ -9,81 +9,65 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-//#define EIGEN_DONT_PARALLELIZE
+// #define EIGEN_DONT_PARALLELIZE
 #include <Eigen/Dense>
 #include <iostream>
 
+#include "../FMCA/CovarianceKernel"
 #include "../FMCA/Samplets"
 #include "../FMCA/src/util/Tictoc.h"
 
 #define NPTS 10000
 #define DIM 2
-#define MPOLE_DEG 4
-
-struct exponentialKernel {
-  double operator()(const FMCA::Matrix &x, const FMCA::Matrix &y) const {
-    return exp(-(x - y).norm());
-  }
-};
-
-namespace FMCA {
-template <typename Functor>
-Vector matrixColumnGetter(const Matrix &P, const std::vector<Index> &idcs,
-                          const Functor &fun, Index colID) {
-  Vector retval(P.cols());
-  retval.setZero();
-  for (auto i = 0; i < retval.size(); ++i)
-    retval(i) = fun(P.col(idcs[i]), P.col(idcs[colID]));
-  return retval;
-}
-}  // namespace FMCA
+#define MPOLE_DEG 6
 
 using Interpolator = FMCA::TotalDegreeInterpolator;
 using SampletInterpolator = FMCA::MonomialInterpolator;
 using Moments = FMCA::NystromMoments<Interpolator>;
 using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
-using MatrixEvaluator = FMCA::NystromEvaluator<Moments, exponentialKernel>;
+using MatrixEvaluator = FMCA::NystromEvaluator<Moments, FMCA::CovarianceKernel>;
 using usMatrixEvaluator =
-    FMCA::unsymmetricNystromEvaluator<Moments, exponentialKernel>;
+    FMCA::unsymmetricNystromEvaluator<Moments, FMCA::CovarianceKernel>;
 using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
 int main() {
   FMCA::Tictoc T;
-  const auto function = exponentialKernel();
+  const FMCA::CovarianceKernel function("EXPONENTIAL", 1);
   const FMCA::Matrix P = 0.5 * (FMCA::Matrix::Random(DIM, NPTS).array() + 1);
   const FMCA::Scalar threshold = 1e-10;
-  const FMCA::Index dtilde = 3;
+  const FMCA::Index dtilde = 4;
   const Moments mom(P, MPOLE_DEG);
   const usMatrixEvaluator mat_eval(mom, mom, function);
   const MatrixEvaluator smat_eval(mom, function);
   for (double eta = 1.2; eta >= 0.0; eta -= 0.2) {
-    std::cout << "dtilde= " << dtilde << " eta= " << eta << std::endl;
+    std::cout << "dtilde:                       " << dtilde << std::endl;
+    std::cout << "eta:                          " << eta << std::endl;
     const SampletMoments samp_mom(P, dtilde - 1);
     H2SampletTree hst(mom, samp_mom, 0, P);
     T.tic();
     FMCA::internal::SampletMatrixCompressorUnsymmetric<H2SampletTree> Scomp;
     Scomp.init(hst, hst, eta, threshold);
-    T.toc("unsymmetric planner:");
+    T.toc("unsymmetric planner:         ");
     T.tic();
     Scomp.compress(mat_eval);
-    T.toc("unsymmetric compressor:");
+    T.toc("unsymmetric compressor:      ");
     T.tic();
     const auto &trips = Scomp.triplets();
-    T.toc("triplets:");
-    std::cout << "anz: " << std::round(trips.size() / FMCA::Scalar(NPTS))
-              << std::endl;
+    T.toc("triplets:                    ");
+    std::cout << "anz:                          "
+              << std::round(trips.size() / FMCA::Scalar(NPTS)) << std::endl;
     T.tic();
     FMCA::internal::SampletMatrixCompressor<H2SampletTree> sScomp;
     sScomp.init(hst, eta, threshold);
-    T.toc("symmetric planner:");
+    T.toc("symmetric planner:           ");
     T.tic();
     sScomp.compress(smat_eval);
-    T.toc("symmetric compressor:");
+    T.toc("symmetric compressor:        ");
     T.tic();
     const auto &strips = sScomp.triplets();
-    T.toc("triplets:");
-    std::cout << "anz: " << std::round(strips.size() / FMCA::Scalar(NPTS))
-              << std::endl;
+    T.toc("triplets:                    ");
+    std::cout << "anz:                          "
+              << std::round(strips.size() / FMCA::Scalar(NPTS)) << std::endl;
     // error computation
     FMCA::Vector x(NPTS), y1(NPTS), y2(NPTS);
     FMCA::Scalar err = 0;
@@ -92,7 +76,8 @@ int main() {
       FMCA::Index index = rand() % P.cols();
       x.setZero();
       x(index) = 1;
-      y1 = FMCA::matrixColumnGetter(P, hst.indices(), function, index);
+      FMCA::Vector col = function.eval(P, P.col(hst.indices()[index]));
+      y1 = col(hst.indices());
       x = hst.sampletTransform(x);
       y2.setZero();
       y1.setZero();
@@ -107,7 +92,8 @@ int main() {
       nrm += y1.squaredNorm();
     }
     err = sqrt(err / nrm);
-    std::cout << "error:        " << err << std::endl << std::flush;
+    std::cout << "compression error:            " << err << std::endl
+              << std::flush;
     std::cout << std::string(60, '-') << std::endl;
   }
   return 0;
