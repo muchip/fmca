@@ -31,5 +31,6 @@
 #include "src/Clustering/ClusterTreeMetrics.h"
 #include "src/Clustering/ClusterTreeSplitter.h"
 #include "src/Clustering/ClusterTree.h"
+#include "src/Clustering/kNN.h"
 
 #endif
