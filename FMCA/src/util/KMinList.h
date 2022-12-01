@@ -34,7 +34,7 @@ class KMinList {
     if (queue_.size() < k_)
       queue_.emplace(tuple);
     else {
-      if (tuple.second < queue_.rbegin()->second) {
+      if (tuple.second < max_min()) {
         std::set<value_type, my_less>::iterator it = queue_.find(tuple);
         if (it == queue_.end()) {
           queue_.erase(std::prev(it));
@@ -44,7 +44,7 @@ class KMinList {
     }
   }
 
-  bool isFull() const { return queue_.size() == k_; }
+  Scalar max_min() const { return queue_.rbegin()->second; }
 
   const std::set<value_type, my_less> &list() const { return queue_; }
 
