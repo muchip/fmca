@@ -193,6 +193,13 @@ PYBIND11_MODULE(FMCA, m) {
       },
       py::arg().noconvert(), py::arg().noconvert(),
       "Displays metrics of a cluster tree");
+  m.def(
+      "kNN",
+      [](const FMCA::ClusterTree &tree, const FMCA::Matrix &P, FMCA::Index k) {
+        return FMCA::kNN(tree, P, k);
+      },
+      py::arg().noconvert(), py::arg().noconvert(), py::arg(),
+      "return the list of the k-nearest neighbours of the points in P");
   //////////////////////////////////////////////////////////////////////////////
   // SampletTree
   //////////////////////////////////////////////////////////////////////////////
@@ -236,6 +243,14 @@ PYBIND11_MODULE(FMCA, m) {
       },
       py::arg().noconvert(), py::arg().noconvert(), py::arg().noconvert(),
       "Performs samplet transform of data");
+  m.def(
+      "kNN",
+      [](const pySampletTree &tree, const FMCA::Matrix &P, FMCA::Index k) {
+        return FMCA::kNN(tree.ST_, P, k);
+      },
+      py::arg().noconvert(), py::arg().noconvert(), py::arg(),
+      "return the list of the k-nearest neighbours of the points in P");
+
   //////////////////////////////////////////////////////////////////////////////
   // CovarianceKernel
   //////////////////////////////////////////////////////////////////////////////
