@@ -1,4 +1,10 @@
 find_package(Eigen3 REQUIRED)
+find_package(OpenMP REQUIRED)
+
+if(OpenMP_CXX_FOUND)
+    link_directories(FMCA INTERFACE OpenMP::OpenMP_CXX Eigen3)
+endif()
+
 
 link_directories(${CMAKE_SOURCE_DIR}/FMCA)
 

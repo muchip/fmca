@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.21)
+cmake_minimum_required(VERSION 3.4...3.18)
 project(FMCA CXX)
 # Fetch dependency 
 include(FetchContent)
@@ -38,6 +38,13 @@ endif()
 find_package(OpenMP REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(Pybind11 CONFIG)
+
+
+set(cxx_flags 
+	$<$<CXX_COMPILER_ID:MSVC>:-D_SCL_SECURE_NO_WARNINGS /openmp /std:c++11>           #Add MSVC-specific compiler flags here
+	$<$<CXX_COMPILER_ID:GNU>:-Wall -m64 -fopenmp -O3 -std=c++11 -Wno-unused-function> #Add GCC/Clang-specific compiler flags here
+	)
+
 
 set(PYBIND11_CPP_STANDARD -std=c++11)
 message("${CMAKE_MODULE_PATH}")

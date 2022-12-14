@@ -1,3 +1,5 @@
+if(NOT TARGET OpenMP::OpenMP_CXX)
+
 FetchContent_Declare(OpenMP
     URL
         https://github.com/llvm/llvm-project/releases/download/llvmorg-11.1.0/openmp-11.1.0.src.tar.xz
@@ -15,11 +17,13 @@ set(OpenMP_AVAILABLE TRUE)
 target_link_directories(omp
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/_deps/openmp-build/runtime/src>
-        $<INSTALL_INTERFACE:${LIBRARY_DIST}>
+        $<INSTALL_INTERFACE:/lib>
 )
 
 install(TARGETS omp
     LIBRARY
     DESTINATION
-        "${LIBRARY_DIST}"
+        "${CMAKE_INSTALL_PREFIX}/lib"
 )
+
+endif()

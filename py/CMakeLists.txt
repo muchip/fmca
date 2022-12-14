@@ -6,6 +6,9 @@ link_directories(${CMAKE_SOURCE_DIR}/FMCA INTERFACE Eigen3)
 
 include_directories(${CMAKE_SOURCE_DIR}/FMCA)
 
+pybind11_add_module(FMCA FMCA.cpp)
+target_compile_definitions(FMCA
+                           PRIVATE VERSION_INFO=0.1)
 
 add_library(FMCA MODULE FMCA.cpp)
 
