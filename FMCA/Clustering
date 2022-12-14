@@ -17,6 +17,8 @@
 #include <iostream>
 #include <numeric>
 #include <string>
+#include <queue>
+#include <vector>
 
 #include <Eigen/Dense>
 
@@ -29,5 +31,6 @@
 #include "src/Clustering/ClusterTreeMetrics.h"
 #include "src/Clustering/ClusterTreeSplitter.h"
 #include "src/Clustering/ClusterTree.h"
+#include "src/Clustering/kNN.h"
 
 #endif
