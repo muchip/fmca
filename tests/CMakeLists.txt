@@ -1,9 +1,9 @@
 find_package(Eigen3 REQUIRED)
-find_package(OpenMP REQUIRED)
+#find_package(OpenMP REQUIRED)
 
-if(OpenMP_CXX_FOUND)
-    link_directories(FMCA INTERFACE OpenMP::OpenMP_CXX Eigen3)
-endif()
+#if(OpenMP_CXX_FOUND)
+#    link_directories(FMCA INTERFACE OpenMP::OpenMP_CXX Eigen3)
+#endif()
 
 
 link_directories(${CMAKE_SOURCE_DIR}/FMCA)
@@ -35,7 +35,7 @@ add_test(SampletTransformer test_SampletTransformer.out)
 add_executable(test_TreeIterator.out test_TreeIterator.cpp)
 add_test(TreeIterator test_TreeIterator.out)
 
-add_executable(test_kNN.out test_kNN.cpp)
-add_test(kNN test_kNN.out)
+#add_executable(test_kNN.out test_kNN.cpp)
+#add_test(kNN test_kNN.out)
 
 enable_testing()

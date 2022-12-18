@@ -13,7 +13,7 @@ pybind11_add_module(FMCA FMCA.cpp)
 target_compile_definitions(FMCA
                            PRIVATE VERSION_INFO=0.1)
 
-add_library(FMCA MODULE FMCA.cpp)
+#add_library(FMCA MODULE FMCA.cpp)
 
 execute_process(OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND 
 python3-config --extension-suffix OUTPUT_VARIABLE FMCA_SUFFIX)

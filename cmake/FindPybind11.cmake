@@ -2,8 +2,6 @@
 include(FindPackageHandleStandardArgs)
 include(FetchContent)
 
-
-
 FetchContent_Declare(
         pybind11
         GIT_REPOSITORY https://github.com/pybind/pybind11.git
@@ -19,10 +17,10 @@ if(NOT pybind11_POPULATED)
     add_subdirectory(${pybind11_SOURCE_DIR} ${pybind11_BINARY_DIR})
     include_directories(${pybind11_SOURCE_DIR}/include)
 
-)
-else()
-  find_package(pybind11  REQUIRED CONFIG HINTS ${PYBIND11_DIR} ${PYBIND11_ROOT}
-  $ENV{PYBIND11_DIR} $ENV{PYBIND11_ROOT})
+
+#else()
+#  find_package(pybind11 REQUIRED  CONFIG HINTS ${PYBIND11_DIR} ${PYBIND11_ROOT}
+#  $ENV{PYBIND11_DIR} $ENV{PYBIND11_ROOT})
 
 
 endif()
@@ -30,7 +28,7 @@ endif()
 
 
 ## Something from Python Include needed for CI 
-	find_path(PYBIND11_INCLUDE_DIR
+find_path(PYBIND11_INCLUDE_DIR
 	NAMES pybind11/pybind11.h pybind11/eigen.h
 	HINTS ${PYBIND11_DIR}/include
 	)

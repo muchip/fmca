@@ -1,4 +1,4 @@
-if(NOT TARGET OpenMP::OpenMP_CXX)
+if(NOT OpenMP_FOUND)
 
 FetchContent_Declare(OpenMP
     URL
@@ -23,3 +23,4 @@ install(TARGETS omp
     DESTINATION
         "${LIBRARY_DIST}"
 )
+endif()

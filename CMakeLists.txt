@@ -35,15 +35,16 @@ if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.18.0")
 else()
   find_package(Python 3.9 COMPONENTS Interpreter Development REQUIRED)
 endif()
-find_package(OpenMP REQUIRED)
+
+#find_package(OpenMP REQUIRED)
 find_package(Eigen3 REQUIRED)
-find_package(Pybind11 CONFIG)
+find_package(Pybind11 REQUIRED)
 
 
-set(cxx_flags 
-	$<$<CXX_COMPILER_ID:MSVC>:-D_SCL_SECURE_NO_WARNINGS /openmp /std:c++11>           #Add MSVC-specific compiler flags here
-	$<$<CXX_COMPILER_ID:GNU>:-Wall -m64 -fopenmp -O3 -std=c++11 -Wno-unused-function> #Add GCC/Clang-specific compiler flags here
-	)
+#set(cxx_flags 
+#	$<$<CXX_COMPILER_ID:MSVC>:-D_SCL_SECURE_NO_WARNINGS /openmp /std:c++11>           #Add MSVC-specific compiler flags here
+#	$<$<CXX_COMPILER_ID:GNU>:-Wall -m64 -fopenmp -O3 -std=c++11 -Wno-unused-function> #Add GCC/Clang-specific compiler flags here#
+#	)
 
 
 set(PYBIND11_CPP_STANDARD -std=c++11)
