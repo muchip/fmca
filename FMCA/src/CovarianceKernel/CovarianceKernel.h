@@ -50,7 +50,9 @@ class CovarianceKernel {
       };
     ////////////////////////////////////////////////////////////////////////////
     else if (ktype_ == "GAUSSIAN")
-      kernel_ = [this](FMCA::Scalar r) { return exp(-r * r / l_); };
+      kernel_ = [this](FMCA::Scalar r) {
+        return exp(-0.5 * r * r / (l_ * l_));
+      };
     else
       assert(false && "desired kernel not implemented");
   }
