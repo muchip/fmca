@@ -150,18 +150,25 @@ void clusterTreeStatistics(const ClusterTreeBase<Derived> &CT,
   Vector min_dist = minDistanceVector(CT, P);
   Scalar min_min_dist = min_dist.minCoeff();
   Scalar max_min_dist = min_dist.maxCoeff();
-  for (auto it = CT.cbegin(); it != CT.cend(); ++it) {
-    const auto &node = *it;
-    if (!node.is_root() && node.indices().size()) {
-      Scalar discrepancy = std::abs(Scalar(node.indices().size()) / N -
-                                    node.bb().col(2).prod() / vol);
-      disc_vec.push_back(discrepancy);
-      max_disc = max_disc < disc_vec.back() ? disc_vec.back() : max_disc;
-      min_disc = min_disc > disc_vec.back() ? disc_vec.back() : min_disc;
-      mean_disc += disc_vec.back();
+  if (n_cluster > 1) {
+    for (auto it = CT.cbegin(); it != CT.cend(); ++it) {
+      const auto &node = *it;
+      if (!node.is_root() && node.indices().size()) {
+        Scalar discrepancy = std::abs(Scalar(node.indices().size()) / N -
+                                      node.bb().col(2).prod() / vol);
+        disc_vec.push_back(discrepancy);
+        max_disc = max_disc < disc_vec.back() ? disc_vec.back() : max_disc;
+        min_disc = min_disc > disc_vec.back() ? disc_vec.back() : min_disc;
+        mean_disc += disc_vec.back();
+      }
     }
+    mean_disc /= disc_vec.size();
+  } else {
+    min_disc = FMCA_ZERO_TOLERANCE;
+    max_disc = FMCA_ZERO_TOLERANCE;
+    mean_disc = FMCA_ZERO_TOLERANCE;
   }
-  mean_disc /= disc_vec.size();
+
   std::cout << "------------------- Cluster tree metrics -------------------"
             << std::endl;
   std::cout << "dimension:                    " << P.rows() << std::endl;
@@ -198,7 +205,7 @@ void clusterTreeStatistics(const ClusterTreeBase<Derived> &CT,
     bar_factor = bar_factor < FMCA_INF ? bar_factor : 0;
     for (auto i = 0; i < intervals; ++i) {
       std::cout << std::scientific << std::setprecision(2) << std::setw(9)
-                << h * (i + 0.5) * min_min_dist << "|";
+                << h * (i + 0.5) + min_min_dist << "|";
       std::cout << std::string(
                        std::ceil(bar_factor * values(i) / min_dist.size()), '*')
                 << std::endl;
