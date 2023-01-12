@@ -20,6 +20,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 #include <FMCA/Clustering>
 #include <FMCA/CovarianceKernel>
+#include <FMCA/DerivateCovarianceKernel>
 #include <FMCA/H2Matrix>
 #include <FMCA/PivotedCholesky>
 #include <FMCA/Samplets>
@@ -257,6 +258,18 @@ PYBIND11_MODULE(FMCA, m) {
   pyCovarianceKernel_.def("kernelType", &FMCA::CovarianceKernel::kernelType);
   pyCovarianceKernel_.def("eval", &FMCA::CovarianceKernel::eval,
                           py::arg().noconvert(), py::arg().noconvert());
+  //////////////////////////////////////////////////////////////////////////////
+  // Derivative CovarianceKernel
+  //////////////////////////////////////////////////////////////////////////////
+  py::class_<FMCA::DerivateCovarianceKernel> pyDerivativeCovarianceKernel_(m, "DerivativeCovarianceKernel");
+  pyCovarianceKernel_.def(py::init<>());
+  pyCovarianceKernel_.def(py::init<const std::string &, FMCA::Scalar>());
+  pyCovarianceKernel_.def("kernelType", &FMCA::DerivativeCovarianceKernel::kernelType);
+  pyCovarianceKernel_.def("eval", &FMCA::DerivativeCovarianceKernel::eval,
+                          py::arg().noconvert(), py::arg().noconvert());
+  
+
+
   //////////////////////////////////////////////////////////////////////////////
   // H2Matrix
   //////////////////////////////////////////////////////////////////////////////
