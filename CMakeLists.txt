@@ -44,3 +44,14 @@ include_directories("${PROJECT_SOURCE_DIR}")
 add_subdirectory(tests)
 add_subdirectory(py)
 enable_testing()
+
+
+if(NOT DEFINED CMAKE_INSTALL_PREFIX)
+  set(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR}/library)
+endif()
+
+install(TARGETS ${PROJECT_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/tutorials)
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/py/  
+                  DESTINATION ${CMAKE_INSTALL_PREFIX}/tutorials 
+                  FILES_MATCHING PATTERN "*.ipynb")
