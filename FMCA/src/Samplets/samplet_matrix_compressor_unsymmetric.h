@@ -39,6 +39,7 @@ class SampletMatrixCompressorUnsymmetric {
     r_rta_.init(TR, TR.indices().size());
     c_rta_.init(TC, TC.indices().size());
     pattern_.resize(c_rta_.nodes().size());
+    queue_.resize(r_rta_.max_level() + c_rta_.max_level() + 1);
 #pragma omp parallel for
     for (Index j = 0; j < c_rta_.nodes().size(); ++j) {
       const Derived *pc = c_rta_.nodes()[j];
@@ -57,7 +58,12 @@ class SampletMatrixCompressorUnsymmetric {
         for (auto i = 0; i < pr->nSons(); ++i)
           if (compareCluster(pr->sons(i), *pc, eta) != LowRank)
             row_stack.push_back(std::addressof(pr->sons(i)));
-        pattern_[pc->block_id()].insert({pr->block_id(), Matrix(0, 0)});
+        auto it =
+            pattern_[pc->block_id()].insert({pr->block_id(), Matrix(0, 0)});
+#pragma omp critical
+        queue_[pc->level() + pr->level()].push_back(
+            ijp(pr->block_id(), pc->block_id(),
+                std::addressof((it.first)->second)));
       }
     }
     return;
@@ -68,76 +74,59 @@ class SampletMatrixCompressorUnsymmetric {
     // the column cluster tree is traversed bottom up
     const auto &rclusters = r_rta_.nodes();
     const auto &cclusters = c_rta_.nodes();
-    for (auto it = cclusters.rbegin(); it != cclusters.rend(); ++it) {
-      const Derived *pc = *it;
-      const Index col_id = pc->block_id();
-      std::map<Index, Matrix, std::greater<Index>> &col = pattern_[col_id];
-      std::vector<std::pair<const Index, Matrix> *> stack(col.size());
-      Index i = 0;
-      Index cur_lvl = rclusters[col.begin()->first]->level();
-      std::vector<Index> lvls;
-      lvls.push_back(0);
-      for (std::pair<const Index, Matrix> &it2 : col) {
-        stack[i] = std::addressof(it2);
-        if (cur_lvl != rclusters[it2.first]->level()) {
-          cur_lvl = rclusters[it2.first]->level();
-          lvls.push_back(i);
-        }
-        ++i;
-      }
-      lvls.push_back(stack.size());
-      for (Index k = 0; k < lvls.size() - 1; ++k)
+    for (auto it = queue_.rbegin(); it != queue_.rend(); ++it) {
 #pragma omp parallel for
-        for (Index i = lvls[k]; i < lvls[k + 1]; ++i) {
-          const Derived *pr = rclusters[stack[i]->first];
-          Matrix &block = stack[i]->second;
-          const Index row_id = pr->block_id();
-          block.resize(0, 0);
-          //  preferred, we pick blocks from the right
-          if (pc->nSons()) {
-            for (auto k = 0; k < pc->nSons(); ++k) {
-              const Index nscalfs = pc->sons(k).nscalfs();
-              const Index son_id = pc->sons(k).block_id();
-              // check if pc's son is found in the row of pr
-              // if so, reuse the matrix block, otherwise recompute it
-              const auto it3 = pattern_[son_id].find(row_id);
-              if (it3 != pattern_[son_id].end()) {
-                const Matrix &ret = it3->second;
-                block.conservativeResize(ret.rows(), block.cols() + nscalfs);
-                block.rightCols(nscalfs) = ret.leftCols(nscalfs);
-              } else {
-                const Matrix ret =
-                    recursivelyComputeBlock(*pr, pc->sons(k), e_gen);
-                block.conservativeResize(ret.rows(), block.cols() + nscalfs);
-                block.rightCols(nscalfs) = ret.leftCols(nscalfs);
-              }
-            }
-            block = block * pc->Q();
-          } else {
-            if (!pr->nSons()) {
-              block = recursivelyComputeBlock(*pr, *pc, e_gen);
+      for (Index i = 0; i < it->size(); ++i) {
+        const Derived *pr = rclusters[(*it)[i].i];
+        const Derived *pc = cclusters[(*it)[i].j];
+        Matrix &block = *((*it)[i].p);
+        const Index col_id = pc->block_id();
+        const Index row_id = pr->block_id();
+        block.resize(0, 0);
+        //  preferred, we pick blocks from the right
+        if (pc->nSons()) {
+          for (auto k = 0; k < pc->nSons(); ++k) {
+            const Index nscalfs = pc->sons(k).nscalfs();
+            const Index son_id = pc->sons(k).block_id();
+            // check if pc's son is found in the row of pr
+            // if so, reuse the matrix block, otherwise recompute it
+            const auto it3 = pattern_[son_id].find(row_id);
+            if (it3 != pattern_[son_id].end()) {
+              const Matrix &ret = it3->second;
+              block.conservativeResize(ret.rows(), block.cols() + nscalfs);
+              block.rightCols(nscalfs) = ret.leftCols(nscalfs);
             } else {
-              for (auto k = 0; k < pr->nSons(); ++k) {
-                const Index nscalfs = pr->sons(k).nscalfs();
-                const Index son_id = pr->sons(k).block_id();
-                const auto it3 = pattern_[col_id].find(son_id);
-                // if so, reuse the matrix block, otherwise recompute it
-                if (it3 != pattern_[col_id].end()) {
-                  const Matrix &ret = it3->second;
-                  block.conservativeResize(ret.cols(), block.cols() + nscalfs);
-                  block.rightCols(nscalfs) = ret.transpose().leftCols(nscalfs);
-                } else {
-                  const Matrix ret =
-                      recursivelyComputeBlock(pr->sons(k), *pc, e_gen);
-                  block.conservativeResize(ret.cols(), block.cols() + nscalfs);
-                  block.rightCols(nscalfs) = ret.transpose().leftCols(nscalfs);
-                }
-              }
-              block = (block * pr->Q()).transpose();
+              const Matrix ret =
+                  recursivelyComputeBlock(*pr, pc->sons(k), e_gen);
+              block.conservativeResize(ret.rows(), block.cols() + nscalfs);
+              block.rightCols(nscalfs) = ret.leftCols(nscalfs);
             }
           }
-          stack[i]->second = block;
+          block = block * pc->Q();
+        } else {
+          if (!pr->nSons()) {
+            block = recursivelyComputeBlock(*pr, *pc, e_gen);
+          } else {
+            for (auto k = 0; k < pr->nSons(); ++k) {
+              const Index nscalfs = pr->sons(k).nscalfs();
+              const Index son_id = pr->sons(k).block_id();
+              const auto it3 = pattern_[col_id].find(son_id);
+              // if so, reuse the matrix block, otherwise recompute it
+              if (it3 != pattern_[col_id].end()) {
+                const Matrix &ret = it3->second;
+                block.conservativeResize(ret.cols(), block.cols() + nscalfs);
+                block.rightCols(nscalfs) = ret.transpose().leftCols(nscalfs);
+              } else {
+                const Matrix ret =
+                    recursivelyComputeBlock(pr->sons(k), *pc, e_gen);
+                block.conservativeResize(ret.cols(), block.cols() + nscalfs);
+                block.rightCols(nscalfs) = ret.transpose().leftCols(nscalfs);
+              }
+            }
+            block = (block * pr->Q()).transpose();
+          }
         }
+      }
     }
     return;
   }
@@ -249,6 +238,14 @@ class SampletMatrixCompressorUnsymmetric {
   }
 
   //////////////////////////////////////////////////////////////////////////////
+  struct ijp {
+    Index i;
+    Index j;
+    Matrix *p;
+    ijp(Index ii, Index jj, Matrix *pp) : i(ii), j(jj), p(pp){};
+  };
+  std::vector<std::vector<ijp>> queue_;
+
   std::vector<Eigen::Triplet<Scalar>> triplet_list_;
   std::vector<std::map<Index, Matrix, std::greater<Index>>> pattern_;
   RandomTreeAccessor<Derived> r_rta_;
