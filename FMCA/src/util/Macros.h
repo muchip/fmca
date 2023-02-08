@@ -13,6 +13,7 @@
 #define FMCA_UTIL_MACROS_H_
 
 #include <Eigen/Dense>
+#include <Eigen/Sparse>
 #include <limits>
 
 namespace FMCA {
@@ -40,6 +41,9 @@ typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1u> Vector;
 typedef Eigen::Matrix<Index, Eigen::Dynamic, Eigen::Dynamic> iMatrix;
 
 typedef Eigen::Matrix<Index, Eigen::Dynamic, 1u> iVector;
+
+template <typename T>
+using Triplet = Eigen::Triplet<T>;
 }  // namespace FMCA
 
 #endif
