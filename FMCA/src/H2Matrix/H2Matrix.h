@@ -45,16 +45,15 @@ class H2Matrix {
   //////////////////////////////////////////////////////////////////////////////
   H2Matrix() : is_low_rank_(false), dad_(nullptr), level_(0) {}
   template <typename EntryGenerator>
-  H2Matrix(const H2ClusterTreeBase<Derived> &CT, const EntryGenerator &e_gen,
+  H2Matrix(const TreeBase<Derived> &CT, const EntryGenerator &e_gen,
            Scalar eta = 0.8)
       : is_low_rank_(false), dad_(nullptr), level_(0) {
     init(CT, e_gen, eta);
   }
 
   template <typename EntryGenerator>
-  H2Matrix(const H2ClusterTreeBase<Derived> &RCT,
-           const H2ClusterTreeBase<Derived> &CCT, const EntryGenerator &e_gen,
-           Scalar eta = 0.8)
+  H2Matrix(const TreeBase<Derived> &RCT, const TreeBase<Derived> &CCT,
+           const EntryGenerator &e_gen, Scalar eta = 0.8)
       : is_low_rank_(false), dad_(nullptr), level_(0) {
     init(RCT, CCT, e_gen, eta);
   }
@@ -62,8 +61,8 @@ class H2Matrix {
   // init
   //////////////////////////////////////////////////////////////////////////////
   template <typename MatrixEvaluator>
-  void init(const H2ClusterTreeBase<Derived> &CT,
-            const MatrixEvaluator &mat_eval, Scalar eta = 0.8) {
+  void init(const TreeBase<Derived> &CT, const MatrixEvaluator &mat_eval,
+            Scalar eta = 0.8) {
     ncclusters_ = std::distance(CT.cbegin(), CT.cend());
     nrclusters_ = ncclusters_;
     computeH2Matrix(CT.derived(), CT.derived(), mat_eval, eta);
@@ -73,11 +72,10 @@ class H2Matrix {
   // init
   //////////////////////////////////////////////////////////////////////////////
   template <typename MatrixEvaluator>
-  void init(const H2ClusterTreeBase<Derived> &RCT,
-            const H2ClusterTreeBase<Derived> &CCT,
+  void init(const TreeBase<Derived> &RCT, const TreeBase<Derived> &CCT,
             const MatrixEvaluator &mat_eval, Scalar eta = 0.8) {
     ncclusters_ = std::distance(CCT.cbegin(), CCT.cend());
-    nrclusters_ = std::distance(RCT.cbegin(), CCT.cend());
+    nrclusters_ = std::distance(RCT.cbegin(), RCT.cend());
     computeH2Matrix(RCT.derived(), CCT.derived(), mat_eval, eta);
     return;
   }

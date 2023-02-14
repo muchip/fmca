@@ -19,8 +19,8 @@ namespace internal {
  *  \brief implements the forward transform for the matrix times vector product
  */
 template <typename Derived1>
-void forward_transform_recursion(const Derived1 &CT, std::vector<Matrix> *tvec,
-                                 const Matrix &vec) {
+void forward_transform_recursion(const H2ClusterTree<Derived1> &CT,
+                                 std::vector<Matrix> *tvec, const Matrix &vec) {
   if (CT.nSons()) {
     (*tvec)[CT.block_id()].resize(CT.Es()[0].rows(), vec.cols());
     (*tvec)[CT.block_id()].setZero();

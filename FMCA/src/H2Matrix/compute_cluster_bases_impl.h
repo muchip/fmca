@@ -24,7 +24,6 @@ namespace internal {
  **/
 struct compute_cluster_bases_impl {
   compute_cluster_bases_impl() {}
-
   template <typename Derived, typename Moments>
   static void compute(TreeBase<Derived> &CT, const Moments &mom) {
     Derived &H2T = CT.derived();
@@ -50,7 +49,6 @@ struct compute_cluster_bases_impl {
     } else
       // compute leaf bases
       H2T.V() = mom.moment_matrix(H2T);
-
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
@@ -70,6 +68,8 @@ struct compute_cluster_bases_impl {
         H2T.V().rightCols(H2T.sons(i).V().cols()) =
             H2T.Es()[i] * H2T.sons(i).V();
       }
+      std::cout << V.rows() << " " << V.cols() << " | " << H2T.V().rows() << " "
+                << H2T.V().cols() << std::endl;
       Scalar nrm = (V - H2T.V()).norm() / V.norm();
       eigen_assert(nrm < 1e-14 && "the H2 cluster basis is faulty");
     }
