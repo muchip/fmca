@@ -30,6 +30,12 @@ class H2Matrix {
 
   iterator begin() { return iterator(static_cast<H2Matrix *>(this), 0); }
   iterator end() { return iterator(nullptr, 0); }
+
+  const_iterator begin() const {
+    return const_iterator(static_cast<const H2Matrix *>(this), 0);
+  }
+  const_iterator end() const { return const_iterator(nullptr, 0); }
+
   const_iterator cbegin() const {
     return const_iterator(static_cast<const H2Matrix *>(this), 0);
   }
@@ -44,20 +50,70 @@ class H2Matrix {
       : is_low_rank_(false), dad_(nullptr), level_(0) {
     init(CT, e_gen, eta);
   }
+
+  template <typename EntryGenerator>
+  H2Matrix(const H2ClusterTreeBase<Derived> &RCT,
+           const H2ClusterTreeBase<Derived> &CCT, const EntryGenerator &e_gen,
+           Scalar eta = 0.8)
+      : is_low_rank_(false), dad_(nullptr), level_(0) {
+    init(RCT, CCT, e_gen, eta);
+  }
   //////////////////////////////////////////////////////////////////////////////
   // init
   //////////////////////////////////////////////////////////////////////////////
   template <typename MatrixEvaluator>
   void init(const H2ClusterTreeBase<Derived> &CT,
             const MatrixEvaluator &mat_eval, Scalar eta = 0.8) {
-    nclusters_ = std::distance(CT.cbegin(), CT.cend());
+    ncclusters_ = std::distance(CT.cbegin(), CT.cend());
+    nrclusters_ = ncclusters_;
     computeH2Matrix(CT.derived(), CT.derived(), mat_eval, eta);
     return;
   }
+  //////////////////////////////////////////////////////////////////////////////
+  // init
+  //////////////////////////////////////////////////////////////////////////////
+  template <typename MatrixEvaluator>
+  void init(const H2ClusterTreeBase<Derived> &RCT,
+            const H2ClusterTreeBase<Derived> &CCT,
+            const MatrixEvaluator &mat_eval, Scalar eta = 0.8) {
+    ncclusters_ = std::distance(CCT.cbegin(), CCT.cend());
+    nrclusters_ = std::distance(RCT.cbegin(), CCT.cend());
+    computeH2Matrix(RCT.derived(), CCT.derived(), mat_eval, eta);
+    return;
+  }
+  //////////////////////////////////////////////////////////////////////////////
+  // init block cluster tree
+  //////////////////////////////////////////////////////////////////////////////
+  void initBlockClusterTree(const Derived &CT1, const Derived &CT2,
+                            Scalar eta) {
+    if (CT1.is_root() && CT2.is_root()) {
+      ncclusters_ = std::distance(CT2.cbegin(), CT2.cend());
+      nrclusters_ = std::distance(CT1.cbegin(), CT1.cend());
+    }
+    row_cluster_ = &CT1;
+    col_cluster_ = &CT2;
+    level_ = CT1.level();
+    Admissibility adm = compareCluster(CT1, CT2, eta);
+    if (adm == LowRank) {
+      is_low_rank_ = true;
+    } else if (adm == Refine) {
+      sons_.resize(CT1.nSons(), CT2.nSons());
+      for (auto j = 0; j < CT2.nSons(); ++j)
+        for (auto i = 0; i < CT1.nSons(); ++i) {
+          sons_(i, j).dad_ = this;
+          sons_(i, j).initBlockClusterTree(CT1.sons(i), CT2.sons(j), eta);
+        }
+    } else {
+      is_low_rank_ = false;
+    }
+    return;
+  }
+
   Index rows() const { return row_cluster_->indices().size(); }
   Index cols() const { return col_cluster_->indices().size(); }
   Index level() const { return level_; }
-  Index nclusters() const { return nclusters_; }
+  Index ncclusters() const { return ncclusters_; }
+  Index nrclusters() const { return nrclusters_; }
   const Derived *rcluster() const { return row_cluster_; }
   const Derived *ccluster() const { return col_cluster_; }
   const GenericMatrix<H2Matrix> &sons() const { return sons_; }
@@ -205,7 +261,8 @@ class H2Matrix {
   bool is_low_rank_;
   Matrix S_;
   Index level_;
-  Index nclusters_;
+  Index nrclusters_;
+  Index ncclusters_;
 };
 
 }  // namespace FMCA
