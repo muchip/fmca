@@ -16,9 +16,10 @@ namespace FMCA {
 namespace internal {
 template <typename Derived>
 Matrix matrix_vector_product_impl(const Derived &H2, const Matrix &rhs) {
-  Matrix lhs(rhs.rows(), rhs.cols());
+  Matrix lhs(H2.rows(), rhs.cols());
   lhs.setZero();
-  std::vector<Matrix> trhs = forward_transform_impl(H2, rhs);
+  std::vector<Matrix> trhs(H2.ncclusters());
+  forward_transform_recursion(*(H2.ccluster()), &trhs, rhs);
   std::vector<Matrix> tlhs(H2.nrclusters());
   for (const auto &it : *(H2.rcluster())) {
     if (it.nSons())
