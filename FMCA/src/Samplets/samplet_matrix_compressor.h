@@ -71,7 +71,6 @@ class SampletMatrixCompressor {
   template <typename EntGenerator>
   void compress(const EntGenerator &e_gen) {
     // the column cluster tree is traversed bottom up
-    // the column cluster tree is traversed bottom up
     const auto &rclusters = rta_.nodes();
     const auto &cclusters = rta_.nodes();
     for (auto it = queue_.rbegin(); it != queue_.rend(); ++it) {
@@ -124,6 +123,22 @@ class SampletMatrixCompressor {
               }
             }
             block = (block * pr->Q()).transpose();
+          }
+        }
+      }
+      // garbage collector
+      if (it != queue_.rbegin()) {
+        auto itm1 = it;
+        --itm1;
+#pragma omp parallel for
+        for (Index i = 0; i < itm1->size(); ++i) {
+          const Derived *pr = rclusters[(*itm1)[i].i];
+          const Derived *pc = cclusters[(*itm1)[i].j];
+          Matrix &block = *((*itm1)[i].p);
+          if (!pr->is_root() && !pc->is_root()) {
+            Matrix temp =
+                block.bottomRightCorner(pr->nsamplets(), pc->nsamplets());
+            block = temp;
           }
         }
       }

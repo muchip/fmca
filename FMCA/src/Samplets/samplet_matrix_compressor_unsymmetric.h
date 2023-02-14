@@ -127,6 +127,22 @@ class SampletMatrixCompressorUnsymmetric {
           }
         }
       }
+      // garbage collector
+      if (it != queue_.rbegin()) {
+        auto itm1 = it;
+        --itm1;
+#pragma omp parallel for
+        for (Index i = 0; i < itm1->size(); ++i) {
+          const Derived *pr = rclusters[(*itm1)[i].i];
+          const Derived *pc = cclusters[(*itm1)[i].j];
+          Matrix &block = *((*itm1)[i].p);
+          if (!pr->is_root() && !pc->is_root()) {
+            Matrix temp =
+                block.bottomRightCorner(pr->nsamplets(), pc->nsamplets());
+            block = temp;
+          }
+        }
+      }
     }
     return;
   }
@@ -135,31 +151,39 @@ class SampletMatrixCompressorUnsymmetric {
    *the triplet list
    **/
   const std::vector<Eigen::Triplet<Scalar>> &triplets() {
-    triplet_list_.clear();
+    if (pattern_.size()) {
+      triplet_list_.clear();
 
-    for (Index i = 0; i < pattern_.size(); ++i) {
-      const Derived *pc = c_rta_.nodes()[i];
-      for (auto &&it : pattern_[i]) {
-        const Derived *pr = r_rta_.nodes()[it.first];
-        if (!pr->is_root() && !pc->is_root())
-          storeBlock(
-              pr->start_index(), pc->start_index(), pr->nsamplets(),
-              pc->nsamplets(),
-              it.second.bottomRightCorner(pr->nsamplets(), pc->nsamplets()));
-        else if (pr->is_root() && pc->is_root())
-          storeBlock(pr->start_index(), pc->start_index(), pr->Q().cols(),
-                     pc->Q().cols(), it.second);
-        else if (!pr->is_root() && pc->is_root())
-          storeBlock(pr->start_index(), pc->start_index(), pr->nsamplets(),
-                     pc->Q().cols(), it.second.bottomRows(pr->nsamplets()));
-        else if (pr->is_root() && !pc->is_root())
-          storeBlock(pr->start_index(), pc->start_index(), pr->Q().cols(),
-                     pc->nsamplets(), it.second.rightCols(pc->nsamplets()));
-        it.second.resize(0, 0);
+      for (Index i = 0; i < pattern_.size(); ++i) {
+        const Derived *pc = c_rta_.nodes()[i];
+        for (auto &&it : pattern_[i]) {
+          const Derived *pr = r_rta_.nodes()[it.first];
+          if (!pr->is_root() && !pc->is_root())
+            storeBlock(
+                pr->start_index(), pc->start_index(), pr->nsamplets(),
+                pc->nsamplets(),
+                it.second.bottomRightCorner(pr->nsamplets(), pc->nsamplets()));
+          else if (pr->is_root() && pc->is_root())
+            storeBlock(pr->start_index(), pc->start_index(), pr->Q().cols(),
+                       pc->Q().cols(), it.second);
+          else if (!pr->is_root() && pc->is_root())
+            storeBlock(pr->start_index(), pc->start_index(), pr->nsamplets(),
+                       pc->Q().cols(), it.second.bottomRows(pr->nsamplets()));
+          else if (pr->is_root() && !pc->is_root())
+            storeBlock(pr->start_index(), pc->start_index(), pr->Q().cols(),
+                       pc->nsamplets(), it.second.rightCols(pc->nsamplets()));
+          it.second.resize(0, 0);
+        }
       }
+      pattern_.resize(0);
     }
-    pattern_.resize(0);
     return triplet_list_;
+  }
+
+  std::vector<Eigen::Triplet<Scalar>> release_triplets() {
+    std::vector<Eigen::Triplet<Scalar>> retval;
+    std::swap(triplet_list_, retval);
+    return retval;
   }
 
  private:
