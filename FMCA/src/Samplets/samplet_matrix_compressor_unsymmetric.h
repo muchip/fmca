@@ -75,7 +75,7 @@ class SampletMatrixCompressorUnsymmetric {
     const auto &rclusters = r_rta_.nodes();
     const auto &cclusters = c_rta_.nodes();
     for (auto it = queue_.rbegin(); it != queue_.rend(); ++it) {
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic)
       for (Index i = 0; i < it->size(); ++i) {
         const Derived *pr = rclusters[(*it)[i].i];
         const Derived *pc = cclusters[(*it)[i].j];
