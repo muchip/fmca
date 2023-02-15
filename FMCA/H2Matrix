@@ -29,5 +29,5 @@
 #include "src/H2Matrix/forward_transform_impl.h"
 #include "src/H2Matrix/matrix_vector_product_impl.h"
 #include "src/H2Matrix/H2Matrix.h"
-
+#include "src/H2Matrix/H2kernelActor.h"
 #endif
