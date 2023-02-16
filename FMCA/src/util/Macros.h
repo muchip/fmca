@@ -44,6 +44,9 @@ typedef Eigen::Matrix<Index, Eigen::Dynamic, 1u> iVector;
 
 template <typename T>
 using Triplet = Eigen::Triplet<T>;
+
+typedef Eigen::SparseMatrix<Scalar, Eigen::RowMajor, std::ptrdiff_t>
+    SparseMatrix;
 }  // namespace FMCA
 
 #endif
