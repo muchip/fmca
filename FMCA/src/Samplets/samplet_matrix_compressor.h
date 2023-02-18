@@ -152,25 +152,36 @@ class SampletMatrixCompressor {
   const std::vector<Eigen::Triplet<Scalar>> &triplets() {
     if (pattern_.size()) {
       triplet_list_.clear();
-      for (Index i = 0; i < pattern_.size(); ++i) {
-        const Derived *pc = rta_.nodes()[i];
-        for (auto &&it : pattern_[i]) {
-          const Derived *pr = rta_.nodes()[it.first];
-          if (!pr->is_root() && !pc->is_root())
-            storeBlock(
-                pr->start_index(), pc->start_index(), pr->nsamplets(),
-                pc->nsamplets(),
-                it.second.bottomRightCorner(pr->nsamplets(), pc->nsamplets()));
-          else if (!pc->is_root())
-            storeBlock(pr->start_index(), pc->start_index(), pr->Q().cols(),
-                       pc->nsamplets(), it.second.rightCols(pc->nsamplets()));
-          else if (pr->is_root() && pc->is_root())
-            storeBlock(pr->start_index(), pc->start_index(), pr->Q().cols(),
-                       pc->Q().cols(), it.second);
-          it.second.resize(0, 0);
+#pragma omp parallel
+      {
+        std::vector<Eigen::Triplet<Scalar>> triplet_buffer;
+#pragma omp for
+        for (Index i = 0; i < pattern_.size(); ++i) {
+          const Derived *pc = rta_.nodes()[i];
+          for (auto &&it : pattern_[i]) {
+            const Derived *pr = rta_.nodes()[it.first];
+            if (!pr->is_root() && !pc->is_root())
+              storeBlock(triplet_buffer, pr->start_index(), pc->start_index(),
+                         pr->nsamplets(), pc->nsamplets(),
+                         it.second.bottomRightCorner(pr->nsamplets(),
+                                                     pc->nsamplets()));
+            else if (!pc->is_root())
+              storeBlock(triplet_buffer, pr->start_index(), pc->start_index(),
+                         pr->Q().cols(), pc->nsamplets(),
+                         it.second.rightCols(pc->nsamplets()));
+            else if (pr->is_root() && pc->is_root())
+              storeBlock(triplet_buffer, pr->start_index(), pc->start_index(),
+                         pr->Q().cols(), pc->Q().cols(), it.second);
+            it.second.resize(0, 0);
+          }
         }
+#pragma omp critical
+        {
+          triplet_list_.insert(triplet_list_.end(), triplet_buffer.begin(),
+                               triplet_buffer.end());
+        }
+        pattern_.resize(0);
       }
-      pattern_.resize(0);
     }
     return triplet_list_;
   }
@@ -247,13 +258,14 @@ class SampletMatrixCompressor {
    *         triplet format
    **/
   template <typename otherDerived>
-  void storeBlock(Index srow, Index scol, Index nrows, Index ncols,
+  void storeBlock(std::vector<Eigen::Triplet<Scalar>> &triplet_buffer,
+                  Index srow, Index scol, Index nrows, Index ncols,
                   const Eigen::MatrixBase<otherDerived> &block) {
     for (auto k = 0; k < ncols; ++k)
       for (auto j = 0; j < nrows; ++j)
         if ((srow + j <= scol + k && abs(block(j, k)) > threshold_) ||
             srow + j == scol + k)
-          triplet_list_.push_back(
+          triplet_buffer.push_back(
               Eigen::Triplet<Scalar>(srow + j, scol + k, block(j, k)));
   }
 
