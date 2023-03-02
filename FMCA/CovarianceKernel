@@ -12,6 +12,14 @@
 #ifndef FMCA_COVARIANCEKERNEL_MODULE_
 #define FMCA_COVARIANCEKERNEL_MODULE_
 
+/**
+ *  \ingroup Modules
+ *  \defgroup CovarianceKernel CovarianceKernel
+ *  \brief Module providing a class of covariance kernel functions
+ *
+ *
+ **/
+ 
 #include <string>
 
 #include "src/util/Macros.h"

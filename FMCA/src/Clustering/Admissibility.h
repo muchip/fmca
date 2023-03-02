@@ -12,10 +12,6 @@
 #ifndef FMCA_CLUSTERING_ADMISSIBILITY_H_
 #define FMCA_CLUSTERING_ADMISSIBILITY_H_
 
-#include <memory>
-
-#include "../util/Tictoc.h"
-
 namespace FMCA {
 
 enum Admissibility { Refine = 0, LowRank = 1, Dense = 2 };

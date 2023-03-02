@@ -12,6 +12,13 @@
 #ifndef FMCA_CLUSTERING_MODULE_
 #define FMCA_CLUSTERING_MODULE_
 
+/**
+ *  \ingroup Modules
+ *  \defgroup Clustering Clustering
+ *  \brief The Clustering module collects all the functionality for creating a
+ *         cluster tree associated to an input data set
+ *
+ **/
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
@@ -19,8 +26,6 @@
 #include <string>
 #include <queue>
 #include <vector>
-
-#include <Eigen/Dense>
 
 #include "src/util/ForwardDeclarations.h"
 #include "src/util/Macros.h"
