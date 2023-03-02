@@ -38,11 +38,13 @@ struct ClusterTreeNodeBase : public NodeBase<Derived> {
  *         that may be described by subdivision of index sets and bounding
  *         boxes
  **/
-template <typename Derived> struct ClusterTreeBase : public TreeBase<Derived> {
+template <typename Derived>
+struct ClusterTreeBase : public TreeBase<Derived> {
   typedef typename internal::traits<Derived>::Node Node;
   typedef TreeBase<Derived> Base;
   // make base class methods visible
   using Base::appendSons;
+  using Base::dad;
   using Base::derived;
   using Base::init;
   using Base::is_root;
@@ -50,7 +52,6 @@ template <typename Derived> struct ClusterTreeBase : public TreeBase<Derived> {
   using Base::node;
   using Base::nSons;
   using Base::sons;
-  using Base::dad;
   //////////////////////////////////////////////////////////////////////////////
   // getter
   //////////////////////////////////////////////////////////////////////////////
@@ -63,5 +64,5 @@ template <typename Derived> struct ClusterTreeBase : public TreeBase<Derived> {
   Index block_id() const { return node().block_id_; }
 };
 
-} // namespace FMCA
+}  // namespace FMCA
 #endif

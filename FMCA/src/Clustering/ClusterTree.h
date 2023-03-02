@@ -17,11 +17,12 @@ namespace FMCA {
 struct ClusterTreeNode : public ClusterTreeNodeBase<ClusterTreeNode> {};
 
 namespace internal {
-template <> struct traits<ClusterTree> {
+template <>
+struct traits<ClusterTree> {
   typedef ClusterTreeNode Node;
   typedef ClusterSplitter::CardinalityBisection Splitter;
 };
-} // namespace internal
+}  // namespace internal
 
 /**
  *  \ingroup Clustering
@@ -59,5 +60,5 @@ struct ClusterTree : public ClusterTreeBase<ClusterTree> {
   }
 };
 
-} // namespace FMCA
+}  // namespace FMCA
 #endif
