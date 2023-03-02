@@ -26,6 +26,7 @@
 #include "src/util/Macros.h"
 #include "src/util/TreeBase.h"
 
+#include "src/Clustering/Admissibility.h"
 #include "src/Clustering/ClusterTreeBase.h"
 #include "src/Clustering/ClusterTreeInitializer_ClusterTree.h"
 #include "src/Clustering/ClusterTreeMetrics.h"

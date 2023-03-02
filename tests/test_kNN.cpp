@@ -14,7 +14,6 @@
 #include <iostream>
 
 #include "../FMCA/Clustering"
-#include "IO.h"
 
 template <typename Dists>
 struct my_less {
