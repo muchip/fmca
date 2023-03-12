@@ -12,8 +12,6 @@
 #ifndef FMCA_CLUSTERING_KNN_H_
 #define FMCA_CLUSTERING_KNN_H_
 
-#include <memory>
-
 #include "../util/KMinList.h"
 
 namespace FMCA {

@@ -48,15 +48,12 @@ struct ClusterTree : public ClusterTreeBase<ClusterTree> {
   // constructors
   //////////////////////////////////////////////////////////////////////////////
   ClusterTree() {}
-  ClusterTree(const Matrix &P, Index min_cluster_size = 1) {
-    init(P, min_cluster_size);
-  }
+  ClusterTree(const Matrix &P, Index min_csize = 1) { init(P, min_csize); }
   //////////////////////////////////////////////////////////////////////////////
   // implementation of init
   //////////////////////////////////////////////////////////////////////////////
-  void init(const Matrix &P, Index min_cluster_size = 1) {
-    internal::ClusterTreeInitializer<ClusterTree>::init(*this, min_cluster_size,
-                                                        P);
+  void init(const Matrix &P, Index min_csize = 1) {
+    internal::ClusterTreeInitializer<ClusterTree>::init(*this, min_csize, P);
   }
 };
 

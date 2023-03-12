@@ -24,7 +24,6 @@
 #include <iostream>
 #include <numeric>
 #include <string>
-#include <queue>
 #include <vector>
 
 #include "src/util/ForwardDeclarations.h"

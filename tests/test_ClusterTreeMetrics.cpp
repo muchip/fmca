@@ -13,6 +13,7 @@
 #include <iostream>
 
 #include "../FMCA/Clustering"
+#include "../FMCA/src/util/Tictoc.h"
 
 #define DIM 3
 #define NPTS 10000
