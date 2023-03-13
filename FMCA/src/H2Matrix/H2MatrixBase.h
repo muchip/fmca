@@ -120,36 +120,6 @@ class H2MatrixBase : TreeBase<Derived> {
     return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
-  static Scalar computeDistance(const Derived &cluster1,
-                                const Derived &cluster2) {
-    const Scalar row_radius = 0.5 * cluster1.bb().col(2).norm();
-    const Scalar col_radius = 0.5 * cluster2.bb().col(2).norm();
-    const Scalar dist = 0.5 * (cluster1.bb().col(0) - cluster2.bb().col(0) +
-                               cluster1.bb().col(1) - cluster2.bb().col(1))
-                                  .norm() -
-                        row_radius - col_radius;
-    return dist > 0 ? dist : 0;
-  }
-  //////////////////////////////////////////////////////////////////////////////
-  static Admissibility compareCluster(const Derived &cluster1,
-                                      const Derived &cluster2, Scalar eta) {
-    Admissibility retval;
-    const Scalar dist = computeDistance(cluster1, cluster2);
-    const Scalar row_radius = 0.5 * cluster1.bb().col(2).norm();
-    const Scalar col_radius = 0.5 * cluster2.bb().col(2).norm();
-    const Scalar radius = row_radius > col_radius ? row_radius : col_radius;
-
-    if (radius > eta * dist) {
-      // check if either cluster is a leaf in that case,
-      // compute the full matrix block
-      if (!cluster1.nSons() || !cluster2.nSons())
-        return Dense;
-      else
-        return Refine;
-    } else
-      return LowRank;
-  }
-  //////////////////////////////////////////////////////////////////////////////
  private:
   //////////////////////////////////////////////////////////////////////////////
   void getStatisticsRecursion(Index *low_rank_blocks, Index *full_blocks,
