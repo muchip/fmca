@@ -17,7 +17,6 @@
  *  \defgroup CovarianceKernel CovarianceKernel
  *  \brief Module providing a class of covariance kernel functions
  *
- *
  **/
  
 #include <string>
