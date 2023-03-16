@@ -12,6 +12,14 @@
 #ifndef FMCA_INTERPOLATORS_MODULE_
 #define FMCA_INTERPOLATORS_MODULE_
 
+/**
+ *  \ingroup Modules
+ *  \defgroup Interpolators Interpolators
+ *  \brief Module containing all functionality related to the farfield
+ *         interpolation of asymptotically smooth kernels
+ *
+ **/
+
 #include <Eigen/Dense>
 
 #include "src/util/MultiIndexSet.h"

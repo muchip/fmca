@@ -18,7 +18,7 @@ namespace FMCA {
  *  \brief Multivariate total degree monomial interpolator
  **/
 class MonomialInterpolator {
-public:
+ public:
   void init(Index dim, Index deg) {
     dim_ = dim;
     deg_ = deg;
@@ -28,8 +28,7 @@ public:
     // determine tensor product interpolation points
     Index k = 0;
     for (const auto &it : idcs_.index_set()) {
-      for (auto i = 0; i < it.size(); ++i)
-        TD_xi_(i, k) = LejaPoints[it[i]];
+      for (auto i = 0; i < it.size(); ++i) TD_xi_(i, k) = LejaPoints[it[i]];
       V_.row(k) = evalPolynomials(TD_xi_.col(k)).transpose();
       ++k;
     }
@@ -45,8 +44,7 @@ public:
     Index k = 0;
     for (const auto &it : idcs_.index_set()) {
       for (auto i = 0; i < dim_; ++i)
-        if (it[i])
-          retval(k) *= std::pow(pt(i), it[i]);
+        if (it[i]) retval(k) *= std::pow(pt(i), it[i]);
       ++k;
     }
     return retval;
@@ -57,7 +55,7 @@ public:
   const Matrix &V() const { return V_; }
   const MultiIndexSet<TotalDegree> &idcs() const { return idcs_; }
 
-private:
+ private:
   MultiIndexSet<TotalDegree> idcs_;
   Matrix TD_xi_;
   Matrix invV_;
@@ -65,5 +63,5 @@ private:
   Index dim_;
   Index deg_;
 };
-} // namespace FMCA
+}  // namespace FMCA
 #endif

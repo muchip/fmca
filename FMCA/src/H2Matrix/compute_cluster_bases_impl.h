@@ -24,6 +24,7 @@ namespace internal {
  **/
 struct compute_cluster_bases_impl {
   compute_cluster_bases_impl() {}
+
   template <typename Derived, typename Moments>
   static void compute(TreeBase<Derived> &CT, const Moments &mom) {
     Derived &H2T = CT.derived();
@@ -49,6 +50,7 @@ struct compute_cluster_bases_impl {
     } else
       // compute leaf bases
       H2T.V() = mom.moment_matrix(H2T);
+
     return;
   }
   //////////////////////////////////////////////////////////////////////////////

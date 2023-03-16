@@ -29,7 +29,7 @@ namespace FMCA {
  *  \brief These are the classical Chebyshev nodes rescaled to [0,1]
  **/
 class TensorProductInterpolator {
-public:
+ public:
   /**
    *  \brief These are the corresponding weights of the Chebyshev nodes
    *         for barycentric interpolation. see [1]. Note: The scaling is wrong
@@ -45,8 +45,7 @@ public:
     xi_.array() = 0.5 * (xi_.array() + 1);
     // univariate barycentric weights
     w_ = (weight * (Vector::LinSpaced(deg + 1, 0, deg).array() + 0.5)).sin();
-    for (auto i = 1; i < w_.size(); i += 2)
-      w_(i) *= -1.;
+    for (auto i = 1; i < w_.size(); i += 2) w_(i) *= -1.;
     idcs_.init(dim, deg);
     TP_xi_.resize(dim, idcs_.index_set().size());
     // determine tensor product interpolation points
@@ -85,7 +84,7 @@ public:
   const Matrix &invV() const { return V_; }
   const Matrix &V() const { return V_; }
 
-private:
+ private:
   MultiIndexSet<TensorProduct> idcs_;
   Matrix TP_xi_;
   Matrix V_;
@@ -94,5 +93,5 @@ private:
   Index dim_;
   Index deg_;
 };
-} // namespace FMCA
+}  // namespace FMCA
 #endif

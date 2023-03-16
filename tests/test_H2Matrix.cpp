@@ -14,8 +14,10 @@
 
 #include "../FMCA/CovarianceKernel"
 #include "../FMCA/H2Matrix"
+#include "../FMCA/src/util/Tictoc.h"
 
-#define NPTS 20000
+
+#define NPTS 100000
 #define DIM 2
 #define MPOLE_DEG 3
 #define LEAFSIZE 10
@@ -27,16 +29,18 @@ using H2ClusterTree = FMCA::H2ClusterTree<FMCA::ClusterTree>;
 using H2Matrix = FMCA::H2Matrix<H2ClusterTree>;
 
 int main() {
+  FMCA::Tictoc T;
   const FMCA::CovarianceKernel function("EXPONENTIAL", 1);
   const FMCA::Matrix P = FMCA::Matrix::Random(DIM, NPTS);
   const Moments mom(P, MPOLE_DEG);
   H2ClusterTree ct(mom, 0, P);
   FMCA::internal::compute_cluster_bases_impl::check_transfer_matrices(ct, mom);
   const MatrixEvaluator mat_eval(mom, function);
+  T.tic();
   for (FMCA::Scalar eta = 0.8; eta >= 0.1; eta *= 0.5) {
     std::cout << "eta:                          " << eta << std::endl;
     const H2Matrix hmat(ct, mat_eval, eta);
-    hmat.get_statistics();
+    hmat.statistics();
     {
       FMCA::Vector x(NPTS), y1(NPTS), y2(NPTS);
       FMCA::Scalar err = 0;
@@ -56,5 +60,6 @@ int main() {
       std::cout << std::string(60, '-') << std::endl;
     }
   }
+  T.toc("elapsed time: ");
   return 0;
 }

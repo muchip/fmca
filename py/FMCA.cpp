@@ -83,7 +83,7 @@ struct pyH2Matrix {
     ct_.init(mom, 0, P);
     hmat_.init(ct_, mat_eval, eta);
   }
-  FMCA::Matrix statistics() const { return hmat_.get_statistics(); }
+  FMCA::Matrix statistics() const { return hmat_.statistics(); }
 
   // member variables
   H2Matrix hmat_;
