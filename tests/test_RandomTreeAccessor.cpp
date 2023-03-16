@@ -13,6 +13,7 @@
 #include <iostream>
 
 #include "../FMCA/Clustering"
+#include "../FMCA/src/util/Tictoc.h"
 #include "../FMCA/src/util/RandomTreeAccessor.h"
 
 #define DIM 10

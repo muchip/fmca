@@ -30,7 +30,7 @@ Matrix matrix_vector_product_impl(const Derived &H2, const Matrix &rhs) {
   }
   for (const auto &it : H2) {
     // there is something to multiply
-    if (!it.sons().size()) {
+    if (!it.nSons()) {
       if (it.is_low_rank())
         tlhs[it.rcluster()->block_id()] +=
             it.matrixS() * trhs[it.ccluster()->block_id()];

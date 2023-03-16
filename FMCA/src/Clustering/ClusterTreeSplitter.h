@@ -22,9 +22,10 @@ namespace ClusterSplitter {
 
 struct GeometricBisection {
   static std::string splitterName() { return "GeometricBisection"; }
-  template <class ClusterTree>
+  template <class Derived>
   void operator()(const Matrix &P, const std::vector<Index> &indices,
-                  const Matrix &bb, ClusterTree &c1, ClusterTree &c2) const {
+                  const Matrix &bb, ClusterTreeBase<Derived> &c1,
+                  ClusterTreeBase<Derived> &c2) const {
     // assign bounding boxes by longest edge bisection
     Index longest;
     bb.col(2).maxCoeff(&longest);
@@ -46,12 +47,10 @@ struct GeometricBisection {
   }
 };
 
-template <typename Derived>
 struct CoordinateCompare {
-  const typename Eigen::MatrixBase<Derived> &P_;
+  const Matrix &P_;
   Eigen::Index cmp_;
-  CoordinateCompare(const Eigen::MatrixBase<Derived> &P, Eigen::Index cmp)
-      : P_(P), cmp_(cmp){};
+  CoordinateCompare(const Matrix &P, Index cmp) : P_(P), cmp_(cmp){};
 
   bool operator()(Index i, Index &j) { return P_(cmp_, i) < P_(cmp_, j); }
 };
@@ -68,7 +67,7 @@ struct CardinalityBisection {
     sorted_indices = indices;
     // sort father index set with respect to the longest edge component
     std::sort(sorted_indices.begin(), sorted_indices.end(),
-              CoordinateCompare<Matrix>(P, longest));
+              CoordinateCompare(P, longest));
     c1.indices_ =
         std::vector<Index>(sorted_indices.begin(),
                            sorted_indices.begin() + sorted_indices.size() / 2);

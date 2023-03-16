@@ -12,6 +12,14 @@
 #ifndef FMCA_MOMENTS_MODULE_
 #define FMCA_MOMENTS_MODULE_
 
+/**
+ *  \ingroup Modules
+ *  \defgroup Moments Moments
+ *  \brief Module containing all functionality related to the computation of
+ *         moment matrices for the farfield of asymptotically smooth kernels
+ *
+ **/
+ 
 #include <Eigen/Dense>
 
 #include "Clustering"
