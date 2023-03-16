@@ -9,8 +9,8 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#ifndef FMCA_H2MATRIX_H2MATRIX_H_
-#define FMCA_H2MATRIX_H2MATRIX_H_
+#ifndef FMCA_H2MATRIX_H2MATRIXBASE_H_
+#define FMCA_H2MATRIX_H2MATRIXBASE_H_
 
 namespace FMCA {
 
@@ -40,10 +40,11 @@ struct H2MatrixNodeBase : public NodeBase<Derived> {
 
  */
 template <typename Derived>
-class H2MatrixBase : TreeBase<Derived> {
+struct H2MatrixBase : TreeBase<Derived> {
   typedef TreeBase<Derived> Base;
   // make base class methods visible
   using Base::appendSons;
+  using Base::dad;
   using Base::derived;
   using Base::init;
   using Base::is_root;
@@ -51,133 +52,84 @@ class H2MatrixBase : TreeBase<Derived> {
   using Base::node;
   using Base::nSons;
   using Base::sons;
+  typedef typename internal::traits<Derived>::RowCType RowCType;
+  typedef typename internal::traits<Derived>::ColCType ColCType;
   //////////////////////////////////////////////////////////////////////////////
-  // constructors
+  // base class methods
   //////////////////////////////////////////////////////////////////////////////
-  template <typename EntryGenerator>
-  H2Matrix(const H2ClusterTreeBase<Derived> &CT, const EntryGenerator &e_gen,
-           Scalar eta = 0.8) {
-    init(CT, e_gen, eta);
-  }
-  //////////////////////////////////////////////////////////////////////////////
-  // init
-  //////////////////////////////////////////////////////////////////////////////
-  template <typename MatrixEvaluator>
-  void init(const H2ClusterTreeBase<Derived> &CT,
-            const MatrixEvaluator &mat_eval, Scalar eta = 0.8) {
-    nclusters_ = std::distance(CT.cbegin(), CT.cend());
-    computeH2Matrix(CT.derived(), CT.derived(), mat_eval, eta);
-    return;
-  }
-  Index rows() const { return row_cluster_->indices().size(); }
-  Index cols() const { return col_cluster_->indices().size(); }
-  Index level() const { return level_; }
-  Index nclusters() const { return nclusters_; }
-  const Derived *rcluster() const { return row_cluster_; }
-  const Derived *ccluster() const { return col_cluster_; }
-  const GenericMatrix<H2Matrix> &sons() const { return sons_; }
-  bool is_low_rank() const { return is_low_rank_; }
-  const Matrix &matrixS() const { return S_; }
+  Index rows() const { return (node().row_cluster_)->indices().size(); }
+  Index cols() const { return (node().col_cluster_)->indices().size(); }
+  Index nrclusters() const { return node().nrclusters_; }
+  Index ncclusters() const { return node().ncclusters_; }
+  const RowCType *rcluster() const { return node().row_cluster_; }
+  const ColCType *ccluster() const { return node().col_cluster_; }
+  bool is_low_rank() const { return node().is_low_rank_; }
+  const Matrix &matrixS() const { return node().S_; }
   //////////////////////////////////////////////////////////////////////////////
   // (m, n, fblocks, lrblocks, nz(A), mem)
-  Matrix get_statistics() const {
+  Matrix statistics() const {
     Matrix retval(6, 1);
     Index low_rank_blocks = 0;
     Index full_blocks = 0;
     Index memory = 0;
-    getStatisticsRecursion(&low_rank_blocks, &full_blocks, &memory);
-    std::cout << "matrix size:                  "
-              << row_cluster_->indices().size() << " x "
-              << col_cluster_->indices().size() << std::endl;
-    retval(0, 0) = row_cluster_->indices().size();
-    retval(1, 0) = col_cluster_->indices().size();
+    assert(is_root() && "statistics needs to be called from root");
+    for (auto &&it : *this) {
+      if (!it.nSons()) {
+        if (it.is_low_rank())
+          ++low_rank_blocks;
+        else
+          ++full_blocks;
+        memory += it.node().S_.size();
+      }
+    }
+    std::cout << "matrix size:                  " << rows() << " x " << cols()
+              << std::endl;
+    retval(0, 0) = rows();
+    retval(1, 0) = cols();
     std::cout << "number of low rank blocks:    " << low_rank_blocks
               << std::endl;
     retval(2, 0) = low_rank_blocks;
     std::cout << "number of full blocks:        " << full_blocks << std::endl;
     retval(3, 0) = full_blocks;
     std::cout << "nz per row:                   "
-              << round(Scalar(memory) / col_cluster_->indices().size())
+              << round(Scalar(memory) / (node().col_cluster_)->indices().size())
               << std::endl;
-    retval(4, 0) = round(Scalar(memory) / col_cluster_->indices().size());
+    retval(4, 0) =
+        round(Scalar(memory) / (node().col_cluster_)->indices().size());
     std::cout << "storage size:                 "
               << Scalar(memory * sizeof(Scalar)) / 1e9 << "GB" << std::endl;
     retval(5, 0) = Scalar(memory * sizeof(Scalar)) / 1e9;
     return retval;
   }
 
-  template <typename otherDerived>
-  Matrix operator*(const Eigen::MatrixBase<otherDerived> &rhs) const {
+  Matrix operator*(const Matrix &rhs) const {
     return internal::matrix_vector_product_impl(*this, rhs);
   }
   //////////////////////////////////////////////////////////////////////////////
   Matrix full() const {
-    eigen_assert(row_cluster_->is_root() && col_cluster_->is_root() &&
-                 "method needs to be called from the root");
-    Matrix retval(row_cluster_->indices().size(),
-                  row_cluster_->indices().size());
-    computeFullMatrixRecursion(*row_cluster_, *row_cluster_, &retval);
-    return retval;
+    assert(is_root() && "full needs to be called from root");
+    Matrix I(cols(), cols());
+    return *this * I;
   }
   //////////////////////////////////////////////////////////////////////////////
- private:
-  //////////////////////////////////////////////////////////////////////////////
-  void getStatisticsRecursion(Index *low_rank_blocks, Index *full_blocks,
-                              Index *memory) const {
-    if (sons_.size()) {
-      for (const auto &s : sons_)
-        s.getStatisticsRecursion(low_rank_blocks, full_blocks, memory);
-    } else {
-      if (is_low_rank_)
-        ++(*low_rank_blocks);
-      else
-        ++(*full_blocks);
-      (*memory) += S_.size();
-    }
-    return;
-  }
-
-  void computeFullMatrixRecursion(const Derived &CR, const Derived &CS,
-                                  Matrix *target) const {
-    if (sons_.size()) {
-      for (auto i = 0; i < sons_.rows(); ++i)
-        for (auto j = 0; j < sons_.cols(); ++j)
-          sons_(i, j).computeFullMatrixRecursion(
-              *(sons_(i, j).row_cluster_), *(sons_(i, j).col_cluster_), target);
-    } else {
-      if (is_low_rank_)
-        target->block(
-            row_cluster_->indices_begin(), col_cluster_->indices_begin(),
-            row_cluster_->indices().size(), col_cluster_->indices().size()) =
-            row_cluster_->V().transpose() * S_ * col_cluster_->V();
-      else
-        target->block(row_cluster_->indices_begin(),
-                      col_cluster_->indices_begin(),
-                      row_cluster_->indices().size(),
-                      col_cluster_->indices().size()) = S_;
-    }
-    return;
-  }
-
   template <typename MatrixEvaluator>
-  void computeH2Matrix(const Derived &CT1, const Derived &CT2,
+  void computeH2Matrix(const RowCType &CT1, const ColCType &CT2,
                        const MatrixEvaluator &mat_eval, Scalar eta) {
-    row_cluster_ = &CT1;
-    col_cluster_ = &CT2;
-    level_ = CT1.level();
-    Admissibility adm = compareCluster(CT1, CT2, eta);
+    node().row_cluster_ = &CT1;
+    node().col_cluster_ = &CT2;
+    const Admissibility adm = compareCluster(CT1, CT2, eta);
     if (adm == LowRank) {
-      is_low_rank_ = true;
-      mat_eval.interpolate_kernel(CT1, CT2, &S_);
+      node().is_low_rank_ = true;
+      mat_eval.interpolate_kernel(CT1, CT2, std::addressof(node().S_));
     } else if (adm == Refine) {
-      sons_.resize(CT1.nSons(), CT2.nSons());
+      appendSons(CT1.nSons() * CT2.nSons());
       for (auto j = 0; j < CT2.nSons(); ++j)
         for (auto i = 0; i < CT1.nSons(); ++i) {
-          sons_(i, j).dad_ = this;
-          sons_(i, j).computeH2Matrix(CT1.sons(i), CT2.sons(j), mat_eval, eta);
+          sons(i + j * CT1.nSons())
+              .computeH2Matrix(CT1.sons(i), CT2.sons(j), mat_eval, eta);
         }
     } else {
-      mat_eval.compute_dense_block(CT1, CT2, &S_);
+      mat_eval.compute_dense_block(CT1, CT2, std::addressof(node().S_));
     }
     return;
   }

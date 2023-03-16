@@ -14,25 +14,30 @@
 
 namespace FMCA {
 namespace internal {
-template <typename Derived, typename otherDerived>
-Matrix matrix_vector_product_impl(const Derived &H2,
-                                  const Eigen::MatrixBase<otherDerived> &rhs) {
-  Matrix lhs(rhs.rows(), rhs.cols());
+template <typename Derived>
+Matrix matrix_vector_product_impl(const Derived &H2, const Matrix &rhs) {
+  Matrix lhs(H2.rows(), rhs.cols());
   lhs.setZero();
-  std::vector<Matrix> trhs = forward_transform_impl(H2, rhs);
-  std::vector<Matrix> tlhs = trhs;
-  for (auto &&it : tlhs) it.setZero();
-  for (auto it = H2.cbegin(); it != H2.cend(); ++it) {
+  std::vector<Matrix> trhs(H2.ncclusters());
+  forward_transform_recursion(*(H2.ccluster()), &trhs, rhs);
+  std::vector<Matrix> tlhs(H2.nrclusters());
+  for (const auto &it : *(H2.rcluster())) {
+    if (it.nSons())
+      tlhs[it.block_id()].resize(it.Es()[0].rows(), rhs.cols());
+    else
+      tlhs[it.block_id()].resize(it.V().rows(), rhs.cols());
+    tlhs[it.block_id()].setZero();
+  }
+  for (const auto &it : H2) {
     // there is something to multiply
-    if (!it->sons().size()) {
-      if (it->is_low_rank())
-        tlhs[it->rcluster()->block_id()] +=
-            it->matrixS() * trhs[it->ccluster()->block_id()];
+    if (!it.nSons()) {
+      if (it.is_low_rank())
+        tlhs[it.rcluster()->block_id()] +=
+            it.matrixS() * trhs[it.ccluster()->block_id()];
       else
-        lhs.middleRows((it->rcluster())->indices_begin(),
-                       it->matrixS().rows()) +=
-            it->matrixS() * rhs.middleRows((it->ccluster())->indices_begin(),
-                                           it->matrixS().cols());
+        lhs.middleRows((it.rcluster())->indices_begin(), it.matrixS().rows()) +=
+            it.matrixS() * rhs.middleRows((it.ccluster())->indices_begin(),
+                                          it.matrixS().cols());
     }
   }
   backward_transform_recursion(*(H2.rcluster()), &lhs, tlhs);
