@@ -34,16 +34,12 @@ inline Index internal_q(Index q, Index dim) {
 
 /**
  *  \ingroup Moments
- *  \brief computes the transformation matrix from the son cluster moments
- *         to the dad cluster moments. This one is only based on polynomial
- *         interpolation and hence agnostic to the particular moment generation
- *         procedure
+ *  \brief 
  **/
 template <typename Derived, typename MultiIndexSet, typename Derived2>
-inline Matrix
-monomialMomentShifter(const Eigen::MatrixBase<Derived> &shift,
-                      const MultiIndexSet &idcs,
-                      const Eigen::MatrixBase<Derived2> &mult_coeffs) {
+inline Matrix monomialMomentShifter(
+    const Eigen::MatrixBase<Derived> &shift, const MultiIndexSet &idcs,
+    const Eigen::MatrixBase<Derived2> &mult_coeffs) {
   Matrix retval = mult_coeffs;
   if (shift.norm() < FMCA_ZERO_TOLERANCE)
     return Matrix::Identity(retval.rows(), retval.cols());
@@ -87,6 +83,6 @@ inline Matrix multinomialCoefficientMatrix(const MultiIndexSet &idcs) {
   }
   return retval;
 }
-} // namespace SampletHelper
-} // namespace FMCA
+}  // namespace SampletHelper
+}  // namespace FMCA
 #endif

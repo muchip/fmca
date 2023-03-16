@@ -17,11 +17,12 @@ namespace FMCA {
 struct ClusterTreeNode : public ClusterTreeNodeBase<ClusterTreeNode> {};
 
 namespace internal {
-template <> struct traits<ClusterTree> {
+template <>
+struct traits<ClusterTree> {
   typedef ClusterTreeNode Node;
   typedef ClusterSplitter::CardinalityBisection Splitter;
 };
-} // namespace internal
+}  // namespace internal
 
 /**
  *  \ingroup Clustering
@@ -47,17 +48,14 @@ struct ClusterTree : public ClusterTreeBase<ClusterTree> {
   // constructors
   //////////////////////////////////////////////////////////////////////////////
   ClusterTree() {}
-  ClusterTree(const Matrix &P, Index min_cluster_size = 1) {
-    init(P, min_cluster_size);
-  }
+  ClusterTree(const Matrix &P, Index min_csize = 1) { init(P, min_csize); }
   //////////////////////////////////////////////////////////////////////////////
   // implementation of init
   //////////////////////////////////////////////////////////////////////////////
-  void init(const Matrix &P, Index min_cluster_size = 1) {
-    internal::ClusterTreeInitializer<ClusterTree>::init(*this, min_cluster_size,
-                                                        P);
+  void init(const Matrix &P, Index min_csize = 1) {
+    internal::ClusterTreeInitializer<ClusterTree>::init(*this, min_csize, P);
   }
 };
 
-} // namespace FMCA
+}  // namespace FMCA
 #endif

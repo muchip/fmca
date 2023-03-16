@@ -14,59 +14,25 @@
 
 #include <memory>
 
-#include "../util/Tictoc.h"
-
 namespace FMCA {
 
-enum Admissibility { Refine = 0, LowRank = 1, Dense = 2 };
-
-template <typename Derived, typename Derived2>
-Scalar pointDistance(const ClusterTreeBase<Derived> &TR,
-                     const Eigen::MatrixBase<Derived2> &pt) {
-  const Scalar radius = 0.5 * TR.bb().col(2).norm();
-  const Scalar dist = (0.5 * (TR.bb().col(0) + TR.bb().col(1)) - pt) - radius;
-  return dist > 0 ? dist : 0;
-}
-
-template <typename Derived, typename Derived2>
-bool inBoundingBox(const ClusterTreeBase<Derived> &TR,
-                   const Eigen::MatrixBase<Derived2> &pt) {
-  return ((pt - TR.bb().col(0)).array() >= 0).all() *
-         ((pt - TR.bb().col(1)).array() <= 0).all();
-}
-
-template <typename Derived>
-Scalar computeDistance(const ClusterTreeBase<Derived> &TR,
-                       const ClusterTreeBase<Derived> &TC) {
-  const Scalar row_radius = 0.5 * TR.bb().col(2).norm();
-  const Scalar col_radius = 0.5 * TC.bb().col(2).norm();
+namespace internal {
+template <typename Derived, typename otherDerived>
+Scalar pointDistance(const ClusterTreeBase<Derived> &cluster,
+                     const otherDerived &pt) {
+  const Scalar radius = 0.5 * cluster.bb().col(2).norm();
   const Scalar dist =
-      0.5 * (TR.bb().col(0) - TC.bb().col(0) + TR.bb().col(1) - TC.bb().col(1))
-                .norm() -
-      row_radius - col_radius;
+      (0.5 * (cluster.bb().col(0) + cluster.bb().col(1)) - pt) - radius;
   return dist > 0 ? dist : 0;
 }
 
-template <typename Derived>
-Admissibility compareCluster(const ClusterTreeBase<Derived> &cluster1,
-                             const ClusterTreeBase<Derived> &cluster2,
-                             Scalar eta) {
-  Admissibility retval;
-  const Scalar dist = computeDistance(cluster1, cluster2);
-  const Scalar row_radius = 0.5 * cluster1.bb().col(2).norm();
-  const Scalar col_radius = 0.5 * cluster2.bb().col(2).norm();
-  const Scalar radius = row_radius > col_radius ? row_radius : col_radius;
-
-  if (radius > eta * dist) {
-    // check if either cluster is a leaf in that case,
-    // compute the full matrix block
-    if (!cluster1.nSons() || !cluster2.nSons())
-      return Dense;
-    else
-      return Refine;
-  } else
-    return LowRank;
+template <typename Derived, typename otherDerived>
+bool inBoundingBox(const ClusterTreeBase<Derived> &cluster,
+                   const otherDerived &pt) {
+  return ((pt - cluster.bb().col(0)).array() >= 0).all() *
+         ((pt - cluster.bb().col(1)).array() <= 0).all();
 }
+}  // namespace internal
 
 template <typename Derived>
 void updateClusterMinDistance(Vector &min_dist, Scalar max_min_dist,

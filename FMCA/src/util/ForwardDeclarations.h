@@ -14,23 +14,36 @@
 
 namespace FMCA {
 
-template <typename Derived> struct ClusterTreeBase;
+template <typename Derived>
+struct ClusterTreeBase;
 
-template <typename Derived> struct H2ClusterTreeBase;
+template <typename Derived>
+struct H2ClusterTreeBase;
 
-template <typename Derived> struct H2SampletTreeBase;
+template <typename Derived>
+struct H2SampletTreeBase;
+
+template <typename Derived>
+struct H2MatrixBase;
 
 namespace internal {
-template <typename Derived> struct ClusterTreeInitializer;
+template <typename Derived>
+struct ClusterTreeInitializer;
 }
 
 class ClusterTree;
 
-template <typename ClusterTreeType> class SampletTree;
+template <typename ClusterTreeType>
+class SampletTree;
 
-template <typename ClusterTreeType> class H2ClusterTree;
+template <typename ClusterTreeType>
+class H2ClusterTree;
 
-template <typename ClusterTreeType> class H2SampletTree;
+template <typename ClusterTreeType>
+class H2SampletTree;
+
+template <typename Derived>
+struct H2Matrix;
 
 struct ClusterTreeNode;
 
@@ -40,7 +53,9 @@ struct H2ClusterTreeNode;
 
 struct H2SampletTreeNode;
 
+template <typename ClusterTreeType>
+struct H2MatrixNode;
 
-} // namespace FMCA
+}  // namespace FMCA
 
 #endif

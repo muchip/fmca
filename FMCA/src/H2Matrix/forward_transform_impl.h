@@ -18,10 +18,9 @@ namespace internal {
  *  \ingroup H2Matrix
  *  \brief implements the forward transform for the matrix times vector product
  */
-template <typename Derived1, typename Derived2, typename Derived3>
+template <typename Derived1>
 void forward_transform_recursion(const H2ClusterTree<Derived1> &CT,
-                                 Derived2 *tvec,
-                                 const Eigen::MatrixBase<Derived3> &vec) {
+                                 std::vector<Matrix> *tvec, const Matrix &vec) {
   if (CT.nSons()) {
     (*tvec)[CT.block_id()].resize(CT.Es()[0].rows(), vec.cols());
     (*tvec)[CT.block_id()].setZero();
@@ -35,10 +34,10 @@ void forward_transform_recursion(const H2ClusterTree<Derived1> &CT,
   }
 }
 
-template <typename Derived, typename otherDerived>
-std::vector<Matrix> forward_transform_impl(
-    const Derived &mat, const Eigen::MatrixBase<otherDerived> &vec) {
-  std::vector<Matrix> retval(mat.nclusters());
+template <typename Derived>
+std::vector<Matrix> forward_transform_impl(const Derived &mat,
+                                           const Matrix &vec) {
+  std::vector<Matrix> retval(mat.ncclusters());
   forward_transform_recursion(*(mat.ccluster()), &retval, vec);
   return retval;
 };
