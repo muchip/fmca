@@ -13,9 +13,9 @@
 #define FMCA_MOMENTS_MOMENTCOMPUTER_NYSTROM_H_
 
 namespace FMCA {
-template <typename Interpolator> class NystromMoments {
-
-public:
+template <typename Interpolator>
+class NystromMoments {
+ public:
   NystromMoments(const Matrix &P, Index polynomial_degree = 3)
       : P_(P), polynomial_degree_(polynomial_degree) {
     interp_.init(P_.rows(), polynomial_degree_);
@@ -37,11 +37,11 @@ public:
   const Interpolator &interp() const { return interp_; }
   const Matrix &P() const { return P_; }
 
-private:
+ private:
   const Matrix &P_;
   Index polynomial_degree_;
   Interpolator interp_;
 };
 
-} // namespace FMCA
+}  // namespace FMCA
 #endif

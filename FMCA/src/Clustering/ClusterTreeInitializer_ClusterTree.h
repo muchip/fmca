@@ -17,7 +17,8 @@ namespace internal {
 /** \ingroup internal
  *  \brief initializes a bounding box for the geometry
  **/
-template <> struct ClusterTreeInitializer<ClusterTree> {
+template <>
+struct ClusterTreeInitializer<ClusterTree> {
   ClusterTreeInitializer() = delete;
   //////////////////////////////////////////////////////////////////////////////
   template <typename Derived>
@@ -132,8 +133,8 @@ template <> struct ClusterTreeInitializer<ClusterTree> {
     return;
   }
 };
-} // namespace internal
+}  // namespace internal
 
-} // namespace FMCA
+}  // namespace FMCA
 
 #endif
