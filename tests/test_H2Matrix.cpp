@@ -16,13 +16,11 @@
 #include "../FMCA/H2Matrix"
 #include "../FMCA/src/util/Tictoc.h"
 
-
-#define NPTS 100000
+#define NPTS 1000000
 #define DIM 2
 #define MPOLE_DEG 3
-#define LEAFSIZE 10
 
-using Interpolator = FMCA::TensorProductInterpolator;
+using Interpolator = FMCA::TotalDegreeInterpolator;
 using Moments = FMCA::NystromMoments<Interpolator>;
 using MatrixEvaluator = FMCA::NystromEvaluator<Moments, FMCA::CovarianceKernel>;
 using H2ClusterTree = FMCA::H2ClusterTree<FMCA::ClusterTree>;
@@ -36,10 +34,11 @@ int main() {
   H2ClusterTree ct(mom, 0, P);
   FMCA::internal::compute_cluster_bases_impl::check_transfer_matrices(ct, mom);
   const MatrixEvaluator mat_eval(mom, function);
-  T.tic();
-  for (FMCA::Scalar eta = 0.8; eta >= 0.1; eta *= 0.5) {
+  for (FMCA::Scalar eta = 0.8; eta >= 0.2; eta *= 0.5) {
     std::cout << "eta:                          " << eta << std::endl;
+    T.tic();
     const H2Matrix hmat(ct, mat_eval, eta);
+    T.toc("elapsed time:                ");
     hmat.statistics();
     {
       FMCA::Vector x(NPTS), y1(NPTS), y2(NPTS);
@@ -60,6 +59,5 @@ int main() {
       std::cout << std::string(60, '-') << std::endl;
     }
   }
-  T.toc("elapsed time: ");
   return 0;
 }
