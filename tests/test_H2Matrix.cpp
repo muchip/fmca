@@ -16,8 +16,8 @@
 #include "../FMCA/H2Matrix"
 #include "../FMCA/src/util/Tictoc.h"
 
-#define NPTS 500000
-#define DIM 3
+#define NPTS 1000000
+#define DIM 2
 #define MPOLE_DEG 3
 
 using Interpolator = FMCA::TotalDegreeInterpolator;
