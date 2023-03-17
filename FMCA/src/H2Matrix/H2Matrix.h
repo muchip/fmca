@@ -60,8 +60,6 @@ struct H2Matrix : public H2MatrixBase<H2Matrix<Derived>> {
   template <typename MatrixEvaluator>
   void init(const H2ClusterTreeBase<Derived> &CT,
             const MatrixEvaluator &mat_eval, Scalar eta = 0.8) {
-    node().nrclusters_ = std::distance(CT.cbegin(), CT.cend());
-    node().ncclusters_ = node().nrclusters_;
     computeH2Matrix(CT.derived(), CT.derived(), mat_eval, eta);
     return;
   }

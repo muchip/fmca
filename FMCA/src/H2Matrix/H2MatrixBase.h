@@ -109,6 +109,10 @@ struct H2MatrixBase : TreeBase<Derived> {
     return *this * I;
   }
   void computePattern(const RowCType &CT1, const ColCType &CT2, Scalar eta) {
+    if (CT1.is_root() && CT2.is_root()) {
+      node().nrclusters_ = std::distance(CT1.cbegin(), CT1.cend());
+      node().ncclusters_ = std::distance(CT2.cbegin(), CT2.cend());
+    }
     node().row_cluster_ = &CT1;
     node().col_cluster_ = &CT2;
     const Admissibility adm = compareCluster(CT1, CT2, eta);
