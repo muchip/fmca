@@ -54,6 +54,7 @@ struct H2MatrixBase : TreeBase<Derived> {
   using Base::sons;
   typedef typename internal::traits<Derived>::RowCType RowCType;
   typedef typename internal::traits<Derived>::ColCType ColCType;
+  typedef typename internal::traits<Derived>::Node Node;
   //////////////////////////////////////////////////////////////////////////////
   // base class methods
   //////////////////////////////////////////////////////////////////////////////
@@ -69,36 +70,32 @@ struct H2MatrixBase : TreeBase<Derived> {
   // (m, n, fblocks, lrblocks, nz(A), mem)
   Matrix statistics() const {
     Matrix retval(6, 1);
-    Index low_rank_blocks = 0;
-    Index full_blocks = 0;
-    Index memory = 0;
+    Index lr_blocks = 0;
+    Index f_blocks = 0;
+    Index mem = 0;
     assert(is_root() && "statistics needs to be called from root");
     for (auto &&it : *this) {
       if (!it.nSons()) {
         if (it.is_low_rank())
-          ++low_rank_blocks;
+          ++lr_blocks;
         else
-          ++full_blocks;
-        memory += it.node().S_.size();
+          ++f_blocks;
+        mem += it.node().S_.size();
       }
     }
-    std::cout << "matrix size:                  " << rows() << " x " << cols()
-              << std::endl;
     retval(0, 0) = rows();
     retval(1, 0) = cols();
-    std::cout << "number of low rank blocks:    " << low_rank_blocks
+    retval(2, 0) = lr_blocks;
+    retval(3, 0) = f_blocks;
+    retval(4, 0) = round(Scalar(mem) / (node().col_cluster_)->indices().size());
+    retval(5, 0) = Scalar(mem * sizeof(Scalar)) / 1e9;
+    std::cout << "matrix size:                  " << rows() << " x " << cols()
               << std::endl;
-    retval(2, 0) = low_rank_blocks;
-    std::cout << "number of full blocks:        " << full_blocks << std::endl;
-    retval(3, 0) = full_blocks;
-    std::cout << "nz per row:                   "
-              << round(Scalar(memory) / (node().col_cluster_)->indices().size())
+    std::cout << "number of low rank blocks:    " << lr_blocks << std::endl;
+    std::cout << "number of full blocks:        " << f_blocks << std::endl;
+    std::cout << "nz per row:                   " << retval(4, 0) << std::endl;
+    std::cout << "storage size:                 " << retval(5, 0) << "GB"
               << std::endl;
-    retval(4, 0) =
-        round(Scalar(memory) / (node().col_cluster_)->indices().size());
-    std::cout << "storage size:                 "
-              << Scalar(memory * sizeof(Scalar)) / 1e9 << "GB" << std::endl;
-    retval(5, 0) = Scalar(memory * sizeof(Scalar)) / 1e9;
     return retval;
   }
 
@@ -111,28 +108,58 @@ struct H2MatrixBase : TreeBase<Derived> {
     Matrix I(cols(), cols());
     return *this * I;
   }
-  //////////////////////////////////////////////////////////////////////////////
-  template <typename MatrixEvaluator>
-  void computeH2Matrix(const RowCType &CT1, const ColCType &CT2,
-                       const MatrixEvaluator &mat_eval, Scalar eta) {
+  void computePattern(const RowCType &CT1, const ColCType &CT2, Scalar eta) {
     node().row_cluster_ = &CT1;
     node().col_cluster_ = &CT2;
     const Admissibility adm = compareCluster(CT1, CT2, eta);
     if (adm == LowRank) {
       node().is_low_rank_ = true;
-      mat_eval.interpolate_kernel(CT1, CT2, std::addressof(node().S_));
     } else if (adm == Refine) {
       appendSons(CT1.nSons() * CT2.nSons());
-      for (auto j = 0; j < CT2.nSons(); ++j)
-        for (auto i = 0; i < CT1.nSons(); ++i) {
+      for (Index j = 0; j < CT2.nSons(); ++j)
+        for (Index i = 0; i < CT1.nSons(); ++i) {
           sons(i + j * CT1.nSons())
-              .computeH2Matrix(CT1.sons(i), CT2.sons(j), mat_eval, eta);
+              .computePattern(CT1.sons(i), CT2.sons(j), eta);
         }
-    } else {
-      mat_eval.compute_dense_block(CT1, CT2, std::addressof(node().S_));
     }
     return;
   }
+  //////////////////////////////////////////////////////////////////////////////
+  template <typename MatrixEvaluator>
+  void computeH2Matrix(const RowCType &CT1, const ColCType &CT2,
+                       const MatrixEvaluator &mat_eval, Scalar eta) {
+    computePattern(CT1, CT2, eta);
+    std::vector<Node *> queue;
+    for (auto &&it : *this)
+      if (!it.nSons()) queue.push_back(std::addressof(it.node()));
+#pragma omp parallel for
+    for (Index i = 0; i < queue.size(); ++i) {
+      const RowCType &row = *(queue[i]->row_cluster_);
+      const ColCType &col = *(queue[i]->col_cluster_);
+      if (queue[i]->is_low_rank_)
+        mat_eval.interpolate_kernel(row, col, std::addressof(queue[i]->S_));
+      else
+        mat_eval.compute_dense_block(row, col, std::addressof(queue[i]->S_));
+    }
+    return;
+  }
+#if 0
+  template <typename MatrixEvaluator>
+  void computeH2Matrix(const RowCType &CT1, const ColCType &CT2,
+                       const MatrixEvaluator &mat_eval, Scalar eta) {
+    computePattern(CT1, CT2, eta);
+    for (auto &&it : *this)
+      if (!it.nSons()) {
+        const RowCType &row = *(it.node().row_cluster_);
+        const ColCType &col = *(it.node().col_cluster_);
+        if (it.is_low_rank())
+          mat_eval.interpolate_kernel(row, col, std::addressof(it.node().S_));
+        else
+          mat_eval.compute_dense_block(row, col, std::addressof(it.node().S_));
+      }
+    return;
+  }
+#endif
 };
 
 }  // namespace FMCA
