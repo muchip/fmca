@@ -153,7 +153,6 @@ class SampletMatrixCompressorUnsymmetric {
   const std::vector<Eigen::Triplet<Scalar>> &triplets() {
     if (pattern_.size()) {
       triplet_list_.clear();
-
       for (Index i = 0; i < pattern_.size(); ++i) {
         const Derived *pc = c_rta_.nodes()[i];
         for (auto &&it : pattern_[i]) {
