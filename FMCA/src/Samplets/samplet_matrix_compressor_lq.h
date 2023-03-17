@@ -69,7 +69,8 @@ class SampletMatrixCompressor {
     // the column cluster tree is traversed bottom up
     const auto &rclusters = rta_.nodes();
     const auto &cclusters = rta_.nodes();
-#pragma omp parallel for schedule(dynamic)
+// #pragma omp parallel for schedule(dynamic)
+#pragma omp parallel for
     for (Index i = 0; i < pattern_.size(); ++i) {
       const Derived *pr = rclusters[i];
       for (auto &&it : pattern_[i]) {
