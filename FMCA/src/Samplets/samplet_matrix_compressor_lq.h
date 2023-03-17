@@ -36,7 +36,6 @@ class SampletMatrixCompressor {
     threshold_ = threshold;
     rta_.init(ST, ST.indices().size());
     pattern_.resize(rta_.nodes().size());
-    queue_.resize(2 * rta_.max_level() + 1);
 #pragma omp parallel for
     for (Index j = 0; j < rta_.nodes().size(); ++j) {
       const Derived *pc = rta_.nodes()[j];
@@ -55,34 +54,31 @@ class SampletMatrixCompressor {
         for (auto i = 0; i < pr->nSons(); ++i)
           if (compareCluster(pr->sons(i), *pc, eta) != LowRank)
             row_stack.push_back(std::addressof(pr->sons(i)));
-        if (pc->block_id() >= pr->block_id()) {
-          auto it =
-              pattern_[pc->block_id()].insert({pr->block_id(), Matrix(0, 0)});
-#pragma omp critical
-          queue_[pc->level() + pr->level()].push_back(
-              ijp(pr->block_id(), pc->block_id(),
-                  std::addressof((it.first)->second)));
-        }
+        if (pc->block_id() >= pr->block_id())
+          pattern_[pr->block_id()].insert({pc->block_id(), Matrix(0, 0)});
       }
     }
     return;
   }
-
+  /**
+   *  \brief compress version that only recycles from the right
+   *
+   **/
   template <typename EntGenerator>
   void compress(const EntGenerator &e_gen) {
     // the column cluster tree is traversed bottom up
     const auto &rclusters = rta_.nodes();
     const auto &cclusters = rta_.nodes();
-    for (auto it = queue_.rbegin(); it != queue_.rend(); ++it) {
 #pragma omp parallel for schedule(dynamic)
-      for (Index i = 0; i < it->size(); ++i) {
-        const Derived *pr = rclusters[(*it)[i].i];
-        const Derived *pc = cclusters[(*it)[i].j];
-        Matrix &block = *((*it)[i].p);
+    for (Index i = 0; i < pattern_.size(); ++i) {
+      const Derived *pr = rclusters[i];
+      for (auto &&it : pattern_[i]) {
+        const Derived *pc = cclusters[it.first];
+        Matrix &block = it.second;
         const Index col_id = pc->block_id();
         const Index row_id = pr->block_id();
         block.resize(0, 0);
-        //  preferred, we pick blocks from the right
+        // here, we only recycle from the right, no recycling from below
         if (pc->nSons()) {
           for (auto k = 0; k < pc->nSons(); ++k) {
             const Index nscalfs = pc->sons(k).nscalfs();
@@ -102,44 +98,17 @@ class SampletMatrixCompressor {
             }
           }
           block = block * pc->Q();
-        } else {
-          if (!pr->nSons()) {
-            block = recursivelyComputeBlock(*pr, *pc, e_gen);
-          } else {
-            for (auto k = 0; k < pr->nSons(); ++k) {
-              const Index nscalfs = pr->sons(k).nscalfs();
-              const Index son_id = pr->sons(k).block_id();
-              const auto it3 = pattern_[col_id].find(son_id);
-              // if so, reuse the matrix block, otherwise recompute it
-              if (it3 != pattern_[col_id].end()) {
-                const Matrix &ret = it3->second;
-                block.conservativeResize(ret.cols(), block.cols() + nscalfs);
-                block.rightCols(nscalfs) = ret.transpose().leftCols(nscalfs);
-              } else {
-                const Matrix ret =
-                    recursivelyComputeBlock(pr->sons(k), *pc, e_gen);
-                block.conservativeResize(ret.cols(), block.cols() + nscalfs);
-                block.rightCols(nscalfs) = ret.transpose().leftCols(nscalfs);
-              }
-            }
-            block = (block * pr->Q()).transpose();
-          }
-        }
+        } else
+          block = recursivelyComputeBlock(*pr, *pc, e_gen);
       }
-      // garbage collector
-      if (it != queue_.rbegin()) {
-        auto itm1 = it;
-        --itm1;
-#pragma omp parallel for
-        for (Index i = 0; i < itm1->size(); ++i) {
-          const Derived *pr = rclusters[(*itm1)[i].i];
-          const Derived *pc = cclusters[(*itm1)[i].j];
-          Matrix &block = *((*itm1)[i].p);
-          if (!pr->is_root() && !pc->is_root()) {
-            Matrix temp =
-                block.bottomRightCorner(pr->nsamplets(), pc->nsamplets());
-            block = temp;
-          }
+      // full column has been computed, employ garbage collector
+      for (auto &&it : pattern_[i]) {
+        const Derived *pc = cclusters[it.first];
+        Matrix &block = it.second;
+        if (!pr->is_root() && !pc->is_root()) {
+          Matrix temp =
+              block.bottomRightCorner(pr->nsamplets(), pc->nsamplets());
+          block = temp;
         }
       }
     }
@@ -153,9 +122,9 @@ class SampletMatrixCompressor {
     if (pattern_.size()) {
       triplet_list_.clear();
       for (Index i = 0; i < pattern_.size(); ++i) {
-        const Derived *pc = rta_.nodes()[i];
+        const Derived *pr = rta_.nodes()[i];
         for (auto &&it : pattern_[i]) {
-          const Derived *pr = rta_.nodes()[it.first];
+          const Derived *pc = rta_.nodes()[it.first];
           if (!pr->is_root() && !pc->is_root())
             storeBlock(
                 triplet_list_, pr->start_index(), pc->start_index(),
@@ -171,6 +140,7 @@ class SampletMatrixCompressor {
           it.second.resize(0, 0);
         }
       }
+      pattern_.resize(0);
     }
     return triplet_list_;
   }
@@ -203,7 +173,8 @@ class SampletMatrixCompressor {
           e_gen.compute_dense_block(TR, TC, &buf);
           return TR.Q().transpose() * buf * TC.Q();
         case 2:
-          // the row cluster is a leaf cluster: recursion on the col cluster
+          // the row cluster is a leaf cluster: recursion on the col
+          // cluster
           for (auto j = 0; j < TC.nSons(); ++j) {
             const Index nscalfs = TC.sons(j).nscalfs();
             Matrix ret = recursivelyComputeBlock(TR, TC.sons(j), e_gen);
@@ -212,7 +183,8 @@ class SampletMatrixCompressor {
           }
           return buf * TC.Q();
         case 1:
-          // the col cluster is a leaf cluster: recursion on the row cluster
+          // the col cluster is a leaf cluster: recursion on the row
+          // cluster
           for (auto i = 0; i < TR.nSons(); ++i) {
             const Index nscalfs = TR.sons(i).nscalfs();
             Matrix ret = recursivelyComputeBlock(TR.sons(i), TC, e_gen);
@@ -257,15 +229,7 @@ class SampletMatrixCompressor {
           triplet_buffer.push_back(
               Eigen::Triplet<Scalar>(srow + j, scol + k, block(j, k)));
   }
-
   //////////////////////////////////////////////////////////////////////////////
-  struct ijp {
-    Index i;
-    Index j;
-    Matrix *p;
-    ijp(Index ii, Index jj, Matrix *pp) : i(ii), j(jj), p(pp){};
-  };
-  std::vector<std::vector<ijp>> queue_;
   std::vector<Eigen::Triplet<Scalar>> triplet_list_;
   std::vector<std::map<Index, Matrix, std::greater<Index>>> pattern_;
   RandomTreeAccessor<Derived> rta_;

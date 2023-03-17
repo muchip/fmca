@@ -171,6 +171,7 @@ class SampletMatrixCompressor {
           it.second.resize(0, 0);
         }
       }
+      pattern_.resize(0);
     }
     return triplet_list_;
   }
