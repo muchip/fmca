@@ -37,23 +37,23 @@ class SampletMatrixCompressor {
     rta_.init(ST, ST.indices().size());
     pattern_.resize(rta_.nodes().size());
 #pragma omp parallel for
-    for (Index j = 0; j < rta_.nodes().size(); ++j) {
-      const Derived *pc = rta_.nodes()[j];
+    for (Index i = 0; i < rta_.nodes().size(); ++i) {
+      const Derived *pr = rta_.nodes()[i];
       /*
        *  For the moment, the compression does not exploit inheritance
        *  relations in the column clusters. Thus, to obtain an NlogN
        *  algorithm, we have to exploit this at least in the row clusters.
        *  This is facilitated by starting a DFS for each column cluster.
        */
-      std::vector<const Derived *> row_stack;
-      row_stack.push_back(std::addressof(ST.derived()));
-      while (row_stack.size()) {
-        const Derived *pr = row_stack.back();
-        row_stack.pop_back();
+      std::vector<const Derived *> col_stack;
+      col_stack.push_back(std::addressof(ST.derived()));
+      while (col_stack.size()) {
+        const Derived *pc = col_stack.back();
+        col_stack.pop_back();
         // fill the stack with possible children
-        for (auto i = 0; i < pr->nSons(); ++i)
-          if (compareCluster(pr->sons(i), *pc, eta) != LowRank)
-            row_stack.push_back(std::addressof(pr->sons(i)));
+        for (Index j = 0; j < pc->nSons(); ++j)
+          if (compareCluster(*pr, pc->sons(j), eta) != LowRank)
+            col_stack.push_back(std::addressof(pc->sons(j)));
         if (pc->block_id() >= pr->block_id())
           pattern_[pr->block_id()].insert({pc->block_id(), Matrix(0, 0)});
       }
@@ -69,8 +69,7 @@ class SampletMatrixCompressor {
     // the column cluster tree is traversed bottom up
     const auto &rclusters = rta_.nodes();
     const auto &cclusters = rta_.nodes();
-// #pragma omp parallel for schedule(dynamic)
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic)
     for (Index i = 0; i < pattern_.size(); ++i) {
       const Derived *pr = rclusters[i];
       for (auto &&it : pattern_[i]) {

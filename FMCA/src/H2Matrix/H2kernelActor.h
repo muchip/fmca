@@ -27,10 +27,10 @@ class H2kernelActor {
         hct_eval_(mom_eval_, 0, Peval),
         mpole_deg_(mpole_deg),
         eta_(eta) {
-    h2mat_.initBlockClusterTree(hct_eval_, hct_, eta_);
+    h2mat_.computePattern(hct_eval_, hct_, eta_);
     scheduler_.resize(h2mat_.nrclusters());
     for (const auto &it : h2mat_)
-      if (!it.sons().size())
+      if (!it.nSons())
         scheduler_[it.ccluster()->block_id()].push_back(std::addressof(it));
     return;
   }
