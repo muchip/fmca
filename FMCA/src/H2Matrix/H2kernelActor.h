@@ -28,7 +28,7 @@ class H2kernelActor {
         mpole_deg_(mpole_deg),
         eta_(eta) {
     h2mat_.computePattern(hct_eval_, hct_, eta_);
-    scheduler_.resize(h2mat_.nrclusters());
+    scheduler_.resize(h2mat_.ncclusters());
     for (const auto &it : h2mat_)
       if (!it.nSons())
         scheduler_[it.ccluster()->block_id()].push_back(std::addressof(it));
@@ -53,7 +53,7 @@ class H2kernelActor {
       tlhs[it.block_id()].setZero();
     }
     for (const auto &it2 : scheduler_) {
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic)
       for (Index k = 0; k < it2.size(); ++k) {
         Matrix S;
         const H2Matrix<H2ClusterTree> &it = *(it2[k]);
