@@ -152,24 +152,28 @@ class SampletMatrixCompressor {
   const std::vector<Eigen::Triplet<Scalar>> &triplets() {
     if (pattern_.size()) {
       triplet_list_.clear();
+#pragma omp parallel for schedule(dynamic)
       for (Index i = 0; i < pattern_.size(); ++i) {
+        std::vector<Triplet<Scalar>> list;
         const Derived *pc = rta_.nodes()[i];
         for (auto &&it : pattern_[i]) {
           const Derived *pr = rta_.nodes()[it.first];
           if (!pr->is_root() && !pc->is_root())
             storeBlock(
-                triplet_list_, pr->start_index(), pc->start_index(),
-                pr->nsamplets(), pc->nsamplets(),
+                list, pr->start_index(), pc->start_index(), pr->nsamplets(),
+                pc->nsamplets(),
                 it.second.bottomRightCorner(pr->nsamplets(), pc->nsamplets()));
           else if (!pc->is_root())
-            storeBlock(triplet_list_, pr->start_index(), pc->start_index(),
+            storeBlock(list, pr->start_index(), pc->start_index(),
                        pr->Q().cols(), pc->nsamplets(),
                        it.second.rightCols(pc->nsamplets()));
           else if (pr->is_root() && pc->is_root())
-            storeBlock(triplet_list_, pr->start_index(), pc->start_index(),
+            storeBlock(list, pr->start_index(), pc->start_index(),
                        pr->Q().cols(), pc->Q().cols(), it.second);
           it.second.resize(0, 0);
         }
+#pragma omp critical
+        triplet_list_.insert(triplet_list_.end(), list.begin(), list.end());
       }
       pattern_.resize(0);
     }
@@ -267,7 +271,7 @@ class SampletMatrixCompressor {
     ijp(Index ii, Index jj, Matrix *pp) : i(ii), j(jj), p(pp){};
   };
   std::vector<std::vector<ijp>> queue_;
-  std::vector<Eigen::Triplet<Scalar>> triplet_list_;
+  std::vector<Triplet<Scalar>> triplet_list_;
   std::vector<std::map<Index, Matrix, std::greater<Index>>> pattern_;
   RandomTreeAccessor<Derived> rta_;
   Scalar eta_;
