@@ -16,12 +16,23 @@ namespace FMCA {
 class CovarianceKernel {
  public:
   CovarianceKernel(){};
-  CovarianceKernel(const std::string &ktype, FMCA::Scalar l)
-      : ktype_(ktype), l_(l) {
+  CovarianceKernel(const std::string &ktype, FMCA::Scalar l = 1.,
+                   FMCA::Scalar c = 1.)
+      : ktype_(ktype), l_(l), c_(c) {
     // transform string to upper and check if kernel is implemented
-    for (auto &c : ktype_) c = (char)toupper(c);
+    for (auto &chr : ktype_) chr = (char)toupper(chr);
     ////////////////////////////////////////////////////////////////////////////
-    if (ktype_ == "EXPONENTIAL")
+    if (ktype_ == "BIHARMONIC2D")
+      kernel_ = [this](FMCA::Scalar r) {
+        return r < FMCA_ZERO_TOLERANCE ? 0 : log(r / l_) * (r / l_) * (r / l_);
+      };
+    else if (ktype_ == "BIHARMONIC3D")
+      kernel_ = [this](FMCA::Scalar r) { return r / l_; };
+    else if (ktype_ == "TRIHARMONIC3D")
+      kernel_ = [this](FMCA::Scalar r) {
+        return (r / l_) * (r / l_) * (r / l_);
+      };
+    else if (ktype_ == "EXPONENTIAL")
       kernel_ = [this](FMCA::Scalar r) { return exp(-r / l_); };
     ////////////////////////////////////////////////////////////////////////////
     else if (ktype_ == "MATERN32")
@@ -53,6 +64,14 @@ class CovarianceKernel {
       kernel_ = [this](FMCA::Scalar r) {
         return exp(-0.5 * r * r / (l_ * l_));
       };
+    else if (ktype_ == "INVMULTIQUADRIC")
+      kernel_ = [this](FMCA::Scalar r) {
+        return 1. / sqrt((r / l_) * (r / l_) + c_ * c_);
+      };
+    else if (ktype_ == "MULTIQUADRIC")
+      kernel_ = [this](FMCA::Scalar r) {
+        return sqrt((r / l_) * (r / l_) + c_ * c_);
+      };
     else
       assert(false && "desired kernel not implemented");
   }
@@ -78,6 +97,7 @@ class CovarianceKernel {
   std::function<FMCA::Scalar(FMCA::Scalar)> kernel_;
   std::string ktype_;
   FMCA::Scalar l_;
+  FMCA::Scalar c_;
 };
 }  // namespace FMCA
 #endif
