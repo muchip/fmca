@@ -35,8 +35,7 @@ class SampletMatrixCompressor {
     eta_ = eta;
     threshold_ = threshold;
     rta_.init(ST, ST.indices().size());
-    pattern_.resize(rta_.nodes().size());
-    queue_.resize(2 * rta_.max_level() + 1);
+    pattern_.resize(2 * rta_.max_level() + 1);
 #pragma omp parallel for
     for (Index j = 0; j < rta_.nodes().size(); ++j) {
       const Derived *pc = rta_.nodes()[j];
@@ -56,12 +55,10 @@ class SampletMatrixCompressor {
           if (compareCluster(pr->sons(i), *pc, eta) != LowRank)
             row_stack.push_back(std::addressof(pr->sons(i)));
         if (pc->block_id() >= pr->block_id()) {
-          auto it =
-              pattern_[pc->block_id()].insert({pr->block_id(), Matrix(0, 0)});
+          const Index id =
+              pr->block_id() + rta_.nodes().size() * pc->block_id();
 #pragma omp critical
-          queue_[pc->level() + pr->level()].push_back(
-              ijp(pr->block_id(), pc->block_id(),
-                  std::addressof((it.first)->second)));
+          pattern_[pc->level() + pr->level()].insert({id, Matrix(0, 0)});
         }
       }
     }
@@ -73,72 +70,94 @@ class SampletMatrixCompressor {
     // the column cluster tree is traversed bottom up
     const auto &rclusters = rta_.nodes();
     const auto &cclusters = rta_.nodes();
-    for (auto it = queue_.rbegin(); it != queue_.rend(); ++it) {
-#pragma omp parallel for schedule(dynamic)
-      for (Index i = 0; i < it->size(); ++i) {
-        const Derived *pr = rclusters[(*it)[i].i];
-        const Derived *pc = cclusters[(*it)[i].j];
-        Matrix &block = *((*it)[i].p);
-        const Index col_id = pc->block_id();
-        const Index row_id = pr->block_id();
-        block.resize(0, 0);
-        //  preferred, we pick blocks from the right
-        if (pc->nSons()) {
-          for (auto k = 0; k < pc->nSons(); ++k) {
-            const Index nscalfs = pc->sons(k).nscalfs();
-            const Index son_id = pc->sons(k).block_id();
-            // check if pc's son is found in the row of pr
-            // if so, reuse the matrix block, otherwise recompute it
-            const auto it3 = pattern_[son_id].find(row_id);
-            if (it3 != pattern_[son_id].end()) {
-              const Matrix &ret = it3->second;
-              block.conservativeResize(ret.rows(), block.cols() + nscalfs);
-              block.rightCols(nscalfs) = ret.leftCols(nscalfs);
-            } else {
-              const Matrix ret =
-                  recursivelyComputeBlock(*pr, pc->sons(k), e_gen);
-              block.conservativeResize(ret.rows(), block.cols() + nscalfs);
-              block.rightCols(nscalfs) = ret.leftCols(nscalfs);
-            }
-          }
-          block = block * pc->Q();
-        } else {
-          if (!pr->nSons()) {
-            block = recursivelyComputeBlock(*pr, *pc, e_gen);
-          } else {
-            for (auto k = 0; k < pr->nSons(); ++k) {
-              const Index nscalfs = pr->sons(k).nscalfs();
-              const Index son_id = pr->sons(k).block_id();
-              const auto it3 = pattern_[col_id].find(son_id);
+    for (auto it = pattern_.rbegin(); it != pattern_.rend(); ++it) {
+#pragma omp parallel
+      {
+        int thread_count = omp_get_num_threads();
+        int thread_num = omp_get_thread_num();
+        size_t map_size = it->size();
+        std::map<Index, Matrix, std::greater<Index>>::iterator it2 =
+            it->begin();
+        std::advance(it2, thread_num);
+        for (Index i = thread_num; i < map_size; i += thread_count) {
+          const Derived *pr = rclusters[it2->first % rta_.nodes().size()];
+          const Derived *pc = cclusters[it2->first / rta_.nodes().size()];
+          Matrix &block = it2->second;
+          const Index col_id = pc->block_id();
+          const Index row_id = pr->block_id();
+          block.resize(0, 0);
+          //  preferred, we pick blocks from the right
+          if (pc->nSons()) {
+            for (auto k = 0; k < pc->nSons(); ++k) {
+              const Index nscalfs = pc->sons(k).nscalfs();
+              const Index son_lvl = pc->sons(k).level() + pr->level();
+              const Index son_id =
+                  pc->sons(k).block_id() * rta_.nodes().size() + row_id;
+              // check if pc's son is found in the row of pr
               // if so, reuse the matrix block, otherwise recompute it
-              if (it3 != pattern_[col_id].end()) {
+              const auto it3 = pattern_[son_lvl].find(son_id);
+              if (it3 != pattern_[son_lvl].end()) {
                 const Matrix &ret = it3->second;
-                block.conservativeResize(ret.cols(), block.cols() + nscalfs);
-                block.rightCols(nscalfs) = ret.transpose().leftCols(nscalfs);
+                block.conservativeResize(ret.rows(), block.cols() + nscalfs);
+                block.rightCols(nscalfs) = ret.leftCols(nscalfs);
               } else {
                 const Matrix ret =
-                    recursivelyComputeBlock(pr->sons(k), *pc, e_gen);
-                block.conservativeResize(ret.cols(), block.cols() + nscalfs);
-                block.rightCols(nscalfs) = ret.transpose().leftCols(nscalfs);
+                    recursivelyComputeBlock(*pr, pc->sons(k), e_gen);
+                block.conservativeResize(ret.rows(), block.cols() + nscalfs);
+                block.rightCols(nscalfs) = ret.leftCols(nscalfs);
               }
             }
-            block = (block * pr->Q()).transpose();
+            block = block * pc->Q();
+          } else {
+            if (!pr->nSons()) {
+              block = recursivelyComputeBlock(*pr, *pc, e_gen);
+            } else {
+              for (auto k = 0; k < pr->nSons(); ++k) {
+                const Index nscalfs = pr->sons(k).nscalfs();
+                const Index son_lvl = pr->sons(k).level() + pc->level();
+                const Index son_id =
+                    pr->sons(k).block_id() + rta_.nodes().size() * col_id;
+                const auto it3 = pattern_[son_lvl].find(son_id);
+                // if so, reuse the matrix block, otherwise recompute it
+                if (it3 != pattern_[son_lvl].end()) {
+                  const Matrix &ret = it3->second;
+                  block.conservativeResize(ret.cols(), block.cols() + nscalfs);
+                  block.rightCols(nscalfs) = ret.transpose().leftCols(nscalfs);
+                } else {
+                  const Matrix ret =
+                      recursivelyComputeBlock(pr->sons(k), *pc, e_gen);
+                  block.conservativeResize(ret.cols(), block.cols() + nscalfs);
+                  block.rightCols(nscalfs) = ret.transpose().leftCols(nscalfs);
+                }
+              }
+              block = (block * pr->Q()).transpose();
+            }
           }
+          if (i + thread_count < map_size) std::advance(it2, thread_count);
         }
       }
       // garbage collector
-      if (it != queue_.rbegin()) {
+      if (it != pattern_.rbegin()) {
         auto itm1 = it;
         --itm1;
-#pragma omp parallel for
-        for (Index i = 0; i < itm1->size(); ++i) {
-          const Derived *pr = rclusters[(*itm1)[i].i];
-          const Derived *pc = cclusters[(*itm1)[i].j];
-          Matrix &block = *((*itm1)[i].p);
-          if (!pr->is_root() && !pc->is_root()) {
-            Matrix temp =
-                block.bottomRightCorner(pr->nsamplets(), pc->nsamplets());
-            block = temp;
+#pragma omp parallel
+        {
+          int thread_count = omp_get_num_threads();
+          int thread_num = omp_get_thread_num();
+          size_t map_size = itm1->size();
+          std::map<Index, Matrix, std::greater<Index>>::iterator it2 =
+              itm1->begin();
+          std::advance(it2, thread_num);
+          for (Index i = thread_num; i < map_size; i += thread_count) {
+            const Derived *pr = rclusters[it2->first % rta_.nodes().size()];
+            const Derived *pc = cclusters[it2->first / rta_.nodes().size()];
+            Matrix &block = it2->second;
+            if (!pr->is_root() && !pc->is_root()) {
+              Matrix temp =
+                  block.bottomRightCorner(pr->nsamplets(), pc->nsamplets());
+              block = temp;
+            }
+            if (i + thread_count < map_size) std::advance(it2, thread_count);
           }
         }
       }
@@ -152,24 +171,28 @@ class SampletMatrixCompressor {
   const std::vector<Eigen::Triplet<Scalar>> &triplets() {
     if (pattern_.size()) {
       triplet_list_.clear();
+#pragma omp parallel for schedule(dynamic)
       for (Index i = 0; i < pattern_.size(); ++i) {
-        const Derived *pc = rta_.nodes()[i];
+        std::vector<Triplet<Scalar>> list;
         for (auto &&it : pattern_[i]) {
-          const Derived *pr = rta_.nodes()[it.first];
+          const Derived *pr = rta_.nodes()[it.first % rta_.nodes().size()];
+          const Derived *pc = rta_.nodes()[it.first / rta_.nodes().size()];
           if (!pr->is_root() && !pc->is_root())
             storeBlock(
-                triplet_list_, pr->start_index(), pc->start_index(),
-                pr->nsamplets(), pc->nsamplets(),
+                list, pr->start_index(), pc->start_index(), pr->nsamplets(),
+                pc->nsamplets(),
                 it.second.bottomRightCorner(pr->nsamplets(), pc->nsamplets()));
           else if (!pc->is_root())
-            storeBlock(triplet_list_, pr->start_index(), pc->start_index(),
+            storeBlock(list, pr->start_index(), pc->start_index(),
                        pr->Q().cols(), pc->nsamplets(),
                        it.second.rightCols(pc->nsamplets()));
           else if (pr->is_root() && pc->is_root())
-            storeBlock(triplet_list_, pr->start_index(), pc->start_index(),
+            storeBlock(list, pr->start_index(), pc->start_index(),
                        pr->Q().cols(), pc->Q().cols(), it.second);
           it.second.resize(0, 0);
         }
+#pragma omp critical
+        triplet_list_.insert(triplet_list_.end(), list.begin(), list.end());
       }
       pattern_.resize(0);
     }
@@ -247,10 +270,9 @@ class SampletMatrixCompressor {
    *  \brief writes a given matrix block into a-posteriori thresholded
    *         triplet format
    **/
-  template <typename otherDerived>
   void storeBlock(std::vector<Eigen::Triplet<Scalar>> &triplet_buffer,
                   Index srow, Index scol, Index nrows, Index ncols,
-                  const Eigen::MatrixBase<otherDerived> &block) {
+                  const Matrix &block) {
     for (auto k = 0; k < ncols; ++k)
       for (auto j = 0; j < nrows; ++j)
         if ((srow + j <= scol + k && abs(block(j, k)) > threshold_) ||
@@ -258,16 +280,8 @@ class SampletMatrixCompressor {
           triplet_buffer.push_back(
               Eigen::Triplet<Scalar>(srow + j, scol + k, block(j, k)));
   }
-
   //////////////////////////////////////////////////////////////////////////////
-  struct ijp {
-    Index i;
-    Index j;
-    Matrix *p;
-    ijp(Index ii, Index jj, Matrix *pp) : i(ii), j(jj), p(pp){};
-  };
-  std::vector<std::vector<ijp>> queue_;
-  std::vector<Eigen::Triplet<Scalar>> triplet_list_;
+  std::vector<Triplet<Scalar>> triplet_list_;
   std::vector<std::map<Index, Matrix, std::greater<Index>>> pattern_;
   RandomTreeAccessor<Derived> rta_;
   Scalar eta_;

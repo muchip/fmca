@@ -35,23 +35,26 @@ bool inBoundingBox(const ClusterTreeBase<Derived> &cluster,
 }  // namespace internal
 
 template <typename Derived>
-void updateClusterMinDistance(Vector &min_dist, Scalar max_min_dist,
-                              const ClusterTreeBase<Derived> &c1,
-                              const ClusterTreeBase<Derived> &c2,
-                              const Matrix &P) {
+Index updateClusterMinDistance(Vector &min_dist, Scalar max_min_dist,
+                               const ClusterTreeBase<Derived> &c1,
+                               const ClusterTreeBase<Derived> &c2,
+                               const Matrix &P) {
   Scalar dist = computeDistance(c1, c2);
+  Index dups = 0;
   if (max_min_dist >= dist) {
     if (c2.nSons()) {
       dist += c2.bb().col(2).norm();
       max_min_dist = max_min_dist < dist ? max_min_dist : dist;
       for (Index i = 0; i < c2.nSons(); ++i)
         if (c2.sons(i).indices().size())
-          updateClusterMinDistance(min_dist, max_min_dist, c1, c2.sons(i), P);
+          dups += updateClusterMinDistance(min_dist, max_min_dist, c1,
+                                           c2.sons(i), P);
     } else {
       if (c1.block_id() < c2.block_id())
         for (Index j = 0; j < c1.indices().size(); ++j)
           for (Index i = 0; i < c2.indices().size(); ++i) {
             dist = (P.col(c2.indices()[i]) - P.col(c1.indices()[j])).norm();
+            if (dist < FMCA_ZERO_TOLERANCE) ++dups;
             min_dist(c2.indices()[i]) = min_dist(c2.indices()[i]) > dist
                                             ? dist
                                             : min_dist(c2.indices()[i]);
@@ -67,7 +70,7 @@ void updateClusterMinDistance(Vector &min_dist, Scalar max_min_dist,
                            : max_min_dist;
     }
   }
-  return;
+  return dups;
 }
 
 template <typename Derived>
@@ -77,6 +80,7 @@ Vector minDistanceVector(const ClusterTreeBase<Derived> &CT, const Matrix &P) {
   min_distance.setOnes();
   min_distance /= Scalar(0.);
   Scalar dist = 0;
+  Index dups = 0;
   // compute min_distance at the leafs
   for (auto it = CT.cbegin(); it != CT.cend(); ++it) {
     if (!it->nSons() && it->indices().size()) {
@@ -84,6 +88,7 @@ Vector minDistanceVector(const ClusterTreeBase<Derived> &CT, const Matrix &P) {
       for (Index j = 0; j < it->indices().size(); ++j)
         for (Index i = 0; i < j; ++i) {
           dist = (P.col(it->indices()[i]) - P.col(it->indices()[j])).norm();
+          if (dist < FMCA_ZERO_TOLERANCE) ++dups;
           min_distance(it->indices()[j]) = min_distance(it->indices()[j]) > dist
                                                ? dist
                                                : min_distance(it->indices()[j]);
@@ -97,9 +102,12 @@ Vector minDistanceVector(const ClusterTreeBase<Derived> &CT, const Matrix &P) {
         max_min_distance = max_min_distance < min_distance(it->indices()[j])
                                ? min_distance(it->indices()[j])
                                : max_min_distance;
-      updateClusterMinDistance(min_distance, max_min_distance, *it, CT, P);
+      dups +=
+          updateClusterMinDistance(min_distance, max_min_distance, *it, CT, P);
     }
   }
+  if (dups)
+    std::cout << "Caution: data set contains " << dups << " duplicate points\n";
   return min_distance;
 }
 
