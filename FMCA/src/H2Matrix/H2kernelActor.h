@@ -78,6 +78,7 @@ class H2kernelActor {
       retval.row(hct_eval_.indices()[i]) = lhs.row(i);
     return retval;
   }
+  const H2ClusterTree &hct_eval() const { return hct_eval_; };
 
  private:
   const Moments mom_;
