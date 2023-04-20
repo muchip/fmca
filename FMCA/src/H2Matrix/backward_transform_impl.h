@@ -18,23 +18,24 @@ namespace internal {
  *  \ingroup H2Matrix
  *  \brief implements the forward transform for the matrix times vector product
  */
-template <typename Derived1>
-void backward_transform_recursion(const H2ClusterTree<Derived1> &CT,
-                                  Matrix *tvec, std::vector<Matrix> &vec) {
-  if (CT.nSons()) {
-    for (auto i = 0; i < CT.nSons(); ++i) {
-      vec[CT.sons(i).block_id()] += CT.Es()[i].transpose() * vec[CT.block_id()];
-      backward_transform_recursion(CT.sons(i), tvec, vec);
+template <typename Derived, typename T = Matrix>
+void backward_transform_recursion(const H2ClusterTree<Derived> &ct, T *tvec,
+                                  std::vector<T> &vec) {
+  if (ct.nSons()) {
+    for (auto i = 0; i < ct.nSons(); ++i) {
+      vec[ct.sons(i).block_id()] += ct.Es()[i].transpose() * vec[ct.block_id()];
+      backward_transform_recursion(ct.sons(i), tvec, vec);
     }
   } else {
-    tvec->middleRows(CT.indices_begin(), CT.V().cols()) +=
-        CT.V().transpose() * vec[CT.block_id()];
+    tvec->middleRows(ct.indices_begin(), ct.V().cols()) +=
+        ct.V().transpose() * vec[ct.block_id()];
   }
 }
 
-template <typename Derived>
-Matrix backward_transform_impl(const Derived &mat, std::vector<Matrix> &vec) {
-  Matrix retval(mat.rcluster()->indices().size(), vec[0].cols());
+template <typename Derived, typename T = Matrix>
+T backward_transform_impl(const H2MatrixBase<Derived> &mat,
+                          std::vector<T> &vec) {
+  T retval(mat.rcluster()->indices().size(), vec[0].cols());
   retval.setZero();
   backward_transform_recursion(*(mat.rcluster()), &retval, vec);
   return retval;
