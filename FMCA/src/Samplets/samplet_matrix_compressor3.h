@@ -72,17 +72,17 @@ class SampletMatrixCompressor {
     const auto &cclusters = rta_.nodes();
     const auto nrclusters = rta_.nodes().size();
     for (auto it = pattern_.rbegin(); it != pattern_.rend(); ++it) {
-      Index count = 0;
-#pragma omp parallel shared(count)
+      Index pos = 0;
+#pragma omp parallel shared(pos)
       {
         Index i = 0;
-        Index i_old = 0;
+        Index prev_i = 0;
         const size_t map_size = it->size();
         LevelBuffer::iterator it2 = it->begin();
 #pragma omp atomic capture
-        i = count++;
+        i = pos++;
         while (i < map_size) {
-          std::advance(it2, i - i_old);
+          std::advance(it2, i - prev_i);
           const Derived *pr = rclusters[it2->first % nrclusters];
           const Derived *pc = cclusters[it2->first / nrclusters];
           Matrix &block = it2->second;
@@ -135,35 +135,35 @@ class SampletMatrixCompressor {
               block = (block * pr->Q()).transpose();
             }
           }
-          i_old = i;
+          prev_i = i;
 #pragma omp atomic capture
-          i = count++;
+          i = pos++;
         }
       }
       // garbage collector
       if (it != pattern_.rbegin()) {
         auto itm1 = it;
         --itm1;
-        Index count = 0;
-#pragma omp parallel shared(count)
+        Index pos = 0;
+#pragma omp parallel shared(pos)
         {
           Index i = 0;
-          Index i_old = 0;
+          Index prev_i = 0;
           const size_t map_size = itm1->size();
           LevelBuffer::iterator it2 = itm1->begin();
 #pragma omp atomic capture
-          i = count++;
+          i = pos++;
           while (i < map_size) {
-            std::advance(it2, i - i_old);
+            std::advance(it2, i - prev_i);
             const Derived *pr = rclusters[it2->first % nrclusters];
             const Derived *pc = cclusters[it2->first / nrclusters];
             Matrix &block = it2->second;
             if (!pr->is_root() && !pc->is_root())
               block = block.bottomRightCorner(pr->nsamplets(), pc->nsamplets())
                           .eval();
-            i_old = i;
+            prev_i = i;
 #pragma omp atomic capture
-            i = count++;
+            i = pos++;
           }
         }
       }
