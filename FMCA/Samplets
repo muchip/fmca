@@ -21,6 +21,7 @@
 #include "Moments"
 #include "Interpolators"
 #include "MatrixEvaluators"
+#include "H2Matrix"
 
 #include "src/util/ForwardDeclarations.h"
 #include "src/util/Macros.h"

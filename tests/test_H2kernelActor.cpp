@@ -16,7 +16,7 @@
 #include "../FMCA/H2Matrix"
 #include "../FMCA/src/util/Tictoc.h"
 
-#define NPTS 1000000
+#define NPTS 100000
 #define DIM 3
 #define MPOLE_DEG 4
 

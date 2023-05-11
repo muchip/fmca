@@ -19,18 +19,21 @@ namespace internal {
  *  \brief implements the forward transform for the matrix times vector product
  */
 template <typename Derived, typename T = Matrix>
-void forward_transform_recursion(const H2ClusterTree<Derived> &ct,
+void forward_transform_recursion(const TreeBase<Derived> &ct,
                                  std::vector<T> *tvec, const T &vec) {
-  if (ct.nSons()) {
-    (*tvec)[ct.block_id()].resize(ct.Es()[0].rows(), vec.cols());
-    (*tvec)[ct.block_id()].setZero();
-    for (auto i = 0; i < ct.nSons(); ++i) {
-      forward_transform_recursion(ct.sons(i), tvec, vec);
-      (*tvec)[ct.block_id()] += ct.Es()[i] * (*tvec)[ct.sons(i).block_id()];
+  const Derived &node = ct.derived();
+  if (node.nSons()) {
+    (*tvec)[node.block_id()].resize(node.Es()[0].rows(), vec.cols());
+    (*tvec)[node.block_id()].setZero();
+    for (auto i = 0; i < node.nSons(); ++i) {
+      forward_transform_recursion(node.sons(i), tvec, vec);
+      (*tvec)[node.block_id()] +=
+          node.Es()[i] * (*tvec)[node.sons(i).block_id()];
     }
   } else {
-    (*tvec)[ct.block_id()] =
-        ct.node().V_ * vec.middleRows(ct.indices_begin(), ct.indices().size());
+    (*tvec)[node.block_id()] =
+        node.node().V_ *
+        vec.middleRows(node.indices_begin(), node.indices().size());
   }
 }
 
