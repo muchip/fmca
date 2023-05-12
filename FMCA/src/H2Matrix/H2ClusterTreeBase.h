@@ -43,6 +43,7 @@ struct H2ClusterTreeBase : public ClusterTreeBase<Derived> {
   using Base::appendSons;
   using Base::bb;
   using Base::block_id;
+  using Base::ClusterTreeBase;
   using Base::derived;
   using Base::indices;
   using Base::indices_begin;

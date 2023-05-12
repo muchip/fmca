@@ -17,7 +17,7 @@
 #include "../FMCA/src/Samplets/SampletKernelActor.h"
 #include "../FMCA/src/util/Tictoc.h"
 
-#define NPTS 1000000
+#define NPTS 100000
 #define DIM 2
 #define MPOLE_DEG 6
 
@@ -32,16 +32,16 @@ using H2ClusterTree = FMCA::H2ClusterTree<FMCA::ClusterTree>;
 
 int main() {
   FMCA::Tictoc T;
-  const FMCA::CovarianceKernel function("EXPONENTIAL", 1);
+  const FMCA::CovarianceKernel function("matern32", 1);
   const FMCA::Matrix P = 0.5 * (FMCA::Matrix::Random(DIM, NPTS).array() + 1);
-  const FMCA::Scalar threshold = 1e-5;
+  const FMCA::Scalar threshold = 1e-10;
   const FMCA::Index dtilde = 4;
   const FMCA::Scalar eta = 1. / DIM;
   const Moments mom(P, MPOLE_DEG);
   const usMatrixEvaluator mat_eval(mom, mom, function);
   const SampletMoments samp_mom(P, dtilde - 1);
   H2SampletTree hst(mom, samp_mom, 0, P);
-  H2ClusterTree hct(mom, 0, P);
+  H2ClusterTree hct(mom, hst);
   auto it = hst.begin();
   auto it2 = hct.begin();
   while (it != hst.end() && it2 != hct.end()) {
@@ -68,23 +68,19 @@ int main() {
   FMCA::internal::compute_cluster_bases_impl::compute(hst, mom);
 
   T.tic();
-  const FMCA::H2kernelActor<FMCA::CovarianceKernel, Moments, H2ClusterTree,
-                            usMatrixEvaluator>
-      hact(function, P, P, MPOLE_DEG, eta);
+  const FMCA::SampletKernelActor<usMatrixEvaluator, H2ClusterTree,
+                                 H2SampletTree>
+      hact(mat_eval, hst, hst, MPOLE_DEG, eta);
   T.toc("set up actor:");
   FMCA::Matrix X(NPTS, 100);
   X.setRandom();
   T.tic();
-  FMCA::Matrix TX = hst.inverseSampletTransform(X);
-  FMCA::Matrix sX = TX;
-  for (FMCA::Index i = 0; i < sX.rows(); ++i)
-    sX.row(hst.indices()[i]) = TX.row(i);
-  FMCA::Matrix Y = hact.action(sX);
-  FMCA::Matrix sY = Y;
-  for (FMCA::Index i = 0; i < sY.rows(); ++i)
-    sY.row(i) = Y.row(hst.indices()[i]);
-  sY = hst.sampletTransform(sY);
+  //FMCA::Matrix TX = hst.inverseSampletTransform(X);
+  //FMCA::Matrix sX = TX;
+  FMCA::Matrix Y = hact.action(X);
+  //FMCA::Matrix sY = Y;
+  //sY = hst.sampletTransform(sY);
   T.toc("compute action:");
-  std::cout << "error: " << (S * X - sY).norm() / X.norm() << std::endl;
+  std::cout << "error: " << (S * X - Y).norm() / X.norm() << std::endl;
   return 0;
 }

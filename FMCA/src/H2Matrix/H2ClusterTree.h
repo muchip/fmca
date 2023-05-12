@@ -57,15 +57,16 @@ class H2ClusterTree : public H2ClusterTreeBase<H2ClusterTree<ClusterTreeType>> {
   // constructors
   //////////////////////////////////////////////////////////////////////////////
   H2ClusterTree() {}
-  template <typename Moments, typename Derived>
-  H2ClusterTree(const Moments &mom, const ClusterTreeBase<Derived> &ct) {
-    auto it = this->begin();
-    for (const auto &it2 : ct.derived()) {
+  template <typename Moments, typename otherDerived>
+  H2ClusterTree(const Moments &mom, const ClusterTreeBase<otherDerived> &ct) {
+    typename TreeBase<H2ClusterTree<ClusterTreeType>>::iterator it =
+        this->begin();
+    for (const otherDerived &it2 : ct.derived()) {
       if (it2.nSons()) it->appendSons(it2.nSons());
-      it->node().bb_ = it2.node().bb_;
-      it->node().indices_ = it2.node().indices_;
-      it->node().indices_begin_ = it2.node().indices_begin_;
-      it->node().block_id_ = it2.node().block_id_;
+      it->node().bb_ = it2.bb();
+      it->node().indices_ = it2.indices();
+      it->node().indices_begin_ = it2.indices_begin();
+      it->node().block_id_ = it2.block_id();
       ++it;
     }
     internal::compute_cluster_bases_impl::compute(*this, mom);

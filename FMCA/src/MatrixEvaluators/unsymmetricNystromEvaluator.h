@@ -71,7 +71,6 @@ struct unsymmetricNystromEvaluator {
                                   c_mom_.P().col(TC.indices()[j]));
     return;
   }
-
   const Moments &r_mom_;
   const Moments &c_mom_;
   Kernel kernel_;
