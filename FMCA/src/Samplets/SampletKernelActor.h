@@ -74,6 +74,10 @@ class SampletKernelActor {
     return hst_eval_.sampletTransform(lhs);
   }
 
+  Matrix operator*(const Matrix &rhs) const { return action(rhs); }
+  Index rows() const { return h2mat_.rows(); }
+  Index cols() const { return h2mat_.cols(); }
+
  private:
   const MatrixEvaluator &mat_eval_;
   const H2ClusterTree hct_;
