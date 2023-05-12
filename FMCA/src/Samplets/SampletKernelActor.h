@@ -14,15 +14,15 @@
 
 namespace FMCA {
 
-template <typename H2SampletTree, typename MatrixEvaluator>
+template <typename MatrixEvaluator, typename H2ClusterTree>
 class SampletKernelActor {
  public:
-  SampletKernelActor(const H2SampletTree &hct, const H2SampletTree &hct_eval,
-                     const MatrixEvaluator &mat_eval, const Index mpole_deg,
+  SampletKernelActor(const MatrixEvaluator &mat_eval, const H2ClusterTree &hct,
+                     const H2ClusterTree &hct_eval, const Index mpole_deg,
                      const Scalar eta)
-      : hct_(hct),
+      : mat_eval_(mat_eval),
+        hct_(hct),
         hct_eval_(hct_eval),
-        mat_eval_(mat_eval),
         mpole_deg_(mpole_deg),
         eta_(eta) {
     h2mat_.computePattern(hct_eval_, hct_, eta_);
@@ -35,26 +35,22 @@ class SampletKernelActor {
 
   Matrix action(const Matrix &rhs) const {
     Matrix lhs(h2mat_.rows(), rhs.cols());
-    Matrix srhs = hct_.inverseSampletTransform(rhs);
     lhs.setZero();
-    Matrix S;
-    mat_eval_.compute_dense_block(hct_, hct_eval_, &S);
-    Matrix lhsRef = S * srhs;
     // forward transform righ hand side
-    std::vector<Matrix> trhs = internal::forward_transform_impl(h2mat_, srhs);
+    std::vector<Matrix> trhs = internal::forward_transform_impl(h2mat_, rhs);
     std::vector<Matrix> tlhs(h2mat_.nrclusters());
     for (const auto &it : *(h2mat_.rcluster())) {
       if (it.nSons())
-        tlhs[it.block_id()].resize(it.Es()[0].rows(), srhs.cols());
+        tlhs[it.block_id()].resize(it.Es()[0].rows(), rhs.cols());
       else
-        tlhs[it.block_id()].resize(it.V().rows(), srhs.cols());
+        tlhs[it.block_id()].resize(it.V().rows(), rhs.cols());
       tlhs[it.block_id()].setZero();
     }
     for (const auto &it2 : scheduler_) {
 #pragma omp parallel for schedule(dynamic)
       for (Index k = 0; k < it2.size(); ++k) {
         Matrix S;
-        const H2Matrix<H2SampletTree> &it = *(it2[k]);
+        const H2Matrix<H2ClusterTree> &it = *(it2[k]);
         const Index i = it.rcluster()->block_id();
         const Index j = it.ccluster()->block_id();
         const Index ii = (it.rcluster())->indices_begin();
@@ -64,26 +60,28 @@ class SampletKernelActor {
           tlhs[i] += S * trhs[j];
         } else {
           mat_eval_.compute_dense_block(*(it.rcluster()), *(it.ccluster()), &S);
-          lhs.middleRows(ii, S.rows()) += S * srhs.middleRows(jj, S.cols());
+          lhs.middleRows(ii, S.rows()) += S * rhs.middleRows(jj, S.cols());
         }
       }
     }
     // backward transform left hand side
     internal::backward_transform_recursion(*(h2mat_.rcluster()), &lhs, tlhs);
     // reverse ordering to the one given by Peval
-    std::cout << "error actor: " << (lhs - lhsRef).norm() / lhsRef.norm()
-              << std::endl;
-    return hct_eval_.sampletTransform(lhs);
+    Matrix retval = lhs;
+    for (Index i = 0; i < hct_eval_.indices().size(); ++i)
+      retval.row(hct_eval_.indices()[i]) = lhs.row(i);
+    return retval;
   }
+  const H2ClusterTree &hct_eval() const { return hct_eval_; };
 
  private:
-  const H2SampletTree &hct_;
-  const H2SampletTree &hct_eval_;
   const MatrixEvaluator &mat_eval_;
+  const H2ClusterTree &hct_;
+  const H2ClusterTree &hct_eval_;
   const Index mpole_deg_;
   const Scalar eta_;
-  H2Matrix<H2SampletTree> h2mat_;
-  std::vector<std::vector<const H2Matrix<H2SampletTree> *>> scheduler_;
+  H2Matrix<H2ClusterTree> h2mat_;
+  std::vector<std::vector<const H2Matrix<H2ClusterTree> *>> scheduler_;
 };
 
 }  // namespace FMCA

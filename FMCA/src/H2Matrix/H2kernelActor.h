@@ -22,25 +22,9 @@ class H2kernelActor {
                 const Index mpole_deg, const Scalar eta)
       : mom_(P, mpole_deg),
         mom_eval_(Peval, mpole_deg),
-        mat_eval_(MatrixEvaluator(mom_eval_, mom_, kernel)),
-        hct_(H2ClusterTree(mom_, 0, P)),
-        hct_eval_(H2ClusterTree(mom_eval_, 0, Peval)),
-        mpole_deg_(mpole_deg),
-        eta_(eta) {
-    h2mat_.computePattern(hct_eval_, hct_, eta_);
-    scheduler_.resize(h2mat_.ncclusters());
-    for (const auto &it : h2mat_)
-      if (!it.nSons())
-        scheduler_[it.ccluster()->block_id()].push_back(std::addressof(it));
-    return;
-  }
-
-  H2kernelActor(const MatrixEvaluator &mat_eval, const H2ClusterTree &hct_eval,
-                const H2ClusterTree &hct, const Index mpole_deg,
-                const Scalar eta)
-      : mat_eval_(mat_eval),
-        hct_(hct),
-        hct_eval_(hct_eval),
+        mat_eval_(mom_eval_, mom_, kernel),
+        hct_(mom_, 0, P),
+        hct_eval_(mom_eval_, 0, Peval),
         mpole_deg_(mpole_deg),
         eta_(eta) {
     h2mat_.computePattern(hct_eval_, hct_, eta_);
@@ -99,9 +83,9 @@ class H2kernelActor {
  private:
   const Moments mom_;
   const Moments mom_eval_;
-  const MatrixEvaluator &mat_eval_;
-  const H2ClusterTree &hct_;
-  const H2ClusterTree &hct_eval_;
+  const MatrixEvaluator mat_eval_;
+  const H2ClusterTree hct_;
+  const H2ClusterTree hct_eval_;
   const Index mpole_deg_;
   const Scalar eta_;
   H2Matrix<H2ClusterTree> h2mat_;
