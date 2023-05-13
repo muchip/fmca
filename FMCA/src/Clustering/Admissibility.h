@@ -21,9 +21,9 @@ Scalar computeDistance(const ClusterTreeBase<Derived> &cluster1,
                        const ClusterTreeBase<otherDerived> &cluster2) {
   const Scalar radius1 = 0.5 * cluster1.bb().col(2).norm();
   const Scalar radius2 = 0.5 * cluster2.bb().col(2).norm();
-  const Scalar dist = 0.5 * (cluster1.bb().col(0) - cluster2.bb().col(0) +
-                             cluster1.bb().col(1) - cluster2.bb().col(1))
-                                .norm() -
+  const Scalar dist = (0.5 * (cluster1.bb().col(0) - cluster2.bb().col(0) +
+                              cluster1.bb().col(1) - cluster2.bb().col(1)))
+                          .norm() -
                       radius1 - radius2;
   return dist > 0 ? dist : 0;
 }
