@@ -24,9 +24,9 @@
 
 #include "src/util/MultiIndexSet.h"
 
-#include "src/Interpolators/LejaPoints.h"
-#include "src/Interpolators/MonomialInterpolator.h"
-#include "src/Interpolators/TensorProductInterpolator.h"
-#include "src/Interpolators/TotalDegreeInterpolator.h"
+#include "src/Interpolator/LejaPoints.h"
+#include "src/Interpolator/MonomialInterpolator.h"
+#include "src/Interpolator/TensorProductInterpolator.h"
+#include "src/Interpolator/TotalDegreeInterpolator.h"
 
 #endif
