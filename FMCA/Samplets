@@ -19,9 +19,8 @@
 
 #include "Clustering"
 #include "Moments"
-#include "Interpolators"
-#include "MatrixEvaluators"
-#include "H2Matrix"
+#include "Interpolator"
+#include "MatrixEvaluator"
 
 #include "src/util/ForwardDeclarations.h"
 #include "src/util/Macros.h"
