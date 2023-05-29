@@ -66,6 +66,7 @@ struct H2MatrixBase : TreeBase<Derived> {
   const ColCType *ccluster() const { return node().col_cluster_; }
   bool is_low_rank() const { return node().is_low_rank_; }
   const Matrix &matrixS() const { return node().S_; }
+  Matrix &matrixS() { return node().S_; }
   //////////////////////////////////////////////////////////////////////////////
   // (m, n, fblocks, lrblocks, nz(A), mem)
   Matrix statistics() const {
@@ -133,37 +134,36 @@ struct H2MatrixBase : TreeBase<Derived> {
   void computeH2Matrix(const RowCType &CT1, const ColCType &CT2,
                        const MatrixEvaluator &mat_eval, Scalar eta) {
     computePattern(CT1, CT2, eta);
-    std::vector<Node *> queue;
-    for (auto &&it : *this)
-      if (!it.nSons()) queue.push_back(std::addressof(it.node()));
-#pragma omp parallel for
-    for (Index i = 0; i < queue.size(); ++i) {
-      const RowCType &row = *(queue[i]->row_cluster_);
-      const ColCType &col = *(queue[i]->col_cluster_);
-      if (queue[i]->is_low_rank_)
-        mat_eval.interpolate_kernel(row, col, std::addressof(queue[i]->S_));
-      else
-        mat_eval.compute_dense_block(row, col, std::addressof(queue[i]->S_));
+    Index pos = 0;
+#pragma omp parallel shared(pos)
+    {
+      Index i = 0;
+      Index prev_i = 0;
+      typename Base::iterator it = this->begin();
+#pragma omp atomic capture
+      i = pos++;
+      while (it != this->end()) {
+        Index dist = i - prev_i;
+        while (dist > 0 && it != this->end()) {
+          --dist;
+          ++it;
+        }
+        if (it == this->end()) break;
+        if (!(it->nSons())) {
+          const RowCType &row = *(it->rcluster());
+          const ColCType &col = *(it->ccluster());
+          if (it->is_low_rank())
+            mat_eval.interpolate_kernel(row, col, &(it->matrixS()));
+          else
+            mat_eval.compute_dense_block(row, col, &(it->matrixS()));
+        }
+        prev_i = i;
+#pragma omp atomic capture
+        i = pos++;
+      }
     }
     return;
   }
-#if 0
-  template <typename MatrixEvaluator>
-  void computeH2Matrix(const RowCType &CT1, const ColCType &CT2,
-                       const MatrixEvaluator &mat_eval, Scalar eta) {
-    computePattern(CT1, CT2, eta);
-    for (auto &&it : *this)
-      if (!it.nSons()) {
-        const RowCType &row = *(it.node().row_cluster_);
-        const ColCType &col = *(it.node().col_cluster_);
-        if (it.is_low_rank())
-          mat_eval.interpolate_kernel(row, col, std::addressof(it.node().S_));
-        else
-          mat_eval.compute_dense_block(row, col, std::addressof(it.node().S_));
-      }
-    return;
-  }
-#endif
 };
 
 }  // namespace FMCA
