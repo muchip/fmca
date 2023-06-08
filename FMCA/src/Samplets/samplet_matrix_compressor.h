@@ -36,7 +36,6 @@ class SampletMatrixCompressor {
     threshold_ = threshold;
     rta_.init(ST, ST.indices().size());
     pattern_.resize(2 * rta_.max_level() + 1);
-
 #pragma omp parallel for schedule(dynamic)
     for (Index j = 0; j < rta_.nodes().size(); ++j) {
       const Derived *pc = rta_.nodes()[j];

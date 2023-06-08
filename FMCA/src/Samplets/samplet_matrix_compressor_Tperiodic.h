@@ -55,7 +55,7 @@ class SampletMatrixCompressorTperiodic {
           if (compareClusterTPeriodic(pr->sons(i), *pc, eta) != LowRank)
             row_stack.push_back(std::addressof(pr->sons(i)));
         if (pc->block_id() >= pr->block_id()) {
-          const Index id =
+          const size_t id =
               pr->block_id() + rta_.nodes().size() * pc->block_id();
 #pragma omp critical
           pattern_[pc->level() + pr->level()].insert({id, Matrix(0, 0)});
@@ -70,93 +70,100 @@ class SampletMatrixCompressorTperiodic {
     // the column cluster tree is traversed bottom up
     const auto &rclusters = rta_.nodes();
     const auto &cclusters = rta_.nodes();
-    const auto nrclusters = rta_.nodes().size();
-    for (auto it = pattern_.rbegin(); it != pattern_.rend(); ++it) {
+    const auto nclusters = rta_.nodes().size();
+    for (int ll = pattern_.size() - 1; ll >= 0; --ll) {
       Index pos = 0;
-#pragma omp parallel shared(pos)
+      const size_t map_size = pattern_[ll].size();
+      LevelBuffer::iterator it2 = pattern_[ll].begin();
+#pragma omp parallel shared(pos), firstprivate(it2)
       {
         Index i = 0;
         Index prev_i = 0;
-        const size_t map_size = it->size();
-        LevelBuffer::iterator it2 = it->begin();
 #pragma omp atomic capture
         i = pos++;
         while (i < map_size) {
           std::advance(it2, i - prev_i);
-          const Derived *pr = rclusters[it2->first % nrclusters];
-          const Derived *pc = cclusters[it2->first / nrclusters];
-          Matrix &block = it2->second;
+          const Derived *pr = rclusters[it2->first % nclusters];
+          const Derived *pc = cclusters[it2->first / nclusters];
           const Index col_id = pc->block_id();
           const Index row_id = pr->block_id();
-          block.resize(0, 0);
-          //  preferred, we pick blocks from the right
-          if (pc->nSons()) {
-            for (auto k = 0; k < pc->nSons(); ++k) {
-              const Index nscalfs = pc->sons(k).nscalfs();
-              const Index son_lvl = pc->sons(k).level() + pr->level();
-              const Index son_id = pc->sons(k).block_id() * nrclusters + row_id;
-              // check if pc's son is found in the row of pr
-              // if so, reuse the matrix block, otherwise recompute it
-              const auto it3 = pattern_[son_lvl].find(son_id);
-              if (it3 != pattern_[son_lvl].end()) {
-                const Matrix &ret = it3->second;
-                block.conservativeResize(ret.rows(), block.cols() + nscalfs);
-                block.rightCols(nscalfs) = ret.leftCols(nscalfs);
-              } else {
-                const Matrix ret =
-                    recursivelyComputeBlock(*pr, pc->sons(k), e_gen);
-                block.conservativeResize(ret.rows(), block.cols() + nscalfs);
-                block.rightCols(nscalfs) = ret.leftCols(nscalfs);
-              }
-            }
-            block = block * pc->Q();
-          } else {
-            if (!pr->nSons()) {
+          Index nscalfs = 0;
+          Index son_lvl = 0;
+          Index offset = 0;
+          size_t son_id = 0;
+          Matrix &block = it2->second;
+          const char the_case = 2 * (!pr->nSons()) + (!pc->nSons());
+          switch (the_case) {
+            // (leaf,leaf), compute the block
+            case 3:
               block = recursivelyComputeBlock(*pr, *pc, e_gen);
-            } else {
+              break;
+            // (noleaf,leaf), recycle from below
+            case 1:
+              block.resize(pr->Q().rows(), pc->Q().cols());
               for (auto k = 0; k < pr->nSons(); ++k) {
-                const Index nscalfs = pr->sons(k).nscalfs();
-                const Index son_lvl = pr->sons(k).level() + pc->level();
-                const Index son_id =
-                    pr->sons(k).block_id() + nrclusters * col_id;
+                nscalfs = pr->sons(k).nscalfs();
+                son_lvl = pr->sons(k).level() + pc->level();
+                son_id = pr->sons(k).block_id() + nclusters * col_id;
                 const auto it3 = pattern_[son_lvl].find(son_id);
                 // if so, reuse the matrix block, otherwise recompute it
                 if (it3 != pattern_[son_lvl].end()) {
                   const Matrix &ret = it3->second;
-                  block.conservativeResize(ret.cols(), block.cols() + nscalfs);
-                  block.rightCols(nscalfs) = ret.transpose().leftCols(nscalfs);
+                  block.middleRows(offset, nscalfs) = ret.topRows(nscalfs);
                 } else {
                   const Matrix ret =
                       recursivelyComputeBlock(pr->sons(k), *pc, e_gen);
-                  block.conservativeResize(ret.cols(), block.cols() + nscalfs);
-                  block.rightCols(nscalfs) = ret.transpose().leftCols(nscalfs);
+                  block.middleRows(offset, nscalfs) = ret.topRows(nscalfs);
                 }
+                offset += nscalfs;
               }
-              block = (block * pr->Q()).transpose();
-            }
+              block = pr->Q().transpose() * block;
+              break;
+              // (*,noleaf), recycle from right
+            case 2:
+            case 0:
+              block.resize(pr->Q().cols(), pc->Q().rows());
+              for (auto k = 0; k < pc->nSons(); ++k) {
+                nscalfs = pc->sons(k).nscalfs();
+                son_lvl = pc->sons(k).level() + pr->level();
+                son_id = pc->sons(k).block_id() * nclusters + row_id;
+                // check if pc's son is found in the row of pr
+                // if so, reuse the matrix block, otherwise recompute it
+                const auto it3 = pattern_[son_lvl].find(son_id);
+                if (it3 != pattern_[son_lvl].end()) {
+                  const Matrix &ret = it3->second;
+                  block.middleCols(offset, nscalfs) = ret.leftCols(nscalfs);
+                } else {
+                  const Matrix ret =
+                      recursivelyComputeBlock(*pr, pc->sons(k), e_gen);
+                  block.middleCols(offset, nscalfs) = ret.leftCols(nscalfs);
+                }
+                offset += nscalfs;
+              }
+              block = block * pc->Q();
+              break;
           }
+          // tag_[row_id].insert(col_id);
           prev_i = i;
 #pragma omp atomic capture
           i = pos++;
         }
       }
       // garbage collector
-      if (it != pattern_.rbegin()) {
-        auto itm1 = it;
-        --itm1;
+      if (ll < pattern_.size() - 1) {
         Index pos = 0;
-#pragma omp parallel shared(pos)
+        const size_t map_size = pattern_[ll + 1].size();
+        LevelBuffer::iterator it2 = pattern_[ll + 1].begin();
+#pragma omp parallel shared(pos), firstprivate(it2)
         {
           Index i = 0;
           Index prev_i = 0;
-          const size_t map_size = itm1->size();
-          LevelBuffer::iterator it2 = itm1->begin();
 #pragma omp atomic capture
           i = pos++;
           while (i < map_size) {
             std::advance(it2, i - prev_i);
-            const Derived *pr = rclusters[it2->first % nrclusters];
-            const Derived *pc = cclusters[it2->first / nrclusters];
+            const Derived *pr = rclusters[it2->first % nclusters];
+            const Derived *pc = cclusters[it2->first / nclusters];
             Matrix &block = it2->second;
             if (!pr->is_root() && !pc->is_root())
               block = block.bottomRightCorner(pr->nsamplets(), pc->nsamplets())
@@ -287,7 +294,7 @@ class SampletMatrixCompressorTperiodic {
               Eigen::Triplet<Scalar>(srow + j, scol + k, block(j, k)));
   }
   //////////////////////////////////////////////////////////////////////////////
-  typedef std::map<Index, Matrix, std::greater<Index>> LevelBuffer;
+  typedef std::map<size_t, Matrix, std::greater<size_t>> LevelBuffer;
   std::vector<Triplet<Scalar>> triplet_list_;
   std::vector<LevelBuffer> pattern_;
   RandomTreeAccessor<Derived> rta_;
