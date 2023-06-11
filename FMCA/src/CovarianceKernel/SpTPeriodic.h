@@ -23,9 +23,8 @@ class SpTPeriodic {
                           const Eigen::MatrixBase<otherDerived> &y) const {
     FMCA::Scalar sr = (x - y).head(2).norm();
     FMCA::Scalar st = std::sin(FMCA_PI * (x - y).tail(1).norm());
-    // return (1. + sqrt(3) / l_ * sr) * exp(-sqrt(3) * sr / l_) *
-    //       exp(-2. * st * st / (c_ * c_));
-    return exp(-sr / l_) * exp(-2. * st * st / (c_ * c_));
+    return (1. + sqrt(3) / l_ * sr) * exp(-sqrt(3) * sr / l_) *
+           exp(-2. * st * st / (c_ * c_));
   }
 
   FMCA::Matrix eval(const FMCA::Matrix &PR, const FMCA::Matrix &PC) const {

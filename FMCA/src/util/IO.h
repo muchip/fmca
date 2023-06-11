@@ -13,8 +13,10 @@
 #define FMCA_UTIL_IO_H_
 
 #include <fstream>
+#include <iomanip>
+#include <iostream>
 
-#include "../FMCA/src/util/Macros.h"
+#include "./Macros.h"
 
 namespace FMCA {
 namespace IO {
@@ -68,6 +70,51 @@ void plotBoxes(const std::string &fileName, const std::vector<Matrix> &bb) {
   for (auto i = 0; i < bb.size(); ++i) myfile << Index(11) << "\n";
   myfile << "\n";
 
+  myfile.close();
+  return;
+}
+
+/**
+ *  \brief exports a sequence of 3D boxes stored in a std::vector in vtk
+ **/
+template <typename Bbvec>
+void plotBoxes2D(const std::string &fileName, Bbvec &bb,
+                 const std::vector<Scalar> &cvec) {
+  std::ofstream myfile;
+  myfile.open(fileName);
+  myfile << "# vtk DataFile Version 3.1\n";
+  myfile << "this file hopefully represents my surface now\n";
+  myfile << "ASCII\n";
+  myfile << "DATASET UNSTRUCTURED_GRID\n";
+  // print point list
+  myfile << "POINTS " << 4 * bb.size() << " FLOAT\n";
+  for (auto it = bb.begin(); it != bb.end(); ++it) {
+    auto min = it->col(0);
+    auto max = it->col(1);
+    // lower plane
+    myfile << float(min(0)) << " " << float(min(1)) << " " << 0 << "\n";
+    myfile << float(max(0)) << " " << float(min(1)) << " " << 0 << "\n";
+    myfile << float(min(0)) << " " << float(max(1)) << " " << 0 << "\n";
+    myfile << float(max(0)) << " " << float(max(1)) << " " << 0 << "\n";
+  }
+  myfile << "\n";
+
+  // print element list
+  myfile << "CELLS " << bb.size() << " " << 5 * bb.size() << "\n";
+  for (auto i = 0; i < bb.size(); ++i) {
+    myfile << 4;
+    for (auto j = 0; j < 4; ++j) myfile << " " << Index(4 * i + j);
+    myfile << "\n";
+  }
+  myfile << "\n";
+
+  myfile << "CELL_TYPES " << bb.size() << "\n";
+  for (auto i = 0; i < bb.size(); ++i) myfile << Index(8) << "\n";
+  myfile << "\n";
+  myfile << "CELL_DATA " << cvec.size() << "\n";
+  myfile << "SCALARS coefficients FLOAT\n";
+  myfile << "LOOKUP_TABLE default\n";
+  for (auto i = 0; i < cvec.size(); ++i) myfile << cvec[i] << "\n";
   myfile.close();
   return;
 }
