@@ -44,7 +44,7 @@ class TreeBase {
   typedef typename internal::traits<Derived>::Node Node;
   // when a tree is constructed, we add at least the memory for its node
   TreeBase() noexcept : dad_(nullptr), level_(0) {
-    node_ = std::unique_ptr<NodeBase<Node>>(new Node);
+    node_ = std::unique_ptr<Node>(new Node);
   }
   //////////////////////////////////////////////////////////////////////////////
   using iterator = IDDFSForwardIterator<Derived, false>;
@@ -63,8 +63,8 @@ class TreeBase {
     derived().init(std::forward<Ts>(ts)...);
   }
   //////////////////////////////////////////////////////////////////////////////
-  Node &node() { return node_->derived(); }
-  const Node &node() const { return node_->derived(); }
+  Node &node() { return *node_; }
+  const Node &node() const { return *node_; }
   //////////////////////////////////////////////////////////////////////////////
   iterator begin() { return iterator(static_cast<Derived *>(this), 0); }
   iterator end() { return iterator(nullptr, 0); }
@@ -115,7 +115,7 @@ class TreeBase {
   //////////////////////////////////////////////////////////////////////////////
  private:
   std::vector<TreeBase> sons_;
-  std::unique_ptr<NodeBase<Node>> node_;
+  std::unique_ptr<Node> node_;
   TreeBase *dad_;
   Index level_;
 };
