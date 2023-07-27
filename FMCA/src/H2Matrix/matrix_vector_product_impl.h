@@ -17,6 +17,7 @@ namespace internal {
 template <typename Derived>
 Matrix matrix_vector_product_impl(const Derived &H2, const Matrix &rhs) {
   Matrix lhs(H2.rows(), rhs.cols());
+  std::vector<std::vector<const Derived *>> scheduler;
   lhs.setZero();
   std::vector<Matrix> trhs(H2.ncclusters());
   forward_transform_recursion(*(H2.ccluster()), &trhs, rhs);
@@ -28,6 +29,38 @@ Matrix matrix_vector_product_impl(const Derived &H2, const Matrix &rhs) {
       tlhs[it.block_id()].resize(it.V().rows(), rhs.cols());
     tlhs[it.block_id()].setZero();
   }
+#if 0
+  Index pos = 0;
+#pragma omp parallel shared(pos)
+  {
+    Index i = 0;
+    Index prev_i = 0;
+    typename Derived::const_iterator it = H2.begin();
+#pragma omp atomic capture
+    i = pos++;
+    while (it != H2.end()) {
+      Index dist = i - prev_i;
+      while (dist > 0 && it != H2.end()) {
+        --dist;
+        ++it;
+      }
+      if (it == H2.end()) break;
+      if (!(it->nSons())) {
+        if (it->is_low_rank())
+          tlhs[it->rcluster()->block_id()] +=
+              it->matrixS() * trhs[it->ccluster()->block_id()];
+        else
+          lhs.middleRows((it->rcluster())->indices_begin(),
+                         it->matrixS().rows()) +=
+              it->matrixS() * rhs.middleRows((it->ccluster())->indices_begin(),
+                                             it->matrixS().cols());
+      }
+      prev_i = i;
+#pragma omp atomic capture
+      i = pos++;
+    }
+  }
+#else
   for (const auto &it : H2) {
     // there is something to multiply
     if (!it.nSons()) {
@@ -40,6 +73,7 @@ Matrix matrix_vector_product_impl(const Derived &H2, const Matrix &rhs) {
                                           it.matrixS().cols());
     }
   }
+#endif
   backward_transform_recursion(*(H2.rcluster()), &lhs, tlhs);
   return lhs;
 }

@@ -33,7 +33,7 @@ class TotalDegreeInterpolator {
     Index k = 0;
     for (const auto &it : idcs_.index_set()) {
       for (auto i = 0; i < it.size(); ++i) TD_xi_(i, k) = LejaPoints[it[i]];
-      V_.row(k) = evalPolynomials(TD_xi_.col(k)).transpose();
+      V_.row(k) = internal::evalPolynomials(idcs_, TD_xi_.col(k)).transpose();
       ++k;
     }
     invV_ = V_.inverse();
@@ -41,25 +41,17 @@ class TotalDegreeInterpolator {
   }
 
   //////////////////////////////////////////////////////////////////////////////
-  template <typename Derived>
-  Matrix evalPolynomials(const Eigen::MatrixBase<Derived> &pt) const {
-    Vector retval(idcs_.index_set().size());
-    Matrix p_values = internal::evalLegendrePolynomials(deg_, pt);
-    retval.setOnes();
-    Index k = 0;
-    for (const auto &it : idcs_.index_set()) {
-      for (auto i = 0; i < dim_; ++i) retval(k) *= p_values(i, it[i]);
-      ++k;
-    }
-    return retval;
-  }
-  //////////////////////////////////////////////////////////////////////////////
   const Matrix &Xi() const { return TD_xi_; }
   const Matrix &invV() const { return invV_; }
   const Matrix &V() const { return V_; }
   const Index dim() const { return dim_; }
   const Index deg() const { return deg_; }
   const MultiIndexSet<TotalDegree> &idcs() const { return idcs_; }
+
+  template <typename Derived>
+  Matrix evalPolynomials(const Eigen::MatrixBase<Derived> &pt) const {
+    return internal::evalPolynomials(idcs_, pt);
+  }
 
  private:
   MultiIndexSet<TotalDegree> idcs_;
