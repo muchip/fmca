@@ -9,8 +9,12 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
+#ifndef FMCA_INTERPOLATOR_EVALPOLYNOMIALS_H_
+#define FMCA_INTERPOLATOR_EVALPOLYNOMIALS_H_
+
 namespace FMCA {
 namespace internal {
+
 //////////////////////////////////////////////////////////////////////////////
 struct LegendrePolynomials {
   template <typename Derived>
@@ -35,6 +39,7 @@ struct LegendrePolynomials {
   }
 };
 
+//////////////////////////////////////////////////////////////////////////////
 struct Monomials {
   template <typename Derived>
   static Matrix eval(Index deg, const Eigen::MatrixBase<Derived> &pt) {
@@ -44,6 +49,7 @@ struct Monomials {
   }
 };
 
+//////////////////////////////////////////////////////////////////////////////
 template <typename Polynomials = LegendrePolynomials, typename MultiIndexSet,
           typename Derived>
 Matrix evalPolynomials(const MultiIndexSet &idcs,
@@ -61,3 +67,5 @@ Matrix evalPolynomials(const MultiIndexSet &idcs,
 
 }  // namespace internal
 }  // namespace FMCA
+
+#endif
