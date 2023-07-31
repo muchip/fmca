@@ -71,9 +71,9 @@ struct H2MatrixBase : TreeBase<Derived> {
   // (m, n, fblocks, lrblocks, nz(A), mem)
   Matrix statistics() const {
     Matrix retval(6, 1);
-    Index lr_blocks = 0;
-    Index f_blocks = 0;
-    Index mem = 0;
+    size_t lr_blocks = 0;
+    size_t f_blocks = 0;
+    size_t mem = 0;
     assert(is_root() && "statistics needs to be called from root");
     for (auto &&it : *this) {
       if (!it.nSons()) {
