@@ -17,9 +17,8 @@
 #include "../FMCA/src/util/IO.h"
 #include "../FMCA/src/util/Tictoc.h"
 
-#define NPTS 200000
-#define DIM 50
-#define MPOLE_DEG 3
+#define DIM 100
+#define MPOLE_DEG 4
 
 using Interpolator = FMCA::WeightedTotalDegreeInterpolator;
 using Moments = FMCA::WeightedNystromMoments<Interpolator>;
@@ -33,7 +32,7 @@ int main() {
   FMCA::Vector b(DIM);
   std::vector<FMCA::Scalar> w(DIM);
   for (FMCA::Index i = 0; i < DIM; ++i) {
-    b(i) = 1. / FMCA::Scalar(i + 1) / FMCA::Scalar(i + 1);
+    b(i) = std::pow(FMCA::Scalar(i + 1), -4.);
     w[i] = log(2. / b(i) + sqrt(1 + 4. / b(i) / b(i)));
   }
   for (FMCA::Index i = 0; i < DIM; ++i) w[i] /= w[0];
@@ -61,20 +60,16 @@ int main() {
       T.toc("elapsed time:                ");
       hmat.statistics();
       {
-        FMCA::Vector x(NPTS), y1(NPTS), y2(NPTS);
-        FMCA::Scalar err = 0;
-        FMCA::Scalar nrm = 0;
+        FMCA::Matrix X(npts, 10), Y1(npts, 10), Y2(npts, 10);
+        X.setZero();
         for (auto i = 0; i < 10; ++i) {
           FMCA::Index index = rand() % P.cols();
-          x.setZero();
-          x(index) = 1;
           FMCA::Vector col = function.eval(P, P.col(ct.indices()[index]));
-          y1 = col(ct.indices());
-          y2 = hmat * x;
-          err += (y1 - y2).squaredNorm();
-          nrm += y1.squaredNorm();
+          Y1.col(i) = col(ct.indices());
+          X(index, i) = 1;
         }
-        err = sqrt(err / nrm);
+        Y2 = hmat * X;
+        FMCA::Scalar err = (Y1 - Y2).norm() / Y1.norm();
         std::cout << "compression error:            " << err << std::endl;
         std::cout << std::string(60, '-') << std::endl;
       }

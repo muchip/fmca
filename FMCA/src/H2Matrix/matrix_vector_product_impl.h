@@ -29,6 +29,26 @@ Matrix matrix_vector_product_impl(const Derived &H2, const Matrix &rhs) {
       tlhs[it.block_id()].resize(it.V().rows(), rhs.cols());
     tlhs[it.block_id()].setZero();
   }
+  scheduler.resize(H2.ncclusters());
+  for (const auto &it : H2)
+    if (!it.nSons())
+      scheduler[it.ccluster()->block_id()].push_back(std::addressof(it));
+  for (const auto &it2 : scheduler) {
+#pragma omp parallel for schedule(dynamic)
+    for (Index k = 0; k < it2.size(); ++k) {
+      const Derived &it = *(it2[k]);
+      const Index i = it.rcluster()->block_id();
+      const Index j = it.ccluster()->block_id();
+      const Index ii = (it.rcluster())->indices_begin();
+      const Index jj = (it.ccluster())->indices_begin();
+      if (it.is_low_rank()) {
+        tlhs[i] += it.matrixS() * trhs[j];
+      } else {
+        lhs.middleRows(ii, it.matrixS().rows()) +=
+            it.matrixS() * rhs.middleRows(jj, it.matrixS().cols());
+      }
+    }
+  }
 #if 0
   Index pos = 0;
 #pragma omp parallel shared(pos)
@@ -60,7 +80,6 @@ Matrix matrix_vector_product_impl(const Derived &H2, const Matrix &rhs) {
       i = pos++;
     }
   }
-#else
   for (const auto &it : H2) {
     // there is something to multiply
     if (!it.nSons()) {
