@@ -35,6 +35,8 @@ class WeightedTotalDegreeInterpolator {
     }
     std::cout << std::endl;
     idcs_.init(dim, deg, w);
+    std::cout << "number of polynomials: " << idcs_.index_set().size()
+              << std::endl;
     TD_xi_.resize(dim_, idcs_.index_set().size());
     V_.resize(idcs_.index_set().size(), idcs_.index_set().size());
 // determine tensor product interpolation points

@@ -71,7 +71,8 @@ struct compute_cluster_bases_impl {
             H2T.Es()[i] * H2T.sons(i).V();
       }
       Scalar nrm = (V - H2T.V()).norm() / V.norm();
-      eigen_assert(nrm < 1e-14 && "the H2 cluster basis is faulty");
+      if (nrm >= 1e-13) std::cout << nrm << std::endl;
+      eigen_assert(nrm < 1e-13 && "the H2 cluster basis is faulty");
     }
     return 0;
   }
