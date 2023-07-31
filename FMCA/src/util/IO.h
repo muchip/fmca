@@ -14,7 +14,7 @@
 
 #include <fstream>
 
-#include "../FMCA/src/util/Macros.h"
+#include "Macros.h"
 
 namespace FMCA {
 namespace IO {
