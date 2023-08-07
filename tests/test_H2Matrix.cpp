@@ -14,15 +14,14 @@
 
 #include "../FMCA/CovarianceKernel"
 #include "../FMCA/H2Matrix"
-#include "../FMCA/src/util/IO.h"
 #include "../FMCA/src/util/Tictoc.h"
 
 #define NPTS 100000
-#define DIM 100
-#define MPOLE_DEG 5
+#define DIM 2
+#define MPOLE_DEG 3
 
-using Interpolator = FMCA::WeightedTotalDegreeInterpolator;
-using Moments = FMCA::WeightedNystromMoments<Interpolator>;
+using Interpolator = FMCA::TotalDegreeInterpolator;
+using Moments = FMCA::NystromMoments<Interpolator>;
 using MatrixEvaluator = FMCA::NystromEvaluator<Moments, FMCA::CovarianceKernel>;
 using H2ClusterTree = FMCA::H2ClusterTree<FMCA::ClusterTree>;
 using H2Matrix = FMCA::H2Matrix<H2ClusterTree>;
@@ -30,30 +29,9 @@ using H2Matrix = FMCA::H2Matrix<H2ClusterTree>;
 int main() {
   FMCA::Tictoc T;
   const FMCA::CovarianceKernel function("EXPONENTIAL", 1);
-  FMCA::Matrix P(DIM, NPTS);
-  FMCA::Vector b(DIM);
-  std::vector<FMCA::Scalar> w(DIM);
-  for (FMCA::Index i = 0; i < DIM; ++i) {
-    b(i) = 1. / FMCA::Scalar(i + 1) / FMCA::Scalar(i + 1);
-    w[i] = log(2. / b(i) + sqrt(1 + 4. / b(i) / b(i)));
-  }
-  std::cout << "w: ";
-  for (FMCA::Index i = 0; i < DIM; ++i) {
-    w[i] /= w[0];
-    std::cout << w[i] << " ";
-  }
-  std::cout << b.transpose() << std::endl;
-  P.setRandom();
-  P = b.asDiagonal() * P;
-  FMCA::Index cur_n_pts = 0;
-  const Moments mom(P, w, MPOLE_DEG);
-
+  const FMCA::Matrix P = FMCA::Matrix::Random(DIM, NPTS);
+  const Moments mom(P, MPOLE_DEG);
   H2ClusterTree ct(mom, 0, P);
-  std::vector<FMCA::Matrix> bbs;
-  for (const auto &node : ct) {
-    if (!node.nSons()) bbs.push_back(node.bb());
-  }
-  //FMCA::IO::plotBoxes("boxes.vtk", bbs);
   FMCA::internal::compute_cluster_bases_impl::check_transfer_matrices(ct, mom);
   const MatrixEvaluator mat_eval(mom, function);
   for (FMCA::Scalar eta = 0.8; eta >= 0.2; eta *= 0.5) {
