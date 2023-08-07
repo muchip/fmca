@@ -22,10 +22,9 @@ namespace ClusterSplitter {
 
 struct GeometricBisection {
   static std::string splitterName() { return "GeometricBisection"; }
-  template <class Derived>
+  template <class ClusterTree>
   void operator()(const Matrix &P, const std::vector<Index> &indices,
-                  const Matrix &bb, ClusterTreeBase<Derived> &c1,
-                  ClusterTreeBase<Derived> &c2) const {
+                  const Matrix &bb, ClusterTree &c1, ClusterTree &c2) const {
     // assign bounding boxes by longest edge bisection
     Index longest;
     bb.col(2).maxCoeff(&longest);
