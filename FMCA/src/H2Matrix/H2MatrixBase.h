@@ -80,10 +80,10 @@ struct H2MatrixBase : TreeBase<Derived> {
       const ColCType &col = *(it.ccluster());
       if (!it.nSons()) {
         if (it.is_low_rank()) {
-          size_t block_rows = row.nSons() ? row.Es()[0].rows() : row.V().rows();
-          size_t block_cols = col.nSons() ? col.Es()[0].rows() : col.V().rows();
+          const Index brows = row.nSons() ? row.Es()[0].rows() : row.V().rows();
+          const Index bcols = col.nSons() ? col.Es()[0].rows() : col.V().rows();
           ++lr_blocks;
-          mem += block_rows * block_cols;
+          mem += brows * bcols;
         } else {
           ++f_blocks;
           mem += row.indices().size() * row.indices().size();
@@ -116,22 +116,34 @@ struct H2MatrixBase : TreeBase<Derived> {
     return *this * I;
   }
   void computePattern(const RowCType &CT1, const ColCType &CT2, Scalar eta) {
-    if (CT1.is_root() && CT2.is_root()) {
-      node().nrclusters_ = std::distance(CT1.cbegin(), CT1.cend());
-      node().ncclusters_ = std::distance(CT2.cbegin(), CT2.cend());
-    }
-    node().row_cluster_ = &CT1;
-    node().col_cluster_ = &CT2;
-    const Admissibility adm = compareCluster(CT1, CT2, eta);
-    if (adm == LowRank) {
-      node().is_low_rank_ = true;
-    } else if (adm == Refine) {
-      appendSons(CT1.nSons() * CT2.nSons());
-      for (Index j = 0; j < CT2.nSons(); ++j)
-        for (Index i = 0; i < CT1.nSons(); ++i) {
-          sons(i + j * CT1.nSons())
-              .computePattern(CT1.sons(i), CT2.sons(j), eta);
-        }
+    node().nrclusters_ = std::distance(CT1.cbegin(), CT1.cend());
+    node().ncclusters_ = std::distance(CT2.cbegin(), CT2.cend());
+    node().row_cluster_ = std::addressof(CT1);
+    node().col_cluster_ = std::addressof(CT2);
+    std::vector<Derived *> stack;
+    stack.push_back(std::addressof(this->derived()));
+    while (stack.size()) {
+      Derived *block = stack.back();
+      stack.pop_back();
+      const RowCType &row = *(block->rcluster());
+      const ColCType &col = *(block->ccluster());
+      const Admissibility adm = compareCluster(row, col, eta);
+      if (adm == LowRank) {
+        const Index brows = row.nSons() ? row.Es()[0].rows() : row.V().rows();
+        const Index bcols = col.nSons() ? col.Es()[0].rows() : col.V().rows();
+        // only use low-rank if it is actually cheaper than storing the block
+        (block->node()).is_low_rank_ =
+            (brows * bcols < row.indices().size() * col.indices().size());
+      } else if (adm == Refine) {
+        block->appendSons(row.nSons() * col.nSons());
+        for (Index j = 0; j < col.nSons(); ++j)
+          for (Index i = 0; i < row.nSons(); ++i) {
+            Derived &son = block->sons(i + j * row.nSons());
+            son.node().row_cluster_ = std::addressof(row.sons(i));
+            son.node().col_cluster_ = std::addressof(col.sons(j));
+            stack.push_back(std::addressof(son));
+          }
+      }
     }
     return;
   }
