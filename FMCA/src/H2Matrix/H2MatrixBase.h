@@ -76,12 +76,18 @@ struct H2MatrixBase : TreeBase<Derived> {
     size_t mem = 0;
     assert(is_root() && "statistics needs to be called from root");
     for (auto &&it : *this) {
+      const RowCType &row = *(it.rcluster());
+      const ColCType &col = *(it.ccluster());
       if (!it.nSons()) {
-        if (it.is_low_rank())
+        if (it.is_low_rank()) {
+          size_t block_rows = row.nSons() ? row.Es()[0].rows() : row.V().rows();
+          size_t block_cols = col.nSons() ? col.Es()[0].rows() : col.V().rows();
           ++lr_blocks;
-        else
+          mem += block_rows * block_cols;
+        } else {
           ++f_blocks;
-        mem += it.node().S_.size();
+          mem += row.indices().size() * row.indices().size();
+        }
       }
     }
     retval(0, 0) = rows();
