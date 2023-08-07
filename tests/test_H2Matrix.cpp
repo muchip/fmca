@@ -16,7 +16,7 @@
 #include "../FMCA/H2Matrix"
 #include "../FMCA/src/util/Tictoc.h"
 
-#define NPTS 100000
+#define NPTS 50000000
 #define DIM 2
 #define MPOLE_DEG 3
 
@@ -28,36 +28,38 @@ using H2Matrix = FMCA::H2Matrix<H2ClusterTree>;
 
 int main() {
   FMCA::Tictoc T;
-  const FMCA::CovarianceKernel function("EXPONENTIAL", 1);
+  const FMCA::CovarianceKernel function("EXPONENTIAL", 2.);
   const FMCA::Matrix P = FMCA::Matrix::Random(DIM, NPTS);
   const Moments mom(P, MPOLE_DEG);
   H2ClusterTree ct(mom, 0, P);
-  FMCA::internal::compute_cluster_bases_impl::check_transfer_matrices(ct, mom);
+  // FMCA::internal::compute_cluster_bases_impl::check_transfer_matrices(ct,
+  // mom);
   const MatrixEvaluator mat_eval(mom, function);
-  for (FMCA::Scalar eta = 0.8; eta >= 0.2; eta *= 0.5) {
+  for (FMCA::Scalar eta = 0.8; eta >= 0.1; eta *= 0.5) {
     std::cout << "eta:                          " << eta << std::endl;
     T.tic();
-    const H2Matrix hmat(ct, mat_eval, eta);
+    H2Matrix hmat;
+    hmat.computePattern(ct, ct, eta);
     T.toc("elapsed time:                ");
     hmat.statistics();
+
     {
-      FMCA::Vector x(NPTS), y1(NPTS), y2(NPTS);
-      FMCA::Scalar err = 0;
-      FMCA::Scalar nrm = 0;
+      FMCA::Matrix X(NPTS, 10), Y1(NPTS, 10), Y2(NPTS, 10);
+      X.setZero();
       for (auto i = 0; i < 10; ++i) {
         FMCA::Index index = rand() % P.cols();
-        x.setZero();
-        x(index) = 1;
         FMCA::Vector col = function.eval(P, P.col(ct.indices()[index]));
-        y1 = col(ct.indices());
-        y2 = hmat * x;
-        err += (y1 - y2).squaredNorm();
-        nrm += y1.squaredNorm();
+        Y1.col(i) = col(ct.indices());
+        X(index, i) = 1;
       }
-      err = sqrt(err / nrm);
+      std::cout << "set test data" << std::endl;
+      T.tic();
+      Y2 = hmat.action(mat_eval, X);
+      FMCA::Scalar err = (Y1 - Y2).norm() / Y1.norm();
       std::cout << "compression error:            " << err << std::endl;
-      std::cout << std::string(60, '-') << std::endl;
     }
+    T.toc("elapsed time:                ");
+    std::cout << std::string(60, '-') << std::endl;
   }
   return 0;
 }
