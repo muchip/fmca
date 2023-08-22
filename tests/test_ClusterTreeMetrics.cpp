@@ -52,7 +52,7 @@ int main() {
            FMCA_ZERO_TOLERANCE);
     for (auto &&it : CT) {
       if (!it.nSons())
-        for (auto j = 0; j < it.indices().size(); ++j)
+        for (auto j = 0; j < it.block_size(); ++j)
           assert(FMCA::internal::inBoundingBox(it, P.col(it.indices()[j])) &&
                  "point outside leaf bounding box");
     }

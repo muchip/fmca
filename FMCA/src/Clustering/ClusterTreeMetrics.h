@@ -46,13 +46,13 @@ Index updateClusterMinDistance(Vector &min_dist, Scalar max_min_dist,
       dist += c2.bb().col(2).norm();
       max_min_dist = max_min_dist < dist ? max_min_dist : dist;
       for (Index i = 0; i < c2.nSons(); ++i)
-        if (c2.sons(i).indices().size())
+        if (c2.sons(i).block_size())
           dups += updateClusterMinDistance(min_dist, max_min_dist, c1,
                                            c2.sons(i), P);
     } else {
       if (c1.block_id() < c2.block_id())
-        for (Index j = 0; j < c1.indices().size(); ++j)
-          for (Index i = 0; i < c2.indices().size(); ++i) {
+        for (Index j = 0; j < c1.block_size(); ++j)
+          for (Index i = 0; i < c2.block_size(); ++i) {
             dist = (P.col(c2.indices()[i]) - P.col(c1.indices()[j])).norm();
             if (dist < FMCA_ZERO_TOLERANCE) ++dups;
             min_dist(c2.indices()[i]) = min_dist(c2.indices()[i]) > dist
@@ -64,7 +64,7 @@ Index updateClusterMinDistance(Vector &min_dist, Scalar max_min_dist,
           }
       // determin max_min_distance within cluster
       max_min_dist = 0;
-      for (Index j = 0; j < c1.indices().size(); ++j)
+      for (Index j = 0; j < c1.block_size(); ++j)
         max_min_dist = max_min_dist < min_dist(c1.indices()[j])
                            ? min_dist(c1.indices()[j])
                            : max_min_dist;
@@ -83,9 +83,9 @@ Vector minDistanceVector(const ClusterTreeBase<Derived> &CT, const Matrix &P) {
   Index dups = 0;
   // compute min_distance at the leafs
   for (auto it = CT.cbegin(); it != CT.cend(); ++it) {
-    if (!it->nSons() && it->indices().size()) {
+    if (!it->nSons() && it->block_size()) {
       // determine min_distances within the cluster
-      for (Index j = 0; j < it->indices().size(); ++j)
+      for (Index j = 0; j < it->block_size(); ++j)
         for (Index i = 0; i < j; ++i) {
           dist = (P.col(it->indices()[i]) - P.col(it->indices()[j])).norm();
           if (dist < FMCA_ZERO_TOLERANCE) ++dups;
@@ -98,7 +98,7 @@ Vector minDistanceVector(const ClusterTreeBase<Derived> &CT, const Matrix &P) {
         }
       // determin max_min_distance within cluster
       max_min_distance = 0;
-      for (Index j = 0; j < it->indices().size(); ++j)
+      for (Index j = 0; j < it->block_size(); ++j)
         max_min_distance = max_min_distance < min_distance(it->indices()[j])
                                ? min_distance(it->indices()[j])
                                : max_min_distance;
