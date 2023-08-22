@@ -30,7 +30,7 @@ void forward_transform_recursion(const H2ClusterTree<Derived> &ct,
     }
   } else {
     (*tvec)[ct.block_id()] =
-        ct.node().V_ * vec.middleRows(ct.indices_begin(), ct.indices().size());
+        ct.node().V_ * vec.middleRows(ct.indices_begin(), ct.block_size());
   }
 }
 

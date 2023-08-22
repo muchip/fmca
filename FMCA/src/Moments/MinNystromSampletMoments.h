@@ -41,8 +41,8 @@ class MinNystromSampletMoments : public NystromMoments<Interpolator> {
   template <typename otherDerived>
   Matrix moment_matrix(const ClusterTreeBase<otherDerived> &CT) const {
     Matrix mp = 0.5 * (CT.bb().col(0) + CT.bb().col(1));
-    Matrix retval(interp().Xi().cols(), CT.indices().size());
-    for (auto i = 0; i < CT.indices().size(); ++i)
+    Matrix retval(interp().Xi().cols(), CT.block_size());
+    for (auto i = 0; i < CT.block_size(); ++i)
       retval.col(i) = interp().evalPolynomials(P().col(CT.indices()[i]) - mp);
     return retval;
   }

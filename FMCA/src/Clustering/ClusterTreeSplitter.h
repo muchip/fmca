@@ -37,16 +37,15 @@ struct GeometricBisection {
     pivot = c1.bb_(longest, 1);
     Index low = 0;
     Index high = c1.block_size_ - 1;
-    Index swp = 0;
     Index offs = c1.indices_begin_;
     while (low < high) {
       while (low < high && P(longest, idcs[offs + low]) <= pivot) ++low;
       while (P(longest, idcs[offs + high]) > pivot) --high;
       if (low < high) std::swap(idcs[offs + low], idcs[offs + high]);
     }
-    c1.block_size_ = high;
-    c2.block_size_ -= high;
-    c2.indices_begin_ += high;
+    c1.block_size_ = low;
+    c2.block_size_ -= low;
+    c2.indices_begin_ += low;
   }
 };
 
