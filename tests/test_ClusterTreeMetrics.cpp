@@ -13,6 +13,7 @@
 #include <iostream>
 
 #include "../FMCA/Clustering"
+#include "../FMCA/src/util/IO.h"
 #include "../FMCA/src/util/Tictoc.h"
 
 #define DIM 3
@@ -50,13 +51,25 @@ int main() {
     assert(abs(fill_distance - fill_distance_test) < FMCA_ZERO_TOLERANCE);
     assert(abs(separation_radius - separation_radius_test) <
            FMCA_ZERO_TOLERANCE);
-    for (auto &&it : CT) {
+    for (auto &&it : CT)
       if (!it.nSons())
         for (auto j = 0; j < it.block_size(); ++j)
           assert(FMCA::internal::inBoundingBox(it, P.col(it.indices()[j])) &&
                  "point outside leaf bounding box");
+  }
+  std::vector<FMCA::Matrix> bbvec;
+  FMCA::ClusterTree CT(P, 10);
+
+  for (auto &&it : CT) {
+    if (!it.nSons()) {
+      for (auto j = 0; j < it.block_size(); ++j)
+        assert(FMCA::internal::inBoundingBox(it, P.col(it.indices()[j])) &&
+               "point outside leaf bounding box");
+      bbvec.push_back(it.bb());
     }
   }
-
+  FMCA::IO::plotBoxes("boxes.vtk", bbvec);
+  FMCA::IO::plotPoints("points.vtk", P);
+  std::cout << "got here\n";
   return 0;
 }

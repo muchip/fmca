@@ -26,10 +26,11 @@ struct ClusterTreeInitializer<ClusterTree> {
                    const Matrix &P) {
     init_BoundingBox_impl(CT, min_csize, P);
     CT.node().indices_begin_ = 0;
-    CT.node().indices_ = std::make_shared<Index>(P.cols());
+    CT.node().indices_ = std::shared_ptr<Index>(new Index[P.cols()],
+                                                std::default_delete<Index[]>());
     CT.node().block_size_ = P.cols();
-    std::iota(CT.node().indices_.get(),
-              CT.node().indices_.get() + CT.node().block_size_, 0u);
+    Index *indices = CT.node().indices_.get();
+    for (Index i = 0; i < CT.block_size(); ++i) indices[i] = i;
     init_ClusterTree_impl(CT, min_csize, P);
     shrinkToFit_impl(CT, P);
     Index i = 0;
