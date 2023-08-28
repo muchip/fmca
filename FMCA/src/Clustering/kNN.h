@@ -28,19 +28,19 @@ void updateClusterKMinDistance(std::vector<KMinList> &min_dist,
       dist += c2.bb().col(2).norm();
       // max_min_dist = max_min_dist < dist ? max_min_dist : dist;
       for (Index i = 0; i < c2.nSons(); ++i)
-        if (c2.sons(i).indices().size())
+        if (c2.sons(i).block_size())
           updateClusterKMinDistance(min_dist, max_min_dist, c1, c2.sons(i), P);
     } else {
       if (c1.block_id() != c2.block_id())
-        for (Index j = 0; j < c1.indices().size(); ++j)
-          for (Index i = 0; i < c2.indices().size(); ++i) {
+        for (Index j = 0; j < c1.block_size(); ++j)
+          for (Index i = 0; i < c2.block_size(); ++i) {
             dist = (P.col(c2.indices()[i]) - P.col(c1.indices()[j])).norm();
             min_dist[c1.indices()[j]].insert(
                 std::make_pair(c2.indices()[i], dist));
           }
       // determine max_min_distance within cluster
       max_min_dist = 0;
-      for (Index j = 0; j < c1.indices().size(); ++j) {
+      for (Index j = 0; j < c1.block_size(); ++j) {
         const Scalar dist = min_dist[c1.indices()[j]].max_min();
         max_min_dist = max_min_dist < dist ? dist : max_min_dist;
       }
@@ -68,13 +68,13 @@ iMatrix kNN(const ClusterTreeBase<Derived> &CT, const Matrix &P,
   std::vector<const Derived *> plist;
   plist.reserve(P.cols());
   for (auto it = CT.cbegin(); it != CT.cend(); ++it)
-    if (!it->nSons() && it->indices().size())
+    if (!it->nSons() && it->block_size())
       plist.push_back(std::addressof(*it));
       // compute min_distance at the leafs
 #pragma omp parallel for
   for (auto it = plist.begin(); it != plist.end(); ++it) {
     // for (auto it = CT.cbegin(); it != CT.cend(); ++it) {
-    // if (!it->nSons() && it->indices().size()) {
+    // if (!it->nSons() && it->block_size()) {
     const std::vector<Index> &idcs = (*it)->indices();
     for (Index j = 0; j < idcs.size(); ++j)
       for (Index i = 0; i < j; ++i) {
