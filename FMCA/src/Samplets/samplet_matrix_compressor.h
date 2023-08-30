@@ -34,7 +34,7 @@ class SampletMatrixCompressor {
             Scalar threshold = 0) {
     eta_ = eta;
     threshold_ = threshold;
-    rta_.init(ST, ST.indices().size());
+    rta_.init(ST, ST.block_size());
     pattern_.resize(2 * rta_.max_level() + 1);
 
 #pragma omp parallel for schedule(dynamic)

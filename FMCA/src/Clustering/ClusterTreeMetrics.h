@@ -115,7 +115,7 @@ template <typename Derived>
 void clusterTreeStatistics(const ClusterTreeBase<Derived> &CT,
                            const Matrix &P) {
   std::vector<Scalar> disc_vec;
-  Index N = CT.indices().size();
+  Index N = CT.block_size();
   Index n_cluster = std::distance(CT.cbegin(), CT.cend());
   Scalar vol = CT.bb().col(2).prod();
   Scalar max_disc = 0;
@@ -127,8 +127,8 @@ void clusterTreeStatistics(const ClusterTreeBase<Derived> &CT,
   if (n_cluster > 1) {
     for (auto it = CT.cbegin(); it != CT.cend(); ++it) {
       const auto &node = *it;
-      if (!node.is_root() && node.indices().size()) {
-        Scalar discrepancy = std::abs(Scalar(node.indices().size()) / N -
+      if (!node.is_root() && node.block_size()) {
+        Scalar discrepancy = std::abs(Scalar(node.block_size()) / N -
                                       node.bb().col(2).prod() / vol);
         disc_vec.push_back(discrepancy);
         max_disc = max_disc < disc_vec.back() ? disc_vec.back() : max_disc;
