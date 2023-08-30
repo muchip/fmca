@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <numeric>
 #include <string>
@@ -34,9 +35,12 @@
 #include "src/Clustering/Admissibility.h"
 #include "src/Clustering/ClusterTreeBase.h"
 #include "src/Clustering/ClusterTreeInitializer_ClusterTree.h"
+#include "src/Clustering/MortonCompare.h"
+#include "src/Clustering/ClusterTreeInitializer_MortonClusterTree.h"
 #include "src/Clustering/ClusterTreeMetrics.h"
 #include "src/Clustering/ClusterTreeSplitter.h"
 #include "src/Clustering/ClusterTree.h"
+#include "src/Clustering/MortonClusterTree.h"
 #include "src/Clustering/kNN.h"
 
 #endif
