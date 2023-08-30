@@ -13,8 +13,6 @@
 #ifndef FMCA_CLUSTERING_MORTONCOMPARE_H_
 #define FMCA_CLUSTERING_MORTONCOMPARE_H_
 
-#include "../util/Macros.h"
-
 namespace FMCA {
 
 template <typename T>

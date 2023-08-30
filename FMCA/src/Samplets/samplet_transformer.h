@@ -64,8 +64,8 @@ class SampletTransformer {
         const Derived &cluster = *((*it)[i]);
         Matrix &block = tvec_[cluster.block_id()];
         if (!cluster.nSons())
-          block = data.middleRows(cluster.indices_begin(),
-                                  cluster.indices().size());
+          block =
+              data.middleRows(cluster.indices_begin(), cluster.block_size());
         else
           for (auto i = 0; i < cluster.nSons(); ++i) {
             block.conservativeResize(block.rows() + cluster.sons(i).nscalfs(),

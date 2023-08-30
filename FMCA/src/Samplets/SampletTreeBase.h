@@ -45,6 +45,7 @@ struct SampletTreeBase : public ClusterTreeBase<Derived> {
   using Base::derived;
   using Base::indices;
   using Base::indices_begin;
+  using Base::block_size;
   using Base::init;
   using Base::is_root;
   using Base::level;
