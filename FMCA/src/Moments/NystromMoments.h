@@ -24,8 +24,8 @@ class NystromMoments {
   template <typename otherDerived>
   Matrix moment_matrix(const ClusterTreeBase<otherDerived> &CT) const {
     const otherDerived &H2T = CT.derived();
-    Matrix retval(interp_.Xi().cols(), H2T.indices().size());
-    for (auto i = 0; i < H2T.indices().size(); ++i)
+    Matrix retval(interp_.Xi().cols(), H2T.block_size());
+    for (auto i = 0; i < H2T.block_size(); ++i)
       retval.col(i) = interp_.evalPolynomials(
           ((P_.col(H2T.indices()[i]) - H2T.bb().col(0)).array() /
            H2T.bb().col(2).array())
