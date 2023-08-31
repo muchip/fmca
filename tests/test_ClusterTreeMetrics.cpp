@@ -13,6 +13,7 @@
 #include <iostream>
 
 #include "../FMCA/Clustering"
+#include "../FMCA/src/util/IO.h"
 #include "../FMCA/src/util/Tictoc.h"
 
 #define DIM 3
@@ -42,6 +43,8 @@ int main() {
       << FMCA::internal::traits<FMCA::ClusterTree>::Splitter::splitterName()
       << std::endl;
   for (auto i = 0; i < 10; ++i) {
+    FMCA::iVector index_hits(P.cols());
+    index_hits.setZero();
     FMCA::Index leaf_size = rand() % 200 + 5;
     FMCA::ClusterTree CT(P, leaf_size);
     FMCA::Vector min_dist = minDistanceVector(CT, P);
@@ -50,13 +53,31 @@ int main() {
     assert(abs(fill_distance - fill_distance_test) < FMCA_ZERO_TOLERANCE);
     assert(abs(separation_radius - separation_radius_test) <
            FMCA_ZERO_TOLERANCE);
-    for (auto &&it : CT) {
+    for (FMCA::Index i = 0; i < CT.block_size(); ++i)
+      ++index_hits(CT.indices()[i]);
+    for (FMCA::Index i = 0; i < CT.block_size(); ++i) {
+      if (index_hits(i) != 1)
+        std::cout << "index_hits(" << i << ")=" << index_hits(i) << std::endl;
+      assert(index_hits(i) == 1 && "mismatch in the index vector");
+    }
+    for (auto &&it : CT)
       if (!it.nSons())
-        for (auto j = 0; j < it.indices().size(); ++j)
+        for (auto j = 0; j < it.block_size(); ++j)
           assert(FMCA::internal::inBoundingBox(it, P.col(it.indices()[j])) &&
                  "point outside leaf bounding box");
+  }
+  std::vector<FMCA::Matrix> bbvec;
+  FMCA::ClusterTree CT(P, 10);
+
+  for (auto &&it : CT) {
+    if (!it.nSons()) {
+      for (auto j = 0; j < it.block_size(); ++j)
+        assert(FMCA::internal::inBoundingBox(it, P.col(it.indices()[j])) &&
+               "point outside leaf bounding box");
+      bbvec.push_back(it.bb());
     }
   }
-
+  FMCA::IO::plotBoxes("boxes.vtk", bbvec);
+  FMCA::IO::plotPoints("points.vtk", P);
   return 0;
 }

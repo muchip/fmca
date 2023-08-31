@@ -31,7 +31,9 @@ int main() {
   const FMCA::CovarianceKernel function("EXPONENTIAL", 1);
   const FMCA::Matrix P = FMCA::Matrix::Random(DIM, NPTS);
   const Moments mom(P, MPOLE_DEG);
+  T.tic();
   H2ClusterTree ct(mom, 0, P);
+  T.toc("H2 cluster tree:");
   FMCA::internal::compute_cluster_bases_impl::check_transfer_matrices(ct, mom);
   const MatrixEvaluator mat_eval(mom, function);
   for (FMCA::Scalar eta = 0.8; eta >= 0.2; eta *= 0.5) {
@@ -49,7 +51,7 @@ int main() {
         x.setZero();
         x(index) = 1;
         FMCA::Vector col = function.eval(P, P.col(ct.indices()[index]));
-        y1 = col(ct.indices());
+        y1 = col(Eigen::Map<const FMCA::iVector>(ct.indices(), ct.block_size()));
         y2 = hmat * x;
         err += (y1 - y2).squaredNorm();
         nrm += y1.squaredNorm();

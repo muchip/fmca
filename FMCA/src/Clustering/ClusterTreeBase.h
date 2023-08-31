@@ -22,14 +22,15 @@ namespace FMCA {
  **/
 template <typename Derived>
 struct ClusterTreeNodeBase : public NodeBase<Derived> {
-  ClusterTreeNodeBase() : indices_begin_(-1), block_id_(-1) {
+  ClusterTreeNodeBase()
+      : indices_(nullptr), indices_begin_(-1), block_id_(-1), block_size_(0) {
     bb_.resize(0, 0);
-    indices_.resize(0);
   }
   Matrix bb_;
-  std::vector<Index> indices_;
+  std::shared_ptr<Index> indices_;
   Index indices_begin_;
   Index block_id_;
+  Index block_size_;
 };
 
 /**
@@ -56,13 +57,17 @@ struct ClusterTreeBase : public TreeBase<Derived> {
   //////////////////////////////////////////////////////////////////////////////
   // getter
   //////////////////////////////////////////////////////////////////////////////
-  const Matrix &bb() const { return node().bb_; }
+  const Matrix& bb() const { return node().bb_; }
 
-  const std::vector<Index> &indices() const { return node().indices_; }
+  const Index* indices() const {
+    return node().indices_.get() + node().indices_begin_;
+  }
 
   Index indices_begin() const { return node().indices_begin_; }
 
   Index block_id() const { return node().block_id_; }
+
+  Index block_size() const { return node().block_size_; }
 };
 
 }  // namespace FMCA

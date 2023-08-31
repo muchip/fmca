@@ -31,9 +31,8 @@ void forward_transform_recursion(const TreeBase<Derived> &ct,
           node.Es()[i] * (*tvec)[node.sons(i).block_id()];
     }
   } else {
-    (*tvec)[node.block_id()] =
-        node.node().V_ *
-        vec.middleRows(node.indices_begin(), node.indices().size());
+    (*tvec)[ct.block_id()] =
+        ct.node().V_ * vec.middleRows(ct.indices_begin(), ct.block_size());
   }
 }
 

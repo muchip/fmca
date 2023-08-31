@@ -58,8 +58,8 @@ struct H2MatrixBase : TreeBase<Derived> {
   //////////////////////////////////////////////////////////////////////////////
   // base class methods
   //////////////////////////////////////////////////////////////////////////////
-  Index rows() const { return (node().row_cluster_)->indices().size(); }
-  Index cols() const { return (node().col_cluster_)->indices().size(); }
+  Index rows() const { return (node().row_cluster_)->block_size(); }
+  Index cols() const { return (node().col_cluster_)->block_size(); }
   Index nrclusters() const { return node().nrclusters_; }
   Index ncclusters() const { return node().ncclusters_; }
   const RowCType *rcluster() const { return node().row_cluster_; }
@@ -71,24 +71,30 @@ struct H2MatrixBase : TreeBase<Derived> {
   // (m, n, fblocks, lrblocks, nz(A), mem)
   Matrix statistics() const {
     Matrix retval(6, 1);
-    Index lr_blocks = 0;
-    Index f_blocks = 0;
-    Index mem = 0;
+    size_t lr_blocks = 0;
+    size_t f_blocks = 0;
+    size_t mem = 0;
     assert(is_root() && "statistics needs to be called from root");
     for (auto &&it : *this) {
+      const RowCType &row = *(it.rcluster());
+      const ColCType &col = *(it.ccluster());
       if (!it.nSons()) {
-        if (it.is_low_rank())
+        if (it.is_low_rank()) {
+          size_t block_rows = row.nSons() ? row.Es()[0].rows() : row.V().rows();
+          size_t block_cols = col.nSons() ? col.Es()[0].rows() : col.V().rows();
           ++lr_blocks;
-        else
+          mem += block_rows * block_cols;
+        } else {
           ++f_blocks;
-        mem += it.node().S_.size();
+          mem += row.block_size() * row.block_size();
+        }
       }
     }
     retval(0, 0) = rows();
     retval(1, 0) = cols();
     retval(2, 0) = lr_blocks;
     retval(3, 0) = f_blocks;
-    retval(4, 0) = round(Scalar(mem) / (node().col_cluster_)->indices().size());
+    retval(4, 0) = round(Scalar(mem) / (node().col_cluster_)->block_size());
     retval(5, 0) = Scalar(mem * sizeof(Scalar)) / 1e9;
     std::cout << "matrix size:                  " << rows() << " x " << cols()
               << std::endl;

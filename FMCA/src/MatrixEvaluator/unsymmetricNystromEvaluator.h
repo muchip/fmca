@@ -64,9 +64,9 @@ struct unsymmetricNystromEvaluator {
   void compute_dense_block(const ClusterTreeBase<Derived> &TR,
                            const ClusterTreeBase<Derived> &TC,
                            Matrix *retval) const {
-    retval->resize(TR.indices().size(), TC.indices().size());
-    for (auto j = 0; j < TC.indices().size(); ++j)
-      for (auto i = 0; i < TR.indices().size(); ++i)
+    retval->resize(TR.block_size(), TC.block_size());
+    for (auto j = 0; j < TC.block_size(); ++j)
+      for (auto i = 0; i < TR.block_size(); ++i)
         (*retval)(i, j) = kernel_(r_mom_.P().col(TR.indices()[i]),
                                   c_mom_.P().col(TC.indices()[j]));
     return;

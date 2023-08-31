@@ -33,6 +33,8 @@ struct ClusterTreeInitializer;
 
 class ClusterTree;
 
+class MortonClusterTree;
+
 template <typename ClusterTreeType>
 class SampletTree;
 
