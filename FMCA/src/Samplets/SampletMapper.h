@@ -27,7 +27,7 @@ void sampletMapper(SampletTreeBase<Derived> &ST) {
     sum += it.derived().nsamplets();
     if (it.is_root()) sum += it.derived().nscalfs();
   }
-  assert(sum == ST.indices().size());
+  assert(sum == ST.block_size());
   return;
 }
 
