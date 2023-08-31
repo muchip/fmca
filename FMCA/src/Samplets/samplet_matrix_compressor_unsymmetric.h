@@ -36,8 +36,8 @@ class SampletMatrixCompressorUnsymmetric {
             Scalar threshold = 0) {
     eta_ = eta;
     threshold_ = threshold;
-    r_rta_.init(TR, TR.indices().size());
-    c_rta_.init(TC, TC.indices().size());
+    r_rta_.init(TR, TR.block_size());
+    c_rta_.init(TC, TC.block_size());
     pattern_.resize(c_rta_.nodes().size());
     queue_.resize(r_rta_.max_level() + c_rta_.max_level() + 1);
 #pragma omp parallel for

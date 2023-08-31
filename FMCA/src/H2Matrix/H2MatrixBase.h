@@ -58,8 +58,8 @@ struct H2MatrixBase : TreeBase<Derived> {
   //////////////////////////////////////////////////////////////////////////////
   // base class methods
   //////////////////////////////////////////////////////////////////////////////
-  Index rows() const { return (node().row_cluster_)->indices().size(); }
-  Index cols() const { return (node().col_cluster_)->indices().size(); }
+  Index rows() const { return (node().row_cluster_)->block_size(); }
+  Index cols() const { return (node().col_cluster_)->block_size(); }
   Index nrclusters() const { return node().nrclusters_; }
   Index ncclusters() const { return node().ncclusters_; }
   const RowCType *rcluster() const { return node().row_cluster_; }
@@ -86,7 +86,7 @@ struct H2MatrixBase : TreeBase<Derived> {
           mem += brows * bcols;
         } else {
           ++f_blocks;
-          mem += row.indices().size() * row.indices().size();
+          mem += row.block_size() * row.block_size();
         }
       }
     }
@@ -94,7 +94,7 @@ struct H2MatrixBase : TreeBase<Derived> {
     retval(1, 0) = cols();
     retval(2, 0) = lr_blocks;
     retval(3, 0) = f_blocks;
-    retval(4, 0) = round(Scalar(mem) / (node().col_cluster_)->indices().size());
+    retval(4, 0) = round(Scalar(mem) / (node().col_cluster_)->block_size());
     retval(5, 0) = Scalar(mem * sizeof(Scalar)) / 1e9;
     std::cout << "matrix size:                  " << rows() << " x " << cols()
               << std::endl;

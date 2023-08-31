@@ -45,6 +45,7 @@ struct SampletTreeBase : public ClusterTreeBase<Derived> {
   using Base::derived;
   using Base::indices;
   using Base::indices_begin;
+  using Base::block_size;
   using Base::init;
   using Base::is_root;
   using Base::level;
@@ -82,7 +83,7 @@ struct SampletTreeBase : public ClusterTreeBase<Derived> {
   }
   //////////////////////////////////////////////////////////////////////////////
   std::vector<Eigen::Triplet<Scalar>> transformationMatrixTriplets() const {
-    const Index n = indices().size();
+    const Index n = block_size();
     Matrix buffer(n, 1);
     Matrix unit(n, 1);
     std::vector<Eigen::Triplet<Scalar>> triplet_list;
@@ -121,7 +122,7 @@ private:
         retval.bottomRows(scalf.rows()) = scalf;
       }
     } else {
-      retval = data.middleRows(indices_begin(), indices().size());
+      retval = data.middleRows(indices_begin(), block_size());
     }
     if (nsamplets()) {
       svec->middleRows(start_index() + scalf_shift, nsamplets()) =

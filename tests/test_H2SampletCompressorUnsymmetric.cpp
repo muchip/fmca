@@ -77,7 +77,8 @@ int main() {
       x.setZero();
       x(index) = 1;
       FMCA::Vector col = function.eval(P, P.col(hst.indices()[index]));
-      y1 = col(hst.indices());
+      y1 =
+          col(Eigen::Map<const FMCA::iVector>(hst.indices(), hst.block_size()));
       x = hst.sampletTransform(x);
       y2.setZero();
       y1.setZero();

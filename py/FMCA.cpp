@@ -49,8 +49,7 @@ struct pySampletTree {
     ST_.init(mom, samp_mom, 0, P);
   };
   FMCA::iVector indices() {
-    return Eigen::Map<const FMCA::iVector>(ST_.indices().data(),
-                                           ST_.indices().size());
+    return Eigen::Map<const FMCA::iVector>(ST_.indices(), ST_.block_size());
   }
   FMCA::iVector levels() {
     std::vector<FMCA::Index> lvl = FMCA::internal::sampletLevelMapper(ST_);
@@ -108,8 +107,8 @@ struct pySampletKernelCompressor {
 
   template <typename Functor>
   FMCA::Vector matrixColumnGetter(const FMCA::Matrix &P,
-                                  const std::vector<FMCA::Index> &idcs,
-                                  const Functor &fun, FMCA::Index colID) {
+                                  const FMCA::Index *idcs, const Functor &fun,
+                                  FMCA::Index colID) {
     FMCA::Vector retval(P.cols());
     retval.setZero();
     for (auto i = 0; i < retval.size(); ++i)
