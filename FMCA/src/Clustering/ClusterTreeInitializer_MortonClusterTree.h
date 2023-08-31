@@ -9,8 +9,8 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#ifndef FMCA_CLUSTERING_INITCLUSTERTREEIMPL_H_
-#define FMCA_CLUSTERING_INITCLUSTERTREEIMPL_H_
+#ifndef FMCA_CLUSTERING_INITMORTONCLUSTERTREEIMPL_H_
+#define FMCA_CLUSTERING_INITMORTONCLUSTERTREEIMPL_H_
 
 namespace FMCA {
 namespace internal {
@@ -18,19 +18,19 @@ namespace internal {
  *  \brief initializes a bounding box for the geometry
  **/
 template <>
-struct ClusterTreeInitializer<ClusterTree> {
+struct ClusterTreeInitializer<MortonClusterTree> {
   ClusterTreeInitializer() = delete;
   //////////////////////////////////////////////////////////////////////////////
   template <typename Derived>
   static void init(ClusterTreeBase<Derived> &CT, Index min_csize,
                    const Matrix &P) {
-    init_BoundingBox_impl(CT, min_csize, P);
     CT.node().indices_begin_ = 0;
     CT.node().indices_ = std::shared_ptr<Index>(new Index[P.cols()],
                                                 std::default_delete<Index[]>());
     CT.node().block_size_ = P.cols();
     Index *indices = CT.node().indices_.get();
     for (Index i = 0; i < CT.block_size(); ++i) indices[i] = i;
+    std::sort(indices, indices + CT.block_size(), MortonCompare<Matrix>(P));
     init_ClusterTree_impl(CT, min_csize, P);
     shrinkToFit_impl(CT, P);
     Index i = 0;
@@ -38,21 +38,6 @@ struct ClusterTreeInitializer<ClusterTree> {
       it.node().block_id_ = i;
       ++i;
     }
-  }
-  //////////////////////////////////////////////////////////////////////////////
-  template <typename Derived>
-  static void init_BoundingBox_impl(ClusterTreeBase<Derived> &CT,
-                                    Index min_csize, const Matrix &P) {
-    CT.node().bb_.resize(P.rows(), 3);
-    CT.node().bb_.col(0) = P.rowwise().minCoeff();
-    CT.node().bb_.col(1) = P.rowwise().maxCoeff();
-    // increase bounding box by an epsilon layer
-    CT.node().bb_.col(0) -=
-        FMCA_BBOX_THREASHOLD * CT.node().bb_.col(0).cwiseAbs();
-    CT.node().bb_.col(1) +=
-        FMCA_BBOX_THREASHOLD * CT.node().bb_.col(1).cwiseAbs();
-    CT.node().bb_.col(2) = CT.node().bb_.col(1) - CT.node().bb_.col(0);
-    return;
   }
   //////////////////////////////////////////////////////////////////////////////
   /** \ingroup internal
@@ -63,17 +48,15 @@ struct ClusterTreeInitializer<ClusterTree> {
                                     Index min_csize, const Matrix &P) {
     typename traits<Derived>::Splitter split;
     const Index split_threshold = min_csize >= 1 ? (2 * min_csize - 1) : 1;
+    const Index split_size = CT.node().block_size_ / 2;
     if (CT.node().block_size_ > split_threshold) {
       CT.appendSons(2);
-      // set up bounding boxes for sons
-      for (Index i = 0; i < 2; ++i) {
-        CT.sons(i).node().bb_ = CT.node().bb_;
-        CT.sons(i).node().indices_ = CT.node().indices_;
-        CT.sons(i).node().block_size_ = CT.node().block_size_;
-        CT.sons(i).node().indices_begin_ = CT.node().indices_begin_;
-      }
-      // split index set and set sons bounding boxes
-      split(P, CT.sons(0).node(), CT.sons(1).node());
+      CT.sons(0).node().indices_ = CT.node().indices_;
+      CT.sons(0).node().block_size_ = split_size;
+      CT.sons(0).node().indices_begin_ = CT.node().indices_begin_;
+      CT.sons(1).node().indices_ = CT.node().indices_;
+      CT.sons(1).node().block_size_ = CT.node().block_size_ - split_size;
+      CT.sons(1).node().indices_begin_ = CT.node().indices_begin_ + +split_size;
       // let recursion handle the rest
       for (Index i = 0; i < CT.nSons(); ++i)
         init_ClusterTree_impl<Derived>(CT.sons(i), min_csize, P);
