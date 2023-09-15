@@ -178,7 +178,7 @@ struct H2MatrixBase : TreeBase<Derived> {
         const Index bcols = col.nSons() ? col.Es()[0].rows() : col.V().rows();
         // only use low-rank if it is actually cheaper than storing the block
         (block->node()).is_low_rank_ =
-            (brows * bcols < row.indices().size() * col.indices().size());
+            (brows * bcols < row.block_size() * col.block_size());
       } else if (adm == Refine) {
         block->appendSons(row.nSons() * col.nSons());
         for (Index j = 0; j < col.nSons(); ++j)
