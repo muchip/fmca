@@ -113,10 +113,9 @@ struct H2MatrixBase : TreeBase<Derived> {
   template <typename MatrixEvaluator>
   Matrix action(const MatrixEvaluator &mat_eval, const Matrix &rhs) const {
     std::vector<std::vector<const Derived *>> scheduler;
-    Matrix lhs(rows(), rhs.cols());
+    Matrix lhs = Matrix::Zero(rows(), rhs.cols());
     // forward transform righ hand side
     std::vector<Matrix> trhs = internal::forward_transform_impl(*this, rhs);
-    std::cout << "forward transform " << std::endl;
     std::vector<Matrix> tlhs(nrclusters());
     for (const auto &it : *(rcluster())) {
       if (it.nSons())
@@ -125,12 +124,10 @@ struct H2MatrixBase : TreeBase<Derived> {
         tlhs[it.block_id()].resize(it.V().rows(), rhs.cols());
       tlhs[it.block_id()].setZero();
     }
-    std::cout << "tlhs" << std::endl;
     scheduler.resize(ncclusters());
     for (const auto &it : *this)
       if (!it.nSons())
         scheduler[it.ccluster()->block_id()].push_back(std::addressof(it));
-    std::cout << "scheduler" << std::endl;
     for (const auto &it2 : scheduler) {
 #pragma omp parallel for schedule(dynamic)
       for (Index k = 0; k < it2.size(); ++k) {
@@ -142,9 +139,13 @@ struct H2MatrixBase : TreeBase<Derived> {
         const Index jj = (it.ccluster())->indices_begin();
         if (it.is_low_rank()) {
           mat_eval.interpolate_kernel(*(it.rcluster()), *(it.ccluster()), &S);
+          assert((S - it.matrixS()).norm() < FMCA_ZERO_TOLERANCE &&
+                 "lr block problem");
           tlhs[i] += S * trhs[j];
         } else {
           mat_eval.compute_dense_block(*(it.rcluster()), *(it.ccluster()), &S);
+          assert((S - it.matrixS()).norm() < FMCA_ZERO_TOLERANCE &&
+                 "f block problem");
           lhs.middleRows(ii, S.rows()) += S * rhs.middleRows(jj, S.cols());
         }
       }
