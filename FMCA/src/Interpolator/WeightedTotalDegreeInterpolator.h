@@ -28,10 +28,8 @@ class WeightedTotalDegreeInterpolator {
     dim_ = dim;
     deg_ = deg;
     assert(w[0] == 1 && "first weight needs to be normalized");
-    std::cout << w[0] << " ";
     for (Index i = 1; i < w.size(); ++i) {
       assert(w[i - 1] <= w[i] && "weights need to be ordered non-decreasingly");
-      std::cout << w[i] << " ";
     }
     std::cout << std::endl;
     idcs_.init(dim, deg, w);

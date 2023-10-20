@@ -139,13 +139,9 @@ struct H2MatrixBase : TreeBase<Derived> {
         const Index jj = (it.ccluster())->indices_begin();
         if (it.is_low_rank()) {
           mat_eval.interpolate_kernel(*(it.rcluster()), *(it.ccluster()), &S);
-          assert((S - it.matrixS()).norm() < FMCA_ZERO_TOLERANCE &&
-                 "lr block problem");
           tlhs[i] += S * trhs[j];
         } else {
           mat_eval.compute_dense_block(*(it.rcluster()), *(it.ccluster()), &S);
-          assert((S - it.matrixS()).norm() < FMCA_ZERO_TOLERANCE &&
-                 "f block problem");
           lhs.middleRows(ii, S.rows()) += S * rhs.middleRows(jj, S.cols());
         }
       }
