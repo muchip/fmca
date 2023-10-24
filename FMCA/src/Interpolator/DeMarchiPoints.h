@@ -48,7 +48,7 @@ Matrix DeMarchiPoints(const MultiIndexSet &idcs,
     VT.col(i) = internal::evalPolynomials(idcs, retval.col(i));
   Eigen::JacobiSVD<Matrix> svd;
   svd.compute(VT);
-  std::cout << "DeMarchi points condition: "
+  std::cout << "DeMarchi points condition:    "
             << svd.singularValues().maxCoeff() / svd.singularValues().minCoeff()
             << std::endl;
   return retval;
