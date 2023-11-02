@@ -80,10 +80,10 @@ struct H2MatrixBase : TreeBase<Derived> {
       const ColCType &col = *(it.ccluster());
       if (!it.nSons()) {
         if (it.is_low_rank()) {
-          size_t block_rows = row.nSons() ? row.Es()[0].rows() : row.V().rows();
-          size_t block_cols = col.nSons() ? col.Es()[0].rows() : col.V().rows();
+          const Index brows = row.nSons() ? row.Es()[0].rows() : row.V().rows();
+          const Index bcols = col.nSons() ? col.Es()[0].rows() : col.V().rows();
           ++lr_blocks;
-          mem += block_rows * block_cols;
+          mem += brows * bcols;
         } else {
           ++f_blocks;
           mem += row.block_size() * row.block_size();
@@ -109,6 +109,48 @@ struct H2MatrixBase : TreeBase<Derived> {
   Matrix operator*(const Matrix &rhs) const {
     return internal::matrix_vector_product_impl(*this, rhs);
   }
+
+  template <typename MatrixEvaluator>
+  Matrix action(const MatrixEvaluator &mat_eval, const Matrix &rhs) const {
+    std::vector<std::vector<const Derived *>> scheduler;
+    Matrix lhs = Matrix::Zero(rows(), rhs.cols());
+    // forward transform righ hand side
+    std::vector<Matrix> trhs = internal::forward_transform_impl(*this, rhs);
+    std::vector<Matrix> tlhs(nrclusters());
+    for (const auto &it : *(rcluster())) {
+      if (it.nSons())
+        tlhs[it.block_id()].resize(it.Es()[0].rows(), rhs.cols());
+      else
+        tlhs[it.block_id()].resize(it.V().rows(), rhs.cols());
+      tlhs[it.block_id()].setZero();
+    }
+    scheduler.resize(ncclusters());
+    for (const auto &it : *this)
+      if (!it.nSons())
+        scheduler[it.ccluster()->block_id()].push_back(std::addressof(it));
+    for (const auto &it2 : scheduler) {
+#pragma omp parallel for schedule(dynamic)
+      for (Index k = 0; k < it2.size(); ++k) {
+        Matrix S;
+        const Derived &it = *(it2[k]);
+        const Index i = it.rcluster()->block_id();
+        const Index j = it.ccluster()->block_id();
+        const Index ii = (it.rcluster())->indices_begin();
+        const Index jj = (it.ccluster())->indices_begin();
+        if (it.is_low_rank()) {
+          mat_eval.interpolate_kernel(*(it.rcluster()), *(it.ccluster()), &S);
+          tlhs[i] += S * trhs[j];
+        } else {
+          mat_eval.compute_dense_block(*(it.rcluster()), *(it.ccluster()), &S);
+          lhs.middleRows(ii, S.rows()) += S * rhs.middleRows(jj, S.cols());
+        }
+      }
+    }
+    // backward transform left hand side
+    internal::backward_transform_recursion(*(rcluster()), &lhs, tlhs);
+    return lhs;
+  }
+
   //////////////////////////////////////////////////////////////////////////////
   Matrix full() const {
     assert(is_root() && "full needs to be called from root");
@@ -116,22 +158,34 @@ struct H2MatrixBase : TreeBase<Derived> {
     return *this * I;
   }
   void computePattern(const RowCType &CT1, const ColCType &CT2, Scalar eta) {
-    if (CT1.is_root() && CT2.is_root()) {
-      node().nrclusters_ = std::distance(CT1.cbegin(), CT1.cend());
-      node().ncclusters_ = std::distance(CT2.cbegin(), CT2.cend());
-    }
-    node().row_cluster_ = &CT1;
-    node().col_cluster_ = &CT2;
-    const Admissibility adm = compareCluster(CT1, CT2, eta);
-    if (adm == LowRank) {
-      node().is_low_rank_ = true;
-    } else if (adm == Refine) {
-      appendSons(CT1.nSons() * CT2.nSons());
-      for (Index j = 0; j < CT2.nSons(); ++j)
-        for (Index i = 0; i < CT1.nSons(); ++i) {
-          sons(i + j * CT1.nSons())
-              .computePattern(CT1.sons(i), CT2.sons(j), eta);
-        }
+    node().nrclusters_ = std::distance(CT1.cbegin(), CT1.cend());
+    node().ncclusters_ = std::distance(CT2.cbegin(), CT2.cend());
+    node().row_cluster_ = std::addressof(CT1);
+    node().col_cluster_ = std::addressof(CT2);
+    std::vector<Derived *> stack;
+    stack.push_back(std::addressof(this->derived()));
+    while (stack.size()) {
+      Derived *block = stack.back();
+      stack.pop_back();
+      const RowCType &row = *(block->rcluster());
+      const ColCType &col = *(block->ccluster());
+      const Admissibility adm = compareCluster(row, col, eta);
+      if (adm == LowRank) {
+        const Index brows = row.nSons() ? row.Es()[0].rows() : row.V().rows();
+        const Index bcols = col.nSons() ? col.Es()[0].rows() : col.V().rows();
+        // only use low-rank if it is actually cheaper than storing the block
+        (block->node()).is_low_rank_ =
+            (brows * bcols < row.block_size() * col.block_size());
+      } else if (adm == Refine) {
+        block->appendSons(row.nSons() * col.nSons());
+        for (Index j = 0; j < col.nSons(); ++j)
+          for (Index i = 0; i < row.nSons(); ++i) {
+            Derived &son = block->sons(i + j * row.nSons());
+            son.node().row_cluster_ = std::addressof(row.sons(i));
+            son.node().col_cluster_ = std::addressof(col.sons(j));
+            stack.push_back(std::addressof(son));
+          }
+      }
     }
     return;
   }
