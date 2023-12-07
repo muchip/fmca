@@ -42,5 +42,6 @@ set( PROJECT_SOURCE_DIR "${PROJECT_SOURCE_DIR}")
 include_directories("${PROJECT_SOURCE_DIR}")
 
 add_subdirectory(tests)
+add_subdirectory(Sara_tests)
 add_subdirectory(py)
 enable_testing()
