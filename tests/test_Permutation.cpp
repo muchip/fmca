@@ -23,8 +23,8 @@ int main() {
   FMCA::ClusterTree CT(P, 10);
   FMCA::Vector test(NPTS);
   test.setRandom();
-  auto Pmat = permutationMatrix(CT);
-  auto Pvec = permutationVector(CT);
+  auto Pmat = FMCA::permutationMatrix(CT);
+  auto Pvec = FMCA::permutationVector(CT);
   const FMCA::Matrix PP = P * Pmat;
   for (FMCA::Index i = 0; i < P.cols(); ++i) {
     assert((PP.col(i) - P.col(CT.indices()[i])).norm() == 0 &&
