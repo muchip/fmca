@@ -42,6 +42,9 @@ template <typename ClusterTreeType>
 class H2ClusterTree;
 
 template <typename ClusterTreeType>
+class VOH2ClusterTree;
+
+template <typename ClusterTreeType>
 class H2SampletTree;
 
 template <typename Derived>

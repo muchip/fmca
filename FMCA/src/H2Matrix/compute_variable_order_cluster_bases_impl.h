@@ -9,8 +9,8 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#ifndef FMCA_H2MATRIX_COMPUTECLUSTERBASESIMPL_H_
-#define FMCA_H2MATRIX_COMPUTECLUSTERBASESIMPL_H_
+#ifndef FMCA_H2MATRIX_COMPUTEVARIABLEORDERCLUSTERBASESIMPL_H_
+#define FMCA_H2MATRIX_COMPUTEVARIABLEORDERCLUSTERBASESIMPL_H_
 
 namespace FMCA {
 namespace internal {
