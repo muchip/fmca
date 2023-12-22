@@ -90,7 +90,7 @@ class VOH2ClusterTree
       }
     }
     // init the cluster bases
-    //internal::compute_variable_order_cluster_bases_impl::compute(*this, mom);
+    internal::compute_variable_order_cluster_bases_impl::compute(*this, mom);
   }
 };
 

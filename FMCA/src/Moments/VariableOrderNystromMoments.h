@@ -25,9 +25,9 @@ class VariableOrderNystromMoments {
   }
   //////////////////////////////////////////////////////////////////////////////
   template <typename otherDerived>
-  Matrix moment_matrix(const ClusterTreeBase<otherDerived> &CT,
-                       const Index level = 0) const {
+  Matrix moment_matrix(const ClusterTreeBase<otherDerived> &CT) const {
     const otherDerived &H2T = CT.derived();
+    const Index level = H2T.level();
     Matrix retval(interp_[level].Xi().cols(), H2T.block_size());
     for (auto i = 0; i < H2T.block_size(); ++i)
       retval.col(i) = interp_[level].evalPolynomials(

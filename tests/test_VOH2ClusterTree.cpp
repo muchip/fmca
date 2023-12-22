@@ -16,8 +16,8 @@
 #include "../FMCA/H2Matrix"
 #include "../FMCA/src/util/Tictoc.h"
 
-#define NPTS 10000
-#define DIM 3
+#define NPTS 100000
+#define DIM 1
 #define MPOLE_DEG 3
 
 using Interpolator = FMCA::TotalDegreeInterpolator;
@@ -31,14 +31,17 @@ int main() {
   const FMCA::Matrix P = FMCA::Matrix::Random(DIM, NPTS);
   const Moments mom(P, MPOLE_DEG);
   T.tic();
-  H2ClusterTree ct(mom, 0, P);
+  H2ClusterTree h2ct(mom, 0, P);
   T.toc("H2 cluster tree:");
   FMCA::Index maxlevel = 0;
+  FMCA::ClusterTree ct(P, 4);
   for (const auto &node : ct)
     maxlevel = maxlevel > node.level() ? maxlevel : node.level();
   std::cout << "maximum tree level: " << maxlevel << std::endl;
-  FMCA::iVector degs(maxlevel);
-  for (FMCA::Index i = 0; i < maxlevel; ++i) degs(i) = maxlevel - i - 1;
+  FMCA::iVector degs(maxlevel + 1);
+  for (FMCA::Index i = 0; i <= maxlevel; ++i)
+    degs(i) = 5 + std::floor(FMCA::Scalar(maxlevel - i) / DIM);
+  std::cout << degs << std::endl;
   const VOMoments vomom(P, degs);
   VOH2ClusterTree voct(vomom, ct);
   auto vonode = voct.begin();
@@ -53,6 +56,8 @@ int main() {
            "size error");
     ++vonode;
   }
+  FMCA::internal::compute_variable_order_cluster_bases_impl::
+      check_transfer_matrices(voct, vomom);
 #if 0
   T.tic();
   H2ClusterTree ct(mom, 0, P);
