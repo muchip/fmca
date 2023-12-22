@@ -19,7 +19,7 @@ namespace internal {
  *  \brief implements the forward transform for the matrix times vector product
  */
 template <typename Derived, typename T = Matrix>
-void backward_transform_recursion(const H2ClusterTree<Derived> &ct, T *tvec,
+void backward_transform_recursion(const H2ClusterTreeBase<Derived> &ct, T *tvec,
                                   std::vector<T> &vec) {
   if (ct.nSons()) {
     for (auto i = 0; i < ct.nSons(); ++i) {
