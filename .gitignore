@@ -9,3 +9,12 @@ build/
 FMCA.xcodeproj/
 *.txt
 *.csv
+*.pbxproj
+*.plist
+*.xcuserstate
+*.xcsettings
+*.plist
+*.json
+*.json
+*.txt
+Sara_tests/integration_bunny.dSYM/Contents/Resources/Relocations/aarch64/integration_bunny.yml
