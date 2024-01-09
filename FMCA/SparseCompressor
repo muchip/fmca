@@ -1,0 +1,29 @@
+// This file is part of FMCA, the Fast Multiresolution Covariance Analysis
+// package.
+//
+// Copyright (c) 2022, Michael Multerer
+//
+// All rights reserved.
+//
+// This source code is subject to the GNU Affero General Public License v3.0
+// license and without any warranty, see <https://github.com/muchip/FMCA>
+// for further information.
+//
+#ifndef FMCA_COVARIANCEKERNEL_MODULE_
+#define FMCA_COVARIANCEKERNEL_MODULE_
+
+/**
+ *  \ingroup Modules
+ *  \defgroup SparseCompressor SparseCompressor
+ *  \brief Module providing sparse matrix compressor
+ *
+ **/
+ 
+#include <string>
+
+#include "src/util/Macros.h"
+#include "src/util/SparseMatrix.h"
+
+#include "src/SparseCompressor/sparse_compressor_impl.h"
+
+#endif
