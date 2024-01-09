@@ -4,3 +4,8 @@
 *.swp
 html/
 build/
+.vscode/
+*.json
+FMCA.xcodeproj/
+*.txt
+*.csv
