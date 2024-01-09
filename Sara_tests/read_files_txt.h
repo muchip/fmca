@@ -10,45 +10,60 @@
 
 void readTXT(const std::string &filename, FMCA::Matrix &matrix, int &npts, const int dim) {
     std::ifstream file(filename);
-    std::string line;
-    std::vector<std::vector<double>> data;
+    if (!file.is_open()) {
+        std::cerr << "Error opening file: " << filename << std::endl;
+        exit(EXIT_FAILURE);
+    }
 
+    std::string line;
+    std::vector<double> temp_values;
     while (std::getline(file, line)) {
         std::istringstream linestream(line);
-        std::vector<double> row;
-
         for (int i = 0; i < dim; ++i) {
             double value;
             if (linestream >> value) {
-                row.push_back(value);
+                temp_values.push_back(value);
             } else {
-                // Handle the case where the line doesn't have enough values
                 std::cerr << "Error: Insufficient values in the line." << std::endl;
                 exit(EXIT_FAILURE);
             }
         }
-
-        data.push_back(row);
     }
 
-    npts = data.size();
-    matrix.resize(dim, npts); // Transpose: swap dimensions
-    for (int i = 0; i < dim; ++i) {
-        for (int j = 0; j < npts; ++j) {
-            matrix(i, j) = data[j][i]; // Transpose: swap indices
-        }
+    npts = temp_values.size() / dim;
+    matrix.resize(dim, npts);
+    for (size_t i = 0; i < temp_values.size(); ++i) {
+        matrix(i / npts, i % npts) = temp_values[i];
     }
 }
 
-// int main() {
-//     // Example usage
-//     FMCA::Matrix matrix;
-//     int npts;
-//     const int dim = 2; // Change this to the actual dimension of your data
 
-//     readTXT("baricenters_circle.txt", matrix, npts, dim);
-//     std::cout << matrix << std::endl;
+// Overloaded function for handling vectors
+void readTXT(const std::string &filename, FMCA::Vector &vector, int &npts) {
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "Error opening file: " << filename << std::endl;
+        exit(EXIT_FAILURE);
+    }
 
-    
-//     return 0;
-// }
+    std::string line;
+    std::vector<double> temp_values;
+    while (std::getline(file, line)) {
+        std::istringstream linestream(line);
+        double value;
+        if (linestream >> value) {
+            temp_values.push_back(value);
+        } else {
+            std::cerr << "Error: Insufficient values in the line." << std::endl;
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    npts = temp_values.size();
+    vector.resize(npts);
+    for (int i = 0; i < npts; ++i) {
+        vector(i) = temp_values[i];
+    }
+}
+
+

@@ -7,9 +7,6 @@
 #include "FMCA/Samplets"
 #include "FMCA/src/util/Tictoc.h"
 
-
-#define MPOLE_DEG 6
-
 void readCSV(const std::string &filename, FMCA::Matrix &matrix, int &npts, const int dim) {
     std::ifstream file(filename);
     std::string line, cell;
@@ -33,3 +30,4 @@ void readCSV(const std::string &filename, FMCA::Matrix &matrix, int &npts, const
         }
     }
 }
+

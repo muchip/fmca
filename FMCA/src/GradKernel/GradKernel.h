@@ -35,22 +35,26 @@ namespace FMCA {
         // Transform string to upper case
         for (auto &chr : ktype_) chr = (char)toupper(chr);
         ////////////////////////////////////////////////////////////////////////////
-        if (ktype_ == "GAUSSIAN") 
+        if (ktype_ == "GAUSSIAN")
             gradkernel_ = [this](FMCA::Scalar x, FMCA::Scalar y, FMCA::Scalar r) {
                 return - (x - y) / (l_ * l_) * exp(-0.5 * r * r / (l_ * l_));
             };
+        else if (ktype_ == "MATERN32")
+            gradkernel_ = [this](FMCA::Scalar x, FMCA::Scalar y, FMCA::Scalar r) {
+                return - 3 * (x - y) / (l_ * l_) * exp(-sqrt(3) / l_ * r );
+            };
         ////////////////////////////////////////////////////////////////////////////
-        // else if (ktype_ == "EXPONENTIAL")
-        //     gradkernel_ = [this](FMCA::Scalar x, FMCA::Scalar y, FMCA::Scalar r) { 
-        //         return - (x - y) / (r * l_) * exp(-r / l_); 
-        //     };
+        else if (ktype_ == "EXPONENTIAL")
+            gradkernel_ = [this](FMCA::Scalar x, FMCA::Scalar y, FMCA::Scalar r) {
+                return r < FMCA_ZERO_TOLERANCE ? std::numeric_limits<double>::quiet_NaN() :  - (x - y) / (r * l_) * exp(-r / l_);
+            };
         ////////////////////////////////////////////////////////////////////////////
-        else 
+        else
             assert(false && "desired gradient kernel not implemented");
         }
 
     template <typename derived, typename otherDerived>
-    
+
     FMCA::Scalar operator()(const Eigen::MatrixBase<derived>& x,const Eigen::MatrixBase<otherDerived>& y) const {
         return gradkernel_(x[d_], y[d_], (x - y).norm());
     }
@@ -62,7 +66,7 @@ namespace FMCA {
         return retval;
     }
     std::string gradkernelType() const { return ktype_; }
-    
+
     private:
         std::function<FMCA::Scalar(FMCA::Scalar, FMCA::Scalar, FMCA::Scalar)> gradkernel_;
         std::string ktype_;
@@ -73,4 +77,4 @@ namespace FMCA {
 
 }  // namespace FMCA
 
-#endif 
+#endif

@@ -16,5 +16,7 @@
 
 #include "src/MatrixEvaluator/NystromEvaluator.h"
 #include "src/MatrixEvaluator/unsymmetricNystromEvaluator.h"
+#include "src/MatrixEvaluator/SparseEvaluator.h"
+#include "src/MatrixEvaluator/SparseMatrixEvaluator.h"
 
 #endif

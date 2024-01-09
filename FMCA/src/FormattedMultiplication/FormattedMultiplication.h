@@ -51,7 +51,7 @@ inline double sparse_dot_product(tIndex *tidx, const tSize tsze, tVal *target,
             ++i;
             ++j;
         } else if (sidx[j] < tidx[i]) {
-            ++j;      
+            ++j;
         } else {
             ++i;
         }
@@ -84,8 +84,37 @@ inline double sparse_weighted_dot_product(tIndex *tidx, const tSize tsze, tVal *
     return retval;
 }
 
+template <typename tIndex, typename tSize, typename tVal, typename sIndex, typename sSize, typename sVal, typename uIndex, typename uSize, typename uVal>
+double sparse_triple_product(tIndex *tidx, const tSize tsze, tVal *target,
+                             sIndex *sidx, const sSize ssze, sVal *source,
+                             uIndex *uidx, const uSize usize, uVal *util) {
+    if (!tsze || !ssze || !usize) return 0.;
+    double intermediate_result = 0.;
+    double final_result = 0.;
+    auto i = 0;
+    auto j = 0;
+    auto k = 0;
+    // Compute sparse dot product for A*B
+    while (i < tsze && j < ssze) {
+        if (sidx[j] == tidx[i]) {
+            intermediate_result += target[i] * source[j];
+            ++i;
+            ++j;
+        } else if (sidx[j] < tidx[i]) {
+            ++j;
+        } else {
+            ++i;
+        }
+    }
+    // Multiply by corresponding element in C and accumulate
+    while (k < usize) {
+        final_result += intermediate_result * util[k];
+        ++k;
+    }
+    return final_result;
+}
 
-#if 0 
+#if 0
 template <typename Index, typename Size>
   inline Size binarySearch(const Index *idx, const Size sze, const Size j) {
     Size pos = 0;
@@ -194,7 +223,6 @@ void formatted_sparse_multiplication(largeSparse &pattern,
   const largeSparse::StorageIndex *ia3 = mat2.outerIndexPtr();
   const largeSparse::StorageIndex *ja3 = mat2.innerIndexPtr();
   const largeSparse::Scalar *a3 = mat2.valuePtr();
-  std::cout << "using axpy\n";
 
 #pragma omp parallel for
 for (auto i = 0; i < n; ++i) {
@@ -225,7 +253,6 @@ void formatted_sparse_multiplication_cols(largeSparse_col &pattern,
   const largeSparse::StorageIndex *ia3 = mat2.outerIndexPtr();
   const largeSparse::StorageIndex *ja3 = mat2.innerIndexPtr();
   const largeSparse::Scalar *a3 = mat2.valuePtr();
-  std::cout << "using axpy\n";
 
 #pragma omp parallel for
 for (auto i = 0; i < n; ++i) {
@@ -241,7 +268,7 @@ for (auto i = 0; i < n; ++i) {
 // inner product base matrix multiplication
 void formatted_sparse_multiplication_dotproduct(largeSparse &pattern,
                                                 const largeSparse &mat1,
-                                                const largeSparse &mat2, double scal = 1) {
+                                                const largeSparse &mat2) {
     long long int n = pattern.rows();
     //eigen_assert(mat1.cols() == mat2.rows() && "dimension mismatch");
     largeSparse::StorageIndex *ia = pattern.outerIndexPtr();
@@ -249,10 +276,10 @@ void formatted_sparse_multiplication_dotproduct(largeSparse &pattern,
     largeSparse::Scalar *a = pattern.valuePtr();
     for (int i = 0; i < pattern.nonZeros(); i++) {
       a[i] = 0;
-    }  
+    }
     const largeSparse::StorageIndex *ia2 = mat1.outerIndexPtr();
     const largeSparse::StorageIndex *ja2 = mat1.innerIndexPtr();
-    const largeSparse::Scalar *a2 = mat1.valuePtr(); 
+    const largeSparse::Scalar *a2 = mat1.valuePtr();
     const largeSparse_col::StorageIndex *ia3 = mat2.outerIndexPtr();
     const largeSparse_col::StorageIndex *ja3 = mat2.innerIndexPtr();
     const largeSparse_col::Scalar *a3 = mat2.valuePtr();
@@ -265,6 +292,50 @@ void formatted_sparse_multiplication_dotproduct(largeSparse &pattern,
         }
 return;
 }
+
+void formatted_sparse_multiplication_triple_product(largeSparse &pattern,
+                                                    const largeSparse &mat1,
+                                                    const largeSparse &mat2,
+                                                    const largeSparse &mat3) {
+    // Accessing the sparse matrix elements for pattern, mat1, mat2, and mat3
+    largeSparse::StorageIndex *ia = pattern.outerIndexPtr();
+    largeSparse::Scalar *a = pattern.valuePtr();
+    std::fill_n(a, pattern.nonZeros(), 0);
+    const largeSparse::StorageIndex *ia2 = mat1.outerIndexPtr();
+    const largeSparse::StorageIndex *ja2 = mat1.innerIndexPtr();
+    const largeSparse::Scalar *a2 = mat1.valuePtr();
+    const largeSparse_col::StorageIndex *ia3 = mat2.outerIndexPtr();
+    const largeSparse_col::StorageIndex *ja3 = mat2.innerIndexPtr();
+    const largeSparse_col::Scalar *a3 = mat2.valuePtr();
+    const largeSparse_col::StorageIndex *ia4 = mat3.outerIndexPtr();
+    const largeSparse_col::StorageIndex *ja4 = mat3.innerIndexPtr();
+    const largeSparse_col::Scalar *a4 = mat3.valuePtr();
+    // Computing the temporary rows of mat1*mat2
+    for (auto i = 0; i < mat1.rows(); ++i) {
+    std::vector<double> temp_row(mat2.cols(), 0);
+        for (auto k = ia2[i]; k < ia2[i + 1]; ++k) {
+            for (auto j = ia3[ja2[k]]; j < ia3[ja2[k] + 1]; ++j) {
+                temp_row[ja3[j]] += a2[k] * a3[j];
+            }
+        }
+        // Convert temp_row to sparse format
+        std::vector<largeSparse::StorageIndex> indices;
+        std::vector<largeSparse::Scalar> values;
+        for (size_t k = 0; k < temp_row.size(); ++k) {
+            if (temp_row[k] != 0) {
+                indices.push_back(static_cast<largeSparse::StorageIndex>(k));
+                values.push_back(temp_row[k]);
+            }
+        }
+        // Perform dot product with each column of mat3
+        for (auto j = 0; j < mat3.cols(); ++j) {
+            a[ia[i] + j] = sparse_dot_product(indices.data(), indices.size(), values.data(),
+                                              ja4 + ia4[j], ia4[j + 1] - ia4[j],
+                                              a4 + ia4[j]);
+        }
+    }
+}
+
 
 
 #else

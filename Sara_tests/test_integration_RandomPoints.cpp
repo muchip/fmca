@@ -19,10 +19,9 @@
 #include "../FMCA/src/util/Tictoc.h"
 #include "../FMCA/src/util/permutation.h"
 #include "read_files_txt.h"
-#include "read_files.h"
 
-#define DIM 3
-#define MPOLE_DEG 4
+#define DIM 2
+#define MPOLE_DEG 8
 #define GRADCOMPONENT 0
 
 typedef Eigen::SparseMatrix<double, Eigen::RowMajor, long long int> largeSparse;
@@ -38,34 +37,29 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 int main() {
     // Initialize the matrices of source points, quadrature points, weights
     FMCA::Tictoc T;
-    int NPTS_SOURCE = 500;
-    int NPTS_QUAD;
-    int N_WEIGHTS;
+    int NPTS_SOURCE = 5000;
+    int NPTS_QUAD = 500000;
+    int N_WEIGHTS = 500000;
     FMCA::Matrix P_sources;
     FMCA::Matrix P_quad;
     FMCA::Vector w_vec;
-    // Read the txt files containing the points coords and fill the matrices
-    //P_sources = FMCA::Matrix::Random(DIM, NPTS_SOURCE).array();
-    readTXT("grid_points_bunny_1000.txt", P_sources, NPTS_SOURCE, 3);
-    readTXT("tetrahedra_volumes.txt", w_vec, N_WEIGHTS);
-    readCSV("barycenters.csv", P_quad, NPTS_QUAD, 3);
-    double minElement = *std::min_element(w_vec.begin(), w_vec.end());
-    for (double& element : w_vec) {
-            element /= minElement;
-    } 
+
+    P_sources = (FMCA::Matrix::Random(DIM, NPTS_SOURCE).array());
+    P_quad = (FMCA::Matrix::Random(DIM, NPTS_QUAD).array());
+    w_vec = 0.02 * FMCA::Vector::Random(N_WEIGHTS).array() + 1;
     std::cout << std::string(80, '-') << std::endl;
     std::cout << "Number of source points = " << NPTS_SOURCE << std::endl;
     std::cout << "Number of quad points = " << NPTS_QUAD << std::endl;
     std::cout << "Number of weights = " << N_WEIGHTS << std::endl;
     //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
-    const FMCA::Scalar eta = 0.4;
-    const FMCA::Index dtilde = 4;
-    const FMCA::Scalar threshold = 0;
-    const FMCA::Scalar sigma = 0.5;
+    const FMCA::Scalar eta = .5;
+    const FMCA::Index dtilde = 6;
+    const FMCA::Scalar threshold = 1e-4;
+    const FMCA::Scalar sigma = 0.125;
     const Moments mom_sources(P_sources, MPOLE_DEG);
     const Moments mom_quad(P_quad, MPOLE_DEG);
-    //////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
     // Create the H2 samplet trees and change the basis of T_quad such that the
     // norm square is equal to the weights
     const SampletMoments samp_mom_sources(P_sources, dtilde - 1);
@@ -75,7 +69,7 @@ int main() {
     //FMCA::clusterTreeStatistics(hst_quad, P_quad);
     //FMCA::clusterTreeStatistics(hst_sources, P_sources);
     FMCA::Vector w_perm = w_vec(permutationVector(hst_quad));
-    //////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
     // reweight the samplet tree to accommodate the quadrature weights
     for (auto &&it : hst_quad) {
       FMCA::Matrix &Q = it.node().Q_;
@@ -115,17 +109,17 @@ int main() {
       const usMatrixEvaluator mat_eval(mom_sources, mom_quad, function);
 
     //////////////////////////////////////////////////////////////////////////////
-      // // S_full for the compression error
-      // FMCA::Matrix K_full;
-      // mat_eval.compute_dense_block(hst_sources, hst_quad, &K_full);
-      // FMCA::Matrix S_full = K_full * w_perm.asDiagonal() * K_full.transpose();
-      // // S2 for the multiplication
-      // K_full = hst_sources.sampletTransform(K_full);
-      // K_full = hst_quad.sampletTransform(K_full.transpose()).transpose();
-      // FMCA::Matrix S2 = K_full * K_full.transpose();
-      // // S_full_transf for the compression error
-      // FMCA::Matrix S_full_transf = S_full;
-      // hst_sources.sampletTransformMatrix(S_full_transf);
+    //   // S_full for the compression error
+    //   FMCA::Matrix K_full;
+    //   mat_eval.compute_dense_block(hst_sources, hst_quad, &K_full);
+    //   FMCA::Matrix S_full = K_full * w_perm.asDiagonal() * K_full.transpose();
+    //   // S2 for the multiplication
+    //   K_full = hst_sources.sampletTransform(K_full);
+    //   K_full = hst_quad.sampletTransform(K_full.transpose()).transpose();
+    //   FMCA::Matrix S2 = K_full * K_full.transpose();
+    //   // S_full_transf for the compression error
+    //   FMCA::Matrix S_full_transf = S_full;
+    //   hst_sources.sampletTransformMatrix(S_full_transf);
     //////////////////////////////////////////////////////////////////////////////
 
       //  gradKernel compression
@@ -172,7 +166,7 @@ int main() {
       //////////////////////////////////////////////////////////////////////////// 
       // compression error
       const auto Perms = FMCA::permutationMatrix(hst_sources);
-      //srand(time(NULL));
+      srand(time(NULL));
       FMCA::Vector ek(NPTS_SOURCE), ej(NPTS_SOURCE);
       FMCA::Scalar err_m = 0;
       FMCA::Scalar nrm_m = 0;

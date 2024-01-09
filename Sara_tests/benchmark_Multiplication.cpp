@@ -1,16 +1,14 @@
 // This file is part of FMCA, the Fast Multiresolution Covariance Analysis
 // package.
 #include <sys/time.h>
-
 #include <Eigen/Dense>
 #include <cstdio>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-////////////////////////////////////////////////////////////////////////////////
 #include <../FMCA/Samplets>
-////////////////////////////////////////////////////////////////////////////////
 #include "../FMCA/src/FormattedMultiplication/FormattedMultiplication.h"
+
 class Tictoc {
 public:
   void tic(void) { gettimeofday(&start, NULL); }
