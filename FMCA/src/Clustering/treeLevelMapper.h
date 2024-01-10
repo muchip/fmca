@@ -21,7 +21,8 @@ namespace FMCA {
 
 template <typename Derived>
 void treeLevelMapper(const ClusterTreeBase<Derived> &ct,
-                     std::vector<Index> *s_lvl, std::vector<Index> *id_map) {
+                     std::vector<Index> *s_lvl, std::vector<Index> *id_map,
+                     std::vector<const Derived *> *tree_map = nullptr) {
   Index k = 0;
   Index l = 0;
   Index maxl = 0;
@@ -36,14 +37,28 @@ void treeLevelMapper(const ClusterTreeBase<Derived> &ct,
   s_lvl->resize(maxl + 2);
   id_map->resize(max_id + 1);
 
-  for (const auto &it : ct) {
-    (*id_map)[it.block_id()] = k;
-    if (it.level() != cur_level) {
-      cur_level = it.level();
-      (*s_lvl)[l] = k;
-      ++l;
+  if (tree_map) {
+    tree_map->resize(max_id + 1);
+    for (const auto &it : ct) {
+      (*id_map)[it.block_id()] = k;
+      (*tree_map)[k] = std::addressof(it);
+      if (it.level() != cur_level) {
+        cur_level = it.level();
+        (*s_lvl)[l] = k;
+        ++l;
+      }
+      ++k;
     }
-    ++k;
+  } else {
+    for (const auto &it : ct) {
+      (*id_map)[it.block_id()] = k;
+      if (it.level() != cur_level) {
+        cur_level = it.level();
+        (*s_lvl)[l] = k;
+        ++l;
+      }
+      ++k;
+    }
   }
   (*s_lvl)[l] = k;
 
