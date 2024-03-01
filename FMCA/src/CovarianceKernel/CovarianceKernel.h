@@ -16,6 +16,28 @@ namespace FMCA {
 class CovarianceKernel {
  public:
   CovarianceKernel(){};
+  CovarianceKernel(const CovarianceKernel &other) {
+    kernel_ = other.kernel_;
+    ktype_ = other.ktype_;
+    l_ = other.l_;
+    c_ = other.c_;
+  }
+
+  CovarianceKernel(CovarianceKernel &&other) {
+    kernel_ = other.kernel_;
+    ktype_ = other.ktype_;
+    l_ = other.l_;
+    c_ = other.c_;
+  }
+
+  CovarianceKernel &operator=(CovarianceKernel other) {
+    std::swap(kernel_, other.kernel_);
+    std::swap(ktype_, other.ktype_);
+    std::swap(l_, other.l_);
+    std::swap(c_, other.c_);
+    return *this;
+  }
+
   CovarianceKernel(const std::string &ktype, FMCA::Scalar l = 1.,
                    FMCA::Scalar c = 1.)
       : ktype_(ktype), l_(l), c_(c) {
