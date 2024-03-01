@@ -25,8 +25,10 @@
 #include "src/util/MultiIndexSet.h"
 
 #include "src/Interpolator/LejaPoints.h"
+#include "src/Interpolator/DeMarchiPoints.h"
 #include "src/Interpolator/MonomialInterpolator.h"
 #include "src/Interpolator/TensorProductInterpolator.h"
 #include "src/Interpolator/TotalDegreeInterpolator.h"
+#include "src/Interpolator/WeightedTotalDegreeInterpolator.h"
 
 #endif

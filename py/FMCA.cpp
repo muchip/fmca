@@ -18,6 +18,8 @@
 #include <functional>
 #include <iostream>
 ////////////////////////////////////////////////////////////////////////////////
+#include <FMCA/src/util/Tictoc.h>
+
 #include <FMCA/Clustering>
 #include <FMCA/CovarianceKernel>
 #include <FMCA/H2Matrix>
@@ -35,6 +37,11 @@ using Interpolator = FMCA::TensorProductInterpolator;
 using Moments = FMCA::NystromMoments<Interpolator>;
 using H2ClusterTree = FMCA::H2ClusterTree<FMCA::ClusterTree>;
 using H2Matrix = FMCA::H2Matrix<H2ClusterTree>;
+////////////////////////////////////////////////////////////////////////////////
+
+using MatrixEvaluator = FMCA::NystromEvaluator<Moments, FMCA::CovarianceKernel>;
+using usMatrixEvaluator =
+    FMCA::unsymmetricNystromEvaluator<Moments, FMCA::CovarianceKernel>;
 /**
  *  \brief wrapper class for a samplet tree (for convenience, we only use H2
  *         trees)
@@ -59,34 +66,51 @@ struct pySampletTree {
   FMCA::Index p_;
   FMCA::Index dtilde_;
 };
-////////////////////////////////////////////////////////////////////////////////
 
-using MatrixEvaluator = FMCA::NystromEvaluator<Moments, FMCA::CovarianceKernel>;
 ////////////////////////////////////////////////////////////////////////////////
 /**
  *  \brief wrapper class for an H2Matrix
  *
  **/
 struct pyH2Matrix {
-  pyH2Matrix(){};
-  pyH2Matrix(const FMCA::CovarianceKernel &ker, const FMCA::Matrix &P,
-             const FMCA::Index p = 3, const FMCA::Scalar eta = 0.8) {
-    init(ker, P, p, eta);
+  pyH2Matrix(const FMCA::CovarianceKernel &ker, const FMCA::Matrix &Pr,
+             const FMCA::Matrix &Pc, const FMCA::Index p = 3,
+             const FMCA::Scalar eta = 0.8)
+      : Pr_(Pr), Pc_(Pc), p_(p), eta_(eta) {
+    ker_ = ker;
+    const Moments rmom(Pr_, p_);
+    const Moments cmom(Pc_, p_);
+    rct_.init(rmom, 0, Pr_);
+    cct_.init(cmom, 0, Pc_);
+    hmat_.computePattern(rct_, cct_, eta);
   };
-  void init(const FMCA::CovarianceKernel &ker, const FMCA::Matrix &P,
-            const FMCA::Index p = 3, const FMCA::Scalar eta = 0.8) {
-    p_ = p;
-    eta_ = eta;
-    const Moments mom(P, p_);
-    const MatrixEvaluator mat_eval(mom, ker);
-    ct_.init(mom, 0, P);
-    hmat_.init(ct_, mat_eval, eta);
-  }
+
   FMCA::Matrix statistics() const { return hmat_.statistics(); }
 
+  FMCA::iVector rindices() const {
+    return Eigen::Map<const FMCA::iVector>(rct_.indices(), rct_.block_size());
+  }
+  FMCA::iVector cindices() const {
+    return Eigen::Map<const FMCA::iVector>(cct_.indices(), cct_.block_size());
+  }
+  FMCA::Matrix action(const FMCA::Matrix &rhs) const {
+    using Permutation =
+        Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic>;
+    const Moments rmom(Pr_, p_);
+    const Moments cmom(Pc_, p_);
+    const usMatrixEvaluator mat_eval(rmom, cmom, ker_);
+    const FMCA::Matrix srhs =
+        Permutation(cindices().cast<int>()).transpose() * rhs;
+    const FMCA::Matrix res = hmat_.action(mat_eval, srhs);
+    return Permutation(rindices().cast<int>()) * res;
+  }
   // member variables
+  FMCA::CovarianceKernel ker_;
   H2Matrix hmat_;
-  H2ClusterTree ct_;
+  H2ClusterTree rct_;
+  H2ClusterTree cct_;
+  FMCA::Matrix Pr_;
+  FMCA::Matrix Pc_;
   FMCA::Index p_;
   FMCA::Scalar eta_;
 };
@@ -263,13 +287,12 @@ PYBIND11_MODULE(FMCA, m) {
   // H2Matrix
   //////////////////////////////////////////////////////////////////////////////
   py::class_<pyH2Matrix> pyH2Matrix_(m, "H2Matrix");
-  pyH2Matrix_.def(py::init<>());
-  pyH2Matrix_.def(py::init<const FMCA::CovarianceKernel &, const FMCA::Matrix &,
-                           const FMCA::Index, const FMCA::Scalar>());
-  pyH2Matrix_.def("compute", &pyH2Matrix::init, py::arg().noconvert(),
-                  py::arg().noconvert(), py::arg(), py::arg(),
-                  "Computes the H2Matrix");
+  pyH2Matrix_.def(
+      py::init<const FMCA::CovarianceKernel &, const FMCA::Matrix &,
+               const FMCA::Matrix &, const FMCA::Index, const FMCA::Scalar>());
   pyH2Matrix_.def("statistics", &pyH2Matrix::statistics);
+  pyH2Matrix_.def("action", &pyH2Matrix::action, py::arg().noconvert(),
+                  "computes the matrix-vector product");
   //////////////////////////////////////////////////////////////////////////////
   // SampletCompressor
   //////////////////////////////////////////////////////////////////////////////
@@ -282,7 +305,7 @@ PYBIND11_MODULE(FMCA, m) {
   pySampletKernelCompressor_.def("compute", &pySampletKernelCompressor::init,
                                  py::arg().noconvert(), py::arg().noconvert(),
                                  py::arg().noconvert(), py::arg(), py::arg(),
-                                 "Computes the compressed kernel");
+                                 "computes the compressed kernel");
   pySampletKernelCompressor_.def("matrix", &pySampletKernelCompressor::matrix,
                                  "returns the compressed kernel matrix");
   //////////////////////////////////////////////////////////////////////////////
