@@ -42,17 +42,17 @@ Matrix DeMarchiPoints(const MultiIndexSet &idcs,
   qr.compute(VT);
   const auto &pt_idcs = qr.colsPermutation().indices();
   for (Index i = 0; i < n; ++i) retval.col(i) = Halton_pts.col(pt_idcs(i));
-#if 0
   // compute condition of interpolation
   VT.resize(n, n);
   for (Index i = 0; i < retval.cols(); ++i)
     VT.col(i) = internal::evalPolynomials(idcs, retval.col(i));
   Eigen::JacobiSVD<Matrix> svd;
   svd.compute(VT);
-  std::cout << "DeMarchi points condition:    "
-            << svd.singularValues().maxCoeff() / svd.singularValues().minCoeff()
-            << std::endl;
-#endif
+  if (svd.singularValues().maxCoeff() / svd.singularValues().minCoeff() > 1e6)
+    std::cout << "Ill-conditioned DeMarchi points ("
+              << svd.singularValues().maxCoeff() /
+                     svd.singularValues().minCoeff()
+              << ").\nConsider a different oversampling factor!" << std::endl;
   return retval;
 }
 

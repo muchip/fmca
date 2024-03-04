@@ -30,8 +30,8 @@ class TotalDegreeInterpolator {
     idcs_.init(dim, deg);
     TD_xi_.resize(dim_, idcs_.index_set().size());
     V_.resize(idcs_.index_set().size(), idcs_.index_set().size());
-// determine tensor product interpolation points
 #if 0
+    // this is using Leja points for interpolation
     Index k = 0;
     for (const auto &it : idcs_.index_set()) {
       for (auto i = 0; i < it.size(); ++i) TD_xi_(i, k) = LejaPoints[it[i]];
