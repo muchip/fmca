@@ -66,6 +66,33 @@ class SampletMatrixCompressor {
     return;
   }
 
+  size_t pattern_structure() {
+    // the column cluster tree is traversed bottom up
+    const auto &rclusters = rta_.nodes();
+    const auto &cclusters = rta_.nodes();
+    const auto nclusters = rta_.nodes().size();
+    size_t apriori_entries = 0;
+    for (int ll = 0; ll < pattern_.size(); ++ll) {
+      const size_t map_size = pattern_[ll].size();
+      std::cout << "level: " << ll << "\tnblocks: " << map_size << std::flush;
+      size_t apriori_levelentries = 0;
+      for (const auto &it2 : pattern_[ll]) {
+        const Derived *pr = rclusters[it2.first % nclusters];
+        const Derived *pc = cclusters[it2.first / nclusters];
+        const Index col_id = pc->block_id();
+        const Index row_id = pr->block_id();
+        const Index rows = pr->is_root() ? pr->Q().cols() : pr->nsamplets();
+        const Index cols = pc->is_root() ? pc->Q().cols() : pc->nsamplets();
+        apriori_levelentries += rows * cols;
+      }
+      std::cout << "\tapriori lvl_entries: " << apriori_levelentries
+                << std::endl;
+      apriori_entries += apriori_levelentries;
+    }
+    std::cout << "total apriori entries: " << apriori_entries << std::endl;
+    return apriori_entries;
+  }
+
   template <typename EntGenerator>
   void compress(const EntGenerator &e_gen) {
     // the column cluster tree is traversed bottom up
@@ -179,8 +206,8 @@ class SampletMatrixCompressor {
     return;
   }
   /**
-   *  \brief creates a posteriori thresholded triplets and stores them to in
-   *the triplet list
+   *  \brief creates a posteriori thresholded triplets and stores them
+   *to in the triplet list
    **/
   const std::vector<Eigen::Triplet<Scalar>> &triplets() {
     if (pattern_.size()) {
@@ -241,7 +268,8 @@ class SampletMatrixCompressor {
           e_gen.compute_dense_block(TR, TC, &buf);
           return TR.Q().transpose() * buf * TC.Q();
         case 2:
-          // the row cluster is a leaf cluster: recursion on the col cluster
+          // the row cluster is a leaf cluster: recursion on the col
+          // cluster
           for (auto j = 0; j < TC.nSons(); ++j) {
             const Index nscalfs = TC.sons(j).nscalfs();
             Matrix ret = recursivelyComputeBlock(TR, TC.sons(j), e_gen);
@@ -250,7 +278,8 @@ class SampletMatrixCompressor {
           }
           return buf * TC.Q();
         case 1:
-          // the col cluster is a leaf cluster: recursion on the row cluster
+          // the col cluster is a leaf cluster: recursion on the row
+          // cluster
           for (auto i = 0; i < TR.nSons(); ++i) {
             const Index nscalfs = TR.sons(i).nscalfs();
             Matrix ret = recursivelyComputeBlock(TR.sons(i), TC, e_gen);
