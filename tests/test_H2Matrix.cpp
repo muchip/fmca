@@ -16,7 +16,7 @@
 #include "../FMCA/H2Matrix"
 #include "../FMCA/src/util/Tictoc.h"
 
-#define NPTS 50000000
+#define NPTS 1000000
 #define DIM 2
 #define MPOLE_DEG 3
 
@@ -47,13 +47,13 @@ int main() {
     {
       FMCA::Matrix X(NPTS, 10), Y1(NPTS, 10), Y2(NPTS, 10);
       X.setZero();
+      X.setZero();
       for (auto i = 0; i < 10; ++i) {
         FMCA::Index index = rand() % P.cols();
         FMCA::Vector col = function.eval(P, P.col(ct.indices()[index]));
-        y1 = col(Eigen::Map<const FMCA::iVector>(ct.indices(), ct.block_size()));
-        y2 = hmat * x;
-        err += (y1 - y2).squaredNorm();
-        nrm += y1.squaredNorm();
+        Y1.col(i) =
+            col(Eigen::Map<const FMCA::iVector>(ct.indices(), ct.block_size()));
+        X(index, i) = 1;
       }
       std::cout << "set test data" << std::endl;
       T.tic();
