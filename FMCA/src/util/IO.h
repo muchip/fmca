@@ -13,6 +13,7 @@
 #define FMCA_UTIL_IO_H_
 
 #include <fstream>
+#include <iomanip>
 
 #include "Macros.h"
 
