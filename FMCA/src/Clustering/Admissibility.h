@@ -32,7 +32,6 @@ template <typename Derived, typename otherDerived>
 Admissibility compareCluster(const ClusterTreeBase<Derived> &cluster1,
                              const ClusterTreeBase<otherDerived> &cluster2,
                              Scalar eta) {
-  Admissibility retval;
   const Scalar dist = computeDistance(cluster1, cluster2);
   const Scalar row_radius = 0.5 * cluster1.bb().col(2).norm();
   const Scalar col_radius = 0.5 * cluster2.bb().col(2).norm();
