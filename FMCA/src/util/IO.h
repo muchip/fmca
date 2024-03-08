@@ -660,6 +660,7 @@ Matrix ascii2Matrix(const std::string &filename) {
   // Read numbers from file into buffer.
   std::ifstream infile;
   infile.open(filename);
+    assert(infile.is_open());
   while (!infile.eof()) {
     std::string line;
     std::getline(infile, line);
