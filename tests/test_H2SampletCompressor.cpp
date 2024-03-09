@@ -47,6 +47,9 @@ int main() {
       FMCA::internal::SampletMatrixCompressor<H2SampletTree> Scomp;
       Scomp.init(hst, eta, threshold);
       T.toc("planner:                     ");
+      size_t bla = Scomp.pattern_structure();
+      std::cout << "apriori anz:                  "
+                << std::round(bla / FMCA::Scalar(NPTS)) << std::endl;
       T.tic();
       Scomp.compress(mat_eval);
       T.toc("compressor:                  ");
