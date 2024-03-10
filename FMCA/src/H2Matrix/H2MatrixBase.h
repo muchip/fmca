@@ -169,7 +169,7 @@ struct H2MatrixBase : TreeBase<Derived> {
       stack.pop_back();
       const RowCType &row = *(block->rcluster());
       const ColCType &col = *(block->ccluster());
-      const Admissibility adm = compareCluster(row, col, eta);
+      const Admissibility adm = Derived::CC::compare(row, col, eta);
       if (adm == LowRank) {
         const Index brows = row.nSons() ? row.Es()[0].rows() : row.V().rows();
         const Index bcols = col.nSons() ? col.Es()[0].rows() : col.V().rows();
