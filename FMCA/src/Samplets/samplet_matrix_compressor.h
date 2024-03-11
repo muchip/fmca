@@ -289,7 +289,7 @@ class SampletMatrixCompressor {
                   const Matrix &block) {
     for (auto k = 0; k < ncols; ++k)
       for (auto j = 0; j < nrows; ++j)
-        if ((srow + j <= scol + k && abs(block(j, k)) > threshold_) ||
+        if ((srow + j <= scol + k && std::abs(block(j, k)) > threshold_) ||
             srow + j == scol + k)
           triplet_buffer.push_back(
               Eigen::Triplet<Scalar>(srow + j, scol + k, block(j, k)));
