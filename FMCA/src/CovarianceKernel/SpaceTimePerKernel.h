@@ -40,6 +40,8 @@ class SpaceTimePerKernel {
     return retval;
   }
 
+  std::string kernelType() const { return ktype_; }
+
  private:
   FMCA::Scalar l_;
   FMCA::Scalar c_;
