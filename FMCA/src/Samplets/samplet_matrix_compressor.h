@@ -68,7 +68,6 @@ class SampletMatrixCompressor {
 
   template <typename EntGenerator>
   void compress(const EntGenerator &e_gen) {
-    triplet_list_.clear();
     // the column cluster tree is traversed bottom up
     const auto &rclusters = rta_.nodes();
     const auto &cclusters = rta_.nodes();
@@ -167,18 +166,9 @@ class SampletMatrixCompressor {
             const Derived *pr = rclusters[it2->first % nclusters];
             const Derived *pc = cclusters[it2->first / nclusters];
             Matrix &block = it2->second;
-
-            if (!pr->is_root() && !pc->is_root()) {
-              std::vector<Triplet<Scalar>> list;
-              storeBlock(
-                  list, pr->start_index(), pc->start_index(), pr->nsamplets(),
-                  pc->nsamplets(),
-                  block.bottomRightCorner(pr->nsamplets(), pc->nsamplets()));
-              block.resize(0, 0);
-#pragma omp critical
-              triplet_list_.insert(triplet_list_.end(), list.begin(),
-                                   list.end());
-            }
+            if (!pr->is_root() && !pc->is_root())
+              block = block.bottomRightCorner(pr->nsamplets(), pc->nsamplets())
+                          .eval();
             prev_i = i;
 #pragma omp atomic capture
             i = pos++;
@@ -193,13 +183,14 @@ class SampletMatrixCompressor {
    *the triplet list
    **/
   const std::vector<Eigen::Triplet<Scalar>> &triplets() {
+    if (pattern_.size()) {
+      triplet_list_.clear();
 #pragma omp parallel for schedule(dynamic)
-    for (Index i = 0; i < pattern_.size(); ++i) {
-      std::vector<Triplet<Scalar>> list;
-      for (auto &&it : pattern_[i]) {
-        const Derived *pr = rta_.nodes()[it.first % rta_.nodes().size()];
-        const Derived *pc = rta_.nodes()[it.first / rta_.nodes().size()];
-        if (it.second.size() > 0) {
+      for (Index i = 0; i < pattern_.size(); ++i) {
+        std::vector<Triplet<Scalar>> list;
+        for (auto &&it : pattern_[i]) {
+          const Derived *pr = rta_.nodes()[it.first % rta_.nodes().size()];
+          const Derived *pc = rta_.nodes()[it.first / rta_.nodes().size()];
           if (!pr->is_root() && !pc->is_root())
             storeBlock(
                 list, pr->start_index(), pc->start_index(), pr->nsamplets(),
@@ -214,11 +205,11 @@ class SampletMatrixCompressor {
                        pr->Q().cols(), pc->Q().cols(), it.second);
           it.second.resize(0, 0);
         }
-      }
 #pragma omp critical
-      triplet_list_.insert(triplet_list_.end(), list.begin(), list.end());
+        triplet_list_.insert(triplet_list_.end(), list.begin(), list.end());
+      }
+      pattern_.resize(0);
     }
-    pattern_.resize(0);
     return triplet_list_;
   }
 
