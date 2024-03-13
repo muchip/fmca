@@ -40,7 +40,7 @@ struct GeometricBisection {
     Index offs = c1.indices_begin_;
     while (low < high) {
       while (low < high && P(longest, idcs[offs + low]) <= pivot) ++low;
-      while (P(longest, idcs[offs + high]) > pivot) --high;
+      while (high > 0 && P(longest, idcs[offs + high]) > pivot) --high;
       if (low < high) std::swap(idcs[offs + low], idcs[offs + high]);
     }
     c1.block_size_ = low;
