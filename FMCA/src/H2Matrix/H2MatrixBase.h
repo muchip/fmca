@@ -94,7 +94,7 @@ struct H2MatrixBase : TreeBase<Derived> {
     retval(1, 0) = cols();
     retval(2, 0) = lr_blocks;
     retval(3, 0) = f_blocks;
-    retval(4, 0) = round(Scalar(mem) / (node().col_cluster_)->block_size());
+    retval(4, 0) = round(Scalar(mem) / (node().row_cluster_)->block_size());
     retval(5, 0) = Scalar(mem * sizeof(Scalar)) / 1e9;
     std::cout << "matrix size:                  " << rows() << " x " << cols()
               << std::endl;
@@ -137,7 +137,7 @@ struct H2MatrixBase : TreeBase<Derived> {
         const Index j = it.ccluster()->block_id();
         const Index ii = (it.rcluster())->indices_begin();
         const Index jj = (it.ccluster())->indices_begin();
-        if (it.is_low_rank()) {
+        if (it.is_low_rank() && trhs[j].size()) {
           mat_eval.interpolate_kernel(*(it.rcluster()), *(it.ccluster()), &S);
           tlhs[i] += S * trhs[j];
         } else {
