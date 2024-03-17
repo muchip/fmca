@@ -122,9 +122,9 @@ struct ClusterTreeInitializer<ClusterTree> {
     // fix potential flat bounding boxes
     for (Index i = 0; i < bbmat.rows(); ++i)
       if (bbmat(i, 1) - bbmat(i, 0) < FMCA_ZERO_TOLERANCE) {
-        bbmat(i, 1) += 10 * FMCA_BBOX_THREASHOLD;
-        bbmat(i, 0) -= 10 * FMCA_BBOX_THREASHOLD;
-        bbmat(i, 2) = 20 * FMCA_BBOX_THREASHOLD;
+        bbmat(i, 1) += 100 * FMCA_BBOX_THREASHOLD;
+        bbmat(i, 0) -= 100 * FMCA_BBOX_THREASHOLD;
+        bbmat(i, 2) = bbmat(i, 1) - bbmat(i, 0);
       }
 
     CT.node().bb_ = bbmat;

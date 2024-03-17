@@ -86,7 +86,7 @@ struct H2MatrixBase : TreeBase<Derived> {
           mem += brows * bcols;
         } else {
           ++f_blocks;
-          mem += row.block_size() * row.block_size();
+          mem += row.block_size() * col.block_size();
         }
       }
     }
