@@ -25,6 +25,10 @@ class SampletMatrixCompressor {
     init(ST, eta, threshold);
   }
 
+  const std::vector<LevelBuffer> &pattern() { return pattern_; };
+
+  const RandomTreeAccessor<Derived> &rta() { return rta_; };
+
   /**
    *  \brief creates the matrix pattern based on the cluster tree and the
    *         admissibility condition
@@ -178,6 +182,35 @@ class SampletMatrixCompressor {
     }
     return;
   }
+
+  /**
+   *  \brief creates a posteriori thresholded triplets and stores them to in
+   *the triplet list
+   **/
+  std::vector<Eigen::Triplet<Scalar>> a_priori_pattern_triplets() {
+    std::vector<Eigen::Triplet<Scalar>> retval;
+#pragma omp parallel for schedule(dynamic)
+    for (Index i = 0; i < pattern_.size(); ++i) {
+      std::vector<Triplet<Scalar>> list;
+      for (auto &&it : pattern_[i]) {
+        const Derived *pr = rta_.nodes()[it.first % rta_.nodes().size()];
+        const Derived *pc = rta_.nodes()[it.first / rta_.nodes().size()];
+        if (!pr->is_root() && !pc->is_root())
+          storeEmptyBlock(list, pr->start_index(), pc->start_index(),
+                          pr->nsamplets(), pc->nsamplets());
+        else if (!pc->is_root())
+          storeEmptyBlock(list, pr->start_index(), pc->start_index(),
+                          pr->Q().cols(), pc->nsamplets());
+        else if (pr->is_root() && pc->is_root())
+          storeEmptyBlock(list, pr->start_index(), pc->start_index(),
+                          pr->Q().cols(), pc->Q().cols());
+      }
+#pragma omp critical
+      retval.insert(triplet_list_.end(), list.begin(), list.end());
+    }
+    return retval;
+  }
+
   /**
    *  \brief creates a posteriori thresholded triplets and stores them to in
    *the triplet list
@@ -293,6 +326,15 @@ class SampletMatrixCompressor {
             srow + j == scol + k)
           triplet_buffer.push_back(
               Eigen::Triplet<Scalar>(srow + j, scol + k, block(j, k)));
+  }
+
+  void storeEmptyBlock(std::vector<Eigen::Triplet<Scalar>> &triplet_buffer,
+                       Index srow, Index scol, Index nrows, Index ncols) {
+    for (auto k = 0; k < ncols; ++k)
+      for (auto j = 0; j < nrows; ++j)
+        if ((srow + j <= scol + k)
+          triplet_buffer.push_back(
+              Eigen::Triplet<Scalar>(srow + j, scol + k, 0));
   }
   //////////////////////////////////////////////////////////////////////////////
   typedef std::map<size_t, Matrix, std::greater<size_t>> LevelBuffer;
