@@ -68,14 +68,14 @@ struct ClusterTreeBase : public TreeBase<Derived> {
 
   Index block_size() const { return node().block_size_; }
 
-  Matrix toClusterOrder(const Matrix& mat) {
+  Matrix toClusterOrder(const Matrix& mat) const {
     Matrix retval = mat;
     for (FMCA::Index j = 0; j < block_size(); ++j)
       retval.row(j) = mat.row(indices()[j]);
     return retval;
   }
 
-  Matrix toNaturalOrder(const Matrix& mat) {
+  Matrix toNaturalOrder(const Matrix& mat) const {
     Matrix retval = mat;
     for (FMCA::Index j = 0; j < block_size(); ++j)
       retval.row(indices()[j]) = mat.row(j);
