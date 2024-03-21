@@ -19,6 +19,7 @@ namespace internal {
 template <typename Derived, typename ClusterComparison = CompareCluster>
 class SampletMatrixCompressor {
  public:
+  typedef std::map<size_t, Matrix, std::greater<size_t>> LevelBuffer;
   SampletMatrixCompressor() {}
   SampletMatrixCompressor(const SampletTreeBase<Derived> &ST, Scalar eta,
                           Scalar threshold = 0) {
@@ -332,12 +333,11 @@ class SampletMatrixCompressor {
                        Index srow, Index scol, Index nrows, Index ncols) {
     for (auto k = 0; k < ncols; ++k)
       for (auto j = 0; j < nrows; ++j)
-        if ((srow + j <= scol + k)
+        if (srow + j <= scol + k)
           triplet_buffer.push_back(
               Eigen::Triplet<Scalar>(srow + j, scol + k, 0));
   }
   //////////////////////////////////////////////////////////////////////////////
-  typedef std::map<size_t, Matrix, std::greater<size_t>> LevelBuffer;
   std::vector<Triplet<Scalar>> triplet_list_;
   std::vector<LevelBuffer> pattern_;
   RandomTreeAccessor<Derived> rta_;
