@@ -36,6 +36,18 @@ void markActiveClusters(std::vector<bool> &active,
 }
 
 template <typename Derived>
+void makeTree(std::vector<bool> &active,
+              const FMCA::SampletTreeBase<Derived> &st) {
+  if (st.nSons())
+    for (FMCA::Index i = 0; i < st.nSons(); ++i) {
+      makeTree(active, st.sons(i));
+      active[st.block_id()] =
+          active[st.sons(i).block_id()] ? true : active[st.block_id()];
+    }
+  return;
+}
+
+template <typename Derived>
 void getActiveLeafs(std::vector<const Derived *> &active_leafs,
                     const std::vector<bool> &active,
                     const FMCA::SampletTreeBase<Derived> &st) {
