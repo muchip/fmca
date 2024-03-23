@@ -64,15 +64,16 @@ std::vector<const Derived *> adaptiveTreeSearch(
       e(node.block_id()) += q(node.block_id());
     }
   }
-
+  std::cout << " " << e(0) << " " << tdata.squaredNorm() << std::endl;
   // set up etilde functional (top down tree traversal)
   for (auto it = cluster_map.begin(); it != cluster_map.end(); ++it) {
     const Derived &node = **it;
     // assign root cluster
     if (node.is_root()) etilde(node.block_id()) = e(node.block_id());
     // update q (either it is root or etilde was set by the parent)
-    q(node.block_id()) *= etilde(node.block_id()) /
-                          (e(node.block_id()) + etilde(node.block_id()));
+    q(node.block_id()) *=
+        etilde(node.block_id()) /
+        (e(node.block_id()) + etilde(node.block_id()) + FMCA_ZERO_TOLERANCE);
     // set etilde for the children
     for (Index i = 0; i < node.nSons(); ++i)
       etilde(node.sons(i).block_id()) = q(node.block_id());
@@ -92,7 +93,9 @@ std::vector<const Derived *> adaptiveTreeSearch(
     retval[block_ids[nnz]] = cluster_map[block_ids[nnz]];
     ++nnz;
   }
-
+  std::cout << "total energy in tree:         " << total_Etilde << std::endl;
+  std::cout << "total number of clusters:     " << nclusters << std::endl;
+  std::cout << "clusters in adaptive tree:    " << nnz << std::endl;
   // add also non present children
   for (Index i = 0; i < retval.size(); ++i)
     if (retval[i] != nullptr) {
