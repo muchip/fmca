@@ -142,7 +142,7 @@ struct H2MatrixBase : TreeBase<Derived> {
           tlhs[i] += S * trhs[j];
         } else {
           mat_eval.compute_dense_block(*(it.rcluster()), *(it.ccluster()), &S);
-          lhs.middleRows(ii, S.rows()) += S * rhs.middleRows(jj, S.cols());
+	  lhs.middleRows(ii, S.rows()) += S * rhs.middleRows(jj, S.cols());
         }
       }
     }
