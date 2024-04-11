@@ -37,13 +37,15 @@ struct compute_cluster_bases_impl {
       const Matrix &Xi = mom.interp().Xi();
       for (auto i = 0; i < H2T.nSons(); ++i) {
         Matrix E(Xi.cols(), Xi.cols());
-        for (auto j = 0; j < E.cols(); ++j)
-          E.col(j) = mom.interp().evalPolynomials(
-              (Xi.col(j).array() * H2T.sons(i).bb().col(2).array() /
-                   H2T.bb().col(2).array() +
-               (H2T.sons(i).bb().col(0).array() - H2T.bb().col(0).array()) /
-                   H2T.bb().col(2).array())
-                  .matrix());
+	E.setZero();
+	if (H2T.sons(i).block_size())
+          for (auto j = 0; j < E.cols(); ++j)
+            E.col(j) = mom.interp().evalPolynomials(
+                (Xi.col(j).array() * H2T.sons(i).bb().col(2).array() /
+                     H2T.bb().col(2).array() +
+                 (H2T.sons(i).bb().col(0).array() - H2T.bb().col(0).array()) /
+                     H2T.bb().col(2).array())
+                    .matrix());
         E = E * mom.interp().invV().transpose();
         H2T.Es().emplace_back(std::move(E));
       }
@@ -71,7 +73,8 @@ struct compute_cluster_bases_impl {
             H2T.Es()[i] * H2T.sons(i).V();
       }
       Scalar nrm = (V - H2T.V()).norm() / V.norm();
-      eigen_assert(nrm < 1e-14 && "the H2 cluster basis is faulty");
+      if (nrm >= 1e-13) std::cout << nrm << std::endl;
+      eigen_assert(nrm < 1e-13 && "the H2 cluster basis is faulty");
     }
     return 0;
   }

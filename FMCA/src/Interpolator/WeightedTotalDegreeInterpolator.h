@@ -9,14 +9,14 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#ifndef FMCA_INTERPOLATORS_TOTALDEGREEINTERPOLATOR_H_
-#define FMCA_INTERPOLATORS_TOTALDEGREEINTERPOLATOR_H_
+#ifndef FMCA_INTERPOLATORS_WEIGHTEDTOTALDEGREEINTERPOLATOR_H_
+#define FMCA_INTERPOLATORS_WEIGHTEDTOTALDEGREEINTERPOLATOR_H_
 
 #include "evalPolynomials.h"
 
 namespace FMCA {
 
-class TotalDegreeInterpolator {
+class WeightedTotalDegreeInterpolator {
  public:
   /**
    *  \brief These are the corresponding weights of the Chebyshev nodes
@@ -24,14 +24,20 @@ class TotalDegreeInterpolator {
    *         as the nodes are on [0,1]. However, this does not matter as
    *         the factor cancels.
    **/
-  void init(Index dim, Index deg) {
+  void init(Index dim, Index deg, const std::vector<Scalar> &w) {
     dim_ = dim;
     deg_ = deg;
-    idcs_.init(dim, deg);
+    assert(w[0] == 1 && "first weight needs to be normalized");
+    for (Index i = 1; i < w.size(); ++i) {
+      assert(w[i - 1] <= w[i] && "weights need to be ordered non-decreasingly");
+    }
+    idcs_.init(dim, deg, w);
+    std::cout << "number of polynomials:        " << idcs_.index_set().size()
+              << std::endl;
     TD_xi_.resize(dim_, idcs_.index_set().size());
     V_.resize(idcs_.index_set().size(), idcs_.index_set().size());
+// determine tensor product interpolation points
 #if 0
-    // this is using Leja points for interpolation
     Index k = 0;
     for (const auto &it : idcs_.index_set()) {
       for (auto i = 0; i < it.size(); ++i) TD_xi_(i, k) = LejaPoints[it[i]];
@@ -53,7 +59,7 @@ class TotalDegreeInterpolator {
   const Matrix &V() const { return V_; }
   const Index dim() const { return dim_; }
   const Index deg() const { return deg_; }
-  const MultiIndexSet<TotalDegree> &idcs() const { return idcs_; }
+  const MultiIndexSet<WeightedTotalDegree> &idcs() const { return idcs_; }
 
   template <typename Derived>
   Matrix evalPolynomials(const Eigen::MatrixBase<Derived> &pt) const {
@@ -61,7 +67,7 @@ class TotalDegreeInterpolator {
   }
 
  private:
-  MultiIndexSet<TotalDegree> idcs_;
+  MultiIndexSet<WeightedTotalDegree> idcs_;
   Matrix TD_xi_;
   Matrix invV_;
   Matrix V_;

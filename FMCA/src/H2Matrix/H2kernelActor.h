@@ -39,7 +39,7 @@ class H2kernelActor {
     Matrix lhs(h2mat_.rows(), rhs.cols());
     Matrix srhs = rhs;
     // change ordering to the one induced by hst_
-    for (Index i = 0; i < hct_.indices().size(); ++i)
+    for (Index i = 0; i < hct_.block_size(); ++i)
       srhs.row(i) = rhs.row(hct_.indices()[i]);
     lhs.setZero();
     // forward transform righ hand side
@@ -74,7 +74,7 @@ class H2kernelActor {
     internal::backward_transform_recursion(*(h2mat_.rcluster()), &lhs, tlhs);
     // reverse ordering to the one given by Peval
     Matrix retval = lhs;
-    for (Index i = 0; i < hct_eval_.indices().size(); ++i)
+    for (Index i = 0; i < hct_eval_.block_size(); ++i)
       retval.row(hct_eval_.indices()[i]) = lhs.row(i);
     return retval;
   }
@@ -88,8 +88,9 @@ class H2kernelActor {
   const H2ClusterTree hct_eval_;
   const Index mpole_deg_;
   const Scalar eta_;
-  H2Matrix<H2ClusterTree> h2mat_;
-  std::vector<std::vector<const H2Matrix<H2ClusterTree> *>> scheduler_;
+  H2Matrix<H2ClusterTree, CompareCluster> h2mat_;
+  std::vector<std::vector<const H2Matrix<H2ClusterTree, CompareCluster> *>>
+      scheduler_;
 };
 
 }  // namespace FMCA

@@ -44,7 +44,7 @@ class H2ClusterTree;
 template <typename ClusterTreeType>
 class H2SampletTree;
 
-template <typename Derived>
+template <typename Derived, typename ClusterComparison>
 struct H2Matrix;
 
 struct ClusterTreeNode;

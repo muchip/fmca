@@ -86,7 +86,7 @@ struct H2MatrixBase : TreeBase<Derived> {
           mem += brows * bcols;
         } else {
           ++f_blocks;
-          mem += row.block_size() * row.block_size();
+          mem += row.block_size() * col.block_size();
         }
       }
     }
@@ -94,7 +94,7 @@ struct H2MatrixBase : TreeBase<Derived> {
     retval(1, 0) = cols();
     retval(2, 0) = lr_blocks;
     retval(3, 0) = f_blocks;
-    retval(4, 0) = round(Scalar(mem) / (node().col_cluster_)->block_size());
+    retval(4, 0) = round(Scalar(mem) / (node().row_cluster_)->block_size());
     retval(5, 0) = Scalar(mem * sizeof(Scalar)) / 1e9;
     std::cout << "matrix size:                  " << rows() << " x " << cols()
               << std::endl;
@@ -137,12 +137,12 @@ struct H2MatrixBase : TreeBase<Derived> {
         const Index j = it.ccluster()->block_id();
         const Index ii = (it.rcluster())->indices_begin();
         const Index jj = (it.ccluster())->indices_begin();
-        if (it.is_low_rank()) {
+        if (it.is_low_rank() && trhs[j].size()) {
           mat_eval.interpolate_kernel(*(it.rcluster()), *(it.ccluster()), &S);
           tlhs[i] += S * trhs[j];
         } else {
           mat_eval.compute_dense_block(*(it.rcluster()), *(it.ccluster()), &S);
-          lhs.middleRows(ii, S.rows()) += S * rhs.middleRows(jj, S.cols());
+	  lhs.middleRows(ii, S.rows()) += S * rhs.middleRows(jj, S.cols());
         }
       }
     }
@@ -169,7 +169,7 @@ struct H2MatrixBase : TreeBase<Derived> {
       stack.pop_back();
       const RowCType &row = *(block->rcluster());
       const ColCType &col = *(block->ccluster());
-      const Admissibility adm = compareCluster(row, col, eta);
+      const Admissibility adm = Derived::CC::compare(row, col, eta);
       if (adm == LowRank) {
         const Index brows = row.nSons() ? row.Es()[0].rows() : row.V().rows();
         const Index bcols = col.nSons() ? col.Es()[0].rows() : col.V().rows();

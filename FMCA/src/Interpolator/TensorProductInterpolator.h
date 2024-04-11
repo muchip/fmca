@@ -73,7 +73,7 @@ class TensorProductInterpolator {
     Index k = 0;
     for (const auto &it : idcs_.index_set()) {
       for (auto i = 0; i < dim_; ++i)
-        if (abs(my_pt(i) - xi_(it[i])) > FMCA_ZERO_TOLERANCE)
+        if (std::abs(my_pt(i) - xi_(it[i])) > FMCA_ZERO_TOLERANCE)
           retval(k) *= w_(it[i]) / (my_pt(i) - xi_(it[i])) / weight(i);
       ++k;
     }

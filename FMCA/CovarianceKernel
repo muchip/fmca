@@ -24,5 +24,6 @@
 #include "src/util/Macros.h"
 
 #include "src/CovarianceKernel/CovarianceKernel.h"
+#include "src/CovarianceKernel/SpaceTimePerKernel.h"
 
 #endif
