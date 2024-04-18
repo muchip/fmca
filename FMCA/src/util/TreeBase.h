@@ -46,6 +46,32 @@ class TreeBase {
   TreeBase() noexcept : dad_(nullptr), level_(0) {
     node_ = std::unique_ptr<Node>(new Node);
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // other constructors should follow in the future... -> big three
+  TreeBase(TreeBase &&other) {
+    // if a tree is copied, the current node is always considered as root;
+    dad_ = nullptr;
+    level_ = 0;
+    // swap sons
+    sons_.swap(other.sons_);
+    // swap node
+    node_.swap(other.node_);
+    // fix topology of the tree (std guarantees that all addresses remain intact
+    // in principle, however we need to fix the level in any case)
+    std::vector<TreeBase *> stack;
+    stack.push_back(this);
+    while (stack.size()) {
+      TreeBase *node = stack.back();
+      stack.pop_back();
+      for (TreeBase &s : sons_) {
+        s.dad_ = node;
+        s.level_ = node->level_ + 1;
+        stack.push_back(std::addressof(s));
+      }
+    }
+  }
+
   //////////////////////////////////////////////////////////////////////////////
   using iterator = IDDFSForwardIterator<Derived, false>;
   using const_iterator = IDDFSForwardIterator<Derived, true>;
