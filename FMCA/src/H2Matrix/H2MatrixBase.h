@@ -1,7 +1,7 @@
 // This file is part of FMCA, the Fast Multiresolution Covariance Analysis
 // package.
 //
-// Copyright (c) 2022, Michael Multerer
+// Copyright (c) 2024, Michael Multerer
 //
 // All rights reserved.
 //
@@ -35,9 +35,7 @@ struct H2MatrixNodeBase : public NodeBase<Derived> {
 
 /**
  *  \ingroup H2Matrix
- *  \brief The H2Matrix class manages H2 matrices for a given
- *         H2ClusterTree.
-
+ *  \brief The H2MatrixBase class is the common base class for all H2 matrices
  */
 template <typename Derived>
 struct H2MatrixBase : TreeBase<Derived> {
@@ -75,7 +73,7 @@ struct H2MatrixBase : TreeBase<Derived> {
     size_t f_blocks = 0;
     size_t mem = 0;
     assert(is_root() && "statistics needs to be called from root");
-    for (auto &&it : *this) {
+    for (const auto &it : *this) {
       const RowCType &row = *(it.rcluster());
       const ColCType &col = *(it.ccluster());
       if (!it.nSons()) {
@@ -110,6 +108,8 @@ struct H2MatrixBase : TreeBase<Derived> {
     return internal::matrix_vector_product_impl(*this, rhs);
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+  // matrix free matrix-vector product no H2 matrix is assembled
   template <typename MatrixEvaluator>
   Matrix action(const MatrixEvaluator &mat_eval, const Matrix &rhs) const {
     std::vector<std::vector<const Derived *>> scheduler;
@@ -142,7 +142,7 @@ struct H2MatrixBase : TreeBase<Derived> {
           tlhs[i] += S * trhs[j];
         } else {
           mat_eval.compute_dense_block(*(it.rcluster()), *(it.ccluster()), &S);
-	  lhs.middleRows(ii, S.rows()) += S * rhs.middleRows(jj, S.cols());
+          lhs.middleRows(ii, S.rows()) += S * rhs.middleRows(jj, S.cols());
         }
       }
     }
@@ -154,9 +154,9 @@ struct H2MatrixBase : TreeBase<Derived> {
   //////////////////////////////////////////////////////////////////////////////
   Matrix full() const {
     assert(is_root() && "full needs to be called from root");
-    Matrix I(cols(), cols());
-    return *this * I;
+    return *this * Matrix::Identity(cols(), cols());
   }
+  //////////////////////////////////////////////////////////////////////////////
   void computePattern(const RowCType &CT1, const ColCType &CT2, Scalar eta) {
     node().nrclusters_ = std::distance(CT1.cbegin(), CT1.cend());
     node().ncclusters_ = std::distance(CT2.cbegin(), CT2.cend());
@@ -188,6 +188,35 @@ struct H2MatrixBase : TreeBase<Derived> {
       }
     }
     return;
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  Derived copyPattern() const {
+    Derived retval;
+
+    std::vector<std::pair<const Derived *, Derived *>> stack;
+    stack.emplace_back(std::make_pair(std::addressof(this->derived()),
+                                      std::addressof(retval)));
+    while (stack.size()) {
+      const Derived &source_block = *(stack.back().first);
+      Derived &target_block = *(stack.back().second);
+      stack.pop_back();
+      // copy H2Matrix node
+      target_block.node().nrclusters_ = source_block.node().nrclusters_;
+      target_block.node().ncclusters_ = source_block.node().ncclusters_;
+      target_block.node().row_cluster_ = source_block.node().row_cluster_;
+      target_block.node().col_cluster_ = source_block.node().col_cluster_;
+      target_block.node().is_low_rank_ = source_block.node().is_low_rank_;
+      // add possible children
+      if (source_block.nSons()) {
+        target_block.appendSons(source_block.nSons());
+        for (Index i = 0; i < source_block.nSons(); ++i)
+          stack.emplace_back(
+              std::make_pair(std::addressof(source_block.sons(i)),
+                             std::addressof(target_block.sons(i))));
+      }
+    }
+    return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
   template <typename MatrixEvaluator>
