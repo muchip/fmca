@@ -146,7 +146,7 @@ int main() {
 
     //////////////////////////////////////////////////////////////////////////////
     // Comparison triple product vs eigen product
-    FMCA::Matrix pattern_matrix = FMCA::Matrix(pattern);
+    FMCA::Matrix pattern_matrix = FMCA::Matrix(pattern).selfadjointView<Eigen::Upper>();
     std::cout << "eigen-triple_prod:               "
               << (FMCA::Matrix(res_eigen) - pattern_matrix).norm() /
                      FMCA::Matrix(res_eigen).norm()
