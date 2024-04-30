@@ -207,7 +207,7 @@ class SampletMatrixCompressor {
                           pr->Q().cols(), pc->Q().cols());
       }
 #pragma omp critical
-      retval.insert(triplet_list_.end(), list.begin(), list.end());
+      retval.insert(retval.end(), list.begin(), list.end());
     }
     return retval;
   }
