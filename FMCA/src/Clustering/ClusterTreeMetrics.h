@@ -39,7 +39,9 @@ Index updateClusterMinDistance(Vector &min_dist, Scalar max_min_dist,
                                const ClusterTreeBase<Derived> &c1,
                                const ClusterTreeBase<Derived> &c2,
                                const Matrix &P) {
-  Scalar dist = computeDistance(c1, c2);
+  const FMCA::Vector u = (c1.bb().col(0) - c2.bb().col(1)).cwiseMax(0);
+  const FMCA::Vector v = (c2.bb().col(0) - c1.bb().col(1)).cwiseMax(0);
+  Scalar dist = sqrt(u.squaredNorm() + v.squaredNorm());
   Index dups = 0;
   if (max_min_dist >= dist) {
     if (c2.nSons()) {
