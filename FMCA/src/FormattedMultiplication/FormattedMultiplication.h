@@ -345,6 +345,9 @@ void formatted_sparse_multiplication_dotproduct(largeSparse &pattern,
   return;
 }
 
+// This triple product was created to compute the integral of the stiffness matrix using kernels,
+// so it aims to compute K * W * K^T. The result pattern will be symmetric. In case of
+// generic triple product multiplication, pattern and mat3 has to be taken transpose --> col major)
 void formatted_sparse_multiplication_triple_product(largeSparse &pattern,
                                                     const largeSparse &mat1,
                                                     const largeSparse &mat2,
@@ -352,7 +355,7 @@ void formatted_sparse_multiplication_triple_product(largeSparse &pattern,
   largeSparse::StorageIndex *ia = pattern.outerIndexPtr();
   largeSparse::StorageIndex *ja = pattern.innerIndexPtr();
   largeSparse::Scalar *a = pattern.valuePtr();
-  
+
 #pragma omp parallel for schedule(dynamic)
   for (auto i = 0; i < pattern.rows(); ++i) {
     Eigen::SparseVector<double> mat2_mat3_col = mat2 * mat3.row(i).transpose();

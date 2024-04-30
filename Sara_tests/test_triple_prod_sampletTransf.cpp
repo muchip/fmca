@@ -1,15 +1,18 @@
+
+/* We test the triple product in FormattedMultiplication.h
+We rely on the FMCA library by M.Multerer.
+ */
+
 #include <Eigen/Dense>
 #include <iostream>
 
+#include "../FMCA/FormattedMultiplication"
 #include "../FMCA/GradKernel"
 #include "../FMCA/MatrixEvaluator"
 #include "../FMCA/Samplets"
-#include "../FMCA/src/FormattedMultiplication/FormattedMultiplication.h"
-#include "../FMCA/src/SparseCompressor/sparse_compressor_impl.h"
+#include "../FMCA/SparseCompressor"
 #include "../FMCA/src/util/Tictoc.h"
 #include "../FMCA/src/util/permutation.h"
-#include "read_files.h"
-#include "read_files_txt.h"
 
 #define DIM 2
 #define GRADCOMPONENT
@@ -29,18 +32,18 @@ using MatrixEvaluatorKernel =
 
 int main() {
   FMCA::Tictoc T;
+  // Initialize the points
   int NPTS_SOURCE = 10000;
   int NPTS_QUAD = 10000;
   int N_WEIGHTS = NPTS_QUAD;
   FMCA::Matrix P_sources;
   FMCA::Matrix P_quad;
   FMCA::Vector w_vec;
-
   P_sources = (FMCA::Matrix::Random(DIM, NPTS_SOURCE).array());
   P_quad = (FMCA::Matrix::Random(DIM, NPTS_QUAD).array());
   w_vec = 0.1 * FMCA::Vector::Random(NPTS_QUAD).array() + 1;
-  // w_vec.setOnes();
   //////////////////////////////////////////////////////////////////////////////
+  // Parameters
   const FMCA::Scalar eta = 0.5;
   const FMCA::Index dtilde = 4;
   const FMCA::Scalar threshold = 1e-6;
@@ -62,7 +65,6 @@ int main() {
             << *std::min_element(w_vec.begin(), w_vec.end()) << std::endl;
   std::cout << "maximum element:                     "
             << *std::max_element(w_vec.begin(), w_vec.end()) << std::endl;
-
   std::cout << std::string(80, '-') << std::endl;
   std::cout << "sigma = " << sigma << std::endl;
   std::cout << "eta = " << eta << std::endl;
@@ -73,10 +75,10 @@ int main() {
   // Create a sparse diagonal matrix from the vector 'w'
   FMCA::Vector w_perm = w_vec(permutationVector(hst_quad));
   FMCA::SparseMatrix<FMCA::Scalar> W(w_perm.size(), w_perm.size());
-  // this foor loop has been checked
   for (int i = 0; i < w_perm.size(); ++i) {
     W.insert(i, i) = w_perm(i);
   }
+  // Compress the weight matrix
   FMCA::SparseMatrixEvaluator mat_eval_weights(W);
   FMCA::internal::SampletMatrixCompressor<H2SampletTree> Wcomp;
   Wcomp.init(hst_quad, eta, threshold);
@@ -92,8 +94,7 @@ int main() {
   Wcomp_largeSparse.setFromTriplets(trips_weights.begin(), trips_weights.end());
   Wcomp_largeSparse.makeCompressed();
   //////////////////////////////////////////////////////////////////////////////
-
-  for (int i = 0; i < 1; ++i) {
+  for (int i = 0; i < DIM; ++i) {
     std::cout << std::string(80, '-') << std::endl;
     const FMCA::GradKernel function("GAUSSIAN", sigma, 1, i);
     const usMatrixEvaluator mat_eval(mom_sources, mom_quad, function);
@@ -113,19 +114,8 @@ int main() {
     Scomp_largeSparse.setFromTriplets(trips.begin(), trips.end());
     Scomp_largeSparse.makeCompressed();
     //////////////////////////////////////////////////////////////////////////////
-    // eigen multiplication
-    // set the pattern as a dense matrix --> BAD, to be modified
-
-    // largeSparse pattern(NPTS_SOURCE, NPTS_SOURCE);
-    // std::vector<Eigen::Triplet<double>> triplets;
-    // for (long long int i = 0; i < NPTS_SOURCE; ++i) {
-    //   for (long long int j = i; j < NPTS_SOURCE; ++j) {
-    //     triplets.push_back(Eigen::Triplet<double>(i, j, 1.0));
-    //   }
-    // }
-    // pattern.setFromTriplets(triplets.begin(), triplets.end());
-    // pattern.makeCompressed();
-
+    // create the pattern for the triple product result --> the pattern is the
+    // Samplet compression pattern
     const FMCA::CovarianceKernel kernel_funtion_ss("MATERN32", 0.1);
     const MatrixEvaluatorKernel mat_eval_kernel_ss(mom_sources,
                                                    kernel_funtion_ss);
@@ -133,24 +123,19 @@ int main() {
     Kcomp_ss.init(hst_sources, eta, threshold);
     std::vector<Eigen::Triplet<FMCA::Scalar>> a_priori_triplets =
         Kcomp_ss.a_priori_pattern_triplets();
-    // Kcomp_ss.compress(mat_eval_weights);
     largeSparse pattern(NPTS_SOURCE, NPTS_SOURCE);
     pattern.setFromTriplets(a_priori_triplets.begin(), a_priori_triplets.end());
     pattern.makeCompressed();
-
-    // std::cout << FMCA::Matrix(pattern) << std::endl;
 
     T.tic();
     formatted_sparse_multiplication_triple_product(
         pattern, Scomp_largeSparse,
         Wcomp_largeSparse.selfadjointView<Eigen::Upper>(), Scomp_largeSparse);
-    // pattern = pattern.selfadjointView<Eigen::Upper>();
     double mult_time = T.toc();
     std::cout << "multiplication time component " << i << ":             "
               << mult_time << std::endl;
-
     //////////////////////////////////////////////////////////////////////////////
-    // eigen multiplication
+    // Eigen multiplication
     T.tic();
     largeSparse res_eigen = Scomp_largeSparse *
                             Wcomp_largeSparse.selfadjointView<Eigen::Upper>() *
@@ -159,48 +144,13 @@ int main() {
     std::cout << "eigen multiplication time component " << i << ":      "
               << mult_time_eigen << std::endl;
 
-    FMCA::Matrix pattern_matrix =
-        FMCA::Matrix(pattern).selfadjointView<Eigen::Upper>();
+    //////////////////////////////////////////////////////////////////////////////
+    // Comparison triple product vs eigen product
+    FMCA::Matrix pattern_matrix = FMCA::Matrix(pattern);
     std::cout << "eigen-triple_prod:               "
               << (FMCA::Matrix(res_eigen) - pattern_matrix).norm() /
                      FMCA::Matrix(res_eigen).norm()
-              << std::endl;  // ok only beacuse pattern is symmetric, if not
-                             // transpose()
-    //////////////////////////////////////////////////////////////////////////////
-    // error
-    // srand(time(NULL));
-    // FMCA::Vector ek(NPTS_SOURCE), ej(NPTS_SOURCE);
-    // FMCA::Scalar err_m = 0;
-    // FMCA::Scalar nrm_m = 0;
-    // for (auto n = 0; n < 100; ++n) {
-    //   FMCA::Index k = rand() % NPTS_SOURCE;
-    //   FMCA::Index j = rand() % NPTS_SOURCE;
-    //   ek.setZero();
-    //   ek(k) = 1;
-    //   ej.setZero();
-    //   ej(j) = 1;
-
-    //   FMCA::Matrix P_sources_k = P_sources.col(hst_sources.indices()[k]);
-    //   FMCA::Matrix gradK_row = function.eval(P_sources_k, P_quad);
-    //   FMCA::Matrix P_sources_j = P_sources.col(hst_sources.indices()[j]);
-    //   FMCA::Matrix gradK_col = function.eval(P_sources_j, P_quad);
-    //   FMCA::Matrix y_original =
-    //       gradK_row * w_vec.asDiagonal() * gradK_col.transpose();
-
-    //   FMCA::Vector ek_transf;
-    //   ek_transf = hst_sources.sampletTransform(ek);
-    //   FMCA::Vector ej_transf;
-    //   ej_transf = hst_sources.sampletTransform(ej);
-    //   FMCA::Matrix y_reconstructed =
-    //       ek_transf.transpose() * (res_eigen * ej_transf).eval();
-
-    //   err_m += (y_original - y_reconstructed).squaredNorm();
-    //   nrm_m += (y_original).squaredNorm();
-    // }
-    // err_m = sqrt(err_m / nrm_m);
-    // std::cout << "compression error:                    " << err_m <<
-    // std::endl
-    //           << std::flush;
+              << std::endl;
   }
   return 0;
 }
