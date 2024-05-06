@@ -153,6 +153,52 @@ struct RandomProjection {
   }
 };
 
+struct FastRandomProjection {
+  static std::string splitterName() { return "FastRandomProjection"; }
+  template <class CTNode>
+  void operator()(const Matrix &P, CTNode &c1, CTNode &c2) const {
+    Index *idcs = c1.indices_.get() + c1.indices_begin_;
+    const Index D = P.rows();
+    const Index bsize = c1.block_size_;
+    const Scalar sqrtD = std::sqrt(Scalar(D));
+    // create random direction
+    Vector v = Matrix::Random(D, 1);
+    Vector projections(bsize);
+    v *= (1. / v.norm());
+    // project all points into the random direction
+    for (Index i = 0; i < bsize; ++i) projections(i) = P.col(idcs[i]).dot(v);
+    const Scalar mean = projections.mean();
+    // use middle point along the random projection direction
+    const Vector x = P.col(idcs[0]);
+    Scalar max_dist = 0;
+    // determine point of max distance
+    for (Index i = 0; i < bsize; ++i) {
+      const Scalar dist = (x - P.col(idcs[i])).norm();
+      max_dist = max_dist > dist ? max_dist : dist;
+    }
+    // set delta
+    const Scalar rdm = 2. * Scalar(std::rand()) / Scalar(RAND_MAX) - 1.;
+    const Scalar delta = rdm * 6. * max_dist / sqrtD;
+    const Scalar pivot = mean + delta;
+    // now split the index vector
+    Index low = 0;
+    Index high = c1.block_size_ - 1;
+    while (low < high) {
+      while (low < high && projections(low) <= pivot) ++low;
+      while (high > 0 && projections(high) > pivot) --high;
+      if (low < high) {
+        std::swap(idcs[low], idcs[high]);
+        std::swap(projections[low], projections[high]);
+      }
+    }
+    c1.block_size_ = low;
+    c2.block_size_ -= low;
+    c2.indices_begin_ += low;
+    // note that no bounding boxes are updated here as this does not make
+    // sense rather let this be handled by shrinktofit
+  }
+};
+
 }  // namespace ClusterSplitter
 }  // namespace FMCA
 #endif
