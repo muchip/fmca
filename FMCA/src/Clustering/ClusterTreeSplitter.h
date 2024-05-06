@@ -103,7 +103,12 @@ struct RandomProjection {
     // project all points into the random direction
     for (Index i = 0; i < bsize; ++i) projections(i) = P.col(idcs[i]).dot(v);
     // sort father index set with respect to the projections array
-    std::sort(loc_idcs.begin(), loc_idcs.end(), ArrayCompare(projections));
+    {
+      std::sort(loc_idcs.begin(), loc_idcs.end(), ArrayCompare(projections));
+      std::vector<Index> sorted_indices(bsize);
+      for (Index i = 0; i < bsize; ++i) sorted_indices[i] = idcs[loc_idcs[i]];
+      std::memcpy(idcs, sorted_indices.data(), bsize * sizeof(Index));
+    }
     // determine splitting point (median assumes that array is never empty)
     const Scalar median = bsize % 2
                               ? projections(loc_idcs[bsize / 2])
@@ -133,7 +138,7 @@ struct RandomProjection {
         it = split_bsize;
         step = count / 2;
         it += step;
-        if (projections(idcs[it]) < medpdelta) {
+        if (projections(loc_idcs[it]) < medpdelta) {
           split_bsize = ++it;
           count -= step + 1;
         } else
