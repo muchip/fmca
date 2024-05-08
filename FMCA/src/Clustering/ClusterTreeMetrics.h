@@ -113,6 +113,30 @@ Vector minDistanceVector(const ClusterTreeBase<Derived> &CT, const Matrix &P) {
   return min_distance;
 }
 
+Vector fastMinDistanceVector(const Matrix &P, const Index samples = 10,
+                             const Index min_size = 300) {
+  Vector retval(P.cols());
+  // initialize the vector with some distances
+  for (Index i = 0; i < P.cols(); ++i)
+    retval(i) = (P.col(i) - P.col((i + 1) % P.cols())).norm();
+  for (Index s = 0; s < samples; ++s) {
+    RandomProjectionTree rt(P, min_size);
+    for (const auto &it : rt)
+      if (!it.nSons()) {
+        for (Index i = 0; i < it.block_size(); ++i)
+          for (Index j = 0; j < i; ++j) {
+            const Scalar dist =
+                (P.col(it.indices()[i]) - P.col(it.indices()[j])).norm();
+            retval(it.indices()[i]) =
+                retval(it.indices()[i]) < dist ? retval(it.indices()[i]) : dist;
+            retval(it.indices()[j]) =
+                retval(it.indices()[j]) < dist ? retval(it.indices()[j]) : dist;
+          }
+      }
+  }
+  return retval;
+}
+
 template <typename Derived>
 void clusterTreeStatistics(const ClusterTreeBase<Derived> &CT,
                            const Matrix &P) {

@@ -13,7 +13,6 @@
 #include <iostream>
 
 #include "../FMCA/Clustering"
-#include "../FMCA/src/Clustering/RandomProjectionTree.h"
 #include "../FMCA/src/util/IO.h"
 #include "../FMCA/src/util/Tictoc.h"
 
@@ -21,7 +20,6 @@
 #define NPTS 100000
 
 int main() {
-  std::srand(std::time(0));
   FMCA::Tictoc T;
   FMCA::Matrix P = Eigen::MatrixXd::Random(DIM, NPTS);
   FMCA::Vector colr(NPTS);
@@ -52,5 +50,24 @@ int main() {
   FMCA::IO::plotPointsColor("clusters.vtk", P3D, colr);
   FMCA::IO::plotBoxes2D("boxes.vtk", bbvec, colr2);
 
+  std::cout << "testing fill distance and separation radius\n";
+  {
+    FMCA::Matrix P = Eigen::MatrixXd::Random(20, 100000);
+    FMCA::ClusterTree ct(P, 100);
+    T.tic();
+    FMCA::Vector ex_min_dist = FMCA::minDistanceVector(ct, P);
+    T.toc("exact min distance: ");
+    T.tic();
+    FMCA::Vector min_dist = FMCA::fastMinDistanceVector(P);
+    T.toc("app min distance: ");
+    std::cout << "sep / fill exact: " << ex_min_dist.minCoeff() << " "
+              << ex_min_dist.maxCoeff() << std::endl;
+    std::cout << "sep / fill approx: " << min_dist.minCoeff() << " "
+              << min_dist.maxCoeff() << std::endl;
+    std::cout << "err: "
+              << std::abs(ex_min_dist.minCoeff() - min_dist.minCoeff()) << " "
+              << std::abs(ex_min_dist.maxCoeff() - min_dist.maxCoeff())
+              << std::endl;
+  }
   return 0;
 }
