@@ -7,6 +7,9 @@ include_directories(${CMAKE_SOURCE_DIR}/FMCA)
 add_executable(test_ClusterTreeMetrics.out test_ClusterTreeMetrics.cpp)
 add_test(ClusterTreeMetrics test_ClusterTreeMetrics.out)
 
+add_executable(test_H2DualClusterBases.out test_H2DualClusterBases.cpp)
+add_test(H2Matrix test_H2DualClusterBases.out)
+
 add_executable(test_H2Matrix.out test_H2Matrix.cpp)
 add_test(H2Matrix test_H2Matrix.out)
 
