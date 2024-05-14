@@ -218,7 +218,11 @@ struct HMatrixBase : TreeBase<Derived> {
           if (it->is_low_rank()) {
             ACA(mat_eval, row, col, &(it->matrixL()), &(it->matrixR()), prec);
           } else {
-            mat_eval.compute_dense_block(row, col, &(it->matrixF()));
+            (it->matrixF()).resize(row.block_size(), col.block_size());
+            for (Index j = 0; j < col.block_size(); ++j)
+              for (Index i = 0; i < row.block_size(); ++i)
+                (it->matrixF())(i, j) =
+                    mat_eval(row.indices()[i], col.indices()[j]);
           }
         }
         prev_i = i;
