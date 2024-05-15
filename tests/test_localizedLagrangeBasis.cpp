@@ -36,11 +36,11 @@ using H2Matrix = FMCA::H2Matrix<H2ClusterTree>;
 using HMatrix = FMCA::HMatrix<H2ClusterTree>;
 int main(int argc, char *argv[]) {
   FMCA::Tictoc T;
-  const FMCA::Index npts = 3000;
-  const FMCA::Index dim = 3;
+  const FMCA::Index npts = 10000;
+  const FMCA::Index dim = 2;
   const FMCA::Index K = 2;
   const FMCA::Index mpole_deg = 1;
-  const FMCA::CovarianceKernel kernel("EXPONENTIAL", 1.);
+  const FMCA::CovarianceKernel kernel("MATERN32", .1);
   const FMCA::Matrix P = FMCA::Matrix::Random(dim, npts);
 
   T.tic();
@@ -97,9 +97,9 @@ int main(int argc, char *argv[]) {
   std::cout << "anz:                          " << triplets.size() / npts
             << std::endl;
   {
-    FMCA::Matrix X(npts, 10), Y1(npts, 10), Y2(npts, 10);
+    FMCA::Matrix X(npts, 100), Y1(npts, 100), Y2(npts, 100);
     X.setZero();
-    for (auto i = 0; i < 10; ++i) {
+    for (auto i = 0; i < 100; ++i) {
       FMCA::Index index = rand() % P.cols();
       FMCA::Vector col = kernel.eval(P, P.col(CT.indices()[index]));
       Y1.col(i) =
@@ -118,9 +118,9 @@ int main(int argc, char *argv[]) {
 
   hmat.statistics();
   {
-    FMCA::Matrix X(npts, 10), Y1(npts, 10), Y2(npts, 10);
+    FMCA::Matrix X(npts, 100), Y1(npts, 100), Y2(npts, 100);
     X.setZero();
-    for (auto i = 0; i < 10; ++i) {
+    for (auto i = 0; i < 100; ++i) {
       FMCA::Index index = rand() % P.cols();
       FMCA::Vector col = kernel.eval(P, P.col(CT.indices()[index]));
       Y1.col(i) =
@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
     std::cout << std::string(60, '-') << std::endl;
   }
 
-  FMCA::Matrix X(npts, 10), Y1(npts, 10), Y2(npts, 10);
+  FMCA::Matrix X(npts, 100), Y1(npts, 100), Y2(npts, 100);
   X.setRandom();
   Y1 = hmat * X;
   Y2 = invK * Y1;
@@ -146,13 +146,13 @@ int main(int argc, char *argv[]) {
   for (FMCA::Index j = 0; j < invHK.cols(); ++j)
     for (FMCA::Index i = 0; i < invHK.rows(); ++i)
       invHKoord(i, j) = invHK(inv_idcs[i], inv_idcs[j]);
-  const HMatrix invhmat(CT, invHKoord, 0.8, 1e-6);
+  const HMatrix invhmat(CT, invHKoord, 0.8, 3e-4);
   invhmat.statistics();
   T.toc("inverted full H matrix / rec:");
   {
-    FMCA::Matrix X(npts, 10), Y1(npts, 10), Y2(npts, 10);
+    FMCA::Matrix X(npts, 100), Y1(npts, 100), Y2(npts, 100);
     X.setZero();
-    for (auto i = 0; i < 10; ++i) {
+    for (auto i = 0; i < 100; ++i) {
       FMCA::Index index = rand() % P.cols();
       FMCA::Vector col = invHK.col(index);
       Y1.col(i) = col;
