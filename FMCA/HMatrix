@@ -23,6 +23,7 @@
 #include "src/util/Macros.h"
 
 #include "src/HMatrix/ACA.h"
+#include "src/HMatrix/SVD.h"
 #include "src/HMatrix/HMatrixBase.h"
 #include "src/HMatrix/HMatrix.h"
 #endif
