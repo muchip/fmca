@@ -9,23 +9,28 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#ifndef FMCA_H2MATRIX_H2MATRIXBASE_H_
-#define FMCA_H2MATRIX_H2MATRIXBASE_H_
+#ifndef FMCA_HMATRIX_HMATRIXBASE_H_
+#define FMCA_HMATRIX_HMATRIXBASE_H_
 
 namespace FMCA {
 
 /**
- *  \ingroup H2Matrix
- *  \brief H2MatrixNodeBase defines the basic fields required for an
- *         abstract H2Matrix
+ *  \ingroup HMatrix
+ *  \brief HMatrixNodeBase defines the basic fields required for an
+ *         abstract HMatrix
  **/
 template <typename Derived>
-struct H2MatrixNodeBase : public NodeBase<Derived> {
-  H2MatrixNodeBase()
+struct HMatrixNodeBase : public NodeBase<Derived> {
+  HMatrixNodeBase()
       : row_cluster_(nullptr), col_cluster_(nullptr), is_low_rank_(false) {
-    S_.resize(0, 0);
+    F_.resize(0, 0);
+    L_.resize(0, 0);
+    R_.resize(0, 0);
   }
-  Matrix S_;
+  Matrix F_;
+  Matrix L_;
+  Matrix R_;
+
   const typename internal::traits<Derived>::RowCType *row_cluster_;
   const typename internal::traits<Derived>::ColCType *col_cluster_;
   Index nrclusters_;
@@ -34,11 +39,11 @@ struct H2MatrixNodeBase : public NodeBase<Derived> {
 };
 
 /**
- *  \ingroup H2Matrix
- *  \brief The H2MatrixBase class is the common base class for all H2 matrices
+ *  \ingroup HMatrix
+ *  \brief The HMatrixBase class is the common base class for all H2 matrices
  */
 template <typename Derived>
-struct H2MatrixBase : TreeBase<Derived> {
+struct HMatrixBase : TreeBase<Derived> {
   typedef TreeBase<Derived> Base;
   // make base class methods visible
   using Base::appendSons;
@@ -63,8 +68,13 @@ struct H2MatrixBase : TreeBase<Derived> {
   const RowCType *rcluster() const { return node().row_cluster_; }
   const ColCType *ccluster() const { return node().col_cluster_; }
   bool is_low_rank() const { return node().is_low_rank_; }
-  const Matrix &matrixS() const { return node().S_; }
-  Matrix &matrixS() { return node().S_; }
+  const Matrix &matrixF() const { return node().F_; }
+  Matrix &matrixF() { return node().F_; }
+  const Matrix &matrixL() const { return node().L_; }
+  Matrix &matrixL() { return node().L_; }
+  const Matrix &matrixR() const { return node().R_; }
+  Matrix &matrixR() { return node().R_; }
+
   //////////////////////////////////////////////////////////////////////////////
   // (m, n, fblocks, lrblocks, nz(A), mem)
   Matrix statistics() const {
@@ -74,17 +84,13 @@ struct H2MatrixBase : TreeBase<Derived> {
     size_t mem = 0;
     assert(is_root() && "statistics needs to be called from root");
     for (const auto &it : *this) {
-      const RowCType &row = *(it.rcluster());
-      const ColCType &col = *(it.ccluster());
       if (!it.nSons()) {
         if (it.is_low_rank()) {
-          const Index brows = row.nSons() ? row.Es()[0].rows() : row.V().rows();
-          const Index bcols = col.nSons() ? col.Es()[0].rows() : col.V().rows();
           ++lr_blocks;
-          mem += brows * bcols;
+          mem += it.matrixL().size() + it.matrixR().size();
         } else {
           ++f_blocks;
-          mem += row.block_size() * col.block_size();
+          mem += it.matrixF().size();
         }
       }
     }
@@ -105,50 +111,49 @@ struct H2MatrixBase : TreeBase<Derived> {
   }
 
   Matrix operator*(const Matrix &rhs) const {
-    return internal::matrix_vector_product_impl(*this, rhs);
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-  // matrix free matrix-vector product no H2 matrix is assembled
-  template <typename MatrixEvaluator>
-  Matrix action(const MatrixEvaluator &mat_eval, const Matrix &rhs) const {
-    std::vector<std::vector<const Derived *>> scheduler;
-    Matrix lhs = Matrix::Zero(rows(), rhs.cols());
-    // forward transform righ hand side
-    std::vector<Matrix> trhs = internal::forward_transform_impl(*this, rhs);
-    std::vector<Matrix> tlhs(nrclusters());
-    for (const auto &it : *(rcluster())) {
-      if (it.nSons())
-        tlhs[it.block_id()].resize(it.Es()[0].rows(), rhs.cols());
-      else
-        tlhs[it.block_id()].resize(it.V().rows(), rhs.cols());
-      tlhs[it.block_id()].setZero();
-    }
-    scheduler.resize(ncclusters());
-    for (const auto &it : *this)
-      if (!it.nSons())
-        scheduler[it.ccluster()->block_id()].push_back(std::addressof(it));
-    for (const auto &it2 : scheduler) {
-#pragma omp parallel for schedule(dynamic)
-      for (Index k = 0; k < it2.size(); ++k) {
-        Matrix S;
-        const Derived &it = *(it2[k]);
-        const Index i = it.rcluster()->block_id();
-        const Index j = it.ccluster()->block_id();
-        const Index ii = (it.rcluster())->indices_begin();
-        const Index jj = (it.ccluster())->indices_begin();
-        if (it.is_low_rank() && trhs[j].size()) {
-          mat_eval.interpolate_kernel(*(it.rcluster()), *(it.ccluster()), &S);
-          tlhs[i] += S * trhs[j];
-        } else {
-          mat_eval.compute_dense_block(*(it.rcluster()), *(it.ccluster()), &S);
-          lhs.middleRows(ii, S.rows()) += S * rhs.middleRows(jj, S.cols());
+    Matrix retval(rows(), rhs.cols());
+    retval.setZero();
+    Index pos = 0;
+#pragma omp parallel shared(pos)
+    {
+      Matrix loc_ret(rows(), rhs.cols());
+      loc_ret.setZero();
+      Index i = 0;
+      Index prev_i = 0;
+      auto it = this->begin();
+#pragma omp atomic capture
+      i = pos++;
+      while (it != this->end()) {
+        Index dist = i - prev_i;
+        while (dist > 0 && it != this->end()) {
+          --dist;
+          ++it;
         }
+        if (it == this->end()) break;
+        if (!(it->nSons())) {
+          const RowCType &row = *(it->rcluster());
+          const ColCType &col = *(it->ccluster());
+          if (it->is_low_rank()) {
+            loc_ret.middleRows(row.indices_begin(), row.block_size()) +=
+                it->matrixL() *
+                (it->matrixR().transpose() *
+                 rhs.middleRows(col.indices_begin(), col.block_size()))
+                    .eval();
+
+          } else {
+            loc_ret.middleRows(row.indices_begin(), row.block_size()) +=
+                it->matrixF() *
+                rhs.middleRows(col.indices_begin(), col.block_size());
+          }
+        }
+        prev_i = i;
+#pragma omp atomic capture
+        i = pos++;
       }
+#pragma omp critical
+      retval += loc_ret;
     }
-    // backward transform left hand side
-    internal::backward_transform_recursion(*(rcluster()), &lhs, tlhs);
-    return lhs;
+    return retval;
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -171,11 +176,7 @@ struct H2MatrixBase : TreeBase<Derived> {
       const ColCType &col = *(block->ccluster());
       const Admissibility adm = Derived::CC::compare(row, col, eta);
       if (adm == LowRank) {
-        const Index brows = row.nSons() ? row.Es()[0].rows() : row.V().rows();
-        const Index bcols = col.nSons() ? col.Es()[0].rows() : col.V().rows();
-        // only use low-rank if it is actually cheaper than storing the block
-        (block->node()).is_low_rank_ =
-            (brows * bcols < row.block_size() * col.block_size());
+        (block->node()).is_low_rank_ = true;
       } else if (adm == Refine) {
         block->appendSons(row.nSons() * col.nSons());
         for (Index j = 0; j < col.nSons(); ++j)
@@ -191,37 +192,10 @@ struct H2MatrixBase : TreeBase<Derived> {
   }
 
   //////////////////////////////////////////////////////////////////////////////
-  Derived copyPattern() const {
-    Derived retval;
-
-    std::vector<std::pair<const Derived *, Derived *>> stack;
-    stack.emplace_back(std::make_pair(std::addressof(this->derived()),
-                                      std::addressof(retval)));
-    while (stack.size()) {
-      const Derived &source_block = *(stack.back().first);
-      Derived &target_block = *(stack.back().second);
-      stack.pop_back();
-      // copy H2Matrix node
-      target_block.node().nrclusters_ = source_block.node().nrclusters_;
-      target_block.node().ncclusters_ = source_block.node().ncclusters_;
-      target_block.node().row_cluster_ = source_block.node().row_cluster_;
-      target_block.node().col_cluster_ = source_block.node().col_cluster_;
-      target_block.node().is_low_rank_ = source_block.node().is_low_rank_;
-      // add possible children
-      if (source_block.nSons()) {
-        target_block.appendSons(source_block.nSons());
-        for (Index i = 0; i < source_block.nSons(); ++i)
-          stack.emplace_back(
-              std::make_pair(std::addressof(source_block.sons(i)),
-                             std::addressof(target_block.sons(i))));
-      }
-    }
-    return retval;
-  }
-  //////////////////////////////////////////////////////////////////////////////
   template <typename MatrixEvaluator>
-  void computeH2Matrix(const RowCType &CT1, const ColCType &CT2,
-                       const MatrixEvaluator &mat_eval, Scalar eta) {
+  void computeHMatrix(const RowCType &CT1, const ColCType &CT2,
+                      const MatrixEvaluator &mat_eval, const Scalar eta,
+                      const Scalar prec = 1e-6) {
     computePattern(CT1, CT2, eta);
     Index pos = 0;
 #pragma omp parallel shared(pos)
@@ -241,10 +215,11 @@ struct H2MatrixBase : TreeBase<Derived> {
         if (!(it->nSons())) {
           const RowCType &row = *(it->rcluster());
           const ColCType &col = *(it->ccluster());
-          if (it->is_low_rank())
-            mat_eval.interpolate_kernel(row, col, &(it->matrixS()));
-          else
-            mat_eval.compute_dense_block(row, col, &(it->matrixS()));
+          if (it->is_low_rank()) {
+            ACA(mat_eval, row, col, &(it->matrixL()), &(it->matrixR()), prec);
+          } else {
+            mat_eval.compute_dense_block(row, col, &(it->matrixF()));
+          }
         }
         prev_i = i;
 #pragma omp atomic capture

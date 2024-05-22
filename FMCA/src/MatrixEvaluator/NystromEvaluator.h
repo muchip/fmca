@@ -70,6 +70,21 @@ struct NystromEvaluator {
     return;
   }
 
+  /**
+   *  \brief provides the evaluaton of a matrix entry given
+   *         an index pair
+   **/
+  Scalar compute_entry(const Index i, const Index j) const {
+    return kernel_(mom_.P().col(i), mom_.P().col(j));
+  }
+
+  /**
+   *  \brief add an operator which makes it feel like a matrix
+   **/
+  Scalar operator()(const Index i, const Index j) const {
+    return compute_entry(i, j);
+  }
+
   const Moments &mom_;
   Kernel kernel_;
 };
