@@ -28,15 +28,13 @@ struct IDDFSForwardIterator {
   using reference = value_type &;
 
   explicit IDDFSForwardIterator(pointer ptr, Index depth)
-      : prev_(nullptr), ptr_(ptr), depth_(depth), max_depth_(0) {}
+      : ptr_(ptr), depth_(depth), max_depth_(0) {}
 
   reference operator*() const { return *ptr_; }
   pointer operator->() const { return ptr_; }
 
   // Prefix increment
   IDDFSForwardIterator &operator++() {
-    // store previous state
-    prev_ = ptr_;
     // as our search terminated, we are at a leaf with the current allowed
     // depth. Check if there are more of them by going up
     while (ptr_->dad_ != nullptr) {
@@ -83,7 +81,6 @@ struct IDDFSForwardIterator {
   }
 
  private:
-  pointer prev_;
   pointer ptr_;
   Index depth_;
   Index max_depth_;

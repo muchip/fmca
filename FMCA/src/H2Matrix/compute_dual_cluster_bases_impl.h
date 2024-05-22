@@ -12,8 +12,6 @@
 #ifndef FMCA_H2MATRIX_COMPUTEDUALCLUSTERBASESIMPL_H_
 #define FMCA_H2MATRIX_COMPUTEDUALCLUSTERBASESIMPL_H_
 
-#include <Eigen/QR>
-#include <Eigen/SVD>
 namespace FMCA {
 namespace internal {
 
