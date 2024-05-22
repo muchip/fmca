@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
     FMCA::Scalar told = 1;
     FMCA::Scalar tnew = 2;
     FMCA::Scalar avgfac = 0;
-    for (FMCA::Index lvl = 4; lvl < 20; ++lvl) {
+    for (FMCA::Index lvl = 4; lvl < 16; ++lvl) {
       const FMCA::Index npts = 1 << lvl;
       std::cout << npts << "\t " << lvl << "\t ";
       FMCA::Matrix P = FMCA::Matrix::Random(DIM, npts);
