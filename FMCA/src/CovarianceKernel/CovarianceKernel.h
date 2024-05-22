@@ -11,6 +11,7 @@
 //
 #ifndef FMCA_COVARIANCEKERNEL_COVARIANCEKERNEL_H_
 #define FMCA_COVARIANCEKERNEL_COVARIANCEKERNEL_H_
+#include <cmath>
 
 namespace FMCA {
 class CovarianceKernel {
@@ -21,6 +22,7 @@ class CovarianceKernel {
     ktype_ = other.ktype_;
     l_ = other.l_;
     c_ = other.c_;
+    nu_ = other.nu_;
   }
 
   CovarianceKernel(CovarianceKernel &&other) {
@@ -28,6 +30,7 @@ class CovarianceKernel {
     ktype_ = other.ktype_;
     l_ = other.l_;
     c_ = other.c_;
+    nu_ = other.nu_;
   }
 
   CovarianceKernel &operator=(CovarianceKernel other) {
@@ -35,72 +38,80 @@ class CovarianceKernel {
     std::swap(ktype_, other.ktype_);
     std::swap(l_, other.l_);
     std::swap(c_, other.c_);
+    std::swap(nu_, other.nu_);
     return *this;
   }
 
-  CovarianceKernel(const std::string &ktype, FMCA::Scalar l = 1.,
-                   FMCA::Scalar c = 1.)
-      : ktype_(ktype), l_(l), c_(c) {
+  CovarianceKernel(const std::string &ktype, Scalar l = 1., Scalar c = 1.,
+                   Scalar nu = 1.)
+      : ktype_(ktype), l_(l), c_(c), nu_(nu) {
     // transform string to upper and check if kernel is implemented
     for (auto &chr : ktype_) chr = (char)toupper(chr);
     ////////////////////////////////////////////////////////////////////////////
     if (ktype_ == "BIHARMONIC2D")
-      kernel_ = [this](FMCA::Scalar r) {
+      kernel_ = [this](Scalar r) {
         return r < FMCA_ZERO_TOLERANCE ? 0 : log(r / l_) * (r / l_) * (r / l_);
       };
     else if (ktype_ == "BIHARMONIC3D")
-      kernel_ = [this](FMCA::Scalar r) { return r / l_; };
+      kernel_ = [this](Scalar r) { return r / l_; };
     else if (ktype_ == "TRIHARMONIC3D")
-      kernel_ = [this](FMCA::Scalar r) {
-        return (r / l_) * (r / l_) * (r / l_);
-      };
+      kernel_ = [this](Scalar r) { return (r / l_) * (r / l_) * (r / l_); };
     else if (ktype_ == "EXPONENTIAL")
-      kernel_ = [this](FMCA::Scalar r) { return exp(-r / l_); };
+      kernel_ = [this](Scalar r) { return std::exp(-r / l_); };
     ////////////////////////////////////////////////////////////////////////////
     else if (ktype_ == "MATERN32")
-      kernel_ = [this](FMCA::Scalar r) {
-        return (1. + sqrt(3) / l_ * r) * exp(-sqrt(3) * r / l_);
+      kernel_ = [this](Scalar r) {
+        return (1. + std::sqrt(3) / l_ * r) * std::exp(-std::sqrt(3) * r / l_);
       };
     ////////////////////////////////////////////////////////////////////////////
     else if (ktype_ == "MATERN52")
-      kernel_ = [this](FMCA::Scalar r) {
-        return (1. + sqrt(5) / l_ * r + 5 * r * r / (3 * l_ * l_)) *
-               exp(-sqrt(5) * r / l_);
+      kernel_ = [this](Scalar r) {
+        return (1. + std::sqrt(5) / l_ * r + 5 * r * r / (3 * l_ * l_)) *
+               std::exp(-std::sqrt(5) * r / l_);
       };
     ////////////////////////////////////////////////////////////////////////////
     else if (ktype_ == "MATERN72")
-      kernel_ = [this](FMCA::Scalar r) {
-        return (1. + sqrt(7) / l_ * r + 14. / 5 * pow(r / l_, 2.) +
-                7. * sqrt(7) / 15. * pow(r / l_, 3.)) *
-               exp(-sqrt(7) * r / l_);
+      kernel_ = [this](Scalar r) {
+        return (1. + std::sqrt(7) / l_ * r + 14. / 5 * std::pow(r / l_, 2.) +
+                7. * std::sqrt(7) / 15. * std::pow(r / l_, 3.)) *
+               std::exp(-std::sqrt(7) * r / l_);
       };
     ////////////////////////////////////////////////////////////////////////////
     else if (ktype_ == "MATERN92")
-      kernel_ = [this](FMCA::Scalar r) {
-        return (1. + 3. / l_ * r + 27. / 7. * pow(r / l_, 2.) +
-                18. / 7. * pow(r / l_, 3.) + 27. / 35. * pow(r / l_, 4.)) *
-               exp(-3 * r / l_);
+      kernel_ = [this](Scalar r) {
+        return (1. + 3. / l_ * r + 27. / 7. * std::pow(r / l_, 2.) +
+                18. / 7. * std::pow(r / l_, 3.) +
+                27. / 35. * std::pow(r / l_, 4.)) *
+               std::exp(-3 * r / l_);
       };
     ////////////////////////////////////////////////////////////////////////////
     else if (ktype_ == "GAUSSIAN")
-      kernel_ = [this](FMCA::Scalar r) {
-        return exp(-0.5 * r * r / (l_ * l_));
+      kernel_ = [this](Scalar r) { return std::exp(-0.5 * r * r / (l_ * l_)); };
+    ////////////////////////////////////////////////////////////////////////////
+
+    else if (ktype_ == "MATERNNU")
+      kernel_ = [this](Scalar r) {
+        const Scalar arg = std::sqrt(2 * nu_) * r / l_;
+        return arg > FMCA_ZERO_TOLERANCE
+                   ? 2. * std::pow(0.5 * arg, nu_) / std::tgamma(nu_) * 
+                   std::cyl_bessel_k(nu_, arg) : 1.;
       };
+    ////////////////////////////////////////////////////////////////////////////
     else if (ktype_ == "INVMULTIQUADRIC")
-      kernel_ = [this](FMCA::Scalar r) {
-        return 1. / sqrt((r / l_) * (r / l_) + c_ * c_);
+      kernel_ = [this](Scalar r) {
+        return 1. / std::sqrt((r / l_) * (r / l_) + c_ * c_);
       };
     else if (ktype_ == "MULTIQUADRIC")
-      kernel_ = [this](FMCA::Scalar r) {
-        return sqrt((r / l_) * (r / l_) + c_ * c_);
+      kernel_ = [this](Scalar r) {
+        return std::sqrt((r / l_) * (r / l_) + c_ * c_);
       };
     else
       assert(false && "desired kernel not implemented");
   }
 
   template <typename derived, typename otherDerived>
-  FMCA::Scalar operator()(const Eigen::MatrixBase<derived> &x,
-                          const Eigen::MatrixBase<otherDerived> &y) const {
+  Scalar operator()(const Eigen::MatrixBase<derived> &x,
+                    const Eigen::MatrixBase<otherDerived> &y) const {
     return kernel_((x - y).norm());
   }
 
@@ -116,10 +127,11 @@ class CovarianceKernel {
 
  private:
   // member variables
-  std::function<FMCA::Scalar(FMCA::Scalar)> kernel_;
+  std::function<Scalar(Scalar)> kernel_;
   std::string ktype_;
-  FMCA::Scalar l_;
-  FMCA::Scalar c_;
+  Scalar l_;
+  Scalar c_;
+  Scalar nu_;
 };
 }  // namespace FMCA
 #endif

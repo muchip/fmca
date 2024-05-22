@@ -20,6 +20,7 @@
 #include "../FMCA/H2Matrix"
 #include "../FMCA/HMatrix"
 #include "../FMCA/src/Clustering/epsNN.h"
+#include "../FMCA/src/util/IO.h"
 #include "../FMCA/src/util/Tictoc.h"
 ////////////////////////////////////////////////////////////////////////////////
 using Interpolator = FMCA::TotalDegreeInterpolator;
@@ -30,13 +31,12 @@ using HMatrix = FMCA::HMatrix<H2ClusterTree>;
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
   FMCA::Tictoc T;
-  const FMCA::Index npts = 10000;
-  const FMCA::Index dim = 3;
+  const FMCA::Index npts = 1000;
+  const FMCA::Index dim = 2;
   const FMCA::Index K = 3;
   const FMCA::Index mpole_deg = 0;
-  const FMCA::CovarianceKernel kernel("Matern32", 0.5);
-  const FMCA::Matrix P = FMCA::Matrix::Random(dim, npts);
-
+  const FMCA::CovarianceKernel kernel("MaternNu", .5, 1., 1.);
+  FMCA::Matrix P = FMCA::Matrix::Random(dim, npts);
   T.tic();
   const Moments mom(P, mpole_deg);
   const MatrixEvaluator mat_eval(mom, kernel);
@@ -129,8 +129,8 @@ int main(int argc, char *argv[]) {
 
   FMCA::Matrix X(npts, 100), Y1(npts, 100), Y2(npts, 100);
   X.setRandom();
-  Y1 = hmat * (X);
-  Y2 = invK.transpose() * (invK * Y1).eval();
+  Y1 = hmat * (invK.transpose() * X);
+  Y2 = invK * Y1.eval();
   std::cout << "sym inverse error:            " << (Y2 - X).norm() / X.norm()
             << std::endl;
   FMCA::Vector rhs(npts);
