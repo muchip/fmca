@@ -19,6 +19,7 @@ FMCA.xcodeproj/
 *.txt
 TestPDE/results_matlab
 TestPDE/results_simulations
+TestPDE/NotOfficialTests
 *.mat
 *.m
 *.vtk
