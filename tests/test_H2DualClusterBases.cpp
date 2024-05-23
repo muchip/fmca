@@ -17,7 +17,7 @@
 #include "../FMCA/src/H2Matrix/compute_dual_cluster_bases_impl.h"
 #include "../FMCA/src/util/Tictoc.h"
 
-#define NPTS 2000000
+#define NPTS 100000
 #define DIM 3
 #define MPOLE_DEG 3
 
