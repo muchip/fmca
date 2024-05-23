@@ -22,6 +22,7 @@ TestPDE/results_simulations
 TestPDE/NotOfficialTests
 *.mat
 *.m
+*.mtx
 *.vtk
 *.dSYM
 *.sh
