@@ -17,4 +17,11 @@ FMCA.xcodeproj/
 *.json
 *.json
 *.txt
+TestPDE/results_matlab
+TestPDE/results_simulations
+*.mat
+*.m
+*.vtk
+*.dSYM
+*.sh
 Sara_tests/integration_bunny.dSYM/Contents/Resources/Relocations/aarch64/integration_bunny.yml
