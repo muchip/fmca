@@ -1,11 +1,19 @@
+/* This file reads txt imput of data. The input should be a matrix of coordinates structured like this:
+x1 y1
+x2 y2
+x3 y3
+...
+Since FMCA library relies on row major data, so the fucntions below reads the common column files coordinates
+and return the followiing format
+x1 x3 x3 ...
+y1 y2 y3 ... */
+
+
 #include <Eigen/Dense>
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <string>
-#include "FMCA/CovarianceKernel"
-#include "FMCA/Samplets"
-#include "FMCA/src/util/Tictoc.h"
 
 void readTXT(const std::string &filename, FMCA::Matrix &matrix, const int dim) {
     std::ifstream file(filename);

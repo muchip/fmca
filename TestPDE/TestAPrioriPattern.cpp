@@ -1,3 +1,8 @@
+/* The a priori pattern function is tested here. The idea is that, whne we do the triple product of the matrix
+for the integration (e.g. gradK * W * gradK.transpose() for computing the stiffness),
+using the a priopri pattern we compute just the entries that then appear
+in the compressed pattern of the Samplet Compression. */
+
 #include <cstdlib>
 #include <iostream>
 #include "../FMCA/GradKernel"
@@ -7,7 +12,7 @@
 #include "../FMCA/src/util/Macros.h"
 #include "../FMCA/src/util/Tictoc.h"
 #include "../FMCA/src/util/permutation.h"
-#include "NeumanNormalMultiplication.h"
+#include "FunctionsPDE.h"
 #include "read_files_txt.h"
 
 #define DIM 2
@@ -24,50 +29,6 @@ using usMatrixEvaluator =
     FMCA::unsymmetricNystromEvaluator<Moments, FMCA::GradKernel>;
 using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
-double computeTrace(const Eigen::SparseMatrix<double> &mat) {
-  double trace = 0.0;
-  // Iterate only over the diagonal elements
-  for (int k = 0; k < mat.outerSize(); ++k) {
-    for (Eigen::SparseMatrix<double>::InnerIterator it(mat, k); it; ++it) {
-      if (it.row() == it.col()) {  // Check if it is a diagonal element
-        trace += it.value();
-      }
-    }
-  }
-  return trace;
-}
-
-int countSmallerThan(const Eigen::SparseMatrix<double> &matrix,
-                     FMCA::Scalar threshold) {
-  int count = 0;
-  // Iterate over all non-zero elements.
-  for (int k = 0; k < matrix.outerSize(); ++k) {
-    for (typename Eigen::SparseMatrix<double>::InnerIterator it(matrix, k); it;
-         ++it) {
-      if (it.value() < threshold) {
-        count++;
-      }
-    }
-  }
-  return count / matrix.rows();
-}
-
-bool isSymmetric(const Eigen::SparseMatrix<double> &matrix,
-                 FMCA::Scalar tol = 1e-10) {
-  if (matrix.rows() != matrix.cols())
-    return false;  // Non-square matrices are not symmetric
-
-  // Iterate over the outer dimension
-  for (int k = 0; k < matrix.outerSize(); ++k) {
-    for (typename Eigen::SparseMatrix<double>::InnerIterator it(matrix, k); it;
-         ++it) {
-      if (std::fabs(it.value() - matrix.coeff(it.col(), it.row())) > tol)
-        return false;
-    }
-  }
-  return true;
-}
-
 int main() {
   // POINTS
   FMCA::Tictoc T;
@@ -77,7 +38,7 @@ int main() {
   FMCA::Matrix Normals;
   FMCA::Vector w_vec;
   FMCA::Vector w_vec_border;
-  // pointers
+
   readTXT("data/vertices_square_01.txt", P_sources, 2);
   readTXT("data/quadrature7_points_square_01.txt", P_quad, 2);
   readTXT("data/quadrature7_weights_square_01.txt", w_vec);
@@ -250,7 +211,7 @@ int main() {
   std::cout<< a_priori_triplets_penalty.size() << std::endl;
 
   T.tic();
-  formatted_sparse_multiplication_triple_product(
+  formatted_sparse_multiplication_triple_product_largeSparse(
       pattern_penalty, Kcomp_sources_quadborder_Sparse,
       Wcomp_border_Sparse.selfadjointView<Eigen::Upper>(),
       Kcomp_sources_quadborder_Sparse);
@@ -308,7 +269,7 @@ int main() {
 
     largeSparse Wcomp_Sparse_full = Wcomp_Sparse.selfadjointView<Eigen::Upper>();
     T.tic();
-    formatted_sparse_multiplication_triple_product(pattern_grad, Scomp_Sparse, Wcomp_Sparse_full, Scomp_Sparse);
+    formatted_sparse_multiplication_triple_product_largeSparse(pattern_grad, Scomp_Sparse, Wcomp_Sparse_full, Scomp_Sparse);
     double mult_time = T.toc();
     std::cout << "mult time component " << i << "                        "
               << mult_time << std::endl;

@@ -1,7 +1,4 @@
-
-/* We test the triple product in FormattedMultiplication.h
-We rely on the FMCA library by M.Multerer.
- */
+/* We test the triple product in FormattedMultiplication.h*/
 
 #include <Eigen/Dense>
 #include <iostream>
@@ -34,21 +31,21 @@ using MatrixEvaluatorKernel =
 int main() {
   FMCA::Tictoc T;
   // Initialize the points
-  // int NPTS_SOURCE = 30000;
-  // int NPTS_QUAD = 15000;
-  // int N_WEIGHTS = NPTS_QUAD;
+  int NPTS_SOURCE = 30000;
+  int NPTS_QUAD = 15000;
+  int N_WEIGHTS = NPTS_QUAD;
   FMCA::Matrix P_sources;
   FMCA::Matrix P_quad;
   FMCA::Vector w_vec;
-  // P_sources = (FMCA::Matrix::Random(DIM, NPTS_SOURCE).array());
-  // P_quad = (FMCA::Matrix::Random(DIM, NPTS_QUAD).array());
-  // w_vec = 0.1 * FMCA::Vector::Random(NPTS_QUAD).array() + 1;
-  readTXT("data/vertices_square500k.txt", P_sources, 2);
-  readTXT("data/quadrature3_points_square500k.txt", P_quad, 2);
-  readTXT("data/quadrature3_weights_square500k.txt", w_vec);
-  int NPTS_SOURCE = P_sources.cols();
-  int NPTS_QUAD = P_quad.cols();
-  int N_WEIGHTS = NPTS_QUAD;
+  P_sources = (FMCA::Matrix::Random(DIM, NPTS_SOURCE).array());
+  P_quad = (FMCA::Matrix::Random(DIM, NPTS_QUAD).array());
+  w_vec = 0.1 * FMCA::Vector::Random(NPTS_QUAD).array() + 1;
+  // readTXT("data/vertices_square500k.txt", P_sources, 2);
+  // readTXT("data/quadrature3_points_square500k.txt", P_quad, 2);
+  // readTXT("data/quadrature3_weights_square500k.txt", w_vec);
+  // int NPTS_SOURCE = P_sources.cols();
+  // int NPTS_QUAD = P_quad.cols();
+  // int N_WEIGHTS = NPTS_QUAD;
   //////////////////////////////////////////////////////////////////////////////
   // Parameters
   const FMCA::Scalar eta = 0.5;

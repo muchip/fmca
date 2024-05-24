@@ -41,10 +41,7 @@ using H2ClusterTree = FMCA::H2ClusterTree<FMCA::ClusterTree>;
 using EigenCholesky =
     Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>, Eigen::Upper,
                           Eigen::MetisOrdering<int>>;
-using namespace std;
 
-// typedef Eigen::SparseMatrix<double, Eigen::RowMajor, int> Sparse;
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int main() {
   // POINTS
   FMCA::Tictoc T;
@@ -54,13 +51,7 @@ int main() {
   FMCA::Matrix Normals;
   FMCA::Vector w_vec;
   FMCA::Vector w_vec_border;
-  // pointers
-  //   readTXT("data/vertices_square130k.txt", P_sources, 2);
-  //   readTXT("data/quadrature3_points_square130k.txt", P_quad, 2);
-  //   readTXT("data/quadrature3_weights_square130k.txt", w_vec);
-  //   readTXT("data/quadrature_border130k.txt", P_quad_border, 2);
-  //   readTXT("data/weights_border130k.txt", w_vec_border);
-  //   readTXT("data/normals130k.txt", Normals, 2);
+
   readTXT("data/vertices_cube20k.txt", P_sources, 3);
   readTXT("data/barycenters_cube.txt", P_quad, 3);
   readTXT("data/volumes_cube.txt", w_vec);
@@ -68,6 +59,7 @@ int main() {
   readTXT("data/quadrature3_weights_cube_surface.txt", w_vec_border);
   //readTXT("data/normals5_40k.txt", Normals, 3);
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  
   // U_BC vector
   FMCA::Vector u_bc(P_quad_border.cols());
   for (FMCA::Index i = 0; i < P_quad_border.cols(); ++i) {

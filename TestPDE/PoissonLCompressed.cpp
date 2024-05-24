@@ -1,3 +1,10 @@
+/* We solve here the Poisson problem on the L shape [0,0], [1,0], [1,1], [-1,1], [-1,-1], [-1,0]
+laplacian(u) = 1
+u = 0 on \partial u
+Using Matern32 kernel and penalty method to impose the boundary conditions.
+We rely on the FMCA library by M.Multerer.
+ */
+
 #include "SolvePoisson.h"
 #include "read_files_txt.h"
 
@@ -41,7 +48,7 @@ int main() {
   FMCA::Matrix Normals;
   FMCA::Vector w_vec;
   FMCA::Vector w_vec_border;
-  // pointers
+
   readTXT("data/vertices_L.txt", P_sources, 2);
   readTXT("data/quadrature7_points_L.txt", P_quad, 2);
   readTXT("data/quadrature7_weights_L.txt", w_vec);
@@ -67,7 +74,6 @@ int main() {
     FMCA::Scalar y = P_quad(1, i);
     f[i] = 1;
   }
-
   // Analytical sol of the problem
   FMCA::Vector analytical_sol(P_sources.cols());
   for (int i = 0; i < P_sources.cols(); ++i) {
@@ -75,7 +81,6 @@ int main() {
     FMCA::Scalar y = P_sources(1, i);
     analytical_sol[i] = u_exact(x, y);
   }
-
   // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   const FMCA::Scalar eta = 0.5;
   const FMCA::Index dtilde = 4;
@@ -91,6 +96,7 @@ int main() {
   H2SampletTree hst_sources(mom_sources, samp_mom_sources, 0, P_sources);
   FMCA::Vector minDistance = minDistanceVector(hst_sources, P_sources);
 
+  // fill distance 
   auto maxElementIterator =
       std::max_element(minDistance.begin(), minDistance.end());
   FMCA::Scalar sigma_h = *maxElementIterator;
@@ -106,6 +112,7 @@ int main() {
   u_grid = hst_sources.toNaturalOrder(u_grid);
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Cumpute the solution K*u with the compression of the kernel matrix K
   const FMCA::CovarianceKernel kernel_funtion_ss(kernel_type, sigma);
   const MatrixEvaluatorKernel mat_eval_kernel_ss(mom_sources,
                                                  kernel_funtion_ss);
@@ -180,38 +187,5 @@ int main() {
     //     grid.plotFunction(outputNameErrorPlot, rec);
     //   }
   }
-  // std::vector<const H2SampletTree *> adaptive_tree =
-  //     adaptiveTreeSearch(hst_sources, u, 1e-4 * u.squaredNorm());
-  // const FMCA::Index nclusters =
-  //     std::distance(hst_sources.begin(), hst_sources.end());
-
-  // FMCA::Vector thres_tdata = u;
-  // thres_tdata.setZero();
-  // FMCA::Index nnz = 0;
-  // for (FMCA::Index i = 0; i < adaptive_tree.size(); ++i) {
-  //   if (adaptive_tree[i] != nullptr) {
-  //     const H2SampletTree &node = *(adaptive_tree[i]);
-  //     const FMCA::Index ndist =
-  //         node.is_root() ? node.Q().cols() : node.nsamplets();
-  //     thres_tdata.segment(node.start_index(), ndist) =
-  //         u.segment(node.start_index(), ndist);
-  //     nnz += ndist;
-  //   }
-  // }
-  // std::cout << "active coefficients: " << nnz << " / " <<
-  // P_sources.cols()
-  //           << std::endl;
-  // std::cout << "tree error: " << (thres_tdata - u).norm() / u.norm()
-  //           << std::endl;
-
-  // std::vector<FMCA::Matrix> bbvec_active;
-  // for (FMCA::Index i = 0; i < adaptive_tree.size(); ++i) {
-  //   if (adaptive_tree[i] != nullptr) {
-  //     const H2SampletTree &node = *(adaptive_tree[i]);
-  //     bbvec_active.push_back(node.bb());
-  //   }
-  // }
-
-  // FMCA::IO::plotBoxes2D("active_boxes_Poisson_square.vtk", bbvec_active);
   return 0;
 }

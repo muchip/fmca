@@ -158,8 +158,6 @@ std::vector<Eigen::Triplet<FMCA::Scalar>> TripletsPatternSymmetric (
     return a_priori_triplets;
 }
 
-
-
 typedef Eigen::Triplet<double> Triplet;
 void applyPattern(
     Eigen::SparseMatrix<double>  &M, 
@@ -175,3 +173,15 @@ void applyPattern(
     M = M.cwiseProduct(mask);
 }
 
+Eigen::SparseMatrix<double> NeumannNormalMultiplication(
+    const Eigen::SparseMatrix<double> &grad, const FMCA::Vector &normal) {
+  Eigen::SparseMatrix<double> diagNormal(grad.cols(), grad.cols());
+  std::vector<Eigen::Triplet<double>> triplets;
+  for (int i = 0; i < normal.size(); ++i) {
+    triplets.emplace_back(i, i, normal(i));
+  }
+  diagNormal.setFromTriplets(triplets.begin(), triplets.end());
+
+  Eigen::SparseMatrix<double> result = grad * diagNormal;
+  return result;
+}
