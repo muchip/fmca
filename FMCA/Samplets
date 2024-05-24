@@ -35,5 +35,6 @@
 #include "src/Samplets/samplet_matrix_compressor.h"
 #include "src/Samplets/samplet_matrix_compressor_unsymmetric.h"
 #include "src/Samplets/sampletMatrixGenerator.h"
+#include "src/Samplets/SampletAdaptiveClustering.h"
 
 #endif

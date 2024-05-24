@@ -11,10 +11,5 @@
 /Users/saraavesani/fmca/tests/CMakeFiles/test_TreeIterator.out.dir
 /Users/saraavesani/fmca/tests/CMakeFiles/test_kNN.out.dir
 /Users/saraavesani/fmca/tests/CMakeFiles/RUN_TESTS.dir
-/Users/saraavesani/fmca/Sara_tests/CMakeFiles/test_GradKernel.out.dir
-/Users/saraavesani/fmca/Sara_tests/CMakeFiles/test_GradKernel_compressor.out.dir
-/Users/saraavesani/fmca/Sara_tests/CMakeFiles/test_Compression_time.out.dir
-/Users/saraavesani/fmca/Sara_tests/CMakeFiles/test_integration.out.dir
-/Users/saraavesani/fmca/Sara_tests/CMakeFiles/RUN_TESTS.dir
 /Users/saraavesani/fmca/py/CMakeFiles/FMCA.dir
 /Users/saraavesani/fmca/py/CMakeFiles/RUN_TESTS.dir

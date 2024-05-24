@@ -9,8 +9,8 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#ifndef FMCA_COVARIANCEKERNEL_MODULE_
-#define FMCA_COVARIANCEKERNEL_MODULE_
+#ifndef FMCA_GRADKERNEL_MODULE_
+#define FMCA_GRADKERNEL_MODULE_
 
 /**
  *  \ingroup Modules

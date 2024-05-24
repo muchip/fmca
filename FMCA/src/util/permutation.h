@@ -22,6 +22,17 @@ iVector permutationVector(const ClusterTreeBase<Derived> &ct) {
 }
 
 template <typename Derived>
+iVector inversePermutationVector(const ClusterTreeBase<Derived> &ct) {
+    iVector perm = permutationVector(ct);  // permutation Vector
+    iVector inversePerm(perm.size());
+    for(int i = 0; i < perm.size(); ++i) {
+        inversePerm(perm(i)) = i;
+    }    
+    return inversePerm;
+}
+
+
+template <typename Derived>
 Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic, FMCA::Index>
 permutationMatrix(const ClusterTreeBase<Derived> &ct) {
   return Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic, FMCA::Index>(

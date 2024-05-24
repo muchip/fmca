@@ -1,3 +1,6 @@
+""" This python code uses igl to read a file .mesh and to create the qudarature points, the weights and the normals of the boundary segments 
+in the mesh. This works for 2D meshes whose boundary are 1D."""
+
 import sys
 import igl
 import numpy as np
@@ -9,7 +12,7 @@ def reorder_boundary_vertices(V_2d, boundary_vertices):
     ordered_indices = np.roll(boundary_vertices, -np.where(boundary_vertices == starting_vertex_index)[0][0])
     return V_2d[ordered_indices]
 
-# Compute outer normals for the ordered boundary vertices
+# Function to compute outer normals for the ordered boundary vertices
 def compute_outer_normals(ordered_boundary_vertices):
     vectors = np.diff(ordered_boundary_vertices, axis=0, append=ordered_boundary_vertices[[0]])
     normals = np.array([-vectors[:, 1], vectors[:, 0]]).T
@@ -25,7 +28,6 @@ def normalize(vector):
 
 def gaussian_quadrature(n):
     # This function returns the nodes and weights for the n-point Gaussian quadrature.
-    # Here are the nodes and weights for up to 3 points for simplicity.
     if n == 1:
         nodes = np.array([0.0])
         weights = np.array([2.0])
@@ -42,7 +44,7 @@ def gaussian_quadrature(n):
         nodes = np.array([0, -1/3 * np.sqrt(5 - 2 * np.sqrt(10/7)), 1/3 * np.sqrt(5 - 2 * np.sqrt(10/7)), -1/3 * np.sqrt(5 + 2 * np.sqrt(10/7)), 1/3 * np.sqrt(5 + 2 * np.sqrt(10/7))])
         weights = np.array([128/225, (322 + 13 * np.sqrt(70))/900, (322 + 13 * np.sqrt(70))/900, (322 - 13 * np.sqrt(70))/900, (322 - 13 * np.sqrt(70))/900])
     else:
-        raise NotImplementedError("Gaussian quadrature with more than 3 points is not implemented here.")
+        raise NotImplementedError("Gaussian quadrature with more than 5 points is not implemented here.")
     return nodes, weights
 
 def compute_intermediate_points_and_normals_gaussian(ordered_boundary_vertices, normals, points_per_segment):
@@ -92,12 +94,11 @@ def main():
     V_2d = v[:, :2]
     boundary_vertices = igl.boundary_loop(f)
 
-    # Process mesh to compute Gaussian quadrature points, normals, etc.
     ordered_boundary_vertices = reorder_boundary_vertices(V_2d, boundary_vertices)
     normals = compute_outer_normals(ordered_boundary_vertices)
     intermediate_points, segment_normals, weights = compute_intermediate_points_and_normals_gaussian(ordered_boundary_vertices, normals, points_per_segment)
 
-    # Save outputs to specified files
+    # Save outputs
     np.savetxt(full_path_points, intermediate_points, fmt="%.16f")
     np.savetxt(full_path_weights, weights, fmt="%.16f")
     np.savetxt(full_path_normals, segment_normals, fmt="%.16f")

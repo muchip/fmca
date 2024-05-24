@@ -318,7 +318,35 @@ void formatted_sparse_multiplication_cols(largeSparse_col &pattern,
 }
 
 // inner product base matrix multiplication
-void formatted_sparse_multiplication_dotproduct(largeSparse &pattern,
+void formatted_sparse_multiplication_dotproduct(Sparse &pattern,
+                                                const Sparse &mat1,
+                                                const Sparse &mat2) {
+  int n = pattern.rows();
+  // eigen_assert(mat1.cols() == mat2.rows() && "dimension mismatch");
+  Sparse::StorageIndex *ia = pattern.outerIndexPtr();
+  Sparse::StorageIndex *ja = pattern.innerIndexPtr();
+  Sparse::Scalar *a = pattern.valuePtr();
+  for (int i = 0; i < pattern.nonZeros(); i++) {
+    a[i] = 0;
+  }
+  const Sparse::StorageIndex *ia2 = mat1.outerIndexPtr();
+  const Sparse::StorageIndex *ja2 = mat1.innerIndexPtr();
+  const Sparse::Scalar *a2 = mat1.valuePtr();
+  const Sparse_col::StorageIndex *ia3 = mat2.outerIndexPtr();
+  const Sparse_col::StorageIndex *ja3 = mat2.innerIndexPtr();
+  const Sparse_col::Scalar *a3 = mat2.valuePtr();
+#pragma omp parallel for schedule(dynamic)
+  for (auto i = 0; i < n; ++i) {
+    for (auto j = ia[i]; j < ia[i + 1]; ++j)
+      a[j] = sparse_dot_product(ja2 + ia2[i], ia2[i + 1] - ia2[i], a2 + ia2[i],
+                                ja3 + ia3[ja[j]], ia3[ja[j] + 1] - ia3[ja[j]],
+                                a3 + ia3[ja[j]]);
+  }
+  return;
+}
+
+
+void formatted_sparse_multiplication_dotproduct_largeSparse(largeSparse &pattern,
                                                 const largeSparse &mat1,
                                                 const largeSparse &mat2) {
   long long int n = pattern.rows();
@@ -345,10 +373,29 @@ void formatted_sparse_multiplication_dotproduct(largeSparse &pattern,
   return;
 }
 
+
 // This triple product was created to compute the integral of the stiffness matrix using kernels,
 // so it aims to compute K * W * K^T. The result pattern will be symmetric. In case of
 // generic triple product multiplication, pattern and mat3 has to be taken transpose --> col major)
-void formatted_sparse_multiplication_triple_product(largeSparse &pattern,
+void formatted_sparse_multiplication_triple_product(Sparse &pattern,
+                                                    const Sparse &mat1,
+                                                    const Sparse &mat2,
+                                                    const Sparse &mat3) {
+  Sparse::StorageIndex *ia = pattern.outerIndexPtr();
+  Sparse::StorageIndex *ja = pattern.innerIndexPtr();
+  Sparse::Scalar *a = pattern.valuePtr();
+
+#pragma omp parallel for schedule(dynamic)
+  for (auto i = 0; i < pattern.rows(); ++i) {
+    Eigen::SparseVector<double> mat2_mat3_col = mat2 * mat3.row(i).transpose();
+    for (auto j = ia[i]; j < ia[i + 1]; ++j) {
+      a[j] = mat1.row(ja[j]).dot(mat2_mat3_col);
+    }
+  }
+  return;
+}
+
+void formatted_sparse_multiplication_triple_product_largeSparse(largeSparse &pattern,
                                                     const largeSparse &mat1,
                                                     const largeSparse &mat2,
                                                     const largeSparse &mat3) {

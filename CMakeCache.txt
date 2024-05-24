@@ -199,6 +199,9 @@ FMCA_IS_TOP_LEVEL:STATIC=ON
 //Value Computed by CMake
 FMCA_SOURCE_DIR:STATIC=/Users/saraavesani/fmca
 
+//The directory containing a CMake configuration file for matplotlibcpp.
+matplotlibcpp_DIR:PATH=matplotlibcpp_DIR-NOTFOUND
+
 //The directory containing a CMake configuration file for pybind11.
 pybind11_DIR:PATH=/opt/homebrew/share/cmake/pybind11
 
@@ -281,7 +284,7 @@ CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_NM
 CMAKE_NM-ADVANCED:INTERNAL=1
 //number of local generators
-CMAKE_NUMBER_OF_MAKEFILES:INTERNAL=4
+CMAKE_NUMBER_OF_MAKEFILES:INTERNAL=3
 //ADVANCED property for variable: CMAKE_OBJCOPY
 CMAKE_OBJCOPY-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_OBJDUMP

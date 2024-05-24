@@ -146,6 +146,8 @@ class SampletMatrixCompressorUnsymmetric {
     }
     return;
   }
+
+
   /**
    *  \brief creates a posteriori thresholded triplets and stores them to in
    *the triplet list

@@ -1,3 +1,6 @@
+""" This python code uses igl to read a file .mesh and to create the qudarature points and weights of the triangles 
+in the mesh. It is a 2D 7-points rule quadrature."""
+
 import sys
 import gmsh
 import igl
@@ -23,6 +26,7 @@ def quadrature_points_2d(a,b,c):
      [(6-np.sqrt(15))/21, (6-np.sqrt(15))/21]
     ]
 
+    # sum of the weights = area of the unit triangle [0,0], [1,0], [0,1], that is 1/2.
     W_unit =[
      9/80,
      (155+np.sqrt(15))/2400,

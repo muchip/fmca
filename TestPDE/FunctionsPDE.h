@@ -1,3 +1,8 @@
+
+/* This header contains functions useful for the resolution of the PDE using Samplet compression. 
+In particular, there are the compression commands for the symmetric and unsymmetric cases. 
+See SolvePoisson.h for an example of their application. */
+
 #include <cstdlib>
 #include <iostream>
 //##############################
@@ -7,10 +12,6 @@
 #include "../FMCA/Samplets"
 #include "../FMCA/src/util/IO.h"
 #include "../FMCA/src/util/Macros.h"
-
-// typedef Eigen::SparseMatrix<double, Eigen::RowMajor, int> Sparse;
-// typedef Eigen::SparseMatrix<double> Sparse;
-
 
 using Interpolator = FMCA::TotalDegreeInterpolator;
 using SampletInterpolator = FMCA::MonomialInterpolator;
@@ -61,7 +62,6 @@ bool isSymmetric(const Eigen::SparseMatrix<double> &matrix,
                  FMCA::Scalar tol = 1e-10) {
   if (matrix.rows() != matrix.cols())
     return false;  // Non-square matrices are not symmetric
-
   // Iterate over the outer dimension
   for (int k = 0; k < matrix.outerSize(); ++k) {
     for (typename Eigen::SparseMatrix<double>::InnerIterator it(matrix, k); it;
