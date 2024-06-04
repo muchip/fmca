@@ -23,7 +23,7 @@ solution u in samplet basis (not in the natural order!). See PoissonSquareCompre
 #include "../FMCA/src/util/permutation.h"
 #include "FunctionsPDE.h"
 
-FMCA::Vector SolvePoisson(
+FMCA::Vector SolvePoisson_constantWeights(
     const FMCA::Scalar &DIM, FMCA::Matrix &P_sources, FMCA::Matrix &P_quad,
     FMCA::Vector &w_vec, FMCA::Matrix &P_quad_border,
     FMCA::Vector &w_vec_border, FMCA::Matrix &Normals, FMCA::Vector &u_bc,
@@ -235,7 +235,8 @@ FMCA::Vector SolvePoisson(
             << entries_smaller_threshold << std::endl;
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Solver
-  EigenCholesky choleskySolver;
+  Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>, Eigen::Upper,
+                          Eigen::MetisOrdering<int>> choleskySolver;
   choleskySolver.compute(Matrix_system);
   // u = solution in Samplet Basis
   FMCA::Vector u = choleskySolver.solve(F_comp + beta * G_comp - N_comp);

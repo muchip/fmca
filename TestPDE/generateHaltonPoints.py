@@ -1,3 +1,4 @@
+""" It generates set of Halton Points in the Square [-1,1] x [1,1] """
 import sys
 import numpy as np
 from scipy.stats.qmc import Halton
@@ -41,7 +42,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     N = int(sys.argv[1])
-    output_filename = f"/Users/saraavesani/fmca/Sara_tests/data/vertices_square_Halton{N}.txt"
+    output_filename = f"data/vertices_square_Halton{N}.txt"
 
     N_interior = N
     N_boundary = int(np.sqrt(N_interior))

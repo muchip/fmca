@@ -25,9 +25,6 @@ using usMatrixEvaluator =
     FMCA::unsymmetricNystromEvaluator<Moments, FMCA::GradKernel>;
 using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 using H2ClusterTree = FMCA::H2ClusterTree<FMCA::ClusterTree>;
-using EigenCholesky =
-    Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>, Eigen::Upper,
-                          Eigen::MetisOrdering<int>>;
                           
 
 double computeTrace(const Eigen::SparseMatrix<double> &mat) {
