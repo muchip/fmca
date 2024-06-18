@@ -43,5 +43,6 @@
 #include "src/Clustering/MortonClusterTree.h"
 #include "src/Clustering/ClusterTreeMetrics.h"
 #include "src/Clustering/kNN.h"
+#include "src/Clustering/epsNN.h"
 
 #endif

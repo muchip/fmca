@@ -18,6 +18,7 @@
 
 #include "Clustering"
 #include "MatrixEvaluator"
+#include "H2Matrix"
 
 #include "src/util/ForwardDeclarations.h"
 #include "src/util/Macros.h"

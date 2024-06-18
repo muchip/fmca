@@ -93,8 +93,9 @@ class CovarianceKernel {
       kernel_ = [this](Scalar r) {
         const Scalar arg = std::sqrt(2 * nu_) * r / l_;
         return arg > FMCA_ZERO_TOLERANCE
-                   ? 2. * std::pow(0.5 * arg, nu_) / std::tgamma(nu_) * 
-                   std::cyl_bessel_k(nu_, arg) : 1.;
+                   ? 2. * std::pow(0.5 * arg, nu_) / std::tgamma(nu_) *
+                         std::cyl_bessel_k(nu_, arg)
+                   : 1.;
       };
     ////////////////////////////////////////////////////////////////////////////
     else if (ktype_ == "INVMULTIQUADRIC")
@@ -109,14 +110,19 @@ class CovarianceKernel {
       assert(false && "desired kernel not implemented");
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+  void setNu(const Scalar nu) { nu_ = nu; }
+  void setL(const Scalar l) { l_ = l; }
+  void setC(const Scalar c) { c_ = c; }
+
   template <typename derived, typename otherDerived>
   Scalar operator()(const Eigen::MatrixBase<derived> &x,
                     const Eigen::MatrixBase<otherDerived> &y) const {
     return kernel_((x - y).norm());
   }
 
-  FMCA::Matrix eval(const FMCA::Matrix &PR, const FMCA::Matrix &PC) const {
-    FMCA::Matrix retval(PR.cols(), PC.cols());
+  Matrix eval(const Matrix &PR, const Matrix &PC) const {
+    Matrix retval(PR.cols(), PC.cols());
     for (auto j = 0; j < PC.cols(); ++j)
       for (auto i = 0; i < PR.cols(); ++i)
         retval(i, j) = operator()(PR.col(i), PC.col(j));
