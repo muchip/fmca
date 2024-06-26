@@ -53,16 +53,17 @@ struct HMatrix : public HMatrixBase<HMatrix<Derived, ClusterComparison>> {
   HMatrix() {}
   template <typename EntryGenerator>
   HMatrix(const H2ClusterTreeBase<Derived> &CT, const EntryGenerator &e_gen,
-          Scalar eta = 0.8) {
-    init(CT, e_gen, eta);
+          Scalar eta = 0.8, Scalar prec = 1e-6) {
+    init(CT, e_gen, eta, prec);
   }
   //////////////////////////////////////////////////////////////////////////////
   // init
   //////////////////////////////////////////////////////////////////////////////
   template <typename MatrixEvaluator>
   void init(const H2ClusterTreeBase<Derived> &CT,
-            const MatrixEvaluator &mat_eval, Scalar eta = 0.8) {
-    computeHMatrix(CT.derived(), CT.derived(), mat_eval, eta);
+            const MatrixEvaluator &mat_eval, Scalar eta = 0.8,
+            Scalar prec = 1e-6) {
+    computeHMatrix(CT.derived(), CT.derived(), mat_eval, eta, prec);
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
