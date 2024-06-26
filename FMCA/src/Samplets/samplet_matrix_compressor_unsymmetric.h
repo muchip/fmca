@@ -16,7 +16,7 @@
 
 namespace FMCA {
 namespace internal {
-template <typename Derived>
+template <typename Derived, typename ClusterComparison = CompareCluster>
 class SampletMatrixCompressorUnsymmetric {
  public:
   SampletMatrixCompressorUnsymmetric() {}
@@ -56,7 +56,7 @@ class SampletMatrixCompressorUnsymmetric {
         row_stack.pop_back();
         // fill the stack with possible children
         for (auto i = 0; i < pr->nSons(); ++i)
-          if (compareCluster(pr->sons(i), *pc, eta) != LowRank)
+          if (ClusterComparison::compare(pr->sons(i), *pc, eta) != LowRank)
             row_stack.push_back(std::addressof(pr->sons(i)));
         auto it =
             pattern_[pc->block_id()].insert({pr->block_id(), Matrix(0, 0)});
@@ -196,7 +196,7 @@ class SampletMatrixCompressorUnsymmetric {
                                  const EntryGenerator &e_gen) {
     Matrix buf(0, 0);
     // check for admissibility
-    if (compareCluster(TR, TC, eta_) == LowRank) {
+    if (ClusterComparison::compare(TR, TC, eta_) == LowRank) {
       e_gen.interpolate_kernel(TR, TC, &buf);
       return TR.V().transpose() * buf * TC.V();
     } else {
@@ -255,7 +255,7 @@ class SampletMatrixCompressorUnsymmetric {
                   const Eigen::MatrixBase<otherDerived> &block) {
     for (auto k = 0; k < ncols; ++k)
       for (auto j = 0; j < nrows; ++j)
-        if ((abs(block(j, k)) > threshold_) || srow + j == scol + k)
+        if ((std::abs(block(j, k)) > threshold_) || srow + j == scol + k)
           triplet_list_.push_back(
               Eigen::Triplet<Scalar>(srow + j, scol + k, block(j, k)));
   }

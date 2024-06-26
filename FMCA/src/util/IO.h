@@ -13,6 +13,7 @@
 #define FMCA_UTIL_IO_H_
 
 #include <fstream>
+#include <iomanip>
 
 #include "Macros.h"
 
@@ -656,10 +657,11 @@ Matrix ascii2Matrix(const std::string &filename) {
   int cols = 0;
   int rows = 0;
   std::vector<double> buff;
-  buff.resize(int(1e8));
+  buff.resize(size_t(1e10));
   // Read numbers from file into buffer.
   std::ifstream infile;
   infile.open(filename);
+    assert(infile.is_open());
   while (!infile.eof()) {
     std::string line;
     std::getline(infile, line);

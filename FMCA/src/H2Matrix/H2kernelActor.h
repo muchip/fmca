@@ -88,8 +88,9 @@ class H2kernelActor {
   const H2ClusterTree hct_eval_;
   const Index mpole_deg_;
   const Scalar eta_;
-  H2Matrix<H2ClusterTree> h2mat_;
-  std::vector<std::vector<const H2Matrix<H2ClusterTree> *>> scheduler_;
+  H2Matrix<H2ClusterTree, CompareCluster> h2mat_;
+  std::vector<std::vector<const H2Matrix<H2ClusterTree, CompareCluster> *>>
+      scheduler_;
 };
 
 }  // namespace FMCA
