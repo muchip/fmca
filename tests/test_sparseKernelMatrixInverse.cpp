@@ -16,13 +16,14 @@
 
 #include "../FMCA/Clustering"
 #include "../FMCA/CovarianceKernel"
+#include "../FMCA/src/util/IO.h"
 #include "../FMCA/src/util/Tictoc.h"
 
 int main(int argc, char *argv[]) {
   FMCA::Tictoc T;
-  const FMCA::Index npts = 1000;
-  const FMCA::Index dim = 2;
-  const FMCA::Index K = 2;
+  const FMCA::Index npts = 100000;
+  const FMCA::Index dim = 3;
+  const FMCA::Index K = 1;
   const FMCA::Scalar ridge_parameter = 0 * npts;
   const FMCA::CovarianceKernel kernel("MaternNu", .1, 1., 0.5);
   FMCA::Matrix P = FMCA::Matrix::Random(dim, npts);
@@ -55,5 +56,6 @@ int main(int argc, char *argv[]) {
     std::cout << "inverse error:                " << err << std::endl;
     std::cout << std::string(72, '-') << std::endl;
   }
+  FMCA::IO::print2spascii("invK.txt", invK, "w");
   return 0;
 }

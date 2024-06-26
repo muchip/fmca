@@ -9,6 +9,8 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
+#ifndef FMCA_UTIL_PCG_H_
+#define FMCA_UTIL_PCG_H_
 namespace FMCA {
 template <typename Preconditioner, typename Matrix>
 Vector pCG(const Preconditioner &E, const Matrix &A, const Vector &b,
@@ -41,3 +43,4 @@ Vector pCG(const Preconditioner &E, const Matrix &A, const Vector &b,
   return x;
 }
 }  // namespace FMCA
+#endif
