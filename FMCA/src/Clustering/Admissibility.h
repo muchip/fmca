@@ -28,67 +28,104 @@ Scalar computeDistance(const ClusterTreeBase<Derived> &cluster1,
   return dist > 0 ? dist : 0;
 }
 
-template <typename Derived, typename otherDerived>
-Admissibility compareCluster(const ClusterTreeBase<Derived> &cluster1,
-                             const ClusterTreeBase<otherDerived> &cluster2,
-                             Scalar eta) {
-  Admissibility retval;
-  const Scalar dist = computeDistance(cluster1, cluster2);
-  const Scalar row_radius = 0.5 * cluster1.bb().col(2).norm();
-  const Scalar col_radius = 0.5 * cluster2.bb().col(2).norm();
-  const Scalar radius = row_radius > col_radius ? row_radius : col_radius;
+/**
+ *  \brief classical admissibility condition based on the relative
+ *         distance of the bounding boxes
+ **/
+struct CompareClusterBB {
+  template <typename Derived, typename otherDerived>
+  static Admissibility compare(const ClusterTreeBase<Derived> &cluster1,
+                               const ClusterTreeBase<otherDerived> &cluster2,
+                               Scalar eta) {
+    const FMCA::Vector u =
+        (cluster1.bb().col(0) - cluster2.bb().col(1)).cwiseMax(0);
+    const FMCA::Vector v =
+        (cluster2.bb().col(0) - cluster1.bb().col(1)).cwiseMax(0);
+    const Scalar dist = sqrt(u.squaredNorm() + v.squaredNorm());
+    const Scalar row_radius = 0.5 * cluster1.bb().col(2).norm();
+    const Scalar col_radius = 0.5 * cluster2.bb().col(2).norm();
+    const Scalar radius = row_radius > col_radius ? row_radius : col_radius;
+    if (radius > eta * dist) {
+      // check if either cluster is a leaf in that case,
+      // compute the full matrix block
+      if (!cluster1.nSons() || !cluster2.nSons())
+        return Dense;
+      else
+        return Refine;
+    } else
+      return LowRank;
+  }
+};
+/**
+ *  \brief classical admissibility condition based on the relative
+ *         distance of the enclosing balls
+ **/
+struct CompareCluster {
+  template <typename Derived, typename otherDerived>
+  static Admissibility compare(const ClusterTreeBase<Derived> &cluster1,
+                               const ClusterTreeBase<otherDerived> &cluster2,
+                               Scalar eta) {
+    const Scalar dist = computeDistance(cluster1, cluster2);
+    const Scalar row_radius = 0.5 * cluster1.bb().col(2).norm();
+    const Scalar col_radius = 0.5 * cluster2.bb().col(2).norm();
+    const Scalar radius = row_radius > col_radius ? row_radius : col_radius;
 
-  if (radius > eta * dist) {
-    // check if either cluster is a leaf in that case,
-    // compute the full matrix block
-    if (!cluster1.nSons() || !cluster2.nSons())
-      return Dense;
-    else
-      return Refine;
-  } else
-    return LowRank;
-}
+    if (radius > eta * dist) {
+      // check if either cluster is a leaf in that case,
+      // compute the full matrix block
+      if (!cluster1.nSons() || !cluster2.nSons())
+        return Dense;
+      else
+        return Refine;
+    } else
+      return LowRank;
+  }
+};
+/**
+ *  \brief classical admissibility condition based on the relative
+ *         distance of the enclosing balls where the last component is
+ *         periodic in [0,1)
+ **/
+struct CompareClusterTimePeriodic {
+  template <typename Derived, typename otherDerived>
+  static Admissibility compare(const ClusterTreeBase<Derived> &c1,
+                               const ClusterTreeBase<otherDerived> &c2,
+                               Scalar eta) {
+    Admissibility retval;
+    const Index n = c1.bb().rows();
+    const Scalar sinc1 = std::sin(FMCA_PI * c1.bb()(n - 1, 2));
+    const Scalar sinc2 = std::sin(FMCA_PI * c2.bb()(n - 1, 2));
+    const Scalar sincc = std::sin(
+        FMCA_PI * std::abs(0.5 * (c1.bb()(n - 1, 0) - c2.bb()(n - 1, 0) +
+                                  c1.bb()(n - 1, 1) - c2.bb()(n - 1, 1))));
+    const Scalar row_radius =
+        0.5 *
+        std::sqrt(c1.bb().col(2).head(n - 1).squaredNorm() + sinc1 * sinc1);
+    const Scalar col_radius =
+        0.5 *
+        std::sqrt(c2.bb().col(2).head(n - 1).squaredNorm() + sinc2 * sinc2);
 
-template <typename Derived, typename otherDerived>
-Admissibility compareClusterTPeriodic(
-    const ClusterTreeBase<Derived> &cluster1,
-    const ClusterTreeBase<otherDerived> &cluster2, Scalar eta) {
-  Admissibility retval;
-  const Index n = cluster1.bb().rows();
-  const Scalar sinc1 = std::sin(FMCA_PI * cluster1.bb()(n - 1, 2));
-  const Scalar sinc2 = std::sin(FMCA_PI * cluster2.bb()(n - 1, 2));
-  const Scalar sincc = std::sin(
-      FMCA_PI *
-      std::abs(0.5 * (cluster1.bb()(n - 1, 0) - cluster2.bb()(n - 1, 0) +
-                      cluster1.bb()(n - 1, 1) - cluster2.bb()(n - 1, 1))));
-  const Scalar row_radius =
-      0.5 *
-      std::sqrt(cluster1.bb().col(2).head(n - 1).squaredNorm() + sinc1 * sinc1);
-  const Scalar col_radius =
-      0.5 *
-      std::sqrt(cluster2.bb().col(2).head(n - 1).squaredNorm() + sinc2 * sinc2);
+    const Scalar signeddist =
+        std::sqrt(
+            (0.5 * (c1.bb().col(0).head(n - 1) - c2.bb().col(0).head(n - 1) +
+                    c1.bb().col(1).head(n - 1) - c2.bb().col(1).head(n - 1)))
+                .squaredNorm() +
+            sincc * sincc) -
+        row_radius - col_radius;
 
-  const Scalar signeddist = std::sqrt((0.5 * (cluster1.bb().col(0).head(n - 1) -
-                                              cluster2.bb().col(0).head(n - 1) +
-                                              cluster1.bb().col(1).head(n - 1) -
-                                              cluster2.bb().col(1).head(n - 1)))
-                                          .squaredNorm() +
-                                      sincc * sincc) -
-                            row_radius - col_radius;
+    const Scalar dist = signeddist > 0 ? signeddist : 0;
+    const Scalar radius = row_radius > col_radius ? row_radius : col_radius;
 
-  const Scalar dist = signeddist > 0 ? signeddist : 0;
-  const Scalar radius = row_radius > col_radius ? row_radius : col_radius;
-
-  if (radius > eta * dist) {
-    // check if either cluster is a leaf in that case,
-    // compute the full matrix block
-    if (!cluster1.nSons() || !cluster2.nSons())
-      return Dense;
-    else
-      return Refine;
-  } else
-    return LowRank;
-}
-
+    if (radius > eta * dist) {
+      // check if either cluster is a leaf in that case,
+      // compute the full matrix block
+      if (!c1.nSons() || !c2.nSons())
+        return Dense;
+      else
+        return Refine;
+    } else
+      return LowRank;
+  }
+};
 }  // namespace FMCA
 #endif

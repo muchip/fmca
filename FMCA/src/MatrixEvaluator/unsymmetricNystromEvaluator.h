@@ -71,6 +71,22 @@ struct unsymmetricNystromEvaluator {
                                   c_mom_.P().col(TC.indices()[j]));
     return;
   }
+
+  /**
+   *  \brief provides the evaluaton of a matrix entry given
+   *         an index pair
+   **/
+  Scalar compute_entry(const Index i, const Index j) const {
+    return kernel_(r_mom_.P().col(i), c_mom_.P().col(j));
+  }
+
+  /**
+   *  \brief add an operator which makes it feel like a matrix
+   **/
+  Scalar operator()(const Index i, const Index j) const {
+    return compute_entry(i, j);
+  }
+
   const Moments &r_mom_;
   const Moments &c_mom_;
   Kernel kernel_;

@@ -49,10 +49,11 @@ using usMatrixEvaluator =
  **/
 struct pySampletTree {
   pySampletTree(){};
-  pySampletTree(const FMCA::Matrix &P, FMCA::Index dtilde)
-      : p_(dtilde), dtilde_(dtilde) {
-    const Moments mom(P, dtilde > 0 ? dtilde : 0);
-    const SampletMoments samp_mom(P, dtilde > 0 ? dtilde - 1 : 0);
+  pySampletTree(const FMCA::Matrix &P, FMCA::Index dtilde) {
+    dtilde_ = dtilde > 0 ? dtilde : 1;
+    p_ = 2 * (dtilde_ - 1);
+    const Moments mom(P, p_);
+    const SampletMoments samp_mom(P, dtilde - 1);
     ST_.init(mom, samp_mom, 0, P);
   };
   FMCA::iVector indices() {
@@ -279,7 +280,12 @@ PYBIND11_MODULE(FMCA, m) {
   //////////////////////////////////////////////////////////////////////////////
   py::class_<FMCA::CovarianceKernel> pyCovarianceKernel_(m, "CovarianceKernel");
   pyCovarianceKernel_.def(py::init<>());
+  pyCovarianceKernel_.def(py::init<const std::string &>());
   pyCovarianceKernel_.def(py::init<const std::string &, FMCA::Scalar>());
+  pyCovarianceKernel_.def(
+      py::init<const std::string &, FMCA::Scalar, FMCA::Scalar>());
+  pyCovarianceKernel_.def(py::init<const std::string &, FMCA::Scalar,
+                                   FMCA::Scalar, FMCA::Scalar>());
   pyCovarianceKernel_.def("kernelType", &FMCA::CovarianceKernel::kernelType);
   pyCovarianceKernel_.def("eval", &FMCA::CovarianceKernel::eval,
                           py::arg().noconvert(), py::arg().noconvert());
