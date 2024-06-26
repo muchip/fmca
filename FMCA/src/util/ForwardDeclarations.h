@@ -35,6 +35,8 @@ class ClusterTree;
 
 class MortonClusterTree;
 
+class RandomProjectionTree;
+
 template <typename ClusterTreeType>
 class SampletTree;
 
