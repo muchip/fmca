@@ -22,14 +22,28 @@ void markActiveClusters(std::vector<bool> &active,
   if (st.nSons()) {
     for (FMCA::Index i = 0; i < st.nSons(); ++i) {
       markActiveClusters(active, st.sons(i), tdata, max_coeff, threshold);
-      active[st.block_id()] = active[st.sons(i).block_id()] ? true : false;
+      active[st.block_id()] =
+          active[st.sons(i).block_id()] ? true : active[st.block_id()];
     }
   }
   const FMCA::Index ndist = st.is_root() ? st.Q().cols() : st.nsamplets();
-  const FMCA::Scalar color =
-      tdata.segment(st.start_index(), ndist).cwiseAbs().maxCoeff();
-  if (color > threshold * max_coeff) active[st.block_id()] = true;
+  if (ndist) {
+    const FMCA::Scalar color =
+        tdata.segment(st.start_index(), ndist).cwiseAbs().maxCoeff();
+    if (color > threshold * max_coeff) active[st.block_id()] = true;
+  }
+  return;
+}
 
+template <typename Derived>
+void makeTree(std::vector<bool> &active,
+              const FMCA::SampletTreeBase<Derived> &st) {
+  if (st.nSons())
+    for (FMCA::Index i = 0; i < st.nSons(); ++i) {
+      makeTree(active, st.sons(i));
+      active[st.block_id()] =
+          active[st.sons(i).block_id()] ? true : active[st.block_id()];
+    }
   return;
 }
 
@@ -50,9 +64,9 @@ void getActiveLeafs(std::vector<const Derived *> &active_leafs,
     // there is at least one active child
     else if (scounter < st.nSons())
       for (FMCA::Index i = 0; i < st.nSons(); ++i)
-        if (not active[st.sons(i).block_id()])
+        if (not active[st.sons(i).block_id()] && st.sons(i).block_size())
           active_leafs.push_back(std::addressof(st.sons(i).derived()));
-  } else if (active[st.block_id()])
+  } else if (active[st.block_id()] && st.block_size())
     active_leafs.push_back(std::addressof(st.derived()));
 
   return;

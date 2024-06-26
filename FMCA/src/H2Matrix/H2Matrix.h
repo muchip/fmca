@@ -25,8 +25,9 @@ struct traits<H2MatrixNode<ClusterTreeType>> : public traits<ClusterTreeType> {
   typedef ClusterTreeType ColCType;
 };
 
-template <typename ClusterTreeType>
-struct traits<H2Matrix<ClusterTreeType>> : public traits<ClusterTreeType> {
+template <typename ClusterTreeType, typename ClusterComparison>
+struct traits<H2Matrix<ClusterTreeType, ClusterComparison>>
+    : public traits<ClusterTreeType> {
   typedef H2MatrixNode<ClusterTreeType> Node;
   typedef typename traits<Node>::RowCType RowCType;
   typedef typename traits<Node>::ColCType ColCType;
@@ -39,9 +40,10 @@ struct traits<H2Matrix<ClusterTreeType>> : public traits<ClusterTreeType> {
  *         H2ClusterTree.
 
  */
-template <typename Derived>
-struct H2Matrix : public H2MatrixBase<H2Matrix<Derived>> {
-  typedef H2MatrixBase<H2Matrix<Derived>> Base;
+template <typename Derived, typename ClusterComparison = CompareCluster>
+struct H2Matrix : public H2MatrixBase<H2Matrix<Derived, ClusterComparison>> {
+  typedef H2MatrixBase<H2Matrix<Derived, ClusterComparison>> Base;
+  typedef ClusterComparison CC;
   // make base class methods visible
   using Base::computeH2Matrix;
   using Base::node;

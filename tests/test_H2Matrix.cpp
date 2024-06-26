@@ -16,43 +16,57 @@
 #include "../FMCA/H2Matrix"
 #include "../FMCA/src/util/Tictoc.h"
 
-#define NPTS 1000000
-#define DIM 2
+#define NPTS 10000
+#define DIM 3
 #define MPOLE_DEG 3
 
 using Interpolator = FMCA::TotalDegreeInterpolator;
 using Moments = FMCA::NystromMoments<Interpolator>;
 using MatrixEvaluator = FMCA::NystromEvaluator<Moments, FMCA::CovarianceKernel>;
+using MatrixEvaluatorUS =
+    FMCA::unsymmetricNystromEvaluator<Moments, FMCA::CovarianceKernel>;
 using H2ClusterTree = FMCA::H2ClusterTree<FMCA::ClusterTree>;
-using H2Matrix = FMCA::H2Matrix<H2ClusterTree>;
+using H2Matrix = FMCA::H2Matrix<H2ClusterTree, FMCA::CompareCluster>;
 
 int main() {
   FMCA::Tictoc T;
   const FMCA::CovarianceKernel function("EXPONENTIAL", 2.);
-  const FMCA::Matrix P = FMCA::Matrix::Random(DIM, NPTS);
-  const Moments mom(P, MPOLE_DEG);
+  const FMCA::Matrix Pr = FMCA::Matrix::Random(DIM, 2 * NPTS);
+  const FMCA::Matrix Pc = FMCA::Matrix::Random(DIM, NPTS);
+
+  const Moments momr(Pr, MPOLE_DEG);
+  const Moments momc(Pc, MPOLE_DEG);
+
+  std::cout
+      << "Cluster splitter:             "
+      << FMCA::internal::traits<FMCA::ClusterTree>::Splitter::splitterName()
+      << std::endl;
   T.tic();
-  H2ClusterTree ct(mom, 0, P);
+  H2ClusterTree ctr(momr, 0, Pr);
+  H2ClusterTree ctc(momc, 0, Pc);
   T.toc("H2 cluster tree:");
-  FMCA::internal::compute_cluster_bases_impl::check_transfer_matrices(ct, mom);
-  const MatrixEvaluator mat_eval(mom, function);
+  FMCA::internal::compute_cluster_bases_impl::check_transfer_matrices(ctr,
+                                                                      momr);
+  FMCA::internal::compute_cluster_bases_impl::check_transfer_matrices(ctc,
+                                                                      momc);
+  const MatrixEvaluatorUS mat_eval(momr, momc, function);
   for (FMCA::Scalar eta = 0.8; eta >= 0.1; eta *= 0.5) {
     std::cout << "eta:                          " << eta << std::endl;
     T.tic();
     H2Matrix hmat;
-    hmat.computePattern(ct, ct, eta);
+    hmat.computePattern(ctr, ctc, eta);
     T.toc("elapsed time:                ");
     hmat.statistics();
 
     {
-      FMCA::Matrix X(NPTS, 10), Y1(NPTS, 10), Y2(NPTS, 10);
+      FMCA::Matrix X(NPTS, 10), Y1(2 * NPTS, 10), Y2(2 * NPTS, 10);
       X.setZero();
       X.setZero();
       for (auto i = 0; i < 10; ++i) {
-        FMCA::Index index = rand() % P.cols();
-        FMCA::Vector col = function.eval(P, P.col(ct.indices()[index]));
-        Y1.col(i) =
-            col(Eigen::Map<const FMCA::iVector>(ct.indices(), ct.block_size()));
+        FMCA::Index index = rand() % Pc.cols();
+        FMCA::Vector col = function.eval(Pr, Pc.col(ctc.indices()[index]));
+        Y1.col(i) = col(
+            Eigen::Map<const FMCA::iVector>(ctr.indices(), ctr.block_size()));
         X(index, i) = 1;
       }
       std::cout << "set test data" << std::endl;
