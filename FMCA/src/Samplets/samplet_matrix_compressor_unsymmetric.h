@@ -255,7 +255,7 @@ class SampletMatrixCompressorUnsymmetric {
                   const Eigen::MatrixBase<otherDerived> &block) {
     for (auto k = 0; k < ncols; ++k)
       for (auto j = 0; j < nrows; ++j)
-        if ((std::abs(block(j, k)) > threshold_) || srow + j == scol + k)
+        if ((std::abs(block(j, k)) > threshold_) || (srow == scol && j == k))
           triplet_list_.push_back(
               Eigen::Triplet<Scalar>(srow + j, scol + k, block(j, k)));
   }
