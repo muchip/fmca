@@ -39,7 +39,9 @@ Index updateClusterMinDistance(Vector &min_dist, Scalar max_min_dist,
                                const ClusterTreeBase<Derived> &c1,
                                const ClusterTreeBase<Derived> &c2,
                                const Matrix &P) {
-  Scalar dist = computeDistance(c1, c2);
+  const FMCA::Vector u = (c1.bb().col(0) - c2.bb().col(1)).cwiseMax(0);
+  const FMCA::Vector v = (c2.bb().col(0) - c1.bb().col(1)).cwiseMax(0);
+  Scalar dist = sqrt(u.squaredNorm() + v.squaredNorm());
   Index dups = 0;
   if (max_min_dist >= dist) {
     if (c2.nSons()) {
@@ -109,6 +111,30 @@ Vector minDistanceVector(const ClusterTreeBase<Derived> &CT, const Matrix &P) {
   if (dups)
     std::cout << "Caution: data set contains " << dups << " duplicate points\n";
   return min_distance;
+}
+
+Vector fastMinDistanceVector(const Matrix &P, const Index samples = 10,
+                             const Index min_size = 300) {
+  Vector retval(P.cols());
+  // initialize the vector with some distances
+  for (Index i = 0; i < P.cols(); ++i)
+    retval(i) = (P.col(i) - P.col((i + 1) % P.cols())).norm();
+  for (Index s = 0; s < samples; ++s) {
+    RandomProjectionTree rt(P, min_size);
+    for (const auto &it : rt)
+      if (!it.nSons()) {
+        for (Index i = 0; i < it.block_size(); ++i)
+          for (Index j = 0; j < i; ++j) {
+            const Scalar dist =
+                (P.col(it.indices()[i]) - P.col(it.indices()[j])).norm();
+            retval(it.indices()[i]) =
+                retval(it.indices()[i]) < dist ? retval(it.indices()[i]) : dist;
+            retval(it.indices()[j]) =
+                retval(it.indices()[j]) < dist ? retval(it.indices()[j]) : dist;
+          }
+      }
+  }
+  return retval;
 }
 
 template <typename Derived>

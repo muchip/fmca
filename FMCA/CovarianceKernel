@@ -21,9 +21,12 @@
  
 #include <string>
 
-#include "src/util/Macros.h"
+#include "Clustering"
 
+#include "src/util/Macros.h"
 #include "src/CovarianceKernel/CovarianceKernel.h"
 #include "src/CovarianceKernel/SpaceTimePerKernel.h"
+#include "src/CovarianceKernel/sparseKernelMatrixInverse.h"
+#include "src/CovarianceKernel/sparseKernelMatrixInverseSqrt.h"
 
 #endif

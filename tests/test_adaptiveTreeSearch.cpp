@@ -16,7 +16,7 @@
 #include "../FMCA/src/Samplets/adaptiveTreeSearch.h"
 
 #define DIM 2
-#define NPTS 10000000
+#define NPTS 1000000
 
 using SampletInterpolator = FMCA::MonomialInterpolator;
 using SampletMoments = FMCA::MinNystromSampletMoments<SampletInterpolator>;
