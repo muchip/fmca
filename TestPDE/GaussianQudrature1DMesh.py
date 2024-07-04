@@ -82,7 +82,7 @@ def main():
     output_file_weights = sys.argv[4]
     output_file_normals = sys.argv[5]
     
-    output_directory = "/Users/saraavesani/fmca/Sara_tests/data/"
+    output_directory = "/Users/saraavesani/fmca/TestPDE/data/"
     full_path_points = os.path.join(output_directory, output_file_points)
     full_path_weights = os.path.join(output_directory, output_file_weights)
     full_path_normals = os.path.join(output_directory, output_file_normals)

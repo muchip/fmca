@@ -2,12 +2,28 @@
 import sys
 import numpy as np
 from scipy.stats.qmc import Halton
+from collections import OrderedDict
 
 # Function to generate 2D Halton points scaled to [-1, 1]
 def halton_points_2d(num_points, dimensions):
-    halton_gen = Halton(dimensions, scramble=True, optimization="lloyd")
+    halton_gen = Halton(dimensions)
     halton_points = halton_gen.random(num_points)
     return 2 * halton_points - 1  # Scale to [-1, 1]
+
+def generate_uniform_grid_bnd(num_points_per_dimension):
+    # Calculate the step size for each dimension
+    step = 2 / (num_points_per_dimension - 1)
+    points = []
+    for i in range(0,num_points_per_dimension):
+            x = -1 + i * step
+            points.append((x,-1))
+            points.append((x,1))
+    for i in range(0,num_points_per_dimension):
+            y = -1 + i * step
+            points.append((-1,y))
+            points.append((1,y))   
+    points = list(OrderedDict.fromkeys(points))
+    return points
 
 # Function to generate boundary Halton points
 def generate_boundary_points(num_points):
@@ -42,14 +58,22 @@ if __name__ == "__main__":
         sys.exit(1)
 
     N = int(sys.argv[1])
-    output_filename = f"data/vertices_square_Halton{N}.txt"
+    output_filename1 = f"data/interior_square_Halton{N*N}.txt"
+    output_filename2 = f"data/boundary_square_Halton{N*N}.txt"
+    output_filename3 = f"data/int_and_bnd_square_Halton{N*N}.txt"
 
-    N_interior = N
-    N_boundary = int(np.sqrt(N_interior))
+    N_boundary = N
+    N_interior = N*N - 4*N_boundary
 
     interior_points = halton_points_2d(N_interior, 2)
-    boundary_points = generate_boundary_points(N_boundary)
+    boundary_points = generate_uniform_grid_bnd(N_boundary)
     points_total = np.concatenate([interior_points, boundary_points])
-
-    np.savetxt(output_filename, points_total, fmt="%.16f")
-    print(f"Saved Halton points to {output_filename}")
+    
+    np.savetxt(output_filename1, interior_points)
+    np.savetxt(output_filename2, boundary_points)
+    np.savetxt(output_filename3, points_total)
+    print(f"Saved interior points to {output_filename1}")
+    print(f"Saved boundary points to {output_filename2}")
+    print(f"Saved int_and_bnd points to {output_filename3}")
+    print(f"Len interior points = ", len(interior_points))
+    print(f"Len boundary points = ", len(boundary_points))

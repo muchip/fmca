@@ -6,9 +6,10 @@ The matrices are comrpessed using Samplets.
 We rely on the FMCA library by M.Multerer.
  */
 
-#include <cmath>
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
+#include <random>
 // #include
 // </opt/homebrew/Cellar/eigen/3.4.0_1/include/eigen3/Eigen/MetisSupport>
 #include </opt/homebrew/Cellar/metis/5.1.0/include/metis.h>
@@ -27,8 +28,10 @@ We rely on the FMCA library by M.Multerer.
 #include "../FMCA/LaplacianKernel"
 #include "../FMCA/Samplets"
 #include "../FMCA/src/FormattedMultiplication/FormattedMultiplication.h"
+#include "../FMCA/src/util/Grid2D.h"
 #include "../FMCA/src/util/IO.h"
 #include "../FMCA/src/util/Macros.h"
+#include "../FMCA/src/util/Plotter.h"
 #include "../FMCA/src/util/Tictoc.h"
 #include "../FMCA/src/util/permutation.h"
 #include "read_files_txt.h"
@@ -46,19 +49,34 @@ using usMatrixEvaluatorKernel =
 using usMatrixEvaluator =
     FMCA::unsymmetricNystromEvaluator<Moments, FMCA::GradKernel>;
 using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
+using H2ClusterTree = FMCA::H2ClusterTree<FMCA::ClusterTree>;
 
-// Analytical soltuion
-FMCA::Scalar u(FMCA::Scalar x, FMCA::Scalar y) {
-  FMCA::Scalar sum = 0.0;
-  // Sum the series for the first 50 odd terms
-  for (FMCA::Index k = 1; k <= 199; k += 2) {
-    FMCA::Scalar term =
-        (sin(k * FMCA_PI * (1 + x) / 2) / (pow(k, 3) * sinh(k * FMCA_PI))) *
-        (sinh(k * FMCA_PI * (1 + y) / 2) + sinh(k * FMCA_PI * (1 - y) / 2));
-    sum += term;
-  }
-  return (1 - pow(x, 2)) / 2 - (16 / (FMCA_PI * FMCA_PI * FMCA_PI)) * sum;
+// Function to generate random points within a bounding box
+std::vector<Eigen::Vector2d> generateRandomPointsInBox(const Eigen::Matrix<double, 2, 2>& bb, int numPoints) {
+    std::vector<Eigen::Vector2d> randomPoints;
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<> dis_x(bb(0, 0), bb(0, 1));
+    std::uniform_real_distribution<> dis_y(bb(1, 0), bb(1, 1));
+
+    for (int i = 0; i < numPoints; ++i) {
+        double x = dis_x(gen);
+        double y = dis_y(gen);
+        randomPoints.push_back(Eigen::Vector2d(x, y));
+    }
+
+    return randomPoints;
 }
+
+// Function to write points to a file
+void writePointsToFile(const std::string& filename, const Eigen::MatrixXd& points) {
+    std::ofstream file(filename);
+    for (int i = 0; i < points.cols(); ++i) {
+        file << points(0, i) << " " << points(1, i) << "\n";
+    }
+    file.close();
+}
+
 
 int main() {
   // Initialize the matrices of source points, quadrature points, weights
@@ -66,10 +84,16 @@ int main() {
   FMCA::Matrix P_sources;
   FMCA::Matrix P_sources_border;
   FMCA::Matrix P;
+  FMCA::Matrix Peval;
   //////////////////////////////////////////////////////////////////////////////
-  readTXT("data/vertices_interior_L.txt", P_sources, 2);
-  readTXT("data/vertices_boundary_L.txt", P_sources_border, 2);
-  readTXT("data/Int_and_Bnd_L.txt", P, 2);
+  readTXT("data/vertices_interior_L100.txt", P_sources, 2);
+  readTXT("data/vertices_boundary_L100.txt", P_sources_border, 2);
+  readTXT("data/Int_and_Bnd_L100.txt", P, 2);
+  readTXT("data/InteriorAndBnd_L10k.txt", Peval, 2);
+
+  std::string solNameSampletBasis = "collocation_L100_SampletBasis.vtk";
+  std::string solNameSampletBasis_toNaturalorder =
+      "collocation_L100_SampletBasis_toNaturalorder.vtk";
 
   int NPTS_SOURCE = P_sources.cols();
   int NPTS_SOURCE_BORDER = P_sources_border.cols();
@@ -78,46 +102,35 @@ int main() {
   // U_BC vector
   FMCA::Vector u_bc(NPTS_SOURCE_BORDER);
   for (int i = 0; i < NPTS_SOURCE_BORDER; ++i) {
-    // double x = P_sources_border(0, i);
-    // double y = P_sources_border(1, i);
     u_bc[i] = 0;
   }
+
   // Right hand side f
   FMCA::Vector f(NPTS_SOURCE);
   for (int i = 0; i < NPTS_SOURCE; ++i) {
     double x = P_sources(0, i);
     double y = P_sources(1, i);
-    f[i] = -1;
-    // f[i] = -2 * FMCA_PI * FMCA_PI * sin(FMCA_PI * x) * sin(FMCA_PI * y);
+    f[i] = -10;
   }
-  // Analytical solution
-  FMCA::Vector analytical_sol(P.cols());
-  for (FMCA::Index i = 0; i < P.cols(); ++i) {
-    FMCA::Scalar x = P(0, i);
-    FMCA::Scalar y = P(1, i);
-    analytical_sol[i] = u(x, y);
-  }
+  // Exact solution
+  // FMCA::Vector u_exact(N);
+  // for (int i = 0; i < N; ++i) {
+  //   double x = P(0, i);
+  //   double y = P(1, i);
+  //   u_exact[i] = sin(FMCA_PI * x) * sin(FMCA_PI * y);
+  // }
   /////////////////////////////////////////////////////////////////////////////
   // Parameters
   const FMCA::Scalar eta = 0.5;
   const FMCA::Index dtilde = 3;
   const FMCA::Scalar threshold_kernel = 1e-4;
   const FMCA::Scalar MPOLE_DEG = 2 * (dtilde - 1);
-  std::vector<double> sigma_values = {0.01};
+  std::vector<double> sigma_values = {2};
   std::string kernel_type = "MATERN52";
   std::string kernel_type_laplacian = "MATERN52_SECOND_DERIVATIVE";
-  std::string spascii = "results_matlab/collocationL25k";
-  std::string filename = "collocationL25k";
-  // Output the filename to a text file
-  std::ofstream outfile("filename.txt");
-  if (outfile.is_open()) {
-    outfile << filename << std::endl;
-    outfile.close();
-  }
   //////////////////////////////////////////////////////////////////////////////
   for (double sigma : sigma_values) {
-    // FMCA::Scalar threshold_laplacianKernel = threshold_kernel / (sigma * sigma);
-    FMCA::Scalar threshold_laplacianKernel = 1e-2;
+    FMCA::Scalar threshold_laplacianKernel = threshold_kernel / (sigma * sigma);
 
     std::cout << "Running with sigma = " << sigma << std::endl;
     const Moments mom_sources(P_sources, MPOLE_DEG);
@@ -130,6 +143,11 @@ int main() {
     const Moments mom(P, MPOLE_DEG);
     const SampletMoments samp_mom(P, dtilde - 1);
     H2SampletTree hst(mom, samp_mom, 0, P);
+    FMCA::Vector minDistance = minDistanceVector(hst, P);
+    auto maxElementIterator =
+        std::max_element(minDistance.begin(), minDistance.end());
+    FMCA::Scalar sigma_h = *maxElementIterator;
+    std::cout << "fill distance:                      " << sigma_h << std::endl;
     //////////////////////////////////////////////////////////////////////////////
     std::cout << std::string(80, '-') << std::endl;
     std::cout << "Number of interior points = " << NPTS_SOURCE << std::endl;
@@ -209,8 +227,7 @@ int main() {
     std::cout << "anz A:                                 "
               << tripletList.size() / N << std::endl;
 
-    //////////////////////////////////////////////////////////////////////////////
-    // std::ofstream file("matrixL25k.mtx");
+    // std::ofstream file("matrix.mtx");
     // file << "%%MatrixMarket matrix coordinate real general\n";
     // file << A.rows() << " " << A.cols() << " " << A.nonZeros() << "\n";
 
@@ -221,7 +238,6 @@ int main() {
 
     // file.close();
 
-    FMCA::IO::print2spascii(spascii, A, "w");
     //////////////////////////////////////////////////////////////////////////////
 
     FMCA::Vector f_reordered = f(permutationVector(hst_sources));
@@ -239,11 +255,6 @@ int main() {
     std::cout << "Solver                               " << solver_type
               << std::endl;
 
-    // Eigen::GMRES<Eigen::SparseMatrix<double>,
-    //              Eigen::DiagonalPreconditioner<double>> gmres;
-    // gmres.compute(A);
-    // Eigen::VectorXd alpha = gmres.solve(b);
-
     Eigen::SparseQR<Eigen::SparseMatrix<double>, Eigen::MetisOrdering<int>>
         Solver;
     Solver.analyzePattern(A);
@@ -253,17 +264,76 @@ int main() {
     }
     FMCA::Vector alpha = Solver.solve(b);
 
-    FMCA::Vector alpha_natural = hst.toNaturalOrder(alpha);
-    FMCA::IO::print2m(
-        "results_matlab/solution_collocation_compressed_SampletBasis_L.m",
-        "sol_collocation_compressed_SampletBasis_L", alpha, "w");
+    Eigen::Index maxIndex, minIndex;
+    double maxValue = alpha.maxCoeff(&maxIndex);
+    double minValue = alpha.minCoeff(&minIndex);
+    std::cout << "highest samplet coefficient: " << maxValue << " at index "
+              << maxIndex << std::endl;
+    std::cout << "lowest samplet coefficient: " << minValue << " at index "
+              << minIndex << std::endl;
+
+    FMCA::Plotter2D plotterSampletBasis;
+    plotterSampletBasis.plotFunction(solNameSampletBasis, P, alpha);
+
+    FMCA::Vector alpha_grid = hst.inverseSampletTransform(alpha);
+    alpha_grid = hst.toNaturalOrder(alpha_grid);
+    Eigen::Index maxIndex_NO, minIndex_NO;
+    double maxValue_NO = alpha_grid.maxCoeff(&maxIndex_NO);
+    double minValue_NO = alpha_grid.minCoeff(&minIndex_NO);
+    std::cout << "highest samplet coefficient natural order: " << maxValue_NO
+              << " at index " << maxIndex_NO << " corresponding to point ["
+              << P.col(maxIndex_NO)[0] << " " << P.col(maxIndex_NO)[1] << "]"
+              << std::endl;
+    std::cout << "lowest samplet coefficient natural order: " << minValue_NO
+              << " at index " << minIndex_NO << " corresponding to point ["
+              << P.col(minIndex_NO)[0] << " " << P.col(minIndex_NO)[1] << "]"
+              << std::endl;
+
+    FMCA::IO::print2m("results_matlab/sol_L100_SampletBasisToNaturalOrder.m",
+                      "sol_L100_NO", alpha, "w");
+
+    FMCA::Plotter2D plotterNaturalOrder;
+    plotterNaturalOrder.plotFunction(solNameSampletBasis_toNaturalorder, P,
+                                     alpha_grid);
+
+    ///////////////////////////////////////////
+    // plot the active leaves bounding boxes
+    const FMCA::Scalar max_coeff = alpha.cwiseAbs().maxCoeff();
+    std::cout << "max_coeff:      " << max_coeff << std::endl;
+    const FMCA::Index ncluster =
+        std::distance(hst.begin(), hst.end());
+    std::cout << "ncluster:      " << ncluster << std::endl;
+    std::vector<bool> active(ncluster);
+    FMCA::markActiveClusters(active, hst, alpha, max_coeff,
+                             0.1 * max_coeff);
+    std::vector<const H2SampletTree*> active_leafs;
+    FMCA::getActiveLeafs(active_leafs, active, hst);
+
+    std::vector<FMCA::Matrix> bbvec_active;
+    for (const auto* leaf : active_leafs) {
+      if (leaf != nullptr) {
+        bbvec_active.push_back(leaf->bb());
+      }
+    }
+    std::cout << "bb created " << std::endl;
+    // Process each bounding box
+    for (const auto& bb : bbvec_active) {
+        // Generate 10 random points within the bounding box
+        std::vector<Eigen::Vector2d> randomPoints = generateRandomPointsInBox(bb, 10);
+        std::cout << "random points created of size " << randomPoints.size() << std::endl;
+        int oldCols = P.cols();
+        P.conservativeResize(2, oldCols + randomPoints.size());
+        for (size_t i = 0; i < randomPoints.size(); ++i) {
+            P.col(oldCols + i) = randomPoints[i];
+        }
+    }
+    writePointsToFile("results_matlab/newPoints_L.txt", P);
+    // FMCA::IO::print2m("results_matlab/newPoints_L.m", "P", P, "w");
 
     // Check if the solution is valid
     std::cout << "residual error:                          "
               << (A * alpha - b).norm() << std::endl;
-    // Check the error
-    std::cout << "error:                          "
-              << (alpha-analytical_sol).norm()/analytical_sol.norm() << std::endl;
+
     //////////////////////////////////////////////////////////////////////////////
     const FMCA::CovarianceKernel kernel_funtion_N(kernel_type, sigma);
     const MatrixEvaluatorKernel mat_eval_kernel_N(mom, kernel_funtion_N);
@@ -279,20 +349,37 @@ int main() {
 
     FMCA::Vector Kalpha =
         Kcomp_N_Sparse.selfadjointView<Eigen::Upper>() * alpha;
-    Kalpha = hst.inverseSampletTransform(Kalpha);
-    Kalpha = Kalpha(inversePermutationVector(hst));
+    FMCA::Vector Kalpha_transformed = hst.inverseSampletTransform(Kalpha);
+    FMCA::Vector Kalpha_permuted =
+        Kalpha_transformed(inversePermutationVector(hst));
 
-    FMCA::IO::print2m("results_matlab/solution_collocation_compressed_L.m",
-                      "sol_collocation_compressed_L", Kalpha, "w");
+    // std::cout << "(Kalpha - u_exact).norm() / analytical_sol.norm():    "
+    //           << (Kalpha_permuted - u_exact).norm() / u_exact.norm()
+    //           << std::endl;
 
-    FMCA::Vector absolute_error(P_sources.cols());
-    for (int i = 0; i < P_sources.cols(); ++i) {
-      absolute_error[i] = abs(Kalpha[i] - analytical_sol[i]);
-    }
+    // FMCA::Vector absolute_error_P(N);
+    // for (int i = 0; i < N; ++i) {
+    //   absolute_error_P[i] = abs(Kalpha_permuted[i] - u_exact[i]);
+    // }
+    /*
+        // plot solution
+        {
+          const Moments cmom(P, MPOLE_DEG);
+          const Moments rmom(Peval, MPOLE_DEG);
+          const H2ClusterTree hct(cmom, 0, P);
+          const H2ClusterTree hct_eval(rmom, 0, Peval);
+          const FMCA::Vector sx = hct.toClusterOrder(alpha_grid);
+          const usMatrixEvaluatorKernel mat_eval(rmom, cmom, kernel_funtion_N);
+          FMCA::H2Matrix<H2ClusterTree, FMCA::CompareCluster> hmat;
+          hmat.computePattern(hct_eval, hct, eta);
+          hmat.statistics();
+          FMCA::Vector srec = hmat.action(mat_eval, sx);
+          FMCA::Vector rec = hct_eval.toNaturalOrder(srec);
+          FMCA::Plotter2D plotter;
+          plotter.plotFunction("collocationL.vtk", Peval, rec);
 
-    FMCA::IO::print2m(
-        "results_matlab/error_solution_collocation_compressed_L.m",
-        "absolute_error_solution_collocation_compressed_L", absolute_error, "w");
+        }
+    */
   }
   return 0;
 }

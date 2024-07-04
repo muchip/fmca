@@ -1,5 +1,5 @@
-/* We solve here the Poisson problem on the square [-1,1]x[-1,1]
-laplacian(u) = 2*pi^2*sin(pi*x)*sin(pi*y)
+/* We solve here the Poisson problem on an L shape domain
+-laplacian(u) = 1
 u = 0 on \partial u
 Using Gaussian and Matern52 kernel and Kansa method collocation method.
 The matrices are comrpessed using Samplets.
@@ -7,7 +7,9 @@ We rely on the FMCA library by M.Multerer.
  */
 
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
+#include <random>
 // #include
 // </opt/homebrew/Cellar/eigen/3.4.0_1/include/eigen3/Eigen/MetisSupport>
 #include </opt/homebrew/Cellar/metis/5.1.0/include/metis.h>
@@ -57,26 +59,15 @@ int main() {
   FMCA::Matrix P;
   FMCA::Matrix Peval;
   //////////////////////////////////////////////////////////////////////////////
-  readTXT("data/interior_square100.txt", P_sources, 2);
-  readTXT("data/boundary_square100.txt", P_sources_border, 2);
-  readTXT("data/int_and_bnd_square100.txt", P, 2);
-  readTXT("data/uniform_vertices_square10k.txt", Peval, 2);
+  // 25k 0.1
+  std::vector<double> sigma_values = {0.2};
+  readTXT("data/interior_square_6k.txt", P_sources, 2);
+  readTXT("data/boundary_L_6k.txt", P_sources_border, 2);
+  readTXT("data/int_and_bnd_L_6k.txt", P, 2);
+  readTXT("data/InteriorAndBnd_L10k.txt", Peval, 2);
 
-  std::string solNameSampletBasis = "collocation100_SampletBasis.vtk";
-  std::string solNameSampletBasis_toNaturalorder = "collocation100_SampletBasis_toNaturalorder.vtk";
-
-  // std::string matrixFilename = "collocation2kHalton_pattern";
-  // std::string solName = "collocation2kHalton.vtk";
-  // std::string errName = "collocation2kHalton_error.vtk";
-
-  // readTXT("data/interior_square_Halton10k.txt", P_sources, 2);
-  // readTXT("data/boundary_square_Halton10k.txt", P_sources_border, 2);
-  // readTXT("data/vertices_square_Halton10k.txt", P, 2);
-  // readTXT("data/uniform_vertices_square10k.txt", Peval, 2);
-
-  // std::string matrixFilename = "collocation10kHalton_pattern";
-  // std::string solName = "collocation10kHalton.vtk";
-  // std::string errName = "collocation10kHalton_error.vtk";
+  std::string matrixFilename = "CollocationPatternL6k";
+  std::string solName = "CollocationSolutionL6k.vtk";
 
   int NPTS_SOURCE = P_sources.cols();
   int NPTS_SOURCE_BORDER = P_sources_border.cols();
@@ -85,8 +76,6 @@ int main() {
   // U_BC vector
   FMCA::Vector u_bc(NPTS_SOURCE_BORDER);
   for (int i = 0; i < NPTS_SOURCE_BORDER; ++i) {
-    // double x = P_sources_border(0, i);
-    // double y = P_sources_border(1, i);
     u_bc[i] = 0;
   }
 
@@ -95,22 +84,14 @@ int main() {
   for (int i = 0; i < NPTS_SOURCE; ++i) {
     double x = P_sources(0, i);
     double y = P_sources(1, i);
-    f[i] = -2 * FMCA_PI * FMCA_PI * sin(FMCA_PI * x) * sin(FMCA_PI * y);
-  }
-  // Exact solution
-  FMCA::Vector u_exact(N);
-  for (int i = 0; i < N; ++i) {
-    double x = P(0, i);
-    double y = P(1, i);
-    u_exact[i] = sin(FMCA_PI * x) * sin(FMCA_PI * y);
+    f[i] = -10;
   }
   /////////////////////////////////////////////////////////////////////////////
   // Parameters
   const FMCA::Scalar eta = 0.5;
   const FMCA::Index dtilde = 3;
-  const FMCA::Scalar threshold_kernel = 1e-6;
+  const FMCA::Scalar threshold_kernel = 1e-4;
   const FMCA::Scalar MPOLE_DEG = 2 * (dtilde - 1);
-  std::vector<double> sigma_values = {0.3};
   std::string kernel_type = "MATERN52";
   std::string kernel_type_laplacian = "MATERN52_SECOND_DERIVATIVE";
   //////////////////////////////////////////////////////////////////////////////
@@ -209,7 +190,7 @@ int main() {
 
     std::cout << "anz A:                                 "
               << tripletList.size() / N << std::endl;
-
+    FMCA::IO::print2spascii(matrixFilename, A, "w");
     //////////////////////////////////////////////////////////////////////////////
 
     FMCA::Vector f_reordered = f(permutationVector(hst_sources));
@@ -227,11 +208,6 @@ int main() {
     std::cout << "Solver                               " << solver_type
               << std::endl;
 
-    // Eigen::GMRES<Eigen::SparseMatrix<double>,
-    //              Eigen::DiagonalPreconditioner<double>> gmres;
-    // gmres.compute(A);
-    // Eigen::VectorXd alpha = gmres.solve(b);
-
     Eigen::SparseQR<Eigen::SparseMatrix<double>, Eigen::MetisOrdering<int>>
         Solver;
     Solver.analyzePattern(A);
@@ -239,37 +215,34 @@ int main() {
     if (Solver.info() != Eigen::Success) {
       throw std::runtime_error("Decomposition failed");
     }
-
     FMCA::Vector alpha = Solver.solve(b);
+
     Eigen::Index maxIndex, minIndex;
     double maxValue = alpha.maxCoeff(&maxIndex);
     double minValue = alpha.minCoeff(&minIndex);
-    std::cout << "highest samplet coefficient: " << maxValue << " at index " << maxIndex << std::endl;
-    std::cout << "lowest samplet coefficient: " << minValue << " at index " << minIndex << std::endl;
-
-    FMCA::Plotter2D plotterSampletBasis;
-    plotterSampletBasis.plotFunction(solNameSampletBasis, P, alpha);
+    std::cout << "highest samplet coefficient: " << maxValue << " at index "
+              << maxIndex << std::endl;
+    std::cout << "lowest samplet coefficient: " << minValue << " at index "
+              << minIndex << std::endl;
 
     FMCA::Vector alpha_grid = hst.inverseSampletTransform(alpha);
     alpha_grid = hst.toNaturalOrder(alpha_grid);
     Eigen::Index maxIndex_NO, minIndex_NO;
-    double maxValue_NO = alpha.maxCoeff(&maxIndex_NO);
-    double minValue_NO = alpha.minCoeff(&minIndex_NO);
-    std::cout << "highest samplet coefficient natural order: " << maxValue_NO 
-    << " at index " << maxIndex_NO << " corresponding to point [" << P.col(maxIndex_NO)[0] 
-    << " " << P.col(maxIndex_NO)[1] << "]" << std::endl;
-    std::cout << "lowest samplet coefficient natural order: " << minValue_NO 
-    << " at index " << minIndex_NO << " corresponding to point [" << P.col(minIndex_NO)[0] 
-    << " " << P.col(minIndex_NO)[1] << "]" << std::endl;
-
-    FMCA::Plotter2D plotterNaturalOrder;
-    plotterNaturalOrder.plotFunction(solNameSampletBasis_toNaturalorder, P, alpha_grid);
+    double maxValue_NO = alpha_grid.maxCoeff(&maxIndex_NO);
+    double minValue_NO = alpha_grid.minCoeff(&minIndex_NO);
+    std::cout << "highest samplet coefficient natural order: " << maxValue_NO
+              << " at index " << maxIndex_NO << " corresponding to point ["
+              << P.col(maxIndex_NO)[0] << " " << P.col(maxIndex_NO)[1] << "]"
+              << std::endl;
+    std::cout << "lowest samplet coefficient natural order: " << minValue_NO
+              << " at index " << minIndex_NO << " corresponding to point ["
+              << P.col(minIndex_NO)[0] << " " << P.col(minIndex_NO)[1] << "]"
+              << std::endl;
 
     // Check if the solution is valid
     std::cout << "residual error:                          "
               << (A * alpha - b).norm() << std::endl;
 
-    // FMCA::IO::print2spascii(matrixFilename, A, "w");
     //////////////////////////////////////////////////////////////////////////////
     const FMCA::CovarianceKernel kernel_funtion_N(kernel_type, sigma);
     const MatrixEvaluatorKernel mat_eval_kernel_N(mom, kernel_funtion_N);
@@ -289,77 +262,22 @@ int main() {
     FMCA::Vector Kalpha_permuted =
         Kalpha_transformed(inversePermutationVector(hst));
 
-    std::cout << "(Kalpha - u_exact).norm() / analytical_sol.norm():    "
-              << (Kalpha_permuted - u_exact).norm() / u_exact.norm()
-              << std::endl;
-
-    FMCA::Vector absolute_error_P(N);
-    for (int i = 0; i < N; ++i) {
-      absolute_error_P[i] = abs(Kalpha_permuted[i] - u_exact[i]);
+    // plot solution
+    {
+      const Moments cmom(P, MPOLE_DEG);
+      const Moments rmom(Peval, MPOLE_DEG);
+      const H2ClusterTree hct(cmom, 0, P);
+      const H2ClusterTree hct_eval(rmom, 0, Peval);
+      const FMCA::Vector sx = hct.toClusterOrder(alpha_grid);
+      const usMatrixEvaluatorKernel mat_eval(rmom, cmom, kernel_funtion_N);
+      FMCA::H2Matrix<H2ClusterTree, FMCA::CompareCluster> hmat;
+      hmat.computePattern(hct_eval, hct, eta);
+      hmat.statistics();
+      FMCA::Vector srec = hmat.action(mat_eval, sx);
+      FMCA::Vector rec = hct_eval.toNaturalOrder(srec);
+      FMCA::Plotter2D plotter;
+      plotter.plotFunction(solName, Peval, rec);
     }
-
-    /*
-        // plot solution
-        {
-          const Moments cmom(P, MPOLE_DEG);
-          const Moments rmom(Peval, MPOLE_DEG);
-          const H2ClusterTree hct(cmom, 0, P);
-          const H2ClusterTree hct_eval(rmom, 0, Peval);
-          const FMCA::Vector sx = hct.toClusterOrder(alpha_grid);
-          const usMatrixEvaluatorKernel mat_eval(rmom, cmom, kernel_funtion_N);
-          FMCA::H2Matrix<H2ClusterTree, FMCA::CompareCluster> hmat;
-          hmat.computePattern(hct_eval, hct, eta);
-          hmat.statistics();
-          FMCA::Vector srec = hmat.action(mat_eval, sx);
-          FMCA::Vector rec = hct_eval.toNaturalOrder(srec);
-          // FMCA::Plotter2D plotter;
-          // plotter.plotFunction(solName, Peval, rec);
-
-          // Analytical sol of the problem
-          FMCA::Vector analytical_sol(Peval.cols());
-          for (int i = 0; i < Peval.cols(); ++i) {
-            double x = Peval(0, i);
-            double y = Peval(1, i);
-            analytical_sol[i] = sin(FMCA_PI * x) * sin(FMCA_PI * y);
-          }
-
-          FMCA::Scalar error =
-              (rec - analytical_sol).norm() / analytical_sol.norm();
-          std::cout << "Error:                                            " <<
-       error
-                    << std::endl;
-        }
-    */
-    /*
-          FMCA::Vector absolute_error(Peval.cols());
-          for (int i = 0; i < Peval.cols(); ++i) {
-            absolute_error[i] = abs(rec[i] - analytical_sol[i]);
-          }
-
-          // plot error
-          {
-            const Moments cmom(P, MPOLE_DEG);
-            const Moments rmom(Peval, MPOLE_DEG);
-            const H2ClusterTree hct(cmom, 0, P);
-            const H2ClusterTree hct_eval(rmom, 0, Peval);
-            const FMCA::Vector sx = hct.toClusterOrder(absolute_error_P);
-            const usMatrixEvaluatorKernel mat_eval(rmom, cmom,
-       kernel_funtion_N); FMCA::H2Matrix<H2ClusterTree, FMCA::CompareCluster>
-       hmat; hmat.computePattern(hct_eval, hct, eta); hmat.statistics();
-            FMCA::Vector srec = hmat.action(mat_eval, sx);
-            FMCA::Vector rec = hct_eval.toNaturalOrder(srec);
-            FMCA::Plotter2D plotter_error;
-            plotter_error.plotFunction(errName, Peval, rec);
-          }
-
-          // // plot analytical sol
-          // {
-          //   FMCA::Plotter2D plotter_exact_sol;
-          // plotter_exact_sol.plotFunction("collocation_analytical_sol1k.vtk",
-          //                                  Peval, analytical_sol);
-          // }
-        }
-        */
   }
   return 0;
 }
