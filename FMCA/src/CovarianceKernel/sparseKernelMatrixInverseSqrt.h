@@ -17,7 +17,7 @@ namespace FMCA {
 template <typename Derived>
 Eigen::SparseMatrix<Scalar> sparseKernelMatrixInverseSqrt(
     const CovarianceKernel &K, const ClusterTreeBase<Derived> &CT,
-    const Matrix &P, const Index fps = 1, const Scalar ridge_parameter = 0,
+    const Matrix &P, const Scalar fps = 1., const Scalar ridge_parameter = 0,
     const Scalar zeroTol = FMCA_ZERO_TOLERANCE) {
   const Vector mdv = minDistanceVector(CT, P);
   const Scalar fill_distance = mdv.maxCoeff();
