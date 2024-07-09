@@ -69,8 +69,9 @@ Eigen::SparseMatrix<Scalar> sparseKernelMatrixInverse(
     Vector col = Kloc.ldlt().solve(rhs);
     std::vector<Eigen::Triplet<Scalar>> local_triplets;
     for (Index j = 0; j < locN; ++j)
-      local_triplets.push_back(
-          Eigen::Triplet<Scalar>(inv_idcs[i], inv_idcs[epsnn[i][j]], col(j)));
+      if (std::abs(col(j)) > FMCA_ZERO_TOLERANCE)
+        local_triplets.push_back(
+            Eigen::Triplet<Scalar>(inv_idcs[i], inv_idcs[epsnn[i][j]], col(j)));
 #pragma omp critical
     triplets.insert(triplets.end(), local_triplets.begin(),
                     local_triplets.end());
