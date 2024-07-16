@@ -5,12 +5,37 @@ Using Matern32 kernel and penalty method to impose the boundary conditions.
 We rely on the FMCA library by M.Multerer.
  */
 
-#include "SolvePoisson.h"
+#include <algorithm>
+#include <cstdlib>
+#include <iostream>
+// ##############################
+#include <Eigen/Eigenvalues>
+#include <Eigen/MetisSupport>
+#include <Eigen/OrderingMethods>
+#include <Eigen/Sparse>
+#include <Eigen/SparseCholesky>
+#include <Eigen/SparseCore>
+#include <Eigen/SparseQR>
+
+#include "../FMCA/GradKernel"
+#include "../FMCA/H2Matrix"
+#include "../FMCA/Samplets"
+#include "../FMCA/src/Clustering/ClusterTreeMetrics.h"
+#include "../FMCA/src/FormattedMultiplication/FormattedMultiplication.h"
+#include "../FMCA/src/Samplets/adaptiveTreeSearch.h"
+#include "../FMCA/src/util/IO.h"
+#include "../FMCA/src/util/Macros.h"
+#include "../FMCA/src/util/Tictoc.h"
+#include "FunctionsPDE.h"
 ///////////////////////////////////
 #include "../FMCA/src/util/Plotter.h"
 #include "read_files_txt.h"
 
 #define DIM 2
+
+using EigenCholesky =
+    Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>, Eigen::Upper,
+                          Eigen::MetisOrdering<int>>;
 
 FMCA::Vector RandomPointInterior() {
   FMCA::Vector point_interior;
@@ -53,7 +78,7 @@ FMCA::Scalar WeightBnd(int N, FMCA::Scalar r) {
          (1. / N);  // Monte Carlo integration weights: Surface*1/N
 }
 
-// Function to save matrix to a text file
+
 void saveMatrixToFile(const FMCA::Matrix& matrix, const std::string& filename) {
   std::ofstream file(filename);
   if (file.is_open()) {
@@ -63,9 +88,8 @@ void saveMatrixToFile(const FMCA::Matrix& matrix, const std::string& filename) {
       }
       file << "\n";
     }
-
     std::cout << "Matrix saved to " << filename << std::endl;
-    file.close();  // Close the file
+    file.close();
   } else {
     std::cerr << "Unable to open file " << filename << std::endl;
   }
@@ -74,112 +98,87 @@ void saveMatrixToFile(const FMCA::Matrix& matrix, const std::string& filename) {
 int main() {
   // DATA
   FMCA::Tictoc T;
-  FMCA::Matrix P;
-  FMCA::Matrix P_interior_full;;
+  FMCA::Matrix P_sources;
+  FMCA::Matrix P_interior_full;
+  ;
   FMCA::Matrix P_bnd_full;
-  /*
-    int N_interior = 500000;
-    FMCA::Matrix P_interior = MonteCarloPointsInterior(N_interior);
-    saveMatrixToFile(P_interior.transpose(), "MC_Interior_Circle.txt");
-    int N_bnd = 200000;
-    FMCA::Matrix P_bnd = MonteCarloPointsBoundary(N_bnd);
-    saveMatrixToFile(P_bnd.transpose(), "MC_Bnd_Circle.txt");
-  */
+
+  // int N_interior = 1000000;
+  // FMCA::Matrix P_interior = MonteCarloPointsInterior(N_interior);
+  // saveMatrixToFile(P_interior.transpose(), "MC_Interior_Circle.txt");
+  // int N_bnd = 500000;
+  // FMCA::Matrix P_bnd = MonteCarloPointsBoundary(N_bnd);
+  // saveMatrixToFile(P_bnd.transpose(), "MC_Bnd_Circle.txt");
 
   readTXT("data/MC_Interior_Circle.txt", P_interior_full, DIM);
   readTXT("data/MC_Bnd_Circle.txt", P_bnd_full, DIM);
 
   int N_interior = 100000;
   int N_bnd = 50000;
-  FMCA::Matrix P_interior = P_interior_full.leftCols(N_interior);
-  FMCA::Matrix P_bnd = P_bnd_full.leftCols(N_bnd);
+  FMCA::Matrix P_quad = P_interior_full.leftCols(N_interior);
+  FMCA::Matrix P_quad_border = P_bnd_full.leftCols(N_bnd);
+  FMCA::IO::plotPoints2D("P_circle_interior.vtk", P_quad);
+  FMCA::IO::plotPoints2D("P_circle_bnd.vtk", P_quad_border);
 
-  FMCA::Matrix Normals = P_bnd;
+  FMCA::Matrix Normals = P_quad_border;
 
-  readTXT("data/Points_Circle_Uniform.txt", P, DIM);
-  //   FMCA::IO::plotPoints("P_circle.vtk", P);
+  readTXT("data/Points_Circle_Uniform.txt", P_sources, DIM);
+  FMCA::IO::plotPoints2D("P_circle_uniform.vtk", P_sources);
   std::cout << "P done" << std::endl;
-  //   FMCA::Scalar factor = 0.2;
-  //   int N_interior_sources = factor * N_interior;
-  //   int N_bnd_sources = factor * N_bnd;
-  //   FMCA::Matrix P_interior_sources =
-  //       MonteCarloPointsInterior(N_interior_sources);
-  //   FMCA::Matrix P_bnd_sources = MonteCarloPointsBoundary(N_bnd_sources);
 
-  //   FMCA::Matrix P(DIM, N_interior_sources + N_bnd_sources);
-  //   P << P_interior_sources, P_bnd_sources;
-
-  //   FMCA::Matrix Normals;
-  FMCA::Scalar w = WeightInterior(N_interior, 1.0);
-  std::cout << "w_vec:                      " << w << std::endl;
-  FMCA::Vector w_vec = Eigen::VectorXd::Ones(N_interior);
-  w_vec *= w;
-
-  FMCA::Scalar w_border = WeightBnd(N_bnd, 1.0);
-  std::cout << "w_vec_border:               " << w_border << std::endl;
-  FMCA::Vector w_vec_border = Eigen::VectorXd::Ones(N_bnd);
-  w_vec_border *= w_border;
-
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // U_BC vector
-  FMCA::Vector u_bc(P_bnd.cols());
-  for (FMCA::Index i = 0; i < P_bnd.cols(); ++i) {
+  FMCA::Vector u_bc(P_quad_border.cols());
+  for (FMCA::Index i = 0; i < P_quad_border.cols(); ++i) {
     u_bc[i] = 0;
   }
   // Right hand side
-  FMCA::Vector f(P_interior.cols());
-  for (FMCA::Index i = 0; i < P_interior.cols(); ++i) {
+  FMCA::Vector f(P_quad.cols());
+  for (FMCA::Index i = 0; i < P_quad.cols(); ++i) {
     f[i] = 4;
   }
-  // Analytical sol of the problem
-  FMCA::Vector analytical_sol(P.cols());
-  for (int i = 0; i < P.cols(); ++i) {
-    FMCA::Scalar x = P(0, i);
-    FMCA::Scalar y = P(1, i);
-    analytical_sol[i] = 1 - x * x - y * y;
-  }
-
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Parameters
-  const FMCA::Scalar eta = 0.5;
-  const FMCA::Index dtilde = 3;
-  const FMCA::Scalar threshold_kernel = 1e0 / N_interior;
-  const FMCA::Scalar threshold_gradKernel = 1e2 / N_interior;
+  const FMCA::Scalar eta = 1. / DIM;
+  const FMCA::Index dtilde = 6;
+  const FMCA::Scalar threshold_kernel = 1e-6;
+  const FMCA::Scalar threshold_gradKernel = 1e-3;
   const FMCA::Scalar threshold_weights = 0;
-  const FMCA::Scalar MPOLE_DEG = 4;
+  const FMCA::Scalar MPOLE_DEG = 2 * (dtilde - 1);
   const FMCA::Scalar beta = 10000;
   const std::string kernel_type = "MATERN32";
 
-  const Moments mom_sources(P, MPOLE_DEG);
-  const SampletMoments samp_mom_sources(P, dtilde - 1);
-  H2SampletTree hst_sources(mom_sources, samp_mom_sources, 0, P);
-  FMCA::Vector minDistance = minDistanceVector(hst_sources, P);
+  const Moments mom_sources(P_sources, MPOLE_DEG);
+  const SampletMoments samp_mom_sources(P_sources, dtilde - 1);
+  H2SampletTree hst_sources(mom_sources, samp_mom_sources, 0, P_sources);
+  FMCA::Vector minDistance = minDistanceVector(hst_sources, P_sources);
+  FMCA::Scalar sigma_h = minDistance.mean();
+  std::cout << "average distance:                   " << sigma_h << std::endl;
 
-  // fill distance
-  auto maxElementIterator =
-      std::max_element(minDistance.begin(), minDistance.end());
-  FMCA::Scalar sigma_h = *maxElementIterator;
-  std::cout << "fill distance:                      " << sigma_h << std::endl;
+  std::cout << "Number of Interior Points:          " << N_interior
+            << std::endl;
+  std::cout << "Number of Bnd Points:               " << N_bnd << std::endl;
+  std::cout << "Number of Source Points:            " << P_sources.cols()
+            << std::endl;
 
-  std::vector<double> sigmas = {0.8, 1, 1.5, 1.8, 2};
-
+  std::vector<double> sigmas = {1,2,3};
   for (FMCA::Scalar sigma_factor : sigmas) {
-    std::cout << "sigma factor =                         " << sigma_factor
-              << std::endl;
     FMCA::Scalar sigma = sigma_factor * sigma_h;
+    std::cout << "sigma =                             " << sigma << std::endl;
 
-    // FMCA::Vector u = SolvePoisson_MonteCarlo(
-    //     DIM, P, P_interior, w, P_bnd, w_border, Normals, u_bc, f, sigma,
-    //     eta, dtilde, threshold_kernel, threshold_gradKernel,
-    //     threshold_weights, MPOLE_DEG, beta, kernel_type);
-    FMCA::Vector u = SolvePoisson_constantWeights(
-        DIM, P, P_interior, w_vec, P_bnd, w_vec_border, Normals, u_bc, f, sigma,
-        eta, dtilde, threshold_kernel, threshold_gradKernel, threshold_weights,
-        MPOLE_DEG, beta, kernel_type);
-
-    FMCA::Vector u_grid = hst_sources.inverseSampletTransform(u);
-    u_grid = hst_sources.toNaturalOrder(u_grid);
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Cumpute the solution K*u with the compression of the kernel matrix K
+    const Moments mom_sources(P_sources, MPOLE_DEG);
+    const Moments mom_quad(P_quad, MPOLE_DEG);
+    const Moments mom_quad_border(P_quad_border, MPOLE_DEG);
+    const SampletMoments samp_mom_sources(P_sources, dtilde - 1);
+    const SampletMoments samp_mom_quad(P_quad, dtilde - 1);
+    const SampletMoments samp_mom_quad_border(P_quad_border, dtilde - 1);
+    H2SampletTree hst_sources(mom_sources, samp_mom_sources, 0, P_sources);
+    H2SampletTree hst_quad(mom_quad, samp_mom_quad, 0, P_quad);
+    H2SampletTree hst_quad_border(mom_quad_border, samp_mom_quad_border, 0,
+                                  P_quad_border);
+
+    // Kernel source-source compression
     const FMCA::CovarianceKernel kernel_funtion_ss(kernel_type, sigma);
     const MatrixEvaluatorKernel mat_eval_kernel_ss(mom_sources,
                                                    kernel_funtion_ss);
@@ -190,72 +189,174 @@ int main() {
         Kcomp_ss.a_priori_pattern_triplets();
     Kcomp_ss.compress(mat_eval_kernel_ss);
     const auto& triplets = Kcomp_ss.triplets();
-    int anz = triplets.size() / P.cols();
-    std::cout << "Anz:                         " << anz << std::endl;
-
-    Eigen::SparseMatrix<double> Kcomp_ss_Sparse(P.cols(), P.cols());
-    Kcomp_ss_Sparse.setFromTriplets(triplets.begin(), triplets.end());
-    Kcomp_ss_Sparse.makeCompressed();
-
-    Eigen::SparseMatrix<double> Kcomp_ss_Sparse_symm =
-        Kcomp_ss_Sparse.selfadjointView<Eigen::Upper>();
-    FMCA::Vector KU = Kcomp_ss_Sparse_symm * u;
-    KU = hst_sources.inverseSampletTransform(KU);
-    // Numerical solution
-    KU = hst_sources.toNaturalOrder(KU);
-
-    // Error
-    FMCA::Scalar error = (KU - analytical_sol).norm() / analytical_sol.norm();
-    std::cout << "KU 1:                                          " << KU(0)
-              << std::endl;
-    std::cout << "analytical_sol 1:                                "
-              << analytical_sol(0) << std::endl;
-    std::cout << "Error:                                            " << error
-              << std::endl;
+    std::cout << "Size a priori triplets:  "
+              << a_priori_triplets.size() / P_sources.cols() << std::endl;
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Penalty: K_{Psources, Pquad_border} * W_border
+    // * K_{Psources, Pquad_border}.transpose()
+    const FMCA::CovarianceKernel kernel_funtion_sources_quadborder(kernel_type,
+                                                                   sigma);
+    const usMatrixEvaluatorKernel mat_eval_kernel_sources_quadborder(
+        mom_sources, mom_quad_border, kernel_funtion_sources_quadborder);
+    FMCA::internal::SampletMatrixCompressorUnsymmetric<H2SampletTree>
+        Kcomp_sources_quadborder;
+    std::cout << "Kernel Source-QuadBorder" << std::endl;
+    Eigen::SparseMatrix<double> KCompressed_source_quadborder =
+        createCompressedSparseMatrixUnSymmetric(
+            kernel_funtion_sources_quadborder,
+            mat_eval_kernel_sources_quadborder, hst_sources, hst_quad_border,
+            eta, threshold_kernel, P_sources, P_quad_border);
+
+    Eigen::SparseMatrix<double> Penalty =
+        KCompressed_source_quadborder *
+        KCompressed_source_quadborder.transpose();
+    Penalty *= 2 * FMCA_PI / N_bnd;
+    // Penalty *= 1 / NPTS_BORDER;
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // create Stiffness and Neumann term
+    Eigen::SparseMatrix<double> Stiffness(P_sources.cols(), P_sources.cols());
+    Stiffness.setZero();
+
+    Eigen::SparseMatrix<double> GradNormal(P_sources.cols(),
+                                           P_quad_border.cols());
+    GradNormal.setZero();
+
+    for (FMCA::Index i = 0; i < DIM; ++i) {
+      const FMCA::GradKernel function(kernel_type, sigma, 1, i);
+      ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      /// Stiffness
+      const usMatrixEvaluator mat_eval(mom_sources, mom_quad, function);
+      FMCA::internal::SampletMatrixCompressorUnsymmetric<H2SampletTree> Scomp;
+      std::cout << "GradK" << std::endl;
+      Eigen::SparseMatrix<double> GradKCompressed =
+          createCompressedSparseMatrixUnSymmetric(
+              function, mat_eval, hst_sources, hst_quad, eta,
+              threshold_gradKernel, P_sources, P_quad);
+
+      Eigen::SparseMatrix<double> gradk =
+          GradKCompressed * GradKCompressed.transpose();
+      gradk *= FMCA_PI / N_bnd;
+      Stiffness += gradk;
+
+      ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      /// Neumann
+      const usMatrixEvaluator mat_eval_neumann(mom_sources, mom_quad_border,
+                                               function);
+      FMCA::internal::SampletMatrixCompressorUnsymmetric<H2SampletTree>
+          Scomp_neumann;
+      std::cout << "Neumann" << std::endl;
+      Eigen::SparseMatrix<double> GradKCompressed_neumann =
+          createCompressedSparseMatrixUnSymmetric(
+              function, mat_eval_neumann, hst_sources, hst_quad_border, eta,
+              threshold_gradKernel, P_sources, P_quad_border);
+
+      Eigen::SparseMatrix<double> gradk_n =
+          NeumannNormalMultiplication(GradKCompressed_neumann, Normals.row(i));
+      gradk_n.makeCompressed();
+      GradNormal += gradk_n;
+    }
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Final Neumann Term
+    Eigen::SparseMatrix<double> Neumann =
+        GradNormal * KCompressed_source_quadborder.transpose();
+    Neumann *= 2 * FMCA_PI / N_bnd;
+
+    Eigen::SparseMatrix<double> Neumann_Nitsche = Neumann.transpose();
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // reorder the boundary conditions and the rhs to follow the samplets order
+    FMCA::Vector u_bc_reordered = hst_quad_border.toClusterOrder(u_bc);
+    FMCA::Vector f_reordered = hst_quad.toClusterOrder(f);
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Kernel (sources,quad) compression
+    const FMCA::CovarianceKernel kernel_funtion(kernel_type, sigma);
+    const usMatrixEvaluatorKernel mat_eval_kernel(mom_sources, mom_quad,
+                                                  kernel_funtion);
+    FMCA::internal::SampletMatrixCompressorUnsymmetric<H2SampletTree> Kcomp;
+    std::cout << "Kernel Source-Quad" << std::endl;
+    Eigen::SparseMatrix<double> KCompressed_sourcequad =
+        createCompressedSparseMatrixUnSymmetric(
+            kernel_funtion, mat_eval_kernel, hst_sources, hst_quad, eta,
+            threshold_kernel, P_sources, P_quad);
+
+    // FCompressed = right hand side of the problem involving the source term f
+    FMCA::Vector FCompressed =
+        KCompressed_sourcequad * hst_quad.sampletTransform(f_reordered);
+    FCompressed *= FMCA_PI / N_interior;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // GCompressed = right hand side penalty
+    FMCA::Vector GCompressed = KCompressed_source_quadborder *
+                               hst_quad_border.sampletTransform(u_bc_reordered);
+    GCompressed *= 2 * FMCA_PI / N_bnd;
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // NCompressed = right hand side penalty
+    FMCA::Vector NCompressed =
+        GradNormal * hst_quad_border.sampletTransform(u_bc_reordered);
+    NCompressed *= 2 * FMCA_PI / N_bnd;
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    Eigen::SparseMatrix<double> Matrix_system_Upper =
+        (Stiffness + beta * Penalty - (Neumann + Neumann_Nitsche));
+
+    std::cout << "Number of entries before ApplyPattern  = "
+              << Matrix_system_Upper.nonZeros() / P_sources.cols() << std::endl;
+
+    ////////////////////////////////////////////////////////
+
+    applyPattern(Matrix_system_Upper, a_priori_triplets);
+    std::cout << "Number of entries after ApplyPattern  = "
+              << Matrix_system_Upper.nonZeros() / P_sources.cols() << std::endl;
+
+    Eigen::SparseMatrix<double> Matrix_system =
+        Matrix_system_Upper.selfadjointView<Eigen::Upper>();
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Solver
+    Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>, Eigen::Upper,
+                          Eigen::MetisOrdering<int>>
+        choleskySolver;
+    choleskySolver.compute(Matrix_system);
+    // u = solution in Samplet Basis
+    FMCA::Vector u =
+        choleskySolver.solve(FCompressed + beta * GCompressed - NCompressed);
+    std::cout << "residual error:                                  "
+              << ((Matrix_system)*u -
+                  (FCompressed + beta * GCompressed - NCompressed))
+                     .norm()
+              << std::endl;
+
+    FMCA::Vector u_grid = hst_sources.inverseSampletTransform(u);
+    u_grid = hst_sources.toNaturalOrder(u_grid);
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // plot solution
-    // {
-    //   const Moments cmom(P_sources, MPOLE_DEG);
-    //   const Moments rmom(Peval, MPOLE_DEG);
-    //   const H2ClusterTree hct(cmom, 0, P_sources);
-    //   const H2ClusterTree hct_eval(rmom, 0, Peval);
-    //   const FMCA::Vector sx = hct.toClusterOrder(u_grid);
-    //   const usMatrixEvaluatorKernel mat_eval(rmom, cmom, kernel_funtion_ss);
-    //   FMCA::H2Matrix<H2ClusterTree, FMCA::CompareCluster> hmat;
-    //   hmat.computePattern(hct_eval, hct, eta);
-    //   hmat.statistics();
-    //   FMCA::Vector srec = hmat.action(mat_eval, sx);
-    //   FMCA::Vector rec = hct_eval.toNaturalOrder(srec);
-    //   FMCA::Plotter2D plotter;
-    //   plotter.plotFunction(outputNamePlot, Peval, rec);
+    const Moments cmom(P_sources, MPOLE_DEG);
+    const Moments rmom(P_sources, MPOLE_DEG);
+    const H2ClusterTree hct(cmom, 0, P_sources);
+    const H2ClusterTree hct_eval(rmom, 0, P_sources);
+    const FMCA::Vector sx = hct.toClusterOrder(u_grid);
+    const usMatrixEvaluatorKernel mat_eval(rmom, cmom, kernel_funtion_ss);
+    FMCA::H2Matrix<H2ClusterTree, FMCA::CompareCluster> hmat;
+    hmat.computePattern(hct_eval, hct, eta);
+    hmat.statistics();
+    FMCA::Vector srec = hmat.action(mat_eval, sx);
+    FMCA::Vector rec = hct_eval.toNaturalOrder(srec);
+    // FMCA::Plotter2D plotter;
+    // plotter.plotFunction(outputNamePlot, Peval, rec);
 
-    //   // Analytical sol of the problem
-    //   FMCA::Vector analytical_sol(Peval.cols());
-    //   for (int i = 0; i < Peval.cols(); ++i) {
-    //     double x = Peval(0, i);
-    //     double y = Peval(1, i);
-    //     analytical_sol[i] = sin(FMCA_PI * x) * sin(FMCA_PI * y);
-    //   }
+    FMCA::Vector analytical_sol(P_sources.cols());
+    for (int i = 0; i < P_sources.cols(); ++i) {
+      double x = P_sources(0, i);
+      double y = P_sources(1, i);
+      analytical_sol[i] = 1 - x * x - y * y;
+    }
 
-    //   FMCA::Scalar error =
-    //       (rec - analytical_sol).norm() / analytical_sol.norm();
-    //   std::cout << "Error:                                            " <<
-    //   error
-    //             << std::endl;
-
-    //   FMCA::Vector absolute_error(Peval.cols());
-    //   for (int i = 0; i < Peval.cols(); ++i) {
-    //     absolute_error[i] = abs(rec[i] - analytical_sol[i]);
-    //   }
-
-    //   // plot error
-    //   {
-    //     FMCA::Plotter2D plotter_error;
-    //     plotter_error.plotFunction(outputNameErrorPlot, Peval,
-    //     absolute_error);
-    //   }
-    // }
+    FMCA::Scalar error = (rec - analytical_sol).norm() / analytical_sol.norm();
+    std::cout << "Error:                                            " << error
+              << std::endl;
+    std::cout << "--------------------------------------------------"
+              << std::endl;
   }
 
   return 0;

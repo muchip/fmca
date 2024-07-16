@@ -2,6 +2,8 @@
 #define FMCA_UTIL_PLOTTER2D_H_
 
 #include <fstream>
+#include <stdexcept>
+#include <Eigen/Dense>
 
 namespace FMCA {
 class Plotter2D {
@@ -20,7 +22,7 @@ class Plotter2D {
           myfile << "POINTS " << points.cols() << " FLOAT" << std::endl;
 
           for (auto i = 0; i < points.cols(); ++i) {
-              myfile << points(0, i) << " " << points(1, i) << " " << f(i) <<  std::endl; // 0.0 for the z-coordinate
+              myfile << points(0, i) << " " << points(1, i) << " " << 0.0 << std::endl; // 0.0 for the z-coordinate
           }
 
           myfile << "POINT_DATA " << f.size() << "\n";
