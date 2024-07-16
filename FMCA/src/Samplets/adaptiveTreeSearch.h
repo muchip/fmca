@@ -64,7 +64,6 @@ std::vector<const Derived *> adaptiveTreeSearch(
       e(node.block_id()) += q(node.block_id());
     }
   }
-  std::cout << " " << e(0) << " " << tdata.squaredNorm() << std::endl;
   // set up etilde functional (top down tree traversal)
   for (auto it = cluster_map.begin(); it != cluster_map.end(); ++it) {
     const Derived &node = **it;

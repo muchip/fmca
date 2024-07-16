@@ -29,7 +29,7 @@
 namespace py = pybind11;
 // Samplets
 using SampletInterpolator = FMCA::MonomialInterpolator;
-using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
+using SampletMoments = FMCA::MinNystromSampletMoments<SampletInterpolator>;
 using SampletTree = FMCA::SampletTree<FMCA::ClusterTree>;
 using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 // H2Matrix
@@ -63,6 +63,24 @@ struct pySampletTree {
     std::vector<FMCA::Index> lvl = FMCA::internal::sampletLevelMapper(ST_);
     return Eigen::Map<const FMCA::iVector>(lvl.data(), lvl.size());
   }
+
+  FMCA::iVector adaptiveTreeLeafPartition(const FMCA::Vector &data,
+                                          FMCA::Scalar thres) {
+    FMCA::iVector retval(ST_.block_size());
+    retval.setZero();
+    std::vector<const H2SampletTree *> active_tree = adaptiveTreeSearch(
+        ST_, ST_.sampletTransform(ST_.toClusterOrder(data)), thres);
+    FMCA::Index cval = 0;
+    for (const auto &it : active_tree)
+      if (it != nullptr && !it->nSons() && it->block_size()) {
+        for (FMCA::Index i = 0; i < it->block_size(); ++i)
+          retval(it->indices()[i]) = cval;
+        ++cval;
+      }
+    std::cout << "active leafs: " << cval << std::endl;
+    return retval;
+  }
+
   H2SampletTree ST_;
   FMCA::Index p_;
   FMCA::Index dtilde_;
@@ -232,7 +250,8 @@ PYBIND11_MODULE(FMCA, m) {
   pySampletTree_.def(py::init<const FMCA::Matrix &, FMCA::Index>());
   pySampletTree_.def("indices", &pySampletTree::indices);
   pySampletTree_.def("levels", &pySampletTree::levels);
-
+  pySampletTree_.def("adpativeTreeLeafPartition",
+                     &pySampletTree::adaptiveTreeLeafPartition);
   m.def(
       "sampletTreeStatistics",
       [](const pySampletTree &tree, const FMCA::Matrix &P) {
