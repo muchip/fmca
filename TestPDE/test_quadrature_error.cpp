@@ -19,7 +19,6 @@
 #include "../FMCA/src/util/Tictoc.h"
 #include "../FMCA/src/util/permutation.h"
 #include "FunctionsPDE.h"
-// #include "NeumanNormalMultiplication.h"
 #include "read_files_txt.h"
 
 #define DIM 2
@@ -40,7 +39,6 @@ using EigenCholesky =
                           Eigen::MetisOrdering<int>>;
 using namespace std;
 
-// typedef Eigen::SparseMatrix<double, Eigen::RowMajor, int> Sparse;
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int main() {
   // POINTS
@@ -58,7 +56,7 @@ int main() {
   readTXT("data/quadrature3_weights_square2k.txt", w_vec_test);
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Parameters
-  const FMCA::Scalar eta = 0.5;
+  const FMCA::Scalar eta = 1./ DIM;
   const FMCA::Index dtilde = 3;
   const FMCA::Scalar threshold_weights = 0;
   const FMCA::Scalar MPOLE_DEG = 4;
@@ -78,7 +76,7 @@ int main() {
 
   std::vector<FMCA::Scalar> sigmas = {0.03};
   for (FMCA::Scalar sigma : sigmas) {
-    FMCA::Scalar threshold_gradKernel = 1e-4;
+    FMCA::Scalar threshold_gradKernel = 1e-4; // you can relate it to sigma 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     std::cout << std::string(80, '-') << std::endl;
     std::cout << "Number of source points =                         "
@@ -257,36 +255,6 @@ int main() {
               << (stiffness.toDense() - stiffness_test.toDense()).norm() /
                      stiffness.norm()
               << std::endl;
-    /*
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // NOT COMPRESSED STIFFNESS
-        FMCA::Matrix stiffness_full(P_sources.cols(), P_sources.cols());
-        FMCA::Matrix W_full;
-        mat_eval_weights.compute_dense_block(hst_quad, hst_quad, &W_full);
-
-        FMCA::Matrix stiffness_not_compressed(P_sources.cols(),
-       P_sources.cols()); for (FMCA::Index i = 0; i < DIM; ++i) { std::cout <<
-       std::string(80, '-') << std::endl; const FMCA::GradKernel
-       function(kernel_type, sigma, 1, i); const usMatrixEvaluator
-       mat_eval(mom_sources, mom_quad, function);
-          ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-          /// stiffness
-          FMCA::Matrix grad_full;
-          mat_eval.compute_dense_block(hst_sources, hst_quad, &grad_full);
-          FMCA::Matrix grad_k = grad_full;
-          FMCA::Matrix grad = grad_full * W_full * grad_full.transpose();
-          stiffness_full += grad;
-        }
-
-        stiffness_full = hst_sources.sampletTransform(stiffness_full);
-        stiffness_full =
-            hst_sources.sampletTransform(stiffness_full.transpose()).transpose();
-
-        std::cout << "Quad error: "
-                  << (stiffness_full - FMCA::Matrix(stiffness)).norm() /
-                         stiffness_full.norm()
-                  << std::endl;
-    */
   }
   return 0;
 }

@@ -6,12 +6,17 @@ order!). See PoissonSquareCompressed.cpp for an application */
 #include <cstdlib>
 #include <iostream>
 // ##############################
+#include </opt/homebrew/Cellar/spectra/include/Spectra/MatOp/SparseSymMatProd.h>
+#include </opt/homebrew/Cellar/spectra/include/Spectra/SymEigsSolver.h>
+
 #include <Eigen/CholmodSupport>
 #include <Eigen/Dense>
+#include <Eigen/Eigenvalues>
 #include <Eigen/MetisSupport>
 #include <Eigen/OrderingMethods>
 #include <Eigen/Sparse>
 #include <Eigen/SparseCholesky>
+#include <Eigen/SparseCore>
 #include <Eigen/SparseQR>
 
 #include "../FMCA/GradKernel"
@@ -52,7 +57,7 @@ FMCA::Vector SolvePoisson(
     const FMCA::Index &dtilde, const FMCA::Scalar &threshold_kernel,
     const FMCA::Scalar &threshold_weights, const FMCA::Scalar &MPOLE_DEG,
     const FMCA::Scalar &beta, const std::string &kernel_type) {
-  const FMCA::Scalar threshold_gradKernel = sigma;
+  const FMCA::Scalar threshold_gradKernel = sigma / 100;
 
   FMCA::Tictoc T;
   const Moments mom_sources(P_sources, MPOLE_DEG);
@@ -898,8 +903,8 @@ FMCA::Vector SolvePoisson_RowMajor(
 
 FMCA::Vector SolvePoisson_MonteCarlo(
     const FMCA::Scalar &DIM, FMCA::Matrix &P_sources, FMCA::Matrix &P_quad,
-    FMCA::Vector &w_vec, FMCA::Matrix &P_quad_border,
-    FMCA::Vector &w_vec_border, FMCA::Matrix &Normals, FMCA::Vector &u_bc,
+    FMCA::Scalar &w_vec, FMCA::Matrix &P_quad_border,
+    FMCA::Scalar &w_vec_border, FMCA::Matrix &Normals, FMCA::Vector &u_bc,
     FMCA::Vector &f, const FMCA::Scalar &sigma, const FMCA::Scalar &eta,
     const FMCA::Index &dtilde, const FMCA::Scalar &threshold_kernel,
     const FMCA::Scalar &threshold_gradKernel,
@@ -974,31 +979,7 @@ FMCA::Vector SolvePoisson_MonteCarlo(
                                                  P_sources.cols());
   KCompressed_source.setFromTriplets(triplets.begin(), triplets.end());
   KCompressed_source.makeCompressed();
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Weights compression
-  FMCA::Vector w_perm = hst_quad.toClusterOrder(w_vec);
-  FMCA::SparseMatrix<FMCA::Scalar> W(w_perm.size(), w_perm.size());
-  for (int i = 0; i < w_perm.size(); ++i) {
-    W.insert(i, i) = w_perm(i);
-  }
-  const FMCA::SparseMatrixEvaluator mat_eval_weights(W);
-  FMCA::internal::SampletMatrixCompressor<H2SampletTree> Wcomp;
-  std::cout << "Weights" << std::endl;
-  Eigen::SparseMatrix<double> WCompressed = createCompressedWeights(
-      mat_eval_weights, hst_quad, eta, threshold_weights, P_quad.cols());
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Weights border compression
-  FMCA::Vector w_perm_border = hst_quad_border.toClusterOrder(w_vec_border);
-  FMCA::SparseMatrix<FMCA::Scalar> W_border(w_perm_border.size(),
-                                            w_perm_border.size());
-  for (int i = 0; i < w_perm_border.size(); ++i) {
-    W_border.insert(i, i) = w_perm_border(i);
-  }
-  FMCA::SparseMatrixEvaluator mat_eval_weights_border(W_border);
-  std::cout << "Weights border" << std::endl;
-  Eigen::SparseMatrix<double> WCompressed_border =
-      createCompressedWeights(mat_eval_weights_border, hst_quad_border, eta,
-                              threshold_weights, P_quad_border.cols());
+
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Kernel (sources,quad) compression
   const FMCA::CovarianceKernel kernel_funtion(kernel_type, sigma);
@@ -1034,7 +1015,7 @@ FMCA::Vector SolvePoisson_MonteCarlo(
   formatted_sparse_multiplication_dotproduct(pattern_Penalty,
                                              KCompressed_source_quadborder,
                                              KCompressed_source_quadborder);
-  pattern_Penalty *= w_vec_border(0);
+  pattern_Penalty *= w_vec_border;
   pattern_Penalty.makeCompressed();
   Eigen::SparseMatrix<double> Penalty =
       pattern_Penalty.selfadjointView<Eigen::Upper>();
@@ -1046,7 +1027,7 @@ FMCA::Vector SolvePoisson_MonteCarlo(
   Eigen::SparseMatrix<double> GradNormal(P_sources.cols(),
                                          P_quad_border.cols());
   GradNormal.setZero();
-  FMCA::Scalar anz_gradkernel = 0;
+
   for (FMCA::Index i = 0; i < DIM; ++i) {
     const FMCA::GradKernel function(kernel_type, sigma, 1, i);
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1066,7 +1047,7 @@ FMCA::Vector SolvePoisson_MonteCarlo(
 
     formatted_sparse_multiplication_dotproduct(pattern, GradKCompressed,
                                                GradKCompressed);
-    pattern *= w_vec(0);
+    pattern *= w_vec;
     double mult_time_eigen = T.toc();
     pattern.makeCompressed();
     Stiffness += pattern.selfadjointView<Eigen::Upper>();
@@ -1087,14 +1068,20 @@ FMCA::Vector SolvePoisson_MonteCarlo(
     gradk_n.makeCompressed();
     GradNormal += gradk_n;
   }
-  anz_gradkernel = anz_gradkernel / DIM;
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Final Neumann Term
+  Sparse pattern_neumann(P_sources.cols(), P_sources.cols());
+  pattern_neumann.setFromTriplets(a_priori_triplets.begin(),
+                                  a_priori_triplets.end());
+  pattern_neumann.makeCompressed();
+
+  formatted_sparse_multiplication_dotproduct(pattern_neumann, GradNormal,
+                                             KCompressed_source_quadborder);
+  pattern_neumann *= w_vec_border;
+  pattern_neumann.makeCompressed();
+
   Eigen::SparseMatrix<double> Neumann =
-      GradNormal * (WCompressed_border.selfadjointView<Eigen::Upper>() *
-                    KCompressed_source_quadborder.transpose())
-                       .eval();
-  // Nitsche’s Term
+      pattern_neumann.selfadjointView<Eigen::Upper>();
   Eigen::SparseMatrix<double> Neumann_Nitsche = Neumann.transpose();
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // reorder the boundary conditions and the rhs to follow the samplets order
@@ -1103,29 +1090,52 @@ FMCA::Vector SolvePoisson_MonteCarlo(
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // FCompressed = right hand side of the problem involving the source term f
   FMCA::Vector FCompressed =
-      KCompressed_sourcequad * (WCompressed.selfadjointView<Eigen::Upper>() *
-                                hst_quad.sampletTransform(f_reordered))
-                                   .eval();
+      KCompressed_sourcequad * hst_quad.sampletTransform(f_reordered);
+  FCompressed *= w_vec;
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // GCompressed = right hand side penalty
-  FMCA::Vector GCompressed =
-      KCompressed_source_quadborder *
-      (WCompressed_border.selfadjointView<Eigen::Upper>() *
-       hst_quad_border.sampletTransform(u_bc_reordered))
-          .eval();
+  FMCA::Vector GCompressed = KCompressed_source_quadborder *
+                             hst_quad_border.sampletTransform(u_bc_reordered);
+  GCompressed *= w_vec_border;
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // NCompressed= right hand side Nitsche
   FMCA::Vector NCompressed =
-      GradNormal * (WCompressed_border.selfadjointView<Eigen::Upper>() *
-                    hst_quad_border.sampletTransform(u_bc_reordered))
-                       .eval();
+      GradNormal * hst_quad_border.sampletTransform(u_bc_reordered);
+  NCompressed *= w_vec_border;
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   Eigen::SparseMatrix<double> Matrix_system_half =
       (Stiffness + beta * Penalty - (Neumann + Neumann_Nitsche));
-  // - (Neumann + Neumann_Nitsche)
-  applyPattern(Matrix_system_half, a_priori_triplets);
+
+  //   applyPattern(Matrix_system_half, a_priori_triplets);
+
   Eigen::SparseMatrix<double> Matrix_system =
       Matrix_system_half.selfadjointView<Eigen::Upper>();
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /*
+  // Compute largest eigenvalue
+  Spectra::SparseSymMatProd<double> op(Matrix_system);
+  Spectra::SymEigsSolver<Spectra::SparseSymMatProd<double>> eigs_largest(op, 1,
+                                                                         5);
+  eigs_largest.init();
+  eigs_largest.compute(Spectra::SortRule::LargestAlge);
+
+  double lambda_max = eigs_largest.eigenvalues()(0);
+
+  // Compute smallest eigenvalue
+  Spectra::SymEigsSolver<Spectra::SparseSymMatProd<double>> eigs_smallest(op, 1,
+                                                                          5);
+  eigs_smallest.init();
+  eigs_smallest.compute(Spectra::SortRule::SmallestAlge);
+
+  double lambda_min = eigs_smallest.eigenvalues()(0);
+
+  // Compute condition number
+  double cond_number = std::abs(lambda_max / lambda_min);
+
+  std::cout << "Condition number: " << cond_number << std::endl;
+*/
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   FMCA::Vector Matrix_system_diagonal = Matrix_system.diagonal();
   std::cout << "Min element diagonal:                               "
@@ -1149,7 +1159,7 @@ FMCA::Vector SolvePoisson_MonteCarlo(
   std::cout << "residual error:                                  "
             << ((Matrix_system)*u -
                 (FCompressed + beta * GCompressed - NCompressed))
-                   .norm()  // - NCompressed
+                   .norm()
             << std::endl;
   return u;
 }
