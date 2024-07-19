@@ -93,16 +93,6 @@ FMCA::Matrix MonteCarloPointsBoundary(int N) {
   return P_bnd;
 }
 
-// Function to generate random points within a ball
-FMCA::Vector RandomPointBall(FMCA::Scalar &fill_distance) {
-  FMCA::Vector point_ball;
-  do {
-    point_ball = Eigen::Vector3d::Random();
-  } while (point_ball.squaredNorm() >= 1.0);
-  return fill_distance * point_ball;
-}
-
-// Function to save matrix to a text file
 void saveMatrixToFile(const FMCA::Matrix& matrix, const std::string& filename) {
   std::ofstream file(filename);
   if (file.is_open()) {
@@ -120,7 +110,7 @@ void saveMatrixToFile(const FMCA::Matrix& matrix, const std::string& filename) {
 }
 
 // This funtion in the main generates the 100k interior MonteCarloPoints and 50k
-// MonteCarlo boundary points. Then for the comvergence and the solution of the
+// MonteCarlo boundary points. Then for the convergence and the solution of the
 // problem, we select a subset of these Points, to garantee the nested property.
 /*
   int N_interior = 100000;
@@ -139,9 +129,9 @@ int main() {
   readTXT("data/MC_Bnd_Sphere_collocation.txt", P_bnd_full, DIM);
   //////////////////////////////////////////////////////////////////////////////
   // Parameters
-  const int NPTS_INTERIOR = 30;
-  const int NPTS_BORDER = 15;
-  const int NPTS_EVAL = 10;
+  const int NPTS_INTERIOR = 2000;
+  const int NPTS_BORDER = 1000;
+  const int NPTS_EVAL = 500;
   const FMCA::Scalar eta = 1. / DIM;
   const FMCA::Index dtilde = 4;
   const FMCA::Scalar threshold_kernel = 1e-6;
@@ -193,13 +183,11 @@ int main() {
   //////////////////////////////////////////////////////////////////////////////
   // Compute the fill distance and choose the lenghtscale parameter
   FMCA::Vector minDistance = minDistanceVector(hst, P);
-  auto maxElementIterator =
-      std::max_element(minDistance.begin(), minDistance.end());
-  FMCA::Scalar sigma_h = *maxElementIterator;
-  std::cout << "fill distance:              " << sigma_h << std::endl;
+  FMCA::Scalar sigma_h = minDistance.mean();
+  std::cout << "average distance:             " << sigma_h << std::endl;
 
   // FMCA::Scalar sigma =  0.2;
-  std::vector<double> sigma_values = {5 * sigma_h};
+  std::vector<double> sigma_values = {10 * sigma_h};
   for (double sigma : sigma_values) {
     const FMCA::Scalar threshold_laplacianKernel = threshold_kernel * sigma_h;
     //////////////////////////////////////////////////////////////////////////////
@@ -223,8 +211,7 @@ int main() {
     T.tic();
     K_border.compress(mat_eval_boundary);
     const auto& trips_border = K_border.triplets();
-
-    ////////////////////////////////// compression error
+    // compression error
     FMCA::Vector x(N), y1(NPTS_BORDER), y2(NPTS_BORDER);
     FMCA::Scalar err = 0;
     FMCA::Scalar nrm = 0;
@@ -246,7 +233,6 @@ int main() {
       nrm += y1.squaredNorm();
     }
     std::cout << "compression error kernel    " << sqrt(err / nrm) << std::endl;
-
     std::cout << "anz kernel                  "
               << trips_border.size() / NPTS_BORDER << std::endl;
     Eigen::SparseMatrix<double> Kcomp_border(NPTS_BORDER, N);
@@ -267,8 +253,7 @@ int main() {
                               threshold_laplacianKernel);
       Laplacian_Interior.compress(mat_eval_laplacian);
       const auto& trips_Laplacian = Laplacian_Interior.triplets();
-
-      ////////////////////////////////// compression error
+      // compression error
       FMCA::Vector x(N), y1(NPTS_INTERIOR), y2(NPTS_INTERIOR);
       FMCA::Scalar err = 0;
       FMCA::Scalar nrm = 0;
@@ -291,8 +276,6 @@ int main() {
       }
       std::cout << "compr error laplacian       " << sqrt(err / nrm)
                 << std::endl;
-      ;
-
       std::cout << "anz laplacianKernel         "
                 << trips_Laplacian.size() / NPTS_INTERIOR << std::endl;
       Eigen::SparseMatrix<double> Lcomp_Interior(NPTS_INTERIOR, N);
@@ -305,7 +288,6 @@ int main() {
     // Concatenate Laplacian[K](P_interior,P) and K(P_border,P) vertically
     std::vector<Eigen::Triplet<double>> tripletList;
     tripletList.reserve(Laplacian.nonZeros() + Kcomp_border.nonZeros());
-    // Add non-zeros of Laplacian
     for (int k = 0; k < Laplacian.outerSize(); ++k) {
       for (Eigen::SparseMatrix<double>::InnerIterator it(Laplacian, k); it;
            ++it) {
@@ -313,7 +295,6 @@ int main() {
             Eigen::Triplet<double>(it.row(), it.col(), it.value()));
       }
     }
-    // Add non-zeros of Kcomp_border
     for (int k = 0; k < Kcomp_border.outerSize(); ++k) {
       for (Eigen::SparseMatrix<double>::InnerIterator it(Kcomp_border, k); it;
            ++it) {
@@ -328,10 +309,6 @@ int main() {
     std::cout << std::string(80, '-') << std::endl;
     std::cout << "anz Matrix system            " << tripletList.size() / N
               << std::endl;
-
-    Eigen::FullPivLU<Eigen::MatrixXd> lu_decomp(A);
-    double condition_number = lu_decomp.rcond();
-    std::cout << "Condition number: " << 1.0 / condition_number << std::endl;
 
     std::vector<Eigen::Triplet<double>> filteredTriplets;
     for (int k = 0; k < A.outerSize(); ++k) {
@@ -358,12 +335,6 @@ int main() {
               << (A_filtered.toDense() - A.toDense()).norm() /
                      A.toDense().norm()
               << std::endl;
-
-    Eigen::FullPivLU<Eigen::MatrixXd> lu_decomp_filtered(A_filtered.toDense());
-    double condition_number_filtered = lu_decomp_filtered.rcond();
-    std::cout << "Condition number: " << 1.0 / condition_number_filtered
-              << std::endl;
-
     //////////////////////////////////////////////////////////////////////////////
     // Reorder and Sampet transform the right hand side of the linear system
     FMCA::Vector f_reordered = hst_interior.toClusterOrder(f);
@@ -371,7 +342,6 @@ int main() {
     FMCA::Vector u_bc_reordered = hst_boundary.toClusterOrder(u_bc);
     FMCA::Vector u_bc_transformed =
         hst_boundary.sampletTransform(u_bc_reordered);
-
     // Concatenate f vector and u_bc vector vertically
     Eigen::VectorXd b(N);
     b << f_transformed, u_bc_transformed;
@@ -384,9 +354,8 @@ int main() {
     if (solver.info() != Eigen::Success) {
       throw std::runtime_error("Decomposition failed");
     }
-
     FMCA::Vector alpha = solver.solve(b);
-    std::cout << "residual error filtered        " << (A * alpha - b).norm()
+    std::cout << "residual error        " << (A * alpha - b).norm()
               << std::endl;
     std::cout << std::string(80, '-') << std::endl;
 
@@ -416,9 +385,9 @@ int main() {
         analytical_sol[i] = 1 - x * x - y * y - z * z;
       }
 
-      FMCA::Scalar error_filtered =
+      FMCA::Scalar error =
           (rec - analytical_sol).norm() / analytical_sol.norm();
-      std::cout << "error_filtered               " << error_filtered
+      std::cout << "error               " << error
                 << std::endl;
     }
   }
