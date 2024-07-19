@@ -16,7 +16,6 @@ Vector3d RandomPointBoundary(){
     return point_bnd/point_bnd.norm();
 }
 
-
 int main()
 {
  Vector3d interior = RandomPointInterior();

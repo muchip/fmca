@@ -12,7 +12,7 @@ We rely on the FMCA library by M.Multerer.
 #define DIM 2
 
 int main() {
-  // DATA
+  // Points
   FMCA::Tictoc T;
   FMCA::Matrix P_sources;
   FMCA::Matrix P_quad;
@@ -24,15 +24,17 @@ int main() {
 
   readTXT("data/uniform_vertices_square10k.txt", P_sources, 2);
   // readTXT("data/vertices_square_Halton50000.txt", P_sources, 2);
+
   readTXT("data/inside_points_square_MC.txt", P_quad, 2);
   readTXT("data/inside_weights_square_MC.txt", w_vec);
+  // readTXT("data/quadrature3_points_square90k.txt", P_quad, 2);
+  // readTXT("data/quadrature3_weights_square90k.txt", w_vec);
 
   readTXT("data/quadrature_border40k.txt", P_quad_border, 2);
   readTXT("data/weights_border40k.txt", w_vec_border);
   readTXT("data/normals40k.txt", Normals, 2);
-
   readTXT("data/uniform_vertices_square10k.txt", Peval, 2);
-
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // U_BC vector
   FMCA::Vector u_bc(P_quad_border.cols());
   for (FMCA::Index i = 0; i < P_quad_border.cols(); ++i) {
@@ -64,22 +66,18 @@ int main() {
   const FMCA::Scalar MPOLE_DEG = 4;
   const FMCA::Scalar beta = 10000;
   const std::string kernel_type = "MATERN32";
-  std::string outputNamePlot = "Galerkin_10k.vtk";
-  std::string outputNameErrorPlot = "error_Galerkin_10k.vtk";
+  std::string outputNamePlot = "Galerkin.vtk";
+  std::string outputNameErrorPlot = "error_Galerkin.vtk";
 
   const Moments mom_sources(P_sources, MPOLE_DEG);
   const SampletMoments samp_mom_sources(P_sources, dtilde - 1);
   H2SampletTree hst_sources(mom_sources, samp_mom_sources, 0, P_sources);
   FMCA::Vector minDistance = minDistanceVector(hst_sources, P_sources);
-
-  // fill distance
-  auto maxElementIterator =
-      std::max_element(minDistance.begin(), minDistance.end());
-  FMCA::Scalar sigma_h = *maxElementIterator;
-  std::cout << "fill distance:                      " << sigma_h << std::endl;
+  FMCA::Scalar sigma_h = minDistance.mean();
+  std::cout << "average distance:                    " << sigma_h << std::endl;
   FMCA::Scalar sigma = 2 * sigma_h;
 
-  FMCA::Vector u = SolvePoisson_MonteCarlo(
+  FMCA::Vector u = SolvePoisson_constantWeighs(
       2, P_sources, P_quad, w_vec(0), P_quad_border, w_vec_border(0), Normals, u_bc,
       f, sigma, eta, dtilde, threshold_kernel, threshold_gradKernel,
       threshold_weights, MPOLE_DEG, beta, kernel_type);
