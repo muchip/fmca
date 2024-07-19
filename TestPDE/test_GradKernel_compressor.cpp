@@ -9,8 +9,7 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-// #define EIGEN_DONT_PARALLELIZE
-#include <Eigen/Dense>
+
 #include <iostream>
 
 #include "../FMCA/GradKernel"
@@ -18,8 +17,6 @@
 #include "../FMCA/src/util/Tictoc.h"
 #include "read_files_txt.h"
 
-// #define NPTS_SOURCE 100000
-// #define NPTS_QUAD 200000
 #define DIM 2
 #define MPOLE_DEG 6
 
@@ -52,7 +49,6 @@ int main() {
   for (double eta = 1; eta >= 0.4; eta -= 0.2) {
     std::cout << "dtilde:                       " << dtilde << std::endl;
     std::cout << "eta:                          " << eta << std::endl;
-    // H2 samplets tree
     const SampletMoments samp_mom_sources(P_sources, dtilde - 1);
     const SampletMoments samp_mom_quad(P_quad, dtilde - 1);
     H2SampletTree hst_sources(mom_sources, samp_mom_sources , 0, P_sources);
