@@ -13,7 +13,6 @@
 #include "read_files_txt.h"
 
 #define DIM 2
-#define GRADCOMPONENT
 
 typedef Eigen::SparseMatrix<double, Eigen::RowMajor, int> Sparse;
 
@@ -152,7 +151,6 @@ int main() {
     int num_entries = res_eigen.nonZeros();
 
     std::cout << "Number of entries in res_eigen: " << num_entries/NPTS_SOURCE << std::endl;
-    return 0;
     //////////////////////////////////////////////////////////////////////////////
     // Comparison triple product vs eigen product
     // FMCA::Matrix pattern_matrix =
