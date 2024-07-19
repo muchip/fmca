@@ -28,11 +28,11 @@ using usMatrixEvaluator =
 using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 using H2ClusterTree = FMCA::H2ClusterTree<FMCA::ClusterTree>;
 
-double computeTrace(const Eigen::SparseMatrix<double> &mat) {
-  double trace = 0.0;
-  // Iterate only over the diagonal elements
-  for (int k = 0; k < mat.outerSize(); ++k) {
-    for (Eigen::SparseMatrix<double>::InnerIterator it(mat, k); it; ++it) {
+
+FMCA::Scalar computeTrace(const Eigen::SparseMatrix<FMCA::Scalar> &mat) {
+  FMCA::Scalar trace = 0.0;
+  for (FMCA::Index k = 0; k < mat.outerSize(); ++k) {
+    for (Eigen::SparseMatrix<FMCA::Scalar>::InnerIterator it(mat, k); it; ++it) {
       if (it.row() == it.col()) {
         trace += it.value();
       }
@@ -41,12 +41,11 @@ double computeTrace(const Eigen::SparseMatrix<double> &mat) {
   return trace;
 }
 
-int countSmallerThan(const Eigen::SparseMatrix<double> &matrix,
+int countSmallerThan(const Eigen::SparseMatrix<FMCA::Scalar> &matrix,
                      FMCA::Scalar threshold) {
   int count = 0;
-  // Iterate over all non-zero elements.
-  for (int k = 0; k < matrix.outerSize(); ++k) {
-    for (typename Eigen::SparseMatrix<double>::InnerIterator it(matrix, k); it;
+  for (FMCA::Index k = 0; k < matrix.outerSize(); ++k) {
+    for (typename Eigen::SparseMatrix<FMCA::Scalar>::InnerIterator it(matrix, k); it;
          ++it) {
       if (abs(it.value()) < threshold && abs(it.value()) != 0) {
         count++;
@@ -56,13 +55,12 @@ int countSmallerThan(const Eigen::SparseMatrix<double> &matrix,
   return count / matrix.rows();
 }
 
-bool isSymmetric(const Eigen::SparseMatrix<double> &matrix,
+bool isSymmetric(const Eigen::SparseMatrix<FMCA::Scalar> &matrix,
                  FMCA::Scalar tol = 1e-10) {
   if (matrix.rows() != matrix.cols())
-    return false;  // Non-square matrices are not symmetric
-  // Iterate over the outer dimension
-  for (int k = 0; k < matrix.outerSize(); ++k) {
-    for (typename Eigen::SparseMatrix<double>::InnerIterator it(matrix, k); it;
+    return false;
+  for (FMCA::Index k = 0; k < matrix.outerSize(); ++k) {
+    for (typename Eigen::SparseMatrix<FMCA::Scalar>::InnerIterator it(matrix, k); it;
          ++it) {
       if (std::fabs(it.value() - matrix.coeff(it.col(), it.row())) > tol)
         return false;
@@ -72,7 +70,7 @@ bool isSymmetric(const Eigen::SparseMatrix<double> &matrix,
 }
 
 template <typename KernelType, typename EvaluatorType>
-Eigen::SparseMatrix<double> createCompressedSparseMatrixSymmetric(
+Eigen::SparseMatrix<FMCA::Scalar> createCompressedSparseMatrixSymmetric(
     const KernelType &kernel, const EvaluatorType &evaluator,
     const H2SampletTree &hst_sources, FMCA::Scalar &eta, FMCA::Scalar &threshold,
     FMCA::Matrix &P_rows) {
@@ -81,8 +79,7 @@ Eigen::SparseMatrix<double> createCompressedSparseMatrixSymmetric(
   compressor.init(hst_sources, eta, threshold);
   compressor.compress(evaluator);
   const auto &triplets = compressor.triplets();
-
-  ////////////////////////////////// compression error
+  // compression error
   FMCA::Vector x(N_rows), y1(N_rows), y2(N_rows);
   FMCA::Scalar err = 0;
   FMCA::Scalar nrm = 0;
@@ -104,12 +101,9 @@ Eigen::SparseMatrix<double> createCompressedSparseMatrixSymmetric(
     nrm += y1.squaredNorm();
   }
   std::cout << "compression error =          " << sqrt(err / nrm) << std::endl;;
-  //////////////////////////////////////////////////
-  
   int anz = triplets.size() / N_rows;
   std::cout << "Anz:                             " << anz << std::endl;
-
-  Eigen::SparseMatrix<double> sparseMatrix(N_rows, N_rows);
+  Eigen::SparseMatrix<FMCA::Scalar> sparseMatrix(N_rows, N_rows);
   sparseMatrix.setFromTriplets(triplets.begin(), triplets.end());
   sparseMatrix.makeCompressed();
 
@@ -117,7 +111,7 @@ Eigen::SparseMatrix<double> createCompressedSparseMatrixSymmetric(
 }
 
 template <typename KernelType, typename EvaluatorType>
-Eigen::SparseMatrix<double> createCompressedSparseMatrixUnSymmetric(
+Eigen::SparseMatrix<FMCA::Scalar> createCompressedSparseMatrixUnSymmetric(
     KernelType &kernel,
     const EvaluatorType &evaluator, const H2SampletTree &hst_sources,
     const H2SampletTree &hst_quad, FMCA::Scalar eta, FMCA::Scalar threshold,
@@ -129,8 +123,7 @@ Eigen::SparseMatrix<double> createCompressedSparseMatrixUnSymmetric(
   compressor.init(hst_sources, hst_quad, eta, threshold);
   compressor.compress(evaluator);
   const auto &triplets = compressor.triplets();
-
-  ////////////////////////////////// compression error
+  // compression error
   FMCA::Vector x(N_cols), y1(N_rows), y2(N_rows);
   FMCA::Scalar err = 0;
   FMCA::Scalar nrm = 0;
@@ -152,18 +145,18 @@ Eigen::SparseMatrix<double> createCompressedSparseMatrixUnSymmetric(
     nrm += y1.squaredNorm();
   }
   std::cout << "compression error =          " << sqrt(err / nrm) << std::endl;;
-  //////////////////////////////////////////////////
   int anz = triplets.size() / N_rows;
   std::cout << "Anz:                                  " << anz << std::endl;
-
-  Eigen::SparseMatrix<double> sparseMatrix(N_rows, N_cols);
+  Eigen::SparseMatrix<FMCA::Scalar> sparseMatrix(N_rows, N_cols);
   sparseMatrix.setFromTriplets(triplets.begin(), triplets.end());
   sparseMatrix.makeCompressed();
 
   return sparseMatrix;
 }
 
-Eigen::SparseMatrix<double> createCompressedWeights(
+
+// the function createCompressedWeights is based on SparseMatrix Class 
+Eigen::SparseMatrix<FMCA::Scalar> createCompressedWeights(
     const FMCA::SparseMatrixEvaluator &evaluator, const H2SampletTree &hst,
     FMCA::Scalar eta, FMCA::Scalar threshold, FMCA::Scalar N_rows) {
   FMCA::internal::SampletMatrixCompressor<H2SampletTree> compressor;
@@ -172,8 +165,7 @@ Eigen::SparseMatrix<double> createCompressedWeights(
   const auto &triplets = compressor.triplets();
   int anz = triplets.size() / N_rows;
   std::cout << "Anz:                         " << anz << std::endl;
-
-  Eigen::SparseMatrix<double> sparseMatrix(N_rows, N_rows);
+  Eigen::SparseMatrix<FMCA::Scalar> sparseMatrix(N_rows, N_rows);
   sparseMatrix.setFromTriplets(triplets.begin(), triplets.end());
   sparseMatrix.makeCompressed();
 
@@ -190,13 +182,12 @@ std::vector<Eigen::Triplet<FMCA::Scalar>> TripletsPatternSymmetric(
   return a_priori_triplets;
 }
 
-typedef Eigen::Triplet<double> Triplet;
+typedef Eigen::Triplet<FMCA::Scalar> Triplet;
 void applyPattern(
-    Eigen::SparseMatrix<double> &M,
+    Eigen::SparseMatrix<FMCA::Scalar> &M,
     const std::vector<Eigen::Triplet<FMCA::Scalar>> &patternTriplets) {
-  // Create a sparse matrix from triplets, same size as M, with 1s in the
-  // pattern positions
-  Eigen::SparseMatrix<double> mask(M.rows(), M.cols());
+  // Create a mask eith ones in the pattern positions
+  Eigen::SparseMatrix<FMCA::Scalar> mask(M.rows(), M.cols());
   std::vector<Eigen::Triplet<FMCA::Scalar>> maskTriplets;
   for (const auto &triplet : patternTriplets) {
     maskTriplets.emplace_back(triplet.row(), triplet.col(), 1.0);
@@ -205,28 +196,13 @@ void applyPattern(
   M = M.cwiseProduct(mask);
 }
 
-typedef Eigen::Triplet<double> Triplet;
-void applyPattern_Sparse(
-    Sparse &M,
-    const std::vector<Eigen::Triplet<FMCA::Scalar>> &patternTriplets) {
-  // Create a sparse matrix from triplets, same size as M, with 1s in the
-  // pattern positions
-  Sparse mask(M.rows(), M.cols());
-  std::vector<Eigen::Triplet<FMCA::Scalar>> maskTriplets;
-  for (const auto &triplet : patternTriplets) {
-    maskTriplets.emplace_back(triplet.row(), triplet.col(), 1.0);
-  }
-  mask.setFromTriplets(maskTriplets.begin(), maskTriplets.end());
-  M = M.cwiseProduct(mask);
-}
-
-typedef Eigen::Triplet<double> Triplet;
+typedef Eigen::Triplet<FMCA::Scalar> Triplet;
 void applyPatternAndFilter(
-    Eigen::SparseMatrix<double> &M,
+    Eigen::SparseMatrix<FMCA::Scalar> &M,
     const std::vector<Eigen::Triplet<FMCA::Scalar>> &patternTriplets,
     const FMCA::Scalar threshold) {
-  Eigen::SparseMatrix<double> mask(M.rows(), M.cols());
-  std::vector<Eigen::Triplet<double>> maskTriplets;
+  Eigen::SparseMatrix<FMCA::Scalar> mask(M.rows(), M.cols());
+  std::vector<Eigen::Triplet<FMCA::Scalar>> maskTriplets;
   for (const auto &triplet : patternTriplets) {
     maskTriplets.emplace_back(triplet.row(), triplet.col(), 1.0);
   }
@@ -234,8 +210,8 @@ void applyPatternAndFilter(
   M = M.cwiseProduct(mask);
   // Filter M based on the threshold
   std::vector<Triplet> filteredTriplets;
-  for (int k = 0; k < M.outerSize(); ++k) {
-    for (Eigen::SparseMatrix<double>::InnerIterator it(M, k); it; ++it) {
+  for (FMCA::Index k = 0; k < M.outerSize(); ++k) {
+    for (Eigen::SparseMatrix<FMCA::Scalar>::InnerIterator it(M, k); it; ++it) {
       if (it.row() == it.col()) {
         filteredTriplets.emplace_back(it.row(), it.col(), it.value());
       } else {
@@ -249,31 +225,30 @@ void applyPatternAndFilter(
   M.setFromTriplets(filteredTriplets.begin(), filteredTriplets.end());
 }
 
-Eigen::SparseMatrix<double> NeumannNormalMultiplication(
-    const Eigen::SparseMatrix<double> &grad, const FMCA::Vector &normal) {
-  Eigen::SparseMatrix<double> diagNormal(grad.cols(), grad.cols());
-  std::vector<Eigen::Triplet<double>> triplets;
-  for (int i = 0; i < normal.size(); ++i) {
-    triplets.emplace_back(i, i, normal(i));
-  }
-  diagNormal.setFromTriplets(triplets.begin(), triplets.end());
 
-  Eigen::SparseMatrix<double> result = grad * diagNormal;
-  return result;
-}
-
-// Function to extract the diagonal of a sparse matrix
-Eigen::SparseMatrix<double> extractDiagonal(
-    const Eigen::SparseMatrix<double> &S) {
-  Eigen::SparseMatrix<double> S_diagonal(S.rows(), S.cols());
-  // Extract the diagonal elements
-  for (int k = 0; k < S.outerSize(); ++k) {
-    for (Eigen::SparseMatrix<double>::InnerIterator it(S, k); it; ++it) {
+Eigen::SparseMatrix<FMCA::Scalar> extractDiagonal(
+    const Eigen::SparseMatrix<FMCA::Scalar> &S) {
+  Eigen::SparseMatrix<FMCA::Scalar> S_diagonal(S.rows(), S.cols());
+  for (FMCA::Index k = 0; k < S.outerSize(); ++k) {
+    for (Eigen::SparseMatrix<FMCA::Scalar>::InnerIterator it(S, k); it; ++it) {
       if (it.row() == it.col()) {
         S_diagonal.insert(it.row(), it.col()) = it.value();
       }
     }
   }
   return S_diagonal;
+}
+
+Eigen::SparseMatrix<FMCA::Scalar> NeumannNormalMultiplication(
+    const Eigen::SparseMatrix<FMCA::Scalar> &grad, const FMCA::Vector &normal) {
+  Eigen::SparseMatrix<FMCA::Scalar> diagNormal(grad.cols(), grad.cols());
+  std::vector<Eigen::Triplet<FMCA::Scalar>> triplets;
+  for (FMCA::Index i = 0; i < normal.size(); ++i) {
+    triplets.emplace_back(i, i, normal(i));
+  }
+  diagNormal.setFromTriplets(triplets.begin(), triplets.end());
+
+  Eigen::SparseMatrix<FMCA::Scalar> result = grad * diagNormal;
+  return result;
 }
 
