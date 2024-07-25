@@ -17,7 +17,7 @@ namespace FMCA {
 template <typename Derived>
 Eigen::SparseMatrix<Scalar> sparseKernelMatrixInverseSqrt(
     const CovarianceKernel &K, const ClusterTreeBase<Derived> &CT,
-    const Matrix &P, const Index fps = 1, const Scalar ridge_parameter = 0,
+    const Matrix &P, const Scalar fps = 1., const Scalar ridge_parameter = 0,
     const Scalar zeroTol = FMCA_ZERO_TOLERANCE) {
   const Vector mdv = minDistanceVector(CT, P);
   const Scalar fill_distance = mdv.maxCoeff();
@@ -30,8 +30,10 @@ Eigen::SparseMatrix<Scalar> sparseKernelMatrixInverseSqrt(
   // compute epsilon nearest neighbours for all points
   std::vector<std::vector<Index>> epsnn(P.cols());
 #pragma omp parallel for
-  for (Index i = 0; i < epsnn.size(); ++i)
+  for (Index i = 0; i < epsnn.size(); ++i) {
     epsnn[i] = epsNN(CT, P, P.col(i), search_radius);
+    std::sort(epsnn[i].begin(), epsnn[i].end());
+  }
   // evaluate localized inverse
   std::vector<Eigen::Triplet<Scalar>> triplets;
   // compute permutation from original order to cluster order
@@ -50,6 +52,7 @@ Eigen::SparseMatrix<Scalar> sparseKernelMatrixInverseSqrt(
     }
     FMCA::Matrix Kloc = K.eval(Ploc, Ploc);
     Kloc.diagonal().array() += ridge_parameter;
+#if 1
     Eigen::SelfAdjointEigenSolver<FMCA::Matrix> es;
     es.compute(Kloc, Eigen::ComputeEigenvectors);
     FMCA::Vector diag(locN);
@@ -60,10 +63,20 @@ Eigen::SparseMatrix<Scalar> sparseKernelMatrixInverseSqrt(
     FMCA::Matrix invSqrt =
         es.eigenvectors() * diag.asDiagonal() * es.eigenvectors().transpose();
     FMCA::Vector col = invSqrt.col(pos);
+
+#else
+    Eigen::LLT<Matrix> llt;
+    llt.compute(Kloc);
+    FMCA::Vector rhs(Kloc.rows());
+    rhs.setZero();
+    rhs(pos) = 1;
+    FMCA::Vector col = llt.matrixL().transpose().solve(rhs);
+#endif
     std::vector<Eigen::Triplet<FMCA::Scalar>> local_triplets;
     for (FMCA::Index j = 0; j < locN; ++j)
-      local_triplets.push_back(Eigen::Triplet<FMCA::Scalar>(
-          inv_idcs[i], inv_idcs[epsnn[i][j]], col(j)));
+      if (std::abs(col(j)) > FMCA_ZERO_TOLERANCE)
+        local_triplets.push_back(
+            Eigen::Triplet<FMCA::Scalar>(i, inv_idcs[epsnn[i][j]], col(j)));
 #pragma omp critical
     triplets.insert(triplets.end(), local_triplets.begin(),
                     local_triplets.end());
