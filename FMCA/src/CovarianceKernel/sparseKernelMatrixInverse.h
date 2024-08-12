@@ -21,7 +21,8 @@ Eigen::SparseMatrix<Scalar> sparseKernelMatrixInverse(
   const Vector mdv = minDistanceVector(CT, P);
   const Scalar fill_distance = mdv.maxCoeff();
   const Scalar sep_distance = mdv.minCoeff();
-  const Scalar search_radius = fps * fill_distance * std::abs(std::log(fill_distance));
+  const Scalar search_radius =
+      fps * fill_distance * std::abs(std::log(fill_distance));
   std::cout << std::string(30, '-') << "sparseInverse" << std::string(30, '-')
             << std::endl;
   std::cout << "fill distance:                " << fill_distance << std::endl;
