@@ -13,9 +13,9 @@
 #define FMCA_UTIL_PCG_H_
 namespace FMCA {
 template <typename Preconditioner, typename Matrix>
-Vector pCG(const Preconditioner &E, const Matrix &A, const Vector &b,
-           const Scalar ridge_parameter = 0) {
-  Vector x = b;
+Index pCG(const Preconditioner &E, const Matrix &A, const Vector &b, Vector &x,
+          const Scalar ridge_parameter = 0) {
+  x = b;
   Vector r = b - A * x - ridge_parameter * x;
   Vector z = E.transpose() * (E * r).eval();
   Vector p = z;
@@ -26,7 +26,7 @@ Vector pCG(const Preconditioner &E, const Matrix &A, const Vector &b,
   Scalar rdotz = 0;
   Scalar rdotz_old = r.dot(z);
   Index iter = 0;
-  while (err > 1e-10) {
+  while (err > 1e-8) {
     Ap = A * p + ridge_parameter * p;
     alpha = r.dot(z) / p.dot(Ap);
     x += alpha * p;
@@ -40,7 +40,7 @@ Vector pCG(const Preconditioner &E, const Matrix &A, const Vector &b,
     ++iter;
   }
   std::cout << "CG error: " << err << " iterations: " << iter << std::endl;
-  return x;
+  return iter;
 }
 }  // namespace FMCA
 #endif
