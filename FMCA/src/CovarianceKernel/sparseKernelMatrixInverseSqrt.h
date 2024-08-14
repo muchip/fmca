@@ -29,11 +29,24 @@ Eigen::SparseMatrix<Scalar> sparseKernelMatrixInverseSqrt(
   std::cout << "search radius:                " << search_radius << std::endl;
   // compute epsilon nearest neighbours for all points
   std::vector<std::vector<Index>> epsnn(P.cols());
+  Scalar min_fp = FMCA_INF;
+  Scalar max_fp = 0;
+  Scalar mean_fp = 0;
 #pragma omp parallel for
   for (Index i = 0; i < epsnn.size(); ++i) {
     epsnn[i] = epsNN(CT, P, P.col(i), search_radius);
     std::sort(epsnn[i].begin(), epsnn[i].end());
+#pragma omp critical
+    min_fp = min_fp > epsnn[i].size() ? epsnn[i].size() : min_fp;
+#pragma omp critical
+    max_fp = max_fp < epsnn[i].size() ? epsnn[i].size() : max_fp;
+#pragma omp critical
+    mean_fp += epsnn[i].size();
   }
+  std::cout << "minimum footprint:            " << min_fp << std::endl;
+  std::cout << "maximum footprint:            " << max_fp << std::endl;
+  std::cout << "average footprint:            " << mean_fp / epsnn.size()
+            << std::endl;
   // evaluate localized inverse
   std::vector<Eigen::Triplet<Scalar>> triplets;
   // compute permutation from original order to cluster order
