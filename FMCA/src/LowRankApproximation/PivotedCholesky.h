@@ -9,8 +9,8 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#ifndef FMCA_PIVOTEDCHOLESKY_PIVOTEDCHOLESKY_H_
-#define FMCA_PIVOTEDCHOLESKY_PIVOTEDCHOLESKY_H_
+#ifndef FMCA_LOWRANKAPPROXIMATION_PIVOTEDCHOLESKY_H_
+#define FMCA_LOWRANKAPPROXIMATION_PIVOTEDCHOLESKY_H_
 
 namespace FMCA {
 class PivotedCholesky {
@@ -22,8 +22,8 @@ class PivotedCholesky {
     tol_ = 0;
   }
 
-  PivotedCholesky(const CovarianceKernel &ker, const FMCA::Matrix &P,
-                  FMCA::Scalar tol = 1e-3)
+  PivotedCholesky(const CovarianceKernel &ker, const Matrix &P,
+                  Scalar tol = 1e-3)
       : tol_(tol) {
     L_.resize(0, 0);
     B_.resize(0, 0);
@@ -31,19 +31,19 @@ class PivotedCholesky {
     compute(ker, P, tol);
   }
 
-  void compute(const CovarianceKernel &ker, const FMCA::Matrix &P,
-               FMCA::Scalar tol = 1e-3) {
-    const FMCA::Index dim = P.cols();
-    const FMCA::Index max_cols = max_size_ / dim > dim ? dim : max_size_ / dim;
-    FMCA::Vector D(dim);
-    FMCA::Index pivot = 0;
-    FMCA::Scalar tr = 0;
+  void compute(const CovarianceKernel &ker, const Matrix &P,
+               Scalar tol = 1e-3) {
+    const Index dim = P.cols();
+    const Index max_cols = max_size_ / dim > dim ? dim : max_size_ / dim;
+    Vector D(dim);
+    Index pivot = 0;
+    Scalar tr = 0;
     L_.resize(dim, max_cols);
     indices_.resize(max_cols);
     tol_ = tol;
     // compute the diagonal and the trace
     for (auto i = 0; i < dim; ++i) {
-      const FMCA::Matrix wtf = ker.eval(P.col(i), P.col(i));
+      const Matrix wtf = ker.eval(P.col(i), P.col(i));
       D(i) = wtf(0, 0);
       if (D(i) < 0) {
         info_ = 1;
@@ -55,8 +55,9 @@ class PivotedCholesky {
     tol *= tr;
     // perform pivoted Cholesky decomposition
     std::cout << "N: " << dim << " max number of cols: " << max_cols
-              << " rel tol: " << tol << " initial trace: " << tr << std::endl;
-    FMCA::Index step = 0;
+              << std::endl
+              << "rel tol: " << tol << " initial trace: " << tr << std::endl;
+    Index step = 0;
     while ((step < max_cols) && (tol < tr)) {
       D.maxCoeff(&pivot);
       indices_(step) = pivot;
@@ -87,28 +88,28 @@ class PivotedCholesky {
     return;
   }
 
-  void computeFullPiv(const CovarianceKernel &ker, const FMCA::Matrix &P,
-                      FMCA::Scalar tol = 1e-3) {
-    const FMCA::Index dim = P.cols();
-    const FMCA::Index max_cols = max_size_ / dim > dim ? dim : max_size_ / dim;
+  void computeFullPiv(const CovarianceKernel &ker, const Matrix &P,
+                      Scalar tol = 1e-3) {
+    const Index dim = P.cols();
+    const Index max_cols = max_size_ / dim > dim ? dim : max_size_ / dim;
     tol_ = tol;
     if (max_cols < dim) {
       info_ = 3;
       return;
     }
-    Eigen::SelfAdjointEigenSolver<FMCA::Matrix> es;
+    Eigen::SelfAdjointEigenSolver<Matrix> es;
     {
-      FMCA::Matrix K = ker.eval(P, P);
+      Matrix K = ker.eval(P, P);
       es.compute(K);
       info_ = es.info();
       if (es.info() != Eigen::Success) return;
     }
-    FMCA::Vector ev = es.eigenvalues().reverse();
+    Vector ev = es.eigenvalues().reverse();
     std::cout << "lambda min: " << ev.minCoeff() << " "
               << "lambda max: " << ev.maxCoeff();
-    FMCA::Scalar tr = ev.sum();
-    FMCA::Scalar cur_tr = 0;
-    FMCA::Index step = 0;
+    Scalar tr = ev.sum();
+    Scalar cur_tr = 0;
+    Index step = 0;
     while (tr - cur_tr > tol * tr) {
       cur_tr += ev(step);
       ++step;
@@ -121,21 +122,37 @@ class PivotedCholesky {
     return;
   }
 
-  const FMCA::Matrix &matrixB() { return B_; }
-  const FMCA::Matrix &matrixL() { return L_; }
-  const FMCA::iVector &indices() { return indices_; }
-  const FMCA::Scalar &tol() { return tol_; }
-  const FMCA::Index &info() { return info_; }
+  //////////////////////////////////////////////////////////////////////////////
+  /*
+   *    \brief computes the biorthogonal basis B of the Cholesky factor such
+   *           that B^TL=I
+   */
+  void computeBiorthogonalBasis() {
+    B_.resize(L_.rows(), L_.cols());
+    B_.setZero();
+    for (auto i = 0; i < indices_.size(); ++i) {
+      B_(indices_(i), i) = 1;
+      B_.col(i) -= B_.block(0, 0, B_.rows(), i) *
+                   L_.row(indices_(i)).head(i).transpose();
+      B_.col(i) /= L_(indices_(i), i);
+    }
+  }
+
+  const Matrix &matrixB() { return B_; }
+  const Matrix &matrixL() { return L_; }
+  const iVector &indices() { return indices_; }
+  const Scalar &tol() { return tol_; }
+  const Index &info() { return info_; }
 
  private:
   // member variables
-  FMCA::Matrix L_;
-  FMCA::Matrix B_;
-  FMCA::iVector indices_;
-  FMCA::Scalar tol_;
-  FMCA::Index info_;
-  // we cap the maximum matrix size at 2GB
-  const FMCA::Index max_size_ = 250000000;
+  Matrix L_;
+  Matrix B_;
+  iVector indices_;
+  Scalar tol_;
+  Index info_;
+  // we cap the maximum matrix size at 8GB
+  const Index max_size_ = Index(1e9);
 };
 }  // namespace FMCA
 #endif
