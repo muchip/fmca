@@ -21,8 +21,9 @@ class FALKON {
     indices_.resize(0);
   }
 
-  FALKON(const CovarianceKernel &ker, const Matrix &P, const Index rank)
-      : rank_(rank) {
+  FALKON(const CovarianceKernel &ker, const Matrix &P, const Index rank,
+         const Scalar lambda = 0.)
+      : rank_(rank), lambda_(lambda) {
     L_.resize(0, 0);
     indices_.resize(0);
     compute(ker, P, rank);
@@ -44,12 +45,32 @@ function alpha = FALKON(X, C, Y, KernelMatrix, lambda, t)
   alpha = T\(A\conjgrad(BHB, r, t));
 end
 #endif
+  /**
+   *  \brief KnM_times_vector implementation from
+   *  [Rudi, Carratino, Rosasco. FALKON: An Optimal Large Scale Kernel Method]
+   *
+   **/
+  Matrix KTKTimesVector(const Matrix &u, const Matrix &v) {
+    return KPC_.transpose() * ((KPC_ * u).eval() + v);
+  }
+
+  Matrix BTBTimesVector(const Matrix &u) {
+    const Index Scalar invn = 1. / KPC_.rows();
+    return invA.transpose() *
+           (invn * invT.transpose() *
+                KTKTimesVector(invA * invT * u,
+                               FMCA::Matrix::Zeros(u.rows(), u.cols())) +
+            lambda_ * invA * u);
+  }
+
   void init(const CovarianceKernel &ker, const Matrix &P, const Index M,
             const Scalar lambda = 0.) {
     const Index dim = P.cols();
     const Index max_cols = max_size_ / dim > dim ? dim : max_size_ / dim;
+    rank_ = M;
+    lambda_ = lambda;
     std::mt19937 mtwister_;
-    assert(M <= max_cols && "Nystrom rank too high");
+    assert(rank_ <= max_cols && "Nystrom rank too high");
     indices_.resize(dim);
     std::iota(indices_.begin(), indices_.end(), 0);
     std::shuffle(indices_.begin(), indices_.end(), mtwister_);
@@ -68,7 +89,35 @@ end
     return;
   }
 
-  const Matrix precmatvec(const Matrix &rhs) {}
+  Vector computeAlpha(const Vector &Y, const Index t = 10) {
+    const Index Scalar invn = 1. / KPC_.rows();
+    const Vector rhs =
+        invA.transpose() * invT.transpose() *
+        KTKTimesVector(FMCA::Matrix::Zeros(indices.size(), 1), invn * Y);
+    Vector x(rhs.size());
+    // perform CG iterations
+    {
+      Vector res = rhs;
+      Vector p = rhs;
+      Vector res_old;
+      Scalar rtr = res.dot(res);
+      Scalar rtr_old;
+      x.setZero();
+      for (Index k = 0; k < t; ++k) {
+        const Vector Ap = BTBTimesVector(p);
+        const Scalar alpha = rtr / p.dot(Ap);
+        x += alpha * p;
+        res_old = res;
+        rtr_old = rtr;
+        res -= alpha * Ap;
+        rtr = res.dot(res);
+        const Scalar beta = rtr / rtr_old;
+        p = res + beta * p;
+        std::cout << "residual norm: " << res.norm() << std::endl;
+      }
+    }
+    return invT * invA * x;
+  }
 
   const iVector &indices() { return indices_; }
 
@@ -83,6 +132,7 @@ end
   Matrix invA_;
   iVector indices_;
   Index rank_;
+  Scalar lambda_;
   // we cap the maximum matrix size at 8GB
   const Index max_size_ = Index(1e9);
 };
