@@ -23,7 +23,7 @@
 #include <FMCA/Clustering>
 #include <FMCA/CovarianceKernel>
 #include <FMCA/H2Matrix>
-#include <FMCA/PivotedCholesky>
+#include <FMCA/LowRankApproximation>
 #include <FMCA/Samplets>
 ////////////////////////////////////////////////////////////////////////////////
 namespace py = pybind11;
@@ -443,9 +443,38 @@ PYBIND11_MODULE(FMCA, m) {
                          py::arg(),
                          "Computes the pivoted Cholesky decomposition");
   pyPivotedCholesky_.def(
+      "computeOMP", &FMCA::PivotedCholesky::computeOMP, py::arg().noconvert(),
+      py::arg().noconvert(), py::arg().noconvert(), py::arg(),
+      "Computes the pivoted Cholesky decomposition using OMP");
+  pyPivotedCholesky_.def("computeBiorthogonalBasis",
+                         &FMCA::PivotedCholesky::computeBiorthogonalBasis,
+                         "Computes the biorthogonal basis");
+  pyPivotedCholesky_.def("spectralBasisWeights",
+                         &FMCA::PivotedCholesky::computeBiorthogonalBasis,
+                         "returns the transformation for the spectral basis");
+  pyPivotedCholesky_.def(
       "computeFullPiv", &FMCA::PivotedCholesky::computeFullPiv,
       py::arg().noconvert(), py::arg().noconvert(), py::arg(),
       "Computes the truncated spectral decomposition");
   pyPivotedCholesky_.def("indices", &FMCA::PivotedCholesky::indices);
   pyPivotedCholesky_.def("matrixL", &FMCA::PivotedCholesky::matrixL);
+  pyPivotedCholesky_.def("matrixU", &FMCA::PivotedCholesky::matrixU);
+  pyPivotedCholesky_.def("matrixB", &FMCA::PivotedCholesky::matrixB);
+  //////////////////////////////////////////////////////////////////////////////
+  // FALKON
+  //////////////////////////////////////////////////////////////////////////////
+  py::class_<FMCA::FALKON> pyFALKON_(m, "FALKON");
+  pyFALKON_.def(py::init<>());
+  pyFALKON_.def(py::init<const FMCA::CovarianceKernel &, const FMCA::Matrix &,
+                         FMCA::Index, FMCA::Scalar>());
+  pyFALKON_.def("init", &FMCA::FALKON::init, py::arg().noconvert(),
+                py::arg().noconvert(), py::arg(), py::arg(),
+                "Initializes FALKON by computing centers and matrices");
+  pyFALKON_.def(
+      "computeAlpha", &FMCA::FALKON::computeAlpha, py::arg().noconvert(),
+      py::arg(),
+      "computes coefficients for the initialized centers and the given RHS");
+  pyFALKON_.def("indices", &FMCA::FALKON::indices);
+  pyFALKON_.def("matrixC", &FMCA::FALKON::matrixC);
+  pyFALKON_.def("matrixKPC", &FMCA::FALKON::matrixKPC);
 }
