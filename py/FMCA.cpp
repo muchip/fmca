@@ -450,7 +450,7 @@ PYBIND11_MODULE(FMCA, m) {
                          &FMCA::PivotedCholesky::computeBiorthogonalBasis,
                          "Computes the biorthogonal basis");
   pyPivotedCholesky_.def("spectralBasisWeights",
-                         &FMCA::PivotedCholesky::computeBiorthogonalBasis,
+                         &FMCA::PivotedCholesky::spectralBasisWeights,
                          "returns the transformation for the spectral basis");
   pyPivotedCholesky_.def(
       "computeFullPiv", &FMCA::PivotedCholesky::computeFullPiv,
@@ -460,6 +460,7 @@ PYBIND11_MODULE(FMCA, m) {
   pyPivotedCholesky_.def("matrixL", &FMCA::PivotedCholesky::matrixL);
   pyPivotedCholesky_.def("matrixU", &FMCA::PivotedCholesky::matrixU);
   pyPivotedCholesky_.def("matrixB", &FMCA::PivotedCholesky::matrixB);
+  pyPivotedCholesky_.def("eigenvalues", &FMCA::PivotedCholesky::eigenvalues);
   //////////////////////////////////////////////////////////////////////////////
   // FALKON
   //////////////////////////////////////////////////////////////////////////////
