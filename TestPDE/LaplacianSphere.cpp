@@ -92,12 +92,12 @@ int main() {
   // Parameters
   const FMCA::Scalar eta = 1. / 3;
   const FMCA::Index dtilde = 6;
-  const FMCA::Scalar threshold_kernel = 1e-4;
-  const FMCA::Scalar threshold_gradKernel = 1e-2;
+  const FMCA::Scalar threshold_kernel = 1e-6;
+  const FMCA::Scalar threshold_gradKernel = 1e-4;
   const FMCA::Scalar threshold_weights = 0;
   const FMCA::Scalar MPOLE_DEG = 2 * (dtilde - 1);
   const FMCA::Scalar beta = 10000;
-  const std::string kernel_type = "Gaussian";
+  const std::string kernel_type = "Exponential";
 
   const Moments mom_sources(P_sources, MPOLE_DEG);
   const SampletMoments samp_mom_sources(P_sources, dtilde - 1);
@@ -112,7 +112,6 @@ int main() {
     FMCA::Scalar sigma = sigma_factor * sigma_h;
     std::cout << "sigma factor =                         " << sigma
               << std::endl;
-
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     const Moments mom_sources(P_sources, MPOLE_DEG);
     const Moments mom_quad(P_quad, MPOLE_DEG);

@@ -188,6 +188,10 @@ class GradKernel {
       gradkernel_ = [this](Scalar x, Scalar y, Scalar r, Scalar) {
         return -3 * (x - y) / (l_ * l_) * exp(-sqrt(3) / l_ * r);
       };
+    else if (ktype_ == "MATERN52")
+      gradkernel_ = [this](Scalar x, Scalar y, Scalar r, Scalar) {
+        return -5./3 * (x - y) / (l_ * l_) * exp(-sqrt(5) / l_ * r) * (1 + sqrt(5) / l_ * r);
+      };
     else if (ktype_ == "EXPONENTIAL")
       gradkernel_ = [this](Scalar x, Scalar y, Scalar r, Scalar) {
         return r < FMCA_ZERO_TOLERANCE

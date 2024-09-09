@@ -212,40 +212,67 @@ class SampletMatrixCompressor {
     return retval;
   }
 
-  /**
-   *  \brief creates a posteriori thresholded triplets and stores them to in
-   *the triplet list
-   **/
-  const std::vector<Eigen::Triplet<Scalar>> &triplets() {
-    if (pattern_.size()) {
-      triplet_list_.clear();
+
+/**
+ *  \brief creates a posteriori thresholded triplets and stores them to in
+ *the triplet list
+**/
+ // Function to compute the Frobenius norm of a block
+ Scalar computeFrobeniusNorm(const Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> &block) {
+   return block.norm();
+ }
+
+ // Function to generate triplets and accumulate the Frobenius norm
+ const std::vector<Eigen::Triplet<Scalar>> &triplets() {
+   if (pattern_.size()) {
+     triplet_list_.clear();
+     totalFrobeniusNorm_ = 0.0;  // Reset the accumulator
+
 #pragma omp parallel for schedule(dynamic)
-      for (Index i = 0; i < pattern_.size(); ++i) {
-        std::vector<Triplet<Scalar>> list;
-        for (auto &&it : pattern_[i]) {
-          const Derived *pr = rta_.nodes()[it.first % rta_.nodes().size()];
-          const Derived *pc = rta_.nodes()[it.first / rta_.nodes().size()];
-          if (!pr->is_root() && !pc->is_root())
-            storeBlock(
-                list, pr->start_index(), pc->start_index(), pr->nsamplets(),
-                pc->nsamplets(),
-                it.second.bottomRightCorner(pr->nsamplets(), pc->nsamplets()));
-          else if (!pc->is_root())
-            storeBlock(list, pr->start_index(), pc->start_index(),
-                       pr->Q().cols(), pc->nsamplets(),
-                       it.second.rightCols(pc->nsamplets()));
-          else if (pr->is_root() && pc->is_root())
-            storeBlock(list, pr->start_index(), pc->start_index(),
-                       pr->Q().cols(), pc->Q().cols(), it.second);
-          it.second.resize(0, 0);
-        }
+     for (Index i = 0; i < pattern_.size(); ++i) {
+       std::vector<Triplet<Scalar>> list;
+
+       Scalar localFrobeniusNorm = 0.0;
+       for (auto &&it : pattern_[i]) {
+         const Derived *pr = rta_.nodes()[it.first % rta_.nodes().size()];
+         const Derived *pc = rta_.nodes()[it.first / rta_.nodes().size()];
+         if (!pr->is_root() && !pc->is_root()) {
+           localFrobeniusNorm += computeFrobeniusNorm(it.second.bottomRightCorner(pr->nsamplets(), pc->nsamplets()));
+         } else if (!pc->is_root()) {
+           localFrobeniusNorm += computeFrobeniusNorm(it.second.rightCols(pc->nsamplets()));
+         } else if (pr->is_root() && pc->is_root()) {
+           localFrobeniusNorm += computeFrobeniusNorm(it.second);
+         }
+       }
+
+       for (auto &&it : pattern_[i]) {
+         const Derived *pr = rta_.nodes()[it.first % rta_.nodes().size()];
+         const Derived *pc = rta_.nodes()[it.first / rta_.nodes().size()];
+         if (!pr->is_root() && !pc->is_root()) {
+           storeBlock(list, pr->start_index(), pc->start_index(), pr->nsamplets(), pc->nsamplets(), it.second.bottomRightCorner(pr->nsamplets(), pc->nsamplets()));
+         } else if (!pc->is_root()) {
+           storeBlock(list, pr->start_index(), pc->start_index(), pr->Q().cols(), pc->nsamplets(), it.second.rightCols(pc->nsamplets()));
+         } else if (pr->is_root() && pc->is_root()) {
+           storeBlock(list, pr->start_index(), pc->start_index(), pr->Q().cols(), pc->Q().cols(), it.second);
+         }
+         it.second.resize(0, 0);
+       }
+
 #pragma omp critical
-        triplet_list_.insert(triplet_list_.end(), list.begin(), list.end());
-      }
-      pattern_.resize(0);
-    }
-    return triplet_list_;
-  }
+       {
+         triplet_list_.insert(triplet_list_.end(), list.begin(), list.end());
+         totalFrobeniusNorm_ += localFrobeniusNorm;
+       }
+     }
+     pattern_.resize(0);
+   }
+   return triplet_list_;
+ }
+
+ // Function to get the accumulated Frobenius norm
+ Scalar getFrobeniusNorm() const {
+   return totalFrobeniusNorm_;
+ }
 
   std::vector<Eigen::Triplet<Scalar>> release_triplets() {
     std::vector<Eigen::Triplet<Scalar>> retval;
@@ -338,6 +365,7 @@ class SampletMatrixCompressor {
               Eigen::Triplet<Scalar>(srow + j, scol + k, 0));
   }
   //////////////////////////////////////////////////////////////////////////////
+  Scalar totalFrobeniusNorm_;
   std::vector<Triplet<Scalar>> triplet_list_;
   std::vector<LevelBuffer> pattern_;
   RandomTreeAccessor<Derived> rta_;

@@ -252,3 +252,60 @@ Eigen::SparseMatrix<FMCA::Scalar> NeumannNormalMultiplication(
   return result;
 }
 
+
+FMCA::Scalar largestEigenvalue(const Eigen::SparseMatrix<double>& mat,
+                               int maxIter = 5000, double tol = 1e-10) {
+  FMCA::Vector b = Eigen::VectorXd::Random(mat.cols());
+  b.normalize();
+  FMCA::Vector b_next;
+  FMCA::Scalar eigenvalue = 0.0;
+  for (FMCA::Index i = 0; i < maxIter; ++i) {
+    b_next = mat * b;
+    b_next.normalize();
+    FMCA::Scalar eigenvalue_next = b_next.dot(mat * b_next);
+    if (std::abs(eigenvalue_next - eigenvalue) < tol) {
+      break;
+    }
+    eigenvalue = eigenvalue_next;
+    b = b_next;
+  }
+  return eigenvalue;
+}
+
+FMCA::Scalar smallestEigenvalue(const Eigen::SparseMatrix<double>& mat,
+                                int maxIter = 5000, double tol = 1e-10) {
+  Eigen::VectorXd b = Eigen::VectorXd::Random(mat.cols());
+  b.normalize();
+  Eigen::VectorXd b_next;
+  FMCA::Scalar eigenvalue = 0.0;
+
+  Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> solver;
+  double shift = 0.0;  // in the case of matrix singularity
+  Eigen::SparseMatrix<double> shiftedMat =
+      mat - shift * Eigen::SparseMatrix<double>(mat.rows(), mat.cols());
+  solver.compute(shiftedMat);
+
+  for (int i = 0; i < maxIter; ++i) {
+    // Solve (mat - shift*I)x = b
+    b_next = solver.solve(b);
+    b_next.normalize();
+
+    FMCA::Scalar eigenvalue_next = b_next.dot(mat * b_next);
+    if (std::abs(eigenvalue_next - eigenvalue) < tol) {
+      break;
+    }
+    eigenvalue = eigenvalue_next;
+    b = b_next;
+  }
+  return eigenvalue;
+}
+
+FMCA::Scalar conditionNumber(const Eigen::SparseMatrix<double>& mat) {
+  if (mat.rows() != mat.cols()) {
+    throw std::invalid_argument("Matrix must be square.");
+  }
+  FMCA::Scalar largest = largestEigenvalue(mat);
+  FMCA::Scalar smallest = smallestEigenvalue(mat);
+  return largest / smallest;
+}
+

@@ -18,7 +18,6 @@
 #include "read_files_txt.h"
 
 #define DIM 2
-#define MPOLE_DEG 6
 
 using Interpolator = FMCA::TotalDegreeInterpolator;
 using SampletInterpolator = FMCA::MonomialInterpolator;
@@ -31,27 +30,36 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
 int main() {
   FMCA::Tictoc T;
-  const FMCA::GradKernel function("MATERN32", 1, 1, 0);
-  FMCA::Matrix P_sources;
-  FMCA::Matrix P_quad;
-  readTXT("data/vertices_square_01.txt", P_sources, 2);
-  readTXT("data/quadrature7_points_square_01.txt", P_quad, 2);
-  int NPTS_SOURCE = P_sources.cols();
-  int NPTS_QUAD = P_quad.cols();
-  // const FMCA::Matrix P_sources = 0.5 * (FMCA::Matrix::Random(DIM, NPTS_SOURCE).array() + 1);
-  // const FMCA::Matrix P_quad = 0.5 * (FMCA::Matrix::Random(DIM, NPTS_QUAD).array() + 1);
-  const FMCA::Scalar threshold = 1e-6;
-  const FMCA::Index dtilde = 4;
-  const Moments mom_sources(P_sources, MPOLE_DEG);
-  const Moments mom_quad(P_quad, MPOLE_DEG);
-  const usMatrixEvaluator mat_eval(mom_sources, mom_quad, function);
+  FMCA::Scalar eta = 1. / 2;
+  FMCA::Scalar sigma = 0.1;
+  const FMCA::Scalar threshold = 1e-5;
 
-  for (double eta = 1; eta >= 0.4; eta -= 0.2) {
+  const FMCA::GradKernel function("exponential", sigma, 1, 0);
+  // FMCA::Matrix P_sources;
+  // FMCA::Matrix P_quad;
+  // readTXT("data/vertices_square_01.txt", P_sources, 2);
+  // readTXT("data/quadrature7_points_square_01.txt", P_quad, 2);
+  // int NPTS_SOURCE = P_sources.cols();
+  // int NPTS_QUAD = P_quad.cols();
+  int NPTS_SOURCE = 50000;
+  int NPTS_QUAD = 200000;
+  const FMCA::Matrix P_sources =
+      0.5 * (FMCA::Matrix::Random(DIM, NPTS_SOURCE).array() + 1);
+  const FMCA::Matrix P_quad =
+      0.5 * (FMCA::Matrix::Random(DIM, NPTS_QUAD).array() + 1);
+
+  for (int dtilde = 2; dtilde <= 6; ++dtilde) {
+    const FMCA::Index MPOLE_DEG = 2 * (dtilde - 1);
+    const Moments mom_sources(P_sources, MPOLE_DEG);
+    const Moments mom_quad(P_quad, MPOLE_DEG);
+    const usMatrixEvaluator mat_eval(mom_sources, mom_quad, function);
+
     std::cout << "dtilde:                       " << dtilde << std::endl;
+    std::cout << "mpole_deg:                    " << MPOLE_DEG << std::endl;
     std::cout << "eta:                          " << eta << std::endl;
     const SampletMoments samp_mom_sources(P_sources, dtilde - 1);
     const SampletMoments samp_mom_quad(P_quad, dtilde - 1);
-    H2SampletTree hst_sources(mom_sources, samp_mom_sources , 0, P_sources);
+    H2SampletTree hst_sources(mom_sources, samp_mom_sources, 0, P_sources);
     H2SampletTree hst_quad(mom_quad, samp_mom_quad, 0, P_quad);
 
     T.tic();
@@ -65,7 +73,8 @@ int main() {
     const auto &trips = Scomp.triplets();
     T.toc("triplets:                    ");
     std::cout << "anz:                          "
-              << std::round(trips.size() / FMCA::Scalar(NPTS_SOURCE)) << std::endl;
+              << std::round(trips.size() / FMCA::Scalar(NPTS_SOURCE))
+              << std::endl;
 
     // error computation
     FMCA::Vector x(NPTS_QUAD), y1(NPTS_SOURCE), y2(NPTS_SOURCE);
@@ -75,9 +84,10 @@ int main() {
       FMCA::Index index = rand() % NPTS_QUAD;
       x.setZero();
       x(index) = 1;
-      FMCA::Vector col = function.eval(P_sources, P_quad.col(hst_quad.indices()[index]));
-      y1 =
-          col(Eigen::Map<const FMCA::iVector>(hst_sources.indices(), hst_sources.block_size()));
+      FMCA::Vector col =
+          function.eval(P_sources, P_quad.col(hst_quad.indices()[index]));
+      y1 = col(Eigen::Map<const FMCA::iVector>(hst_sources.indices(),
+                                               hst_sources.block_size()));
       x = hst_quad.sampletTransform(x);
       y2.setZero();
       for (const auto &i : trips) {
@@ -94,4 +104,3 @@ int main() {
   }
   return 0;
 }
-

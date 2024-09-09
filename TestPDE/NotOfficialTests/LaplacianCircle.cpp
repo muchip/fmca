@@ -9,13 +9,11 @@ We rely on the FMCA library by M.Multerer.
 #include <cstdlib>
 #include <iostream>
 // ##############################
-#include <Eigen/Eigenvalues>
 #include <Eigen/MetisSupport>
 #include <Eigen/OrderingMethods>
 #include <Eigen/Sparse>
 #include <Eigen/SparseCholesky>
 #include <Eigen/SparseCore>
-#include <Eigen/SparseQR>
 
 #include "../FMCA/GradKernel"
 #include "../FMCA/H2Matrix"
@@ -27,7 +25,6 @@ We rely on the FMCA library by M.Multerer.
 #include "../FMCA/src/util/Macros.h"
 #include "../FMCA/src/util/Tictoc.h"
 #include "FunctionsPDE.h"
-///////////////////////////////////
 #include "../FMCA/src/util/Plotter.h"
 #include "read_files_txt.h"
 
@@ -96,20 +93,20 @@ void saveMatrixToFile(const FMCA::Matrix& matrix, const std::string& filename) {
 }
 
 int main() {
-  // DATA
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Points
   FMCA::Tictoc T;
   FMCA::Matrix P_sources;
   FMCA::Matrix P_interior_full;
-  ;
   FMCA::Matrix P_bnd_full;
-
-  // int N_interior = 1000000;
-  // FMCA::Matrix P_interior = MonteCarloPointsInterior(N_interior);
-  // saveMatrixToFile(P_interior.transpose(), "MC_Interior_Circle.txt");
-  // int N_bnd = 500000;
-  // FMCA::Matrix P_bnd = MonteCarloPointsBoundary(N_bnd);
-  // saveMatrixToFile(P_bnd.transpose(), "MC_Bnd_Circle.txt");
-
+  /*
+  int N_interior = 1000000;
+  FMCA::Matrix P_interior = MonteCarloPointsInterior(N_interior);
+  saveMatrixToFile(P_interior.transpose(), "MC_Interior_Circle.txt");
+  int N_bnd = 500000;
+  FMCA::Matrix P_bnd = MonteCarloPointsBoundary(N_bnd);
+  saveMatrixToFile(P_bnd.transpose(), "MC_Bnd_Circle.txt");
+  */
   readTXT("data/MC_Interior_Circle.txt", P_interior_full, DIM);
   readTXT("data/MC_Bnd_Circle.txt", P_bnd_full, DIM);
 

@@ -152,6 +152,46 @@ struct H2MatrixBase : TreeBase<Derived> {
   }
 
   //////////////////////////////////////////////////////////////////////////////
+//   // matrix free matrix-vector product no H2 matrix is assembled
+//   template <typename MatrixEvaluator>
+//   Matrix actionSampletBasis(const MatrixEvaluator &mat_eval, const Matrix &trhs) const {
+//     std::vector<std::vector<const Derived *>> scheduler;
+//     Matrix lhs = Matrix::Zero(rows(), trhs.cols());
+//     std::vector<Matrix> tlhs(nrclusters());
+//     for (const auto &it : *(rcluster())) {
+//       if (it.nSons())
+//         tlhs[it.block_id()].resize(it.Es()[0].rows(), trhs.cols());
+//       else
+//         tlhs[it.block_id()].resize(it.V().rows(), trhs.cols());
+//       tlhs[it.block_id()].setZero();
+//     }
+//     scheduler.resize(ncclusters());
+//     for (const auto &it : *this)
+//       if (!it.nSons())
+//         scheduler[it.ccluster()->block_id()].push_back(std::addressof(it));
+//     for (const auto &it2 : scheduler) {
+// #pragma omp parallel for schedule(dynamic)
+//       for (Index k = 0; k < it2.size(); ++k) {
+//         Matrix S;
+//         const Derived &it = *(it2[k]);
+//         const Index i = it.rcluster()->block_id();
+//         const Index j = it.ccluster()->block_id();
+//         const Index ii = (it.rcluster())->indices_begin();
+//         const Index jj = (it.ccluster())->indices_begin();
+//         if (it.is_low_rank() && trhs[j].size()) {
+//           mat_eval.interpolate_kernel(*(it.rcluster()), *(it.ccluster()), &S);
+//           tlhs[i] += S * trhs[j];
+//         } else {
+//           mat_eval.compute_dense_block(*(it.rcluster()), *(it.ccluster()), &S);
+//           lhs.middleRows(ii, S.rows()) += S * rhs.middleRows(jj, S.cols());
+//         }
+//       }
+//     }
+//     return lhs;
+//   }
+//
+
+  //////////////////////////////////////////////////////////////////////////////
   Matrix full() const {
     assert(is_root() && "full needs to be called from root");
     return *this * Matrix::Identity(cols(), cols());

@@ -14,6 +14,7 @@
 
 #include "../FMCA/Samplets"
 #include "../FMCA/src/Samplets/adaptiveTreeSearch.h"
+#include "../FMCA/src/util/IO.h"
 
 #define DIM 2
 #define NPTS 1000000
@@ -36,7 +37,7 @@ int main() {
   FMCA::Vector tdata = st.sampletTransform(sdata);
   FMCA::Scalar norm2 = tdata.squaredNorm();
   std::vector<const SampletTree *> adaptive_tree =
-      adaptiveTreeSearch(st, tdata, 1e-6 * norm2);
+      adaptiveTreeSearch(st, tdata, 1e-8 * norm2);
   const FMCA::Index nclusters = std::distance(st.begin(), st.end());
 
   FMCA::Vector thres_tdata = tdata;
@@ -71,6 +72,15 @@ int main() {
       return 1;
     }
   }
+
+  std::vector<FMCA::Matrix> bbvec_active;
+  for (FMCA::Index i = 0; i < adaptive_tree.size(); ++i) {
+    if (adaptive_tree[i] != nullptr) {
+      const SampletTree &node = *(adaptive_tree[i]);
+      bbvec_active.push_back(node.bb());
+    }
+  }
+  FMCA::IO::plotBoxes2D("bbVecActive.vtk", bbvec_active);
 
   return 0;
 }

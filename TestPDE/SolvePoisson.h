@@ -518,6 +518,8 @@ FMCA::Vector SolvePoisson_constantWeighs(
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   Eigen::SparseMatrix<double> Matrix_system_half =
       (Stiffness + beta * Penalty - (Neumann + Neumann_Nitsche));
+
+  applyPatternAndFilter(Matrix_system_half, a_priori_triplets, 1e-8);
   Eigen::SparseMatrix<double> Matrix_system =
       Matrix_system_half.selfadjointView<Eigen::Upper>();
 
