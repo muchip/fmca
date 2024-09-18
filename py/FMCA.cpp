@@ -56,13 +56,36 @@ struct pySampletTree {
     const Moments mom(P, p_);
     const SampletMoments samp_mom(P, dtilde - 1);
     ST_.init(mom, samp_mom, 0, P);
+    cluster_map_.resize(P.cols());
+
+    for (const auto &it : ST_)
+      if (it.is_root())
+        for (FMCA::Index i = 0; i < it.nscalfs() + it.nsamplets(); ++i)
+          cluster_map_[it.start_index() + i] = std::addressof(it);
+      else
+        for (FMCA::Index i = 0; i < it.nsamplets(); ++i)
+          cluster_map_[it.start_index() + i] = std::addressof(it);
   };
+
   FMCA::iVector indices() {
     return Eigen::Map<const FMCA::iVector>(ST_.indices(), ST_.block_size());
   }
   FMCA::iVector levels() {
     std::vector<FMCA::Index> lvl = FMCA::internal::sampletLevelMapper(ST_);
     return Eigen::Map<const FMCA::iVector>(lvl.data(), lvl.size());
+  }
+
+  FMCA::iVector coeff2indices(FMCA::Index i) {
+    const H2SampletTree &node = *(cluster_map_[i]);
+    return Eigen::Map<const FMCA::iVector>(node.indices(), node.block_size());
+  }
+
+  FMCA::Matrix toClusterOrder(const FMCA::Matrix &mat) const {
+    return ST_.toClusterOrder(mat);
+  }
+
+  FMCA::Matrix toNaturalOrder(const FMCA::Matrix &mat) const {
+    return ST_.toNaturalOrder(mat);
   }
 
   FMCA::iVector adaptiveTreeLeafPartition(const FMCA::Vector &data,
@@ -85,6 +108,7 @@ struct pySampletTree {
   H2SampletTree ST_;
   FMCA::Index p_;
   FMCA::Index dtilde_;
+  std::vector<const H2SampletTree *> cluster_map_;
 };
 
 /**
@@ -101,15 +125,37 @@ struct pySampletTreeRP {
     p_ = 2 * (dtilde_ - 1);
     const Moments mom(P, p_);
     const SampletMoments samp_mom(P, dtilde - 1);
-    srand(0);
+    srand(seed);
     ST_.init(mom, samp_mom, 10, P);
+
+    for (const auto &it : ST_)
+      if (it.is_root())
+        for (FMCA::Index i = 0; i < it.nscalfs() + it.nsamplets(); ++i)
+          cluster_map_[it.start_index() + i] = std::addressof(it);
+      else
+        for (FMCA::Index i = 0; i < it.nsamplets(); ++i)
+          cluster_map_[it.start_index() + i] = std::addressof(it);
   };
+
   FMCA::iVector indices() {
     return Eigen::Map<const FMCA::iVector>(ST_.indices(), ST_.block_size());
   }
   FMCA::iVector levels() {
     std::vector<FMCA::Index> lvl = FMCA::internal::sampletLevelMapper(ST_);
     return Eigen::Map<const FMCA::iVector>(lvl.data(), lvl.size());
+  }
+
+  FMCA::Matrix toClusterOrder(const FMCA::Matrix &mat) const {
+    return ST_.toClusterOrder(mat);
+  }
+
+  FMCA::Matrix toNaturalOrder(const FMCA::Matrix &mat) const {
+    return ST_.toNaturalOrder(mat);
+  }
+
+  FMCA::iVector coeff2indices(FMCA::Index i) {
+    const H2SampletTreeRP &node = *(cluster_map_[i]);
+    return Eigen::Map<const FMCA::iVector>(node.indices(), node.block_size());
   }
 
   FMCA::iVector level_labels(const FMCA::Index lvl) {
@@ -152,6 +198,7 @@ struct pySampletTreeRP {
   H2SampletTreeRP ST_;
   FMCA::Index p_;
   FMCA::Index dtilde_;
+  std::vector<const H2SampletTreeRP *> cluster_map_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -320,6 +367,7 @@ PYBIND11_MODULE(FMCA, m) {
   pySampletTree_.def("levels", &pySampletTree::levels);
   pySampletTree_.def("adpativeTreeLeafPartition",
                      &pySampletTree::adaptiveTreeLeafPartition);
+  pySampletTree_.def("coeff2indices", &pySampletTree::coeff2indices);
   py::class_<pySampletTreeRP> pySampletTreeRP_(m, "SampletTreeRP");
   pySampletTreeRP_.def(py::init<>());
   pySampletTreeRP_.def(
@@ -328,9 +376,9 @@ PYBIND11_MODULE(FMCA, m) {
   pySampletTreeRP_.def("indices", &pySampletTreeRP::indices);
   pySampletTreeRP_.def("levels", &pySampletTreeRP::levels);
   pySampletTreeRP_.def("level_labels", &pySampletTreeRP::level_labels);
-
   pySampletTreeRP_.def("adpativeTreeLeafPartition",
                        &pySampletTreeRP::adaptiveTreeLeafPartition);
+  pySampletTreeRP_.def("coeff2indices", &pySampletTreeRP::coeff2indices);
   m.def(
       "sampletTreeStatistics",
       [](const pySampletTree &tree, const FMCA::Matrix &P) {
