@@ -99,6 +99,9 @@ struct SampletTree : public SampletTreeBase<SampletTree<ClusterTreeType>> {
     if (mom.mdtilde() < node().mom_buffer_.cols()) {
       Eigen::HouseholderQR<Matrix> qr(node().mom_buffer_.transpose());
       node().Q_ = qr.householderQ();
+      std::cout << "(level,id) = (" << this->level() << "," 
+        << this->start_index() << ") " << std::endl;
+      std::cout << node().Q_ << std::endl << "---------" << std::endl;
       node().nscalfs_ = mom.mdtilde();
       node().nsamplets_ = node().Q_.cols() - node().nscalfs_;
       // this is the moment for the dad cluster
