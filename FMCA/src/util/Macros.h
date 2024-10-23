@@ -29,6 +29,7 @@ namespace FMCA {
 #define FMCA_INF std::numeric_limits<FMCA_SCALAR>::infinity()
 #define FMCA_ZERO_TOLERANCE std::numeric_limits<FMCA_SCALAR>::epsilon()
 #define FMCA_BBOX_THREASHOLD FMCA_ZERO_TOLERANCE
+#define FMCA_MAXINDEX UINT_MAX
 
 typedef FMCA_INDEX Index;
 
