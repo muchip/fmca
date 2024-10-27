@@ -31,7 +31,7 @@ class Alpha {
   template <typename T>
   Index toScalarIndex(const T &alpha) {
     Index retval = 0;
-    for (Index i = 0; i < nds_.size(); ++i) retval += base_(i) * alpha[i];
+    for (Index d = 0; d < nds_.size(); ++d) retval += base_(d) * alpha[d];
     return retval;
   }
 
@@ -40,16 +40,40 @@ class Alpha {
     T retval;
     retval.resize(nds_.size());
     Index remainder = ind;
-    Index quotient = 0;
-    for (Index i = 0; i < base_.size(); ++i) {
-      quotient = remainder / base_(i);
-      retval[i] = quotient;
-      remainder -= base_(i) * quotient;
+    for (Index d = 0; d < base_.size(); ++d) {
+      retval[d] = remainder / base_(d);
+      remainder %= base_(d);
     }
     return retval;
   }
 
-  Index n() const { return n_; };
+  Index matricize(const Index dim, const Index i, const Index j) const {
+    Index retval = 0;
+    Index remainder = j;
+
+    for (Index d = 0; d < dim; ++d) {
+      const Index base = base_(d) / nds_(dim);
+      Index col = remainder / base;
+      remainder %= base;
+      retval += base_(d) * col;
+    }
+
+    retval += i * base_(dim);
+
+    for (Index d = dim + 1; d < base_.size(); ++d) {
+      Index col = remainder / base_(d);
+      remainder %= base_(d);
+      retval += base_(d) * col;
+    }
+
+    return retval;
+  }
+
+  const iVector &base() const { return base_; }
+
+  const iVector &nds() const { return nds_; }
+
+  Index n() const { return n_; }
 
  private:
   static iVector computeBase(const iVector &nds) {
