@@ -18,7 +18,10 @@ namespace FMCA {
 class Alpha {
  public:
   Alpha(){};
-  Alpha(const iVector &nds) : nds_(nds) {
+  Alpha(const iVector &nds) { init(nds); }
+
+  void init(const iVector &nds) {
+    nds_ = nds;
     n_ = 1;
     for (Index i = 0; i < nds_.size(); ++i) {
       assert(FMCA_MAXINDEX / n_ >= nds_[i] &&
@@ -26,6 +29,7 @@ class Alpha {
       n_ *= nds_(i);
     }
     base_ = computeBase(nds_);
+    return;
   }
 
   template <typename T>
