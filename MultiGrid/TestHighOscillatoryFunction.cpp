@@ -6,7 +6,6 @@
 #include <set>
 #include <sstream>
 // ##############################
-#include <Eigen/CholmodSupport>
 #include <Eigen/Dense>
 #include <Eigen/IterativeLinearSolvers>
 #include <Eigen/MetisSupport>

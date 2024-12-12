@@ -119,8 +119,8 @@ Eigen::SparseMatrix<Scalar> SymmetricCompressor(
   K_comp.init(hst, eta, threshold_kernel);
   K_comp.compress(mat_eval);
   const auto& triplets = K_comp.triplets();
-  Scalar Frobenius_norm = K_comp.getFrobeniusNorm();
-  std::cout << "######## Frobenius norm = " << Frobenius_norm << std::endl;
+  // Scalar Frobenius_norm = K_comp.getFrobeniusNorm();
+  // std::cout << "######## Frobenius norm = " << Frobenius_norm << std::endl;
   //////////////////////////////// Compression error
   int n_pts = P.cols();
   Vector x(n_pts), y1(n_pts), y2(n_pts);
@@ -152,8 +152,9 @@ Eigen::SparseMatrix<Scalar> SymmetricCompressor(
   Eigen::SparseMatrix<Scalar> Kcomp_Sparse(n_pts, n_pts);
   Kcomp_Sparse.setFromTriplets(triplets.begin(), triplets.end());
   // Compute Frobenius norm
-  double Frobenius_norm_from_triplets = Kcomp_Sparse.norm();
-  std::cout << "######## Frobenius Norm from triplets: " << Frobenius_norm_from_triplets << std::endl;
+  // double Frobenius_norm_from_triplets = Kcomp_Sparse.norm();
+  // std::cout << "######## Frobenius Norm from triplets: " <<
+  // Frobenius_norm_from_triplets << std::endl;
   Kcomp_Sparse.makeCompressed();
 
   return Kcomp_Sparse;
@@ -173,6 +174,9 @@ Vector Evaluate(
   for (Index i = 0; i < max_level; ++i) {
     std::cout << "-------- Evaluation Level " << i + 1 << " --------"
               << std::endl;
+    std::cout << "Number of points                   " << P_Matrices[i].cols()
+              << std::endl;
+
     Scalar sigma = nu * fill_distances[i];
     const CovarianceKernel function(kernel_type, sigma);
     Eigen::SparseMatrix<double> K_eval = UnsymmetricCompressor(
@@ -200,15 +204,17 @@ Vector Evaluate(
     }
 
     Vector diff_abs(solution_natural_basis.rows());
+    Vector exact_sol_abs(solution_natural_basis.rows());
     for (Index i = 0; i < solution_natural_basis.rows(); ++i) {
       diff_abs[i] = abs(solution_natural_basis[i] - exact_sol[i]);
+      exact_sol_abs[i] = abs(exact_sol[i]);
     }
 
     std::cout << "Error l2                           "
               << (solution_natural_basis - exact_sol).norm() / exact_sol.norm()
               << std::endl;
-    std::cout << "Error l_inf                        " << diff_abs.maxCoeff()
-              << std::endl;
+    std::cout << "Error l_inf                        "
+              << diff_abs.maxCoeff() / exact_sol_abs.maxCoeff() << std::endl;
 
     K_eval.resize(0, 0);
   }
@@ -241,6 +247,13 @@ Vector solveSystem(const Eigen::SparseMatrix<double>& A_comp, const Vector& rhs,
       throw std::runtime_error("Decomposition failed");
     }
     alpha = solver.solve(rhs);
+  } else if (solverName == "Cholmod") {
+    Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> solver;
+    solver.compute(A_comp_Symmetric);
+    if (solver.info() != Eigen::Success) {
+      throw std::runtime_error("Decomposition failed");
+    }
+    alpha = solver.solve(rhs);
   } else if (solverName == "ConjugateGradient") {
     Eigen::ConjugateGradient<Eigen::SparseMatrix<double>,
                              Eigen::Lower | Eigen::Upper,
@@ -265,9 +278,11 @@ Vector solveSystem(const Eigen::SparseMatrix<double>& A_comp, const Vector& rhs,
     }
     alpha = solver.solve(rhs);
     std::cout << "#iterations:     " << solver.iterations() << std::endl;
-  } else if (solverName == "Cholmod") {
-    Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> solver;
-    solver.compute(A_comp_Symmetric);
+  } else if (solverName == "SparseLU") {
+    Eigen::SparseLU<Eigen::SparseMatrix<double>, Eigen::MetisOrdering<int>>
+        solver;
+    solver.analyzePattern(A_comp_Symmetric);
+    solver.factorize(A_comp_Symmetric);
     if (solver.info() != Eigen::Success) {
       throw std::runtime_error("Decomposition failed");
     }
@@ -343,165 +358,4 @@ Scalar conditionNumber(const Eigen::SparseMatrix<double>& mat) {
   Scalar largest = largestEigenvalue(mat);
   Scalar smallest = smallestEigenvalue(mat);
   return largest / smallest;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-Vector solveSystemWithCond(const Eigen::SparseMatrix<double>& A_comp,
-                           const Vector& rhs, const std::string& solverName,
-                           std::ofstream& logFile) {
-  Eigen::VectorXd alpha;
-  Scalar solver_time;
-  Scalar cond;
-  Tictoc T;
-  Eigen::SparseMatrix<double> A_comp_Symmetric =
-      A_comp.selfadjointView<Eigen::Upper>();
-  T.tic();
-  if (solverName == "SimplicialLLT") {
-    Eigen::SimplicialLLT<Eigen::SparseMatrix<double>, Eigen::Upper,
-                         Eigen::MetisOrdering<int>>
-        solver;
-    solver.compute(A_comp);
-
-    // largest eigenvalue
-    int maxIter = 5000;
-    double tol = 1e-10;
-    Scalar lambda_max = largestEigenvalue(A_comp_Symmetric);
-    // smallest eigenvalue
-    Eigen::VectorXd b = Eigen::VectorXd::Random(A_comp_Symmetric.cols());
-    b.normalize();
-    Eigen::VectorXd b_next;
-    Scalar eigenvalue = 0.0;
-    for (int i = 0; i < maxIter; ++i) {
-      b_next = solver.solve(b);
-      b_next.normalize();
-      Scalar eigenvalue_next = b_next.dot(A_comp_Symmetric * b_next);
-      if (std::abs(eigenvalue_next - eigenvalue) < tol) {
-        break;
-      }
-      eigenvalue = eigenvalue_next;
-      b = b_next;
-    }
-    Scalar lambda_min = eigenvalue;
-    cond = lambda_max / lambda_min;
-
-    if (solver.info() != Eigen::Success) {
-      throw std::runtime_error("Decomposition failed");
-    }
-    alpha = solver.solve(rhs);
-  } else if (solverName == "SimplicialLDLT") {
-    Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>, Eigen::Upper,
-                          Eigen::MetisOrdering<int>>
-        solver;
-    solver.compute(A_comp);
-
-    // largest eigenvalue
-    int maxIter = 5000;
-    double tol = 1e-10;
-    Scalar lambda_max = largestEigenvalue(A_comp_Symmetric);
-    // smallest eigenvalue
-    Eigen::VectorXd b = Eigen::VectorXd::Random(A_comp_Symmetric.cols());
-    b.normalize();
-    Eigen::VectorXd b_next;
-    Scalar eigenvalue = 0.0;
-    for (int i = 0; i < maxIter; ++i) {
-      b_next = solver.solve(b);
-      b_next.normalize();
-      Scalar eigenvalue_next = b_next.dot(A_comp_Symmetric * b_next);
-      if (std::abs(eigenvalue_next - eigenvalue) < tol) {
-        break;
-      }
-      eigenvalue = eigenvalue_next;
-      b = b_next;
-    }
-    Scalar lambda_min = eigenvalue;
-    cond = lambda_max / lambda_min;
-
-    if (solver.info() != Eigen::Success) {
-      throw std::runtime_error("Decomposition failed");
-    }
-    alpha = solver.solve(rhs);
-  } else if (solverName == "ConjugateGradient") {
-    Eigen::ConjugateGradient<Eigen::SparseMatrix<double>,
-                             Eigen::Lower | Eigen::Upper>
-        solver;
-    solver.setTolerance(1e-10);
-    solver.compute(A_comp_Symmetric);
-
-    // largest eigenvalue
-    int maxIter = 5000;
-    double tol = 1e-10;
-    Scalar lambda_max = largestEigenvalue(A_comp_Symmetric);
-    // smallest eigenvalue
-    Eigen::VectorXd b = Eigen::VectorXd::Random(A_comp_Symmetric.cols());
-    b.normalize();
-    Eigen::VectorXd b_next;
-    Scalar eigenvalue = 0.0;
-    for (int i = 0; i < maxIter; ++i) {
-      b_next = solver.solve(b);
-      b_next.normalize();
-      Scalar eigenvalue_next = b_next.dot(A_comp_Symmetric * b_next);
-      if (std::abs(eigenvalue_next - eigenvalue) < tol) {
-        break;
-      }
-      eigenvalue = eigenvalue_next;
-      b = b_next;
-    }
-    Scalar lambda_min = eigenvalue;
-    cond = lambda_max / lambda_min;
-
-    if (solver.info() != Eigen::Success) {
-      throw std::runtime_error("Decomposition failed");
-    }
-    alpha = solver.solve(rhs);
-    std::cout << "#iterations:     " << solver.iterations() << std::endl;
-  } else if (solverName == "Cholmod") {
-    Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> solver;
-    solver.compute(A_comp_Symmetric);
-
-    // largest eigenvalue
-    int maxIter = 5000;
-    double tol = 1e-10;
-    Scalar lambda_max = largestEigenvalue(A_comp_Symmetric);
-    // smallest eigenvalue
-    Eigen::VectorXd b = Eigen::VectorXd::Random(A_comp_Symmetric.cols());
-    b.normalize();
-    Eigen::VectorXd b_next;
-    Scalar eigenvalue = 0.0;
-    for (int i = 0; i < maxIter; ++i) {
-      b_next = solver.solve(b);
-      b_next.normalize();
-      Scalar eigenvalue_next = b_next.dot(A_comp_Symmetric * b_next);
-      if (std::abs(eigenvalue_next - eigenvalue) < tol) {
-        break;
-      }
-      eigenvalue = eigenvalue_next;
-      b = b_next;
-    }
-    Scalar lambda_min = eigenvalue;
-    cond = lambda_max / lambda_min;
-
-    if (solver.info() != Eigen::Success) {
-      throw std::runtime_error("Decomposition failed");
-    }
-    alpha = solver.solve(rhs);
-  } else {
-    throw std::invalid_argument("Unknown solver name");
-  }
-  solver_time = T.toc();
-
-  logFile << "Number of poitns: " << A_comp.rows() << "\n";
-  logFile << "Solver: " << solverName << "\n";
-  logFile << "Cond number: " << cond << "\n";
-  logFile << "Solver time: " << solver_time << "\n";
-  logFile << "Residual error: " << (A_comp_Symmetric * alpha - rhs).norm()
-          << "\n";
-  logFile << "---------------------------------\n";
-
-  std::cout << "Solver: " << solverName << std::endl;
-  std::cout << "Cond number: " << cond << std::endl;
-  std::cout << "Solver + Cond time: " << solver_time << std::endl;
-  std::cout << "Residual error: " << (A_comp_Symmetric * alpha - rhs).norm()
-            << std::endl;
-
-  return alpha;
 }

@@ -18,6 +18,7 @@
 #include "../FMCA/H2Matrix"
 #include "../FMCA/Samplets"
 #include "../FMCA/src/Clustering/ClusterTreeMetrics.h"
+#include "../FMCA/src/Samplets/adaptiveTreeSearch.h"
 #include "../FMCA/src/util/IO.h"
 #include "../FMCA/src/util/Macros.h"
 #include "../FMCA/src/util/Plotter.h"
@@ -89,17 +90,17 @@ int main() {
   Matrix P8;
   readTXT("data/square01_uniform_grid_level8.txt", P8, DIM);
   std::cout << "Cardianlity P8      " << P8.cols() << std::endl;
-  Matrix P9;
-  readTXT("data/square01_uniform_grid_level9.txt", P9, DIM);
-  std::cout << "Cardianlity P9      " << P9.cols() << std::endl;
-  Matrix P10;
-  readTXT("data/square01_uniform_grid_level10.txt", P10, DIM);
-  std::cout << "Cardianlity P10     " << P10.cols() << std::endl;
+  // Matrix P9;
+  // readTXT("data/square01_uniform_grid_level9.txt", P9, DIM);
+  // std::cout << "Cardianlity P9      " << P9.cols() << std::endl;
+  // Matrix P10;
+  // readTXT("data/square01_uniform_grid_level10.txt", P10, DIM);
+  // std::cout << "Cardianlity P10     " << P10.cols() << std::endl;
   Matrix Peval;
   readTXT("data/uniform_vertices_UnitSquare_40k.txt", Peval, DIM);
   std::cout << "Cardianlity Peval   " << Peval.cols() << std::endl;
   ///////////////////////////////// Nested cardinality of points
-  std::vector<Matrix> P_Matrices = {P1, P2, P3, P4, P5, P6, P7, P8, P9, P10};
+  std::vector<Matrix> P_Matrices = {P1, P2, P3, P4, P5, P6, P7, P8};
   int max_level = P_Matrices.size();
   ///////////////////////////////// Parameters
   const Scalar eta = 1. / DIM;
@@ -111,7 +112,7 @@ int main() {
   const Scalar nu = 1;
   std::cout << "eta                 " << eta << std::endl;
   std::cout << "dtilde              " << dtilde << std::endl;
-  std::cout << "threshold_kernel    " << threshold_kernel<< std::endl;
+  std::cout << "threshold_kernel    " << threshold_kernel << std::endl;
   std::cout << "mpole_deg           " << mpole_deg << std::endl;
   std::cout << "kernel_type         " << kernel_type << std::endl;
   std::cout << "nu                  " << nu << std::endl;
@@ -166,18 +167,70 @@ int main() {
       }  // B_comp goes out of scope and is destroyed here
     }
     ///////////////////////////////// Plot the residuals
-    // {
-    //   Vector residual_natural_basis =
-    //   hst.inverseSampletTransform(residuals[l]); residual_natural_basis =
-    //   hst.toNaturalOrder(residual_natural_basis);
-    //   // Create the filename for the residual
-    //   std::ostringstream oss;
-    //   oss << base_filename_residuals << "_level_" << l << ".vtk";
-    //   std::string filename_residuals = oss.str();
-    //   Plotter2D plotter;
-    //   plotter.plotFunction2D(filename_residuals, P_Matrices[l],
-    //                          residual_natural_basis);
-    // }
+    {
+      Vector residual_natural_basis = hst.inverseSampletTransform(residuals[l]);
+      residual_natural_basis = hst.toNaturalOrder(residual_natural_basis);
+      // Create the filename for the residual
+      std::ostringstream oss;
+      oss << base_filename_residuals << "_level_" << l << ".vtk";
+      std::string filename_residuals = oss.str();
+      Plotter2D plotter;
+      plotter.plotFunction2D(filename_residuals, P_Matrices[l],
+                             residual_natural_basis);
+    }
+    ///////////////////////////////// Plot the bb
+    {
+      std::vector<const H2SampletTree<ClusterTree>*> adaptive_tree =
+          adaptiveTreeSearch(hst, residuals[l],
+                             1e-3 * residuals[l].squaredNorm());
+      const FMCA::Index nclusters = std::distance(hst.begin(), hst.end());
+
+      FMCA::Vector thres_tdata = residuals[l];
+      thres_tdata.setZero();
+      FMCA::Index nnz = 0;
+      for (FMCA::Index i = 0; i < adaptive_tree.size(); ++i) {
+        if (adaptive_tree[i] != nullptr) {
+          const H2SampletTree<ClusterTree>& node = *(adaptive_tree[i]);
+          const FMCA::Index ndist =
+              node.is_root() ? node.Q().cols() : node.nsamplets();
+          thres_tdata.segment(node.start_index(), ndist) =
+              residuals[l].segment(node.start_index(), ndist);
+          nnz += ndist;
+        }
+      }
+      std::cout << "active coefficients: " << nnz << " / "
+                << residuals[l].rows() << std::endl;
+      std::cout << "tree error: "
+                << (thres_tdata - residuals[l]).norm() / residuals[l].norm()
+                << std::endl;
+
+      std::vector<FMCA::Matrix> bbvec_active;
+      std::vector<double> colr2;
+      for (const auto* it : adaptive_tree) {
+        if (it != nullptr && !it->nSons()) {
+          const auto& node = *it;  // reference to the dereferenced pointer
+          for (auto k = 0; k < node.block_size(); ++k) {
+            assert(FMCA::internal::inBoundingBox(
+                       node, P_Matrices[l].col(node.indices()[k])) &&
+                   "point outside leaf bounding box");
+          }
+          bbvec_active.push_back(node.bb());
+        }
+      }
+
+      std::ostringstream oss;
+      oss << "Plots/TreeFrankeResidual" << "_level_" << l << ".vtk";
+      std::string file_name = oss.str();
+
+      std::ostringstream oss_points;
+      oss_points << "Plots/PointsFranke" << "_level_" << l << ".vtk";
+      std::string file_name_points = oss_points.str();
+
+      FMCA::IO::plotBoxes2D(file_name, bbvec_active);
+      FMCA::IO::plotPoints2D(file_name_points, P_Matrices[l]);
+    }
+
+   /////////////////////////////////
     Scalar sigma = nu * fill_distances[l];
     const CovarianceKernel kernel_funtion(kernel_type, sigma);
     T.tic();
@@ -205,8 +258,8 @@ int main() {
   Vector exact_sol = evalFrankeFunction(Peval);
   Vector solution =
       Evaluate(mom, samp_mom, hst, kernel_type, P_Matrices, Peval, ALPHA,
-               fill_distances, max_level, nu, eta, 0, mpole_deg,
-               dtilde, exact_sol, hst, "");  //"Plots/SolutionFranke"
+               fill_distances, max_level, nu, eta, 0, mpole_deg, dtilde,
+               exact_sol, hst, "");  //"Plots/SolutionFranke"
 
   return 0;
 }

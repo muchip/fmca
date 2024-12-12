@@ -1,12 +1,12 @@
 #include <algorithm>
-#include <cmath>  // Include cmath for sqrt function
+#include <cmath>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <limits>
 #include <set>
 #include <sstream>
-#include <vector>  // Include vector for std::vector
+#include <vector>
 //////////////////////////////////////////////////////////
 #include <Eigen/CholmodSupport>
 #include <Eigen/Dense>
@@ -47,7 +47,7 @@ using namespace FMCA;
 Scalar DistanceCenterofMass(Scalar x, Scalar y, Scalar z, Scalar x_m,
                             Scalar y_m, Scalar z_m) {
   Scalar r = std::sqrt((x - x_m) * (x - x_m) + (y - y_m) * (y - y_m) +
-               (z - z_m) * (z - z_m));
+                       (z - z_m) * (z - z_m));
   return 1. / (std::sqrt(std::sqrt(r)) + 0.001);
 }
 
@@ -68,11 +68,11 @@ int main() {
   Tictoc T;
   ///////////////////////////////// Inputs: points
   Matrix P1, P2, P3, P4, P5;
-  readTXT("data/lucy_level1.txt", P1, DIM);
-  readTXT("data/lucy_level2.txt", P2, DIM);
-  readTXT("data/lucy_level3.txt", P3, DIM);
-  readTXT("data/lucy_level4.txt", P4, DIM);
-  readTXT("data/lucy_level5.txt", P5, DIM);
+  readTXT("data/lucy4NotNested_level1.txt", P1, DIM);
+  readTXT("data/lucy4NotNested_level2.txt", P2, DIM);
+  readTXT("data/lucy4NotNested_level3.txt", P3, DIM);
+  readTXT("data/lucy4NotNested_level4.txt", P4, DIM);
+  readTXT("data/lucy4NotNested_level5.txt", P5, DIM);
 
   // Output the cardinality of each normalized matrix
   std::cout << "Cardinality P1      " << P1.cols() << std::endl;
@@ -81,18 +81,12 @@ int main() {
   std::cout << "Cardinality P4      " << P4.cols() << std::endl;
   std::cout << "Cardinality P5      " << P5.cols() << std::endl;
 
-  // Scalar x_m = averageCoordinates(P5.row(0));
-  // Scalar y_m = averageCoordinates(P5.row(1));
-  // Scalar z_m = averageCoordinates(P5.row(2));
-  // std::cout << "Center of mass = (" << x_m << ", " << y_m << ", " << z_m << ")"
-  //           << std::endl;
   Scalar x_m = 0.25;
   Scalar y_m = 0.94;
-  Scalar z_m = 0.9;
-
+  Scalar z_m = 0.98;
 
   Matrix Peval;
-  readTXT("data/lucy_eval.txt", Peval, DIM);
+  readTXT("data/lucy4NotNested_eval.txt", Peval, DIM);
   std::cout << "Cardinality Peval   " << Peval.cols() << std::endl;
 
   ///////////////////////////////// Nested cardinality of points
@@ -137,7 +131,7 @@ int main() {
 
   ///////////////////////////////// Coeffs Initialization
   std::vector<Vector> ALPHA;
-  std::string base_filename_residuals = "Plots/ResidualsLucy";
+  std::string base_filename_residuals = "Plots/ResidualsLucyTorch";
 
   ///////////////////////////////// Resolution --> Scheme = Matricial form
   for (Eigen::Index l = 0; l < max_level; ++l) {
@@ -170,16 +164,16 @@ int main() {
     }
 
     ///////////////////////////////// Plot the residuals
-    {
-      Vector residual_natural_basis = hst.inverseSampletTransform(residuals[l]);
-      residual_natural_basis = hst.toNaturalOrder(residual_natural_basis);
-      // Create the filename for the residual
-      std::ostringstream oss;
-      oss << base_filename_residuals << "_level_" << l << ".vtk";
-      std::string filename_residuals = oss.str();
-      IO::plotPointsColor(filename_residuals, P_Matrices[l],
-                           residual_natural_basis);
-    }
+    // {
+    //   Vector residual_natural_basis = hst.inverseSampletTransform(residuals[l]);
+    //   residual_natural_basis = hst.toNaturalOrder(residual_natural_basis);
+    //   // Create the filename for the residual
+    //   std::ostringstream oss;
+    //   oss << base_filename_residuals << "_level_" << l << ".vtk";
+    //   std::string filename_residuals = oss.str();
+    //   IO::plotPointsColor(filename_residuals, P_Matrices[l],
+    //                       residual_natural_basis);
+    // }
     Scalar sigma = nu * fill_distances[l];
     const CovarianceKernel kernel_funtion(kernel_type, sigma);
     T.tic();
@@ -195,7 +189,7 @@ int main() {
       ///////////////////////////////// Solve the linear system
       Vector rhs = residuals[l];
       Vector alpha =
-          solveSystem(A_comp, rhs, "ConjugateGradientwithPreconditioner", 1e-8);
+          solveSystem(A_comp, rhs, "ConjugateGradientwithPreconditioner", 1e-6);
       ALPHA.push_back(alpha);
     }  // A_comp goes out of scope and is destroyed here
   }
@@ -205,10 +199,10 @@ int main() {
   const SampletMoments samp_mom(Peval, dtilde - 1);
   const H2SampletTree<ClusterTree> hst(mom, samp_mom, 0, Peval);
   Vector exact_sol = evalFunction(Peval, x_m, y_m, z_m);
-  Vector solution = Evaluate(mom, samp_mom, hst, kernel_type, P_Matrices, Peval,
-                             ALPHA, fill_distances, max_level, nu, eta,
-                             threshold_kernel, mpole_deg, dtilde, exact_sol,
-                             hst, "Plots/SolutionLucy");  // Plots/SolutionBunny
+  Vector solution = Evaluate(
+      mom, samp_mom, hst, kernel_type, P_Matrices, Peval, ALPHA, fill_distances,
+      max_level, nu, eta, threshold_kernel, mpole_deg, dtilde, exact_sol, hst,
+      "Plots/SolutionLucyNotNested12");  // Plots/SolutionBunny
 
   return 0;
 }

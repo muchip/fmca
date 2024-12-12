@@ -1,48 +1,53 @@
-#include <math.h>
+// #include <math.h>
 
-#include <algorithm>
-#include <cstdlib>
-#include <fstream>
-#include <iostream>
-#include <limits>
-#include <set>
-#include <sstream>
-// ##############################
-#include <Eigen/CholmodSupport>
-#include <Eigen/Dense>
-#include <Eigen/IterativeLinearSolvers>
-#include <Eigen/MetisSupport>
-#include <Eigen/OrderingMethods>
-#include <Eigen/Sparse>
-#include <Eigen/SparseCholesky>
+// #include <algorithm>
+// #include <cstdlib>
+// #include <fstream>
+// #include <iostream>
+// #include <limits>
+// #include <set>
+// #include <sstream>
+// // ##############################
+// #include <Eigen/Dense>
+// #include <Eigen/IterativeLinearSolvers>
+// #include <Eigen/MetisSupport>
+// #include <Eigen/OrderingMethods>
+// #include <Eigen/Sparse>
+// #include <Eigen/SparseCholesky>
 
-#include "../FMCA/CovarianceKernel"
-#include "../FMCA/H2Matrix"
-#include "../FMCA/Samplets"
-#include "../FMCA/src/Clustering/ClusterTreeMetrics.h"
-#include "../FMCA/src/Samplets/adaptiveTreeSearch.h"
-#include "../FMCA/src/util/IO.h"
-#include "../FMCA/src/util/Macros.h"
-#include "../FMCA/src/util/Plotter.h"
-#include "../FMCA/src/util/Tictoc.h"
-#include "../FMCA/src/util/permutation.h"
-#include "../TestPDE/read_files_txt.h"
-#include "MultiGridFunctions.h"
+// #include "../FMCA/CovarianceKernel"
+// #include "../FMCA/H2Matrix"
+// #include "../FMCA/Samplets"
+// #include "../FMCA/src/Clustering/ClusterTreeMetrics.h"
+// #include "../FMCA/src/Samplets/adaptiveTreeSearch.h"
+// #include "../FMCA/src/util/IO.h"
+// #include "../FMCA/src/util/Macros.h"
+// #include "../FMCA/src/util/Plotter.h"
+// #include "../FMCA/src/util/Tictoc.h"
+// #include "../FMCA/src/util/permutation.h"
+// #include "../TestPDE/read_files_txt.h"
+// #include "MultiGridFunctions.h"
+// #include "MultiGridSolver.h"
+
+// #define DIM 2
+
+// using Interpolator = FMCA::TotalDegreeInterpolator;
+// using SampletInterpolator = FMCA::MonomialInterpolator;
+// using Moments = FMCA::NystromMoments<Interpolator>;
+// using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
+// using MatrixEvaluatorKernel =
+//     FMCA::NystromEvaluator<Moments, FMCA::CovarianceKernel>;
+// using usMatrixEvaluatorKernel =
+//     FMCA::unsymmetricNystromEvaluator<Moments, FMCA::CovarianceKernel>;
+// using EigenCholesky =
+//     Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>, Eigen::Upper,
+//                           Eigen::MetisOrdering<int>>;
+
+// using namespace FMCA;
+
+#include "MultigridSolver.h"
 
 #define DIM 2
-
-using Interpolator = FMCA::TotalDegreeInterpolator;
-using SampletInterpolator = FMCA::MonomialInterpolator;
-using Moments = FMCA::NystromMoments<Interpolator>;
-using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
-using MatrixEvaluatorKernel =
-    FMCA::NystromEvaluator<Moments, FMCA::CovarianceKernel>;
-using usMatrixEvaluatorKernel =
-    FMCA::unsymmetricNystromEvaluator<Moments, FMCA::CovarianceKernel>;
-using EigenCholesky =
-    Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>, Eigen::Upper,
-                          Eigen::MetisOrdering<int>>;
-
 using namespace FMCA;
 
 Scalar AnalyticalSolution(Scalar x, Scalar y) {
@@ -91,7 +96,7 @@ int main() {
   readTXT("data/L_shape_uniform_grid_level9.txt", Peval, DIM);
   std::cout << "Cardianlity Peval   " << Peval.cols() << std::endl;
 
-  std::vector<Matrix> P_Matrices = {P1, P2, P3, P4, P5, P6, P7};
+  std::vector<Matrix> P_Matrices = {P1, P2, P3, P4, P5, P6, P7, P8};
   int max_level = P_Matrices.size();
 
   ///////////////////////////////// Parameters
@@ -129,7 +134,7 @@ int main() {
 
   ///////////////////////////////// Coeffs Initialization
   std::vector<Vector> ALPHA;
-  std::string base_filename_residuals = "Plots/LogResidualsLShape";
+  std::string base_filename_residuals = "Plots/ResidualsLShape";
 
   ///////////////////////////////// Resolution --> Scheme = Matricial form
   for (Index l = 0; l < max_level; ++l) {
@@ -168,55 +173,56 @@ int main() {
     {
       Vector residual_natural_basis = hst.inverseSampletTransform(residuals[l]);
       residual_natural_basis = hst.toNaturalOrder(residual_natural_basis);
-      Vector abs_residual(residual_natural_basis.size());
-      for (Eigen::Index i = 0; i < residual_natural_basis.size(); ++i) {
-        abs_residual[i] = std::log(std::abs(residual_natural_basis[i]));
-      }
       // Create the filename for the residual
       std::ostringstream oss;
       oss << base_filename_residuals << "_level_" << l << ".vtk";
       std::string filename_residuals = oss.str();
       Plotter2D plotter;
-      plotter.plotFunction2D(filename_residuals, P_Matrices[l], abs_residual);
+      plotter.plotFunction2D(filename_residuals, P_Matrices[l],
+                             residual_natural_basis);
     }
 
     ///////////////////////////////// Plot the BB
     {
+      std::vector<FMCA::Matrix> bb_active = MarkActiveLeavesSampletCoefficients(
+          P_Matrices, residuals, l, mpole_deg, dtilde,
+          0.05);
+
       std::ostringstream oss;
       oss << "Plots/TreeLShape" << "_level_" << l << ".vtk";
       std::string file_name = oss.str();
-      std::vector<const H2SampletTree<ClusterTree>*> adaptive_tree =
-          adaptiveTreeSearch(hst, residuals[l],
-                             1e-2 * residuals[l].squaredNorm());
-      const FMCA::Index nclusters = std::distance(hst.begin(), hst.end());
+      // std::vector<const H2SampletTree<ClusterTree>*> adaptive_tree =
+      //     adaptiveTreeSearch(hst, residuals[l],
+      //                        1e-2 * residuals[l].squaredNorm());
+      // const FMCA::Index nclusters = std::distance(hst.begin(), hst.end());
 
-      FMCA::Vector thres_tdata = residuals[l];
-      thres_tdata.setZero();
-      FMCA::Index nnz = 0;
-      for (FMCA::Index i = 0; i < adaptive_tree.size(); ++i) {
-        if (adaptive_tree[i] != nullptr) {
-          const H2SampletTree<ClusterTree>& node = *(adaptive_tree[i]);
-          const FMCA::Index ndist =
-              node.is_root() ? node.Q().cols() : node.nsamplets();
-          thres_tdata.segment(node.start_index(), ndist) =
-              residuals[l].segment(node.start_index(), ndist);
-          nnz += ndist;
-        }
-      }
-      std::cout << "active coefficients: " << nnz << " / "
-                << residuals[l].rows() << std::endl;
-      std::cout << "tree error: "
-                << (thres_tdata - residuals[l]).norm() / residuals[l].norm()
-                << std::endl;
+      // FMCA::Vector thres_tdata = residuals[l];
+      // thres_tdata.setZero();
+      // FMCA::Index nnz = 0;
+      // for (FMCA::Index i = 0; i < adaptive_tree.size(); ++i) {
+      //   if (adaptive_tree[i] != nullptr) {
+      //     const H2SampletTree<ClusterTree>& node = *(adaptive_tree[i]);
+      //     const FMCA::Index ndist =
+      //         node.is_root() ? node.Q().cols() : node.nsamplets();
+      //     thres_tdata.segment(node.start_index(), ndist) =
+      //         residuals[l].segment(node.start_index(), ndist);
+      //     nnz += ndist;
+      //   }
+      // }
+      // std::cout << "active coefficients: " << nnz << " / "
+      //           << residuals[l].rows() << std::endl;
+      // std::cout << "tree error: "
+      //           << (thres_tdata - residuals[l]).norm() / residuals[l].norm()
+      //           << std::endl;
 
-      std::vector<FMCA::Matrix> bbvec_active;
-      for (FMCA::Index i = 0; i < adaptive_tree.size(); ++i) {
-        if (adaptive_tree[i] != nullptr) {
-          const H2SampletTree<ClusterTree>& node = *(adaptive_tree[i]);
-          bbvec_active.push_back(node.bb());
-        }
-      }
-      FMCA::IO::plotBoxes2D(file_name, bbvec_active);
+      // std::vector<FMCA::Matrix> bbvec_active;
+      // for (FMCA::Index i = 0; i < adaptive_tree.size(); ++i) {
+      //   if (adaptive_tree[i] != nullptr) {
+      //     const H2SampletTree<ClusterTree>& node = *(adaptive_tree[i]);
+      //     bbvec_active.push_back(node.bb());
+      //   }
+      // }
+      FMCA::IO::plotBoxes2D(file_name, bb_active);
     }
 
     ///////////////////////////////// Solve the system
@@ -234,24 +240,23 @@ int main() {
       // oss << "matlabPlots/A" << "_level_" << l << "_" << l;
       // std::string matrix_name = oss.str();
       // FMCA::IO::print2spascii(matrix_name, A_comp, "w");
-      
+
       /////////////////////////////////
       Vector rhs = residuals[l];
-      Vector alpha = solveSystem(A_comp, rhs, "ConjugateGradient", 1e-8);
+      Vector alpha = solveSystem(A_comp, rhs, "ConjugateGradient", 1e-4);
       ALPHA.push_back(alpha);
     }  // A_comp goes out of scope and is destroyed here
   }
 
-  // ///////////////////////////////// Final Evaluation
-  // const Moments mom(Peval, mpole_deg);
-  // const SampletMoments samp_mom(Peval, dtilde - 1);
-  // const H2SampletTree<ClusterTree> hst(mom, samp_mom, 0, Peval);
-  // Vector exact_sol = evalAnalyticalSolution(Peval);
-  // Vector solution = Evaluate(
-  //     mom, samp_mom, hst, kernel_type, P_Matrices, Peval, ALPHA,
-  //     fill_distances, max_level, nu, eta, threshold_kernel, mpole_deg,
-  //     dtilde, exact_sol, hst,
-  //     "");  //"Plots/SolutionLShape"
+  ///////////////////////////////// Final Evaluation
+  const Moments mom(Peval, mpole_deg);
+  const SampletMoments samp_mom(Peval, dtilde - 1);
+  const H2SampletTree<ClusterTree> hst(mom, samp_mom, 0, Peval);
+  Vector exact_sol = evalAnalyticalSolution(Peval);
+  Vector solution = Evaluate(
+      mom, samp_mom, hst, kernel_type, P_Matrices, Peval, ALPHA, fill_distances,
+      max_level, nu, eta, threshold_kernel, mpole_deg, dtilde, exact_sol, hst,
+      "Plots/SolutionLShape");  //"Plots/SolutionLShape"
 
   return 0;
 }
