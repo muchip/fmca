@@ -31,13 +31,6 @@ struct NodeBase {
   Derived &derived() { return *static_cast<Derived *>(this); }
   // return a const reference to the derived object */
   const Derived &derived() const { return *static_cast<const Derived *>(this); }
-
-  // Add a member to store the max coefficient
-  Scalar max_coefficient_{0};
-
-  // Add methods to set and get the max coefficient
-  void setMaxCoeff(const Scalar &coeff) { max_coefficient_ = coeff; }
-  Scalar getMaxCoeff() const { return max_coefficient_; }
 };
 
 /**
