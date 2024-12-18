@@ -5,3 +5,5 @@
 html/
 build/
 MultiGrid/data/
+MultiGrid/Plots/
+MultiGrid/matlabPlots
