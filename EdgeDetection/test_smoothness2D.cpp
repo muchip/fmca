@@ -80,8 +80,7 @@ int main() {
   Scalar freq = 20;
   /////////////////////////////////
   Matrix P;
-  // readTXT("../Multigrid/data/2D_meshgrid.txt", P, DIM);
-  readTXT("../Multigrid/data/coordinates_phantom.txt", P, DIM);
+  readTXT("data/coordinates_phantom.txt", P, DIM);
   /////////////////////////////////
   const std::string function_type = "phantom"; // "f_elaborated"
   const Scalar eta = 1. / DIM;
@@ -115,7 +114,7 @@ int main() {
   Vector f_elaborated_Samplets = hst.sampletTransform(f_elaborated_ordered);
 
   Vector f_phantom;
-  readTXT("../Multigrid/data/values_phantom.txt", f_phantom);
+  readTXT("data/values_phantom.txt", f_phantom);
   Vector f_phantom_ordered = hst.toClusterOrder(f_phantom);
   Vector f_phantom_Samplets = hst.sampletTransform(f_phantom_ordered);
   ///////////////////////////////////////////////// Compute the decay of the

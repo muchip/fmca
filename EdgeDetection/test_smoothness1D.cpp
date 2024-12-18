@@ -84,7 +84,7 @@ int main() {
   Scalar freq = 20;
   /////////////////////////////////
   Matrix P;
-  readTXT("../Multigrid/data/1D_10000.txt", P, DIM);
+  readTXT("data/1D_10000.txt", P, DIM);
   /////////////////////////////////
   const std::string function_type = "f_elaborated";
   const Scalar eta = 1. / DIM;
