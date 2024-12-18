@@ -2,6 +2,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <limits>
 #include <random>
@@ -73,6 +74,27 @@ Index computeMaxLevel(const SampletTreeBase<Derived>& st) {
 //////////////////////////////////////////////////////////////////////////////////////////
 
 /**
+ * @brief Compute the maximum coefficient for a node.
+ *
+ * Given a node, computes the maximum of the absolute value of the
+ * coefficients in the samplet basis.
+ *
+ * @param[in] node node of the tree.
+ * @param[in] tdata data in samplet basis.
+ * @return maximum coefficient of the node.
+ */
+template <typename Derived>
+Scalar computeMaxCoeffNode(const Derived& node, const Vector& tdata) {
+  int level = node.level();
+  auto segment = tdata.segment(node.start_index(), node.nsamplets());
+  Scalar coefficient = segment.cwiseAbs().maxCoeff();
+  return coefficient;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+
+/**
  * For each level of the tree, printMaxCoefficientsPerLevel gives the largest
  * coefficient.
  *
@@ -108,9 +130,6 @@ void printMaxCoefficientsPerLevel(const SampletTreeBase<Derived>& st,
     Scalar coefficient =
         segment.cwiseAbs()
             .maxCoeff();  // alternative: Scalar coefficient = segment.norm();
-            
-    // Set the max coefficient for the node
-    node.derived().setMaxCoeff(coefficient);
 
     if (levelMax.find(level) == levelMax.end()) {
       // if we did not consider that level before, the simpy add the coeffcient
@@ -156,6 +175,97 @@ void printMaxCoefficientsPerLevel(const SampletTreeBase<Derived>& st,
 
 //////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////
+template <typename Derived>
+void traverseAndStackCoefficients(
+    const SampletTreeBase<Derived>& tree, const Vector& tdata,
+    std::map<const Derived*, std::vector<Scalar>>& leafCoefficients) {
+  // A stack to simulate Depth-First Search (DFS) traversal, with current node
+  // and level.
+  std::vector<std::pair<const Derived*, size_t>> nodeStack;
+
+  // Vector to keep track of coefficients for nodes as we traverse the tree.
+  std::vector<Scalar> coefficientsStack;
+
+  // Push the root node onto the stack with level 0.
+  nodeStack.emplace_back(&tree.derived(), 0);
+
+  // Main loop for DFS traversal.
+  while (!nodeStack.empty()) {
+    // Get the current node and its level.
+    auto [currentNode, currentLevel] = nodeStack.back();
+    nodeStack.pop_back();
+
+    // Ensure the coefficients stack matches the current path.
+    if (coefficientsStack.size() > currentLevel) {
+      coefficientsStack.resize(currentLevel);
+    }
+
+    // Compute the coefficient for the current node based on `tdata`.
+    Scalar coeff = computeMaxCoeffNode(*currentNode, tdata);
+
+    // Push the computed coefficient onto the coefficients stack.
+    coefficientsStack.push_back(coeff);
+
+    // Check if the current node is a leaf node.
+    if (currentNode->nSons() == 0) {
+      // Store the current stack of coefficients for this leaf node.
+      leafCoefficients[currentNode] = coefficientsStack;
+    } else {
+      // Push children nodes onto the stack with their respective levels.
+      for (int i = currentNode->nSons() - 1; i >= 0; --i) {
+        nodeStack.emplace_back(std::addressof(currentNode->sons(i)),
+                               currentLevel + 1);
+      }
+    }
+  }
+}
+
+template <typename TreeType>
+std::map<const TreeType*, Scalar> computeLinearRegressionSlope(
+    const std::map<const TreeType*, std::vector<Scalar>>& leafCoefficients, const Scalar& dtilde) {
+  std::map<const TreeType*, Scalar> slopes;
+
+  for (const auto& [leaf, coefficients] : leafCoefficients) {
+    size_t n = coefficients.size();
+
+    // Exclude the first and last coefficients
+    std::vector<Scalar> x, y;
+    int counter_small_coefficients = 0;
+    // Scalar log10_sum_small_coefficients = 0.0;
+    for (size_t i = 1; i < n; ++i) {
+      x.push_back(static_cast<Scalar>(i));      // Levels 1, 2, ..., n-2
+      y.push_back(std::log2(coefficients[i]));  // Log2 of the coefficients
+      if (coefficients[i] < 1e-6) {
+        counter_small_coefficients++;
+        // log10_sum_small_coefficients += std::log10(coefficients[i]);
+      }
+    }
+    // if counter is greather that half of the coefficients, set the slope to -10
+    if (counter_small_coefficients > n / 3) {
+      //  Scalar avg_log10_small_coefficients = log10_sum_small_coefficients / counter_small_coefficients;
+      //  int slope = static_cast<int>(std::round(avg_log10_small_coefficients));
+      slopes[leaf] = -dtilde;
+    } else {
+      // Compute the slope using linear regression
+      Scalar sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+      size_t m = x.size();
+      for (size_t i = 0; i < m; ++i) {
+        sumX += x[i];
+        sumY += y[i];
+        sumXY += x[i] * y[i];
+        sumX2 += x[i] * x[i];
+      }
+
+      Scalar slope = (m * sumXY - sumX * sumY) / (m * sumX2 - sumX * sumX);
+      slopes[leaf] = slope;
+    }
+  }
+
+  return slopes;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
 /**
  * For each level of the tree, computes and prints the average coefficient.
  *
@@ -166,7 +276,8 @@ void printMaxCoefficientsPerLevel(const SampletTreeBase<Derived>& st,
  * @tparam Derived The derived type of the samplet tree base.
  * @param st The samplet tree for which average coefficients per level are
  * computed.
- * @param tdata The data in the samplet basis used to compute the coefficients.
+ * @param tdata The data in the samplet basis used to compute the
+ * coefficients.
  */
 template <typename Derived>
 void printAverageCoefficientsPerLevel(const SampletTreeBase<Derived>& st,
@@ -240,15 +351,16 @@ void saveVectorToFile(const Vector& vec, const std::string& filename) {
  * Computes an adaptive tree from a given samplet tree and data.
  *
  * This function performs an adaptive tree search on the provided samplet tree
- * based on the input data and a threshold for active leaves. The adaptive tree
- * is constructed by keeping nodes that have significant coefficients with
- * respect to the threshold.
+ * based on the input data and a threshold for active leaves. The adaptive
+ * tree is constructed by keeping nodes that have significant coefficients
+ * with respect to the threshold.
  *
  * @tparam Derived The derived type of the samplet tree base.
  * @param st The samplet tree on which the adaptive tree is computed.
- * @param tdata The data in the samplet basis used to compute the adaptive tree.
- * @param threshold_active_leaves The threshold used to determine active leaves
- *        based on the squared norm of the data.
+ * @param tdata The data in the samplet basis used to compute the adaptive
+ * tree.
+ * @param threshold_active_leaves The threshold used to determine active
+ * leaves based on the squared norm of the data.
  * @return A vector of pointers to the nodes of the adaptive tree.
  */
 template <typename ClusterTreeType>
@@ -284,8 +396,8 @@ std::vector<const H2SampletTree<ClusterTreeType>*> computeAdaptiveTree(
 //////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////
 /**
- * @brief computeBBActive computes the bounding boxes of the active leaves of an
- * adaptive tree.
+ * @brief computeBBActive computes the bounding boxes of the active leaves of
+ * an adaptive tree.
  *
  * @param[in] adaptive_tree vector of pointers to nodes of the adaptive tree
  * @return a vector of bounding boxes for the active leaves of the tree
@@ -420,8 +532,8 @@ void printIntervalsPython(Bbvec& bb) {
 /**
  * Prints the bounding boxes from the given collection to the standard output
  * in a format compatible with Python. Each box is represented as a list of
- * coordinates for its four corners: [(xmin, ymin), (xmax, ymin), (xmax, ymax),
- * (xmin, ymax)].
+ * coordinates for its four corners: [(xmin, ymin), (xmax, ymin), (xmax,
+ * ymax), (xmin, ymax)].
  *
  * @tparam Bbvec Type of the bounding box collection.
  * @param bb Collection of bounding boxes to be printed.
@@ -435,8 +547,8 @@ void printBoxesPython2D(Bbvec& bb) {
     auto ymin = (*it)(1);  // y min
     auto ymax = (*it)(3);  // y max
 
-    // Format for a square in Python: [(xmin, ymin), (xmax, ymin), (xmax, ymax),
-    // (xmin, ymax)]
+    // Format for a square in Python: [(xmin, ymin), (xmax, ymin), (xmax,
+    // ymax), (xmin, ymax)]
     std::cout << "[(" << float(xmin) << ", " << float(ymin) << "), "
               << "(" << float(xmax) << ", " << float(ymin) << "), "
               << "(" << float(xmax) << ", " << float(ymax) << "), "
@@ -490,4 +602,49 @@ void saveBoxesToFile(const Bbvec& bb, const std::string& filename) {
 
   outfile.close();
   std::cout << "Squares saved to " << filename << std::endl;
+}
+
+template <typename ClusterTreeType>
+void generateStepFunctionData(
+    const std::map<const H2SampletTree<ClusterTreeType>*, Scalar>& slopes,
+    std::string outputFile) {
+  std::vector<Scalar> x;       // Bounding box min x-coordinates
+  std::vector<Scalar> coeffs;  // Slopes duplicated for step function
+
+  for (const auto& [leaf, slope] : slopes) {
+    const auto& bbox = leaf->bb();  // Assuming bb() gives the bounding box
+    Scalar minX = bbox(0);          // Minimum x-coordinate
+    Scalar maxX = bbox(1);          // Maximum x-coordinate
+
+    // Append points for the step function
+    x.push_back(minX);
+    coeffs.push_back(slope);
+    x.push_back(maxX);
+    coeffs.push_back(slope);
+  }
+
+  // Write the data to a file
+  std::ofstream file(outputFile);
+  if (!file.is_open()) {
+    std::cerr << "Failed to open file: " << outputFile << std::endl;
+    return;
+  }
+
+  file << std::fixed << std::setprecision(6);
+  file << "x = [";
+  for (size_t i = 0; i < x.size(); ++i) {
+    file << x[i];
+    if (i < x.size() - 1) file << ", ";
+  }
+  file << "]\n";
+
+  file << "coeffs = [";
+  for (size_t i = 0; i < coeffs.size(); ++i) {
+    file << coeffs[i];
+    if (i < coeffs.size() - 1) file << ", ";
+  }
+  file << "]\n";
+
+  file.close();
+  std::cout << "Data written to " << outputFile << std::endl;
 }
