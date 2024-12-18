@@ -21,7 +21,7 @@ namespace internal {
 template <>
 struct traits<RandomProjectionTree> {
   typedef ClusterTreeNode Node;
-  typedef ClusterSplitter::FastRandomProjection Splitter;
+  typedef ClusterSplitter::RandomProjection Splitter;
 };
 }  // namespace internal
 
