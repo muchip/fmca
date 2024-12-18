@@ -44,6 +44,7 @@ struct ClusterTree : public ClusterTreeBase<ClusterTree> {
   using Base::node;
   using Base::nSons;
   using Base::sons;
+  using initializer = internal::ClusterTreeInitializer<ClusterTree>;
   //////////////////////////////////////////////////////////////////////////////
   // constructors
   //////////////////////////////////////////////////////////////////////////////
@@ -53,7 +54,7 @@ struct ClusterTree : public ClusterTreeBase<ClusterTree> {
   // implementation of init
   //////////////////////////////////////////////////////////////////////////////
   void init(const Matrix &P, Index min_csize = 1) {
-    internal::ClusterTreeInitializer<ClusterTree>::init(*this, min_csize, P);
+    initializer::init(*this, min_csize, P);
   }
 };
 

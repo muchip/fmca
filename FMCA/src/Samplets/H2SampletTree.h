@@ -25,7 +25,7 @@ struct traits<H2SampletTree<ClusterTreeType>>
     : public traits<SampletTree<ClusterTreeType>> {
   typedef H2SampletTreeNode Node;
 };
-} // namespace internal
+}  // namespace internal
 
 /**
  *  \ingroup Samplets
@@ -33,7 +33,7 @@ struct traits<H2SampletTree<ClusterTreeType>>
  */
 template <typename ClusterTreeType>
 class H2SampletTree : public H2SampletTreeBase<H2SampletTree<ClusterTreeType>> {
-public:
+ public:
   typedef typename internal::traits<H2SampletTree>::Node Node;
   typedef H2SampletTreeBase<H2SampletTree<ClusterTreeType>> Base;
   // make base class methods visible
@@ -74,8 +74,8 @@ public:
                                ? min_cluster_size
                                : mom.interp().Xi().cols();
     // init cluster tree
-    internal::ClusterTreeInitializer<ClusterTreeType>::init(
-        *this, mincsize, std::forward<Ts>(ts)...);
+    ClusterTreeType::initializer::init(*this, mincsize,
+                                       std::forward<Ts>(ts)...);
     // init hierarchical cluster basis
     internal::compute_cluster_bases_impl::compute(*this, mom);
     // internal::compute_cluster_bases_impl::check_transfer_matrices(*this,
@@ -89,8 +89,9 @@ public:
     return;
   }
 
-private:
-  template <typename Moments> void computeSamplets(const Moments &mom) {
+ private:
+  template <typename Moments>
+  void computeSamplets(const Moments &mom) {
     if (nSons()) {
       Index offset = 0;
       for (auto i = 0; i < nSons(); ++i) {
@@ -131,5 +132,5 @@ private:
     return;
   }
 };
-} // namespace FMCA
+}  // namespace FMCA
 #endif

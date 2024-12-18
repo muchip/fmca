@@ -17,14 +17,16 @@ namespace FMCA {
 template <typename Derived>
 Eigen::SparseMatrix<Scalar> sparseKernelMatrixInverse(
     const CovarianceKernel &K, const ClusterTreeBase<Derived> &CT,
-    const Matrix &P, const Index fps = 1, const Scalar ridge_parameter = 0) {
+    const Matrix &P, const Scalar fps = 1., const Scalar ridge_parameter = 0) {
   const Vector mdv = minDistanceVector(CT, P);
   const Scalar fill_distance = mdv.maxCoeff();
+  const Scalar sep_distance = mdv.minCoeff();
   const Scalar search_radius =
       fps * fill_distance * std::abs(std::log(fill_distance));
   std::cout << std::string(30, '-') << "sparseInverse" << std::string(30, '-')
             << std::endl;
   std::cout << "fill distance:                " << fill_distance << std::endl;
+  std::cout << "sep distance:                 " << sep_distance << std::endl;
   std::cout << "search radius:                " << search_radius << std::endl;
   // compute epsilon nearest neighbours for all points
   std::vector<std::vector<Index>> epsnn(P.cols());
@@ -69,8 +71,9 @@ Eigen::SparseMatrix<Scalar> sparseKernelMatrixInverse(
     Vector col = Kloc.ldlt().solve(rhs);
     std::vector<Eigen::Triplet<Scalar>> local_triplets;
     for (Index j = 0; j < locN; ++j)
-      local_triplets.push_back(
-          Eigen::Triplet<Scalar>(inv_idcs[i], inv_idcs[epsnn[i][j]], col(j)));
+      if (std::abs(col(j)) > FMCA_ZERO_TOLERANCE)
+        local_triplets.push_back(
+            Eigen::Triplet<Scalar>(inv_idcs[i], inv_idcs[epsnn[i][j]], col(j)));
 #pragma omp critical
     triplets.insert(triplets.end(), local_triplets.begin(),
                     local_triplets.end());
