@@ -31,6 +31,8 @@ namespace FMCA {
 #define FMCA_BBOX_THREASHOLD FMCA_ZERO_TOLERANCE
 #define FMCA_MAXINDEX UINT_MAX
 
+#define FMCA_UNSAFE 0
+  
 typedef FMCA_INDEX Index;
 
 typedef FMCA_SCALAR Scalar;

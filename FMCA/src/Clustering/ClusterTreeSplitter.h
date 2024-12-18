@@ -153,6 +153,7 @@ struct RandomProjection {
   }
 };
 
+#if FMCA_UNSAFE
 struct FastRandomProjection {
   static std::string splitterName() { return "FastRandomProjection"; }
   template <class CTNode>
@@ -206,7 +207,7 @@ struct FastRandomProjection {
     // sense rather let this be handled by shrinktofit
   }
 };
-
+#endif
 }  // namespace ClusterSplitter
 }  // namespace FMCA
 #endif

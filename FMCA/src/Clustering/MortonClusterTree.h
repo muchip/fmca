@@ -21,7 +21,7 @@ namespace internal {
 template <>
 struct traits<MortonClusterTree> {
   typedef MortonClusterTreeNode Node;
-  typedef ClusterSplitter::CardinalityBisection Splitter;
+  typedef ClusterSplitter::GeometricBisection Splitter;
 };
 }  // namespace internal
 
