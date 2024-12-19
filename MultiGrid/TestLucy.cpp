@@ -24,8 +24,7 @@
 #include "../FMCA/src/util/Macros.h"
 #include "../FMCA/src/util/Plotter3D.h"
 #include "../FMCA/src/util/Tictoc.h"
-#include "../FMCA/src/util/permutation.h"
-#include "../TestPDE/read_files_txt.h"
+#include "read_files_txt.h"
 #include "MultiGridFunctions.h"
 
 #define DIM 3

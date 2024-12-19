@@ -217,6 +217,41 @@ void plotBoxes(const std::string &fileName, const std::vector<Matrix> &bb,
   myfile.close();
   return;
 }
+
+
+template <typename Derived>
+void plotPoints2D(const std::string &fileName,
+                const Eigen::MatrixBase<Derived> &P) {
+  std::ofstream myfile;
+  myfile.open(fileName);
+  myfile << "# vtk DataFile Version 3.1\n";
+  myfile << "this file hopefully represents my surface now\n";
+  myfile << "ASCII\n";
+  myfile << "DATASET UNSTRUCTURED_GRID\n";
+  // print point list
+  myfile << "POINTS " << P.cols() << " FLOAT\n";
+  for (auto i = 0; i < P.cols(); ++i)
+    myfile << float(P(0, i)) << " " << float(P(1, i)) << " " << 0
+           << "\n";
+  myfile << "\n";
+
+  // print element list
+  auto nvertices = 1;
+  myfile << "CELLS " << P.cols() << " " << (nvertices + 1) * P.cols() << "\n";
+  for (auto i = 0; i < P.cols(); ++i) {
+    myfile << Index(nvertices);
+    for (auto j = 0; j < nvertices; ++j) myfile << " " << Index(i);
+    myfile << "\n";
+  }
+  myfile << "\n";
+
+  myfile << "CELL_TYPES " << P.cols() << "\n";
+  for (auto i = 0; i < P.cols(); ++i) myfile << Index(1) << "\n";
+  myfile << "\n";
+  myfile.close();
+  return;
+}
+
 /**
  *  \brief exports a list of points in vtk
  **/

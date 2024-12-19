@@ -22,7 +22,6 @@
 #include "../FMCA/src/util/Plotter.h"
 #include "../FMCA/src/util/Plotter3D.h"
 #include "../FMCA/src/util/Tictoc.h"
-#include "../FMCA/src/util/permutation.h"
 
 // using Interpolator = FMCA::TotalDegreeInterpolator;
 // using SampletInterpolator = FMCA::MonomialInterpolator;

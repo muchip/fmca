@@ -1,54 +1,21 @@
-// #include <math.h>
+#include "MultigridFunctions.h"
+#include "read_files_txt.h"
 
-// #include <algorithm>
-// #include <cstdlib>
-// #include <fstream>
-// #include <iostream>
-// #include <limits>
-// #include <set>
-// #include <sstream>
-// // ##############################
-// #include <Eigen/Dense>
-// #include <Eigen/IterativeLinearSolvers>
-// #include <Eigen/MetisSupport>
-// #include <Eigen/OrderingMethods>
-// #include <Eigen/Sparse>
-// #include <Eigen/SparseCholesky>
+using Interpolator = FMCA::TotalDegreeInterpolator;
+using SampletInterpolator = FMCA::MonomialInterpolator;
+using Moments = FMCA::NystromMoments<Interpolator>;
+using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
+using MatrixEvaluatorKernel =
+    FMCA::NystromEvaluator<Moments, FMCA::CovarianceKernel>;
+using usMatrixEvaluatorKernel =
+    FMCA::unsymmetricNystromEvaluator<Moments, FMCA::CovarianceKernel>;
+using EigenCholesky =
+    Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>, Eigen::Upper,
+                          Eigen::MetisOrdering<int>>;
 
-// #include "../FMCA/CovarianceKernel"
-// #include "../FMCA/H2Matrix"
-// #include "../FMCA/Samplets"
-// #include "../FMCA/src/Clustering/ClusterTreeMetrics.h"
-// #include "../FMCA/src/Samplets/adaptiveTreeSearch.h"
-// #include "../FMCA/src/util/IO.h"
-// #include "../FMCA/src/util/Macros.h"
-// #include "../FMCA/src/util/Plotter.h"
-// #include "../FMCA/src/util/Tictoc.h"
-// #include "../FMCA/src/util/permutation.h"
-// #include "../TestPDE/read_files_txt.h"
-// #include "MultiGridFunctions.h"
-// #include "MultiGridSolver.h"
-
-// #define DIM 2
-
-// using Interpolator = FMCA::TotalDegreeInterpolator;
-// using SampletInterpolator = FMCA::MonomialInterpolator;
-// using Moments = FMCA::NystromMoments<Interpolator>;
-// using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
-// using MatrixEvaluatorKernel =
-//     FMCA::NystromEvaluator<Moments, FMCA::CovarianceKernel>;
-// using usMatrixEvaluatorKernel =
-//     FMCA::unsymmetricNystromEvaluator<Moments, FMCA::CovarianceKernel>;
-// using EigenCholesky =
-//     Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>, Eigen::Upper,
-//                           Eigen::MetisOrdering<int>>;
-
-// using namespace FMCA;
-
-#include "MultigridSolver.h"
+using namespace FMCA;
 
 #define DIM 2
-using namespace FMCA;
 
 Scalar AnalyticalSolution(Scalar x, Scalar y) {
   Scalar r = sqrt(x * x + y * y);
@@ -180,49 +147,6 @@ int main() {
       Plotter2D plotter;
       plotter.plotFunction2D(filename_residuals, P_Matrices[l],
                              residual_natural_basis);
-    }
-
-    ///////////////////////////////// Plot the BB
-    {
-      std::vector<FMCA::Matrix> bb_active = MarkActiveLeavesSampletCoefficients(
-          P_Matrices, residuals, l, mpole_deg, dtilde,
-          0.05);
-
-      std::ostringstream oss;
-      oss << "Plots/TreeLShape" << "_level_" << l << ".vtk";
-      std::string file_name = oss.str();
-      // std::vector<const H2SampletTree<ClusterTree>*> adaptive_tree =
-      //     adaptiveTreeSearch(hst, residuals[l],
-      //                        1e-2 * residuals[l].squaredNorm());
-      // const FMCA::Index nclusters = std::distance(hst.begin(), hst.end());
-
-      // FMCA::Vector thres_tdata = residuals[l];
-      // thres_tdata.setZero();
-      // FMCA::Index nnz = 0;
-      // for (FMCA::Index i = 0; i < adaptive_tree.size(); ++i) {
-      //   if (adaptive_tree[i] != nullptr) {
-      //     const H2SampletTree<ClusterTree>& node = *(adaptive_tree[i]);
-      //     const FMCA::Index ndist =
-      //         node.is_root() ? node.Q().cols() : node.nsamplets();
-      //     thres_tdata.segment(node.start_index(), ndist) =
-      //         residuals[l].segment(node.start_index(), ndist);
-      //     nnz += ndist;
-      //   }
-      // }
-      // std::cout << "active coefficients: " << nnz << " / "
-      //           << residuals[l].rows() << std::endl;
-      // std::cout << "tree error: "
-      //           << (thres_tdata - residuals[l]).norm() / residuals[l].norm()
-      //           << std::endl;
-
-      // std::vector<FMCA::Matrix> bbvec_active;
-      // for (FMCA::Index i = 0; i < adaptive_tree.size(); ++i) {
-      //   if (adaptive_tree[i] != nullptr) {
-      //     const H2SampletTree<ClusterTree>& node = *(adaptive_tree[i]);
-      //     bbvec_active.push_back(node.bb());
-      //   }
-      // }
-      FMCA::IO::plotBoxes2D(file_name, bb_active);
     }
 
     ///////////////////////////////// Solve the system

@@ -89,14 +89,14 @@ class CovarianceKernel {
       kernel_ = [this](Scalar r) { return std::exp(-0.5 * r * r / (l_ * l_)); };
     ////////////////////////////////////////////////////////////////////////////
 
-    else if (ktype_ == "MATERNNU")
-      kernel_ = [this](Scalar r) {
-        const Scalar arg = std::sqrt(2 * nu_) * r / l_;
-        return arg > FMCA_ZERO_TOLERANCE
-                   ? 2. * std::pow(0.5 * arg, nu_) / std::tgamma(nu_) *
-                         std::cyl_bessel_k(nu_, arg)
-                   : 1.;
-      };
+    // else if (ktype_ == "MATERNNU")
+    //   kernel_ = [this](Scalar r) {
+    //     const Scalar arg = std::sqrt(2 * nu_) * r / l_;
+    //     return arg > FMCA_ZERO_TOLERANCE
+    //                ? 2. * std::pow(0.5 * arg, nu_) / std::tgamma(nu_) *
+    //                      std::cyl_bessel_k(nu_, arg)
+    //                : 1.;
+    //   };
     ////////////////////////////////////////////////////////////////////////////
     else if (ktype_ == "INVMULTIQUADRIC")
       kernel_ = [this](Scalar r) {
