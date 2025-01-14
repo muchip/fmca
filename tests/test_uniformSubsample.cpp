@@ -22,7 +22,8 @@ int main() {
   FMCA::Tictoc T;
   std::mt19937 mt;
   mt.seed(0);
-  FMCA::Matrix Psphere(3, 10000);
+  FMCA::Matrix Psphere(3, 1400000);
+  FMCA::Index max_lvl = 11;
 
   {
     std::normal_distribution<FMCA::Scalar> dist(0.0, 1.0);
@@ -31,12 +32,13 @@ int main() {
       Psphere.col(i) /= Psphere.col(i).norm();
     }
   }
+  // Psphere.setRandom();
   FMCA::IO::plotPoints("points00.vtk", Psphere);
 
   T.tic();
   std::vector<FMCA::Index> idcs;
-  std::vector<FMCA::Index> lvls(10);
-  for (FMCA::Index i = 0; i < 10; ++i) {
+  std::vector<FMCA::Index> lvls(max_lvl);
+  for (FMCA::Index i = 0; i < max_lvl; ++i) {
     idcs = FMCA::uniformSubsample(idcs, Psphere, i);
     lvls[i] = idcs.size();
     if (i > 1) std::cout << lvls[i] / lvls[i - 1] << std::endl;
@@ -46,9 +48,13 @@ int main() {
     FMCA::ClusterTree ct(Psub, 10);
     FMCA::Vector mdist = FMCA::minDistanceVector(ct, Psub);
     if (i > 1)
-      std::cout << mdist.minCoeff() << " " << mdist.maxCoeff() << " "
-                << mdist.maxCoeff() / mdist.minCoeff() << std::endl;
+      std::cout << lvls[i] << " " << mdist.minCoeff() << " " << mdist.maxCoeff()
+                << " " << mdist.maxCoeff() / mdist.minCoeff() << std::endl;
     FMCA::IO::plotPoints("points" + std::to_string(i) + ".vtk", Psub);
+    if (idcs.size() == Psphere.cols()) {
+      std::cout << "all points distributed" << std::endl;
+      break;
+    }
   }
   T.toc("generated levels");
 }
