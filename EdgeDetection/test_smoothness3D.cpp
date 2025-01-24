@@ -9,6 +9,10 @@
 #include "SmoothnessDetection.h"
 
 #define DIM 3
+
+using ST = FMCA::SampletTree<FMCA::ClusterTree>;
+using H2ST = FMCA::H2SampletTree<FMCA::ClusterTree>;
+
 using namespace FMCA;
 
 //////////////////////////////////////////////////////////////// VOLUME
@@ -102,7 +106,7 @@ Matrix perturbCubeSurfacePointsTransversal(const Matrix& points, Scalar epsilon)
 //////////////////////////////////////////////////////////////////////////////////////////
 int main() {
   Tictoc T;
-  Scalar threshold_active_leaves = 1e-10;
+  Scalar threshold_active_leaves = 0;
   Scalar epsilon = 1e-1;
   int num_points = 100000;
 
@@ -124,7 +128,7 @@ int main() {
 
   const Moments mom(P_perturbed, mpole_deg);
   const SampletMoments samp_mom(P_perturbed, dtilde - 1);
-  const H2SampletTree<ClusterTree> hst(mom, samp_mom, 0, P_perturbed);
+  const H2ST hst(mom, samp_mom, 0, P_perturbed);
 
   Vector f_ordered = hst.toClusterOrder(f);
   Vector tdata = hst.sampletTransform(f_ordered);
