@@ -19,11 +19,12 @@
 #include "../FMCA/src/util/Tictoc.h"
 
 int main() {
+  const FMCA::Index nPts = 10000;
   FMCA::Tictoc T;
   std::mt19937 mt;
   mt.seed(0);
-  FMCA::Matrix Psphere(3, 1400000);
-  FMCA::Index max_lvl = 11;
+  FMCA::Matrix Psphere(3, nPts);
+  FMCA::Index max_lvl = 10;
 
   {
     std::normal_distribution<FMCA::Scalar> dist(0.0, 1.0);
@@ -32,8 +33,6 @@ int main() {
       Psphere.col(i) /= Psphere.col(i).norm();
     }
   }
-  // Psphere.setRandom();
-  FMCA::IO::plotPoints("points00.vtk", Psphere);
 
   T.tic();
   std::vector<FMCA::Index> idcs;
@@ -50,11 +49,20 @@ int main() {
     if (i > 1)
       std::cout << lvls[i] << " " << mdist.minCoeff() << " " << mdist.maxCoeff()
                 << " " << mdist.maxCoeff() / mdist.minCoeff() << std::endl;
-    FMCA::IO::plotPoints("points" + std::to_string(i) + ".vtk", Psub);
     if (idcs.size() == Psphere.cols()) {
       std::cout << "all points distributed" << std::endl;
       break;
     }
   }
   T.toc("generated levels");
+
+  // check that all indices are found and that there are no duplicates
+  std::vector<bool> check_idcs(nPts);
+  for (FMCA::Index i = 0; i < idcs.size(); ++i) {
+    assert(!check_idcs[idcs[i]] && "duplicated index found");
+    check_idcs[idcs[i]] = true;
+  }
+  for (FMCA::Index i = 0; i < check_idcs.size(); ++i)
+    assert(check_idcs[i] && "missing index found");
+  return 0;
 }
