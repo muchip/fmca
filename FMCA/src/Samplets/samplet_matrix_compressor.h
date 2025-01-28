@@ -39,6 +39,7 @@ class SampletMatrixCompressor {
             Scalar threshold = 0) {
     eta_ = eta;
     threshold_ = threshold;
+    npts_ = ST.block_size();
     rta_.init(ST, ST.block_size());
     pattern_.resize(2 * rta_.max_level() + 1);
 
@@ -250,50 +251,39 @@ class SampletMatrixCompressor {
   std::vector<Triplet<Scalar>> aposteriori_triplets(const Scalar thres) {
     std::vector<Triplet<Scalar>> triplets = triplet_list_;
     if (std::abs(thres) < FMCA_ZERO_TOLERANCE) return triplets;
+
+    // sort the triplets by magnitude, putting diagonal entries first
+    // note that first sorting and then summing small to large makes
+    // everything stable (positive numbers). Using Kahan summation did
+    // not further improve afterwards, so we stay with fast summation
+    {
+      struct comp {
+        bool operator()(const Triplet<Scalar> &a,
+                        const Triplet<Scalar> &b) const {
+          const Scalar val1 =
+              (a.row() == a.col()) ? FMCA_INF : std::abs(a.value());
+          const Scalar val2 =
+              (b.row() == b.col()) ? FMCA_INF : std::abs(b.value());
+          return val1 > val2;
+        }
+      };
+      std::sort(triplets.begin(), triplets.end(), comp());
+    }
+
     Scalar squared_norm = 0;
-    // We are using the Kahan-Babuska summation algorithm, as the computation
-    // of the Frobenius norm is very unstable
-    {
-      std::atomic<Scalar> corr = 0;
-      for (const auto &it : triplets) {
-        std::atomic<Scalar> y = it.value() * it.value() - corr;
-        std::atomic<Scalar> t = squared_norm + y;
-        std::atomic<Scalar> z = t - squared_norm;
-        corr = z - y;
-        squared_norm = t;
-      }
+    for (auto it = triplets.rbegin(); it != triplets.rend(); ++it)
+      squared_norm += it->value() * it->value();
+
+    Scalar cut_snorm = 0;
+    Index cut_off = triplets.size();
+    for (auto it = triplets.rbegin(); it != triplets.rend(); ++it) {
+      cut_snorm += it->value() * it->value();
+      if (std::sqrt(cut_snorm / squared_norm) >= thres) break;
+      --cut_off;
     }
-    // now triplet_list_ contains all triplets
-    // we sort the triplets putting diagonal elements first
-    struct comp {
-      comp(const Scalar norm) : fnorm(norm) {}
-      bool operator()(const Triplet<Scalar> &a,
-                      const Triplet<Scalar> &b) const {
-        const Scalar val1 = (a.row() == a.col()) ? fnorm : std::abs(a.value());
-        const Scalar val2 = (b.row() == b.col()) ? fnorm : std::abs(b.value());
-        return val1 > val2;
-      }
-      const Scalar fnorm;
-    };
-    std::sort(triplets.begin(), triplets.end(), comp(std::sqrt(squared_norm)));
-    Scalar cur_snorm = 0;
-    Index i = 0;
-    // We are using the Kahan-Babuska summation algorithm, as the computation
-    // of the Frobenius norm is very unstable
-    {
-      std::atomic<Scalar> corr = 0;
-      while (std::sqrt((squared_norm - cur_snorm) / squared_norm) > thres &&
-             i < triplets.size()) {
-        std::atomic<Scalar> y =
-            triplets[i].value() * triplets[i].value() - corr;
-        std::atomic<Scalar> t = cur_snorm + y;
-        std::atomic<Scalar> z = t - cur_snorm;
-        corr = z - y;
-        cur_snorm = t;
-        ++i;
-      }
-    }
-    triplets.resize(i);
+    // keep at least the diagonal
+    cut_off = cut_off < npts_ ? npts_ : cut_off;
+    triplets.resize(cut_off);
     return triplets;
   }
 
@@ -393,6 +383,7 @@ class SampletMatrixCompressor {
   RandomTreeAccessor<Derived> rta_;
   Scalar eta_;
   Scalar threshold_;
+  Index npts_;
 };
 }  // namespace internal
 }  // namespace FMCA

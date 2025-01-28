@@ -18,7 +18,7 @@
 #include "../FMCA/src/Samplets/samplet_matrix_compressor.h"
 #include "../FMCA/src/util/Tictoc.h"
 
-#define NPTS 100000
+#define NPTS 10000
 #define DIM 2
 
 using Interpolator = FMCA::TotalDegreeInterpolator;
@@ -32,7 +32,7 @@ int main() {
   FMCA::Tictoc T;
   const FMCA::CovarianceKernel function("MaternNu", 1., 1., .5);
   const FMCA::Matrix P = 0.5 * (FMCA::Matrix::Random(DIM, NPTS).array() + 1);
-  const FMCA::Scalar threshold = 1e-10;
+  const FMCA::Scalar threshold = 1e-9;
   const FMCA::Scalar eta = 0.5;
 
   for (int dtilde = 2; dtilde <= 6; ++dtilde) {
@@ -46,16 +46,19 @@ int main() {
     H2SampletTree hst(mom, samp_mom, 0, P);
     T.tic();
     FMCA::internal::SampletMatrixCompressor<H2SampletTree> Scomp;
-    Scomp.init(hst, eta, threshold);
+    Scomp.init(hst, eta, 1e-15);
     T.toc("planner:                     ");
     T.tic();
     Scomp.compress(mat_eval);
     T.toc("compressor:                  ");
     T.tic();
-    const auto &trips = Scomp.triplets();
-    T.toc("triplets:                    ");
-    std::cout << "anz:                          "
+    const auto &ap_trips = Scomp.triplets();
+    std::cout << "anz (a-priori):               "
+              << std::round(ap_trips.size() / FMCA::Scalar(NPTS)) << std::endl;
+    const auto &trips = Scomp.aposteriori_triplets(threshold);
+    std::cout << "anz (a-posteriori):           "
               << std::round(trips.size() / FMCA::Scalar(NPTS)) << std::endl;
+    T.toc("triplets:                    ");
     FMCA::Vector x(NPTS), y1(NPTS), y2(NPTS);
     FMCA::Scalar err = 0;
     FMCA::Scalar nrm = 0;
