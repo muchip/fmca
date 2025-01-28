@@ -216,7 +216,7 @@ class SampletMatrixCompressor {
    *  \brief creates a posteriori thresholded triplets and stores them to in
    *the triplet list
    **/
-  const std::vector<Eigen::Triplet<Scalar>> &triplets() {
+  const std::vector<Triplet<Scalar>> &triplets() {
     if (pattern_.size()) {
       triplet_list_.clear();
 #pragma omp parallel for schedule(dynamic)
@@ -245,6 +245,56 @@ class SampletMatrixCompressor {
       pattern_.resize(0);
     }
     return triplet_list_;
+  }
+
+  std::vector<Triplet<Scalar>> aposteriori_triplets(const Scalar thres) {
+    std::vector<Triplet<Scalar>> triplets = triplet_list_;
+    if (std::abs(thres) < FMCA_ZERO_TOLERANCE) return triplets;
+    Scalar squared_norm = 0;
+    // We are using the Kahan-Babuska summation algorithm, as the computation
+    // of the Frobenius norm is very unstable
+    {
+      std::atomic<Scalar> corr = 0;
+      for (const auto &it : triplets) {
+        std::atomic<Scalar> y = it.value() * it.value() - corr;
+        std::atomic<Scalar> t = squared_norm + y;
+        std::atomic<Scalar> z = t - squared_norm;
+        corr = z - y;
+        squared_norm = t;
+      }
+    }
+    // now triplet_list_ contains all triplets
+    // we sort the triplets putting diagonal elements first
+    struct comp {
+      comp(const Scalar norm) : fnorm(norm) {}
+      bool operator()(const Triplet<Scalar> &a,
+                      const Triplet<Scalar> &b) const {
+        const Scalar val1 = (a.row() == a.col()) ? fnorm : std::abs(a.value());
+        const Scalar val2 = (b.row() == b.col()) ? fnorm : std::abs(b.value());
+        return val1 > val2;
+      }
+      const Scalar fnorm;
+    };
+    std::sort(triplets.begin(), triplets.end(), comp(std::sqrt(squared_norm)));
+    Scalar cur_snorm = 0;
+    Index i = 0;
+    // We are using the Kahan-Babuska summation algorithm, as the computation
+    // of the Frobenius norm is very unstable
+    {
+      std::atomic<Scalar> corr = 0;
+      while (std::sqrt((squared_norm - cur_snorm) / squared_norm) > thres &&
+             i < triplets.size()) {
+        std::atomic<Scalar> y =
+            triplets[i].value() * triplets[i].value() - corr;
+        std::atomic<Scalar> t = cur_snorm + y;
+        std::atomic<Scalar> z = t - cur_snorm;
+        corr = z - y;
+        cur_snorm = t;
+        ++i;
+      }
+    }
+    triplets.resize(i);
+    return triplets;
   }
 
   std::vector<Eigen::Triplet<Scalar>> release_triplets() {
