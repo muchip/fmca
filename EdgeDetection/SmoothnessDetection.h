@@ -28,8 +28,7 @@ using Interpolator = FMCA::TotalDegreeInterpolator;
 using SampletInterpolator = FMCA::MonomialInterpolator;
 using Moments = FMCA::NystromMoments<Interpolator>;
 using SampletMoments = FMCA::MinNystromSampletMoments<SampletInterpolator>;
-// FMCA::NystromSampletMoments<SampletInterpolator>;
-// FMCA::MinNystromSampletMoments<SampletInterpolator>
+
 
 using namespace FMCA;
 
@@ -223,52 +222,86 @@ void printAverageCoefficientsPerLevel(const TreeType& st,
 
 
 // --------------------------------------------------------------------------------------------------
+/**
+ * @brief traverseAndStackCoefficientsAndDiameters traverses the samplet tree, computing
+ * the maximum coefficient and diameter for each node, and storing the
+ * results in a map.
+ *
+ * This function performs a depth-first traversal of the samplet tree, computing
+ * the maximum coefficient and diameter for each node using the provided data
+ * in the samplet basis. For each leaf node, it stores the coefficients and
+ * diameters of the path from the root to the leaf in the provided map.
+ *
+ * @param tree The samplet tree to traverse.
+ * @param tdata The data in the samplet basis used to compute the coefficients.
+ * @param leafData A map of leaf nodes to pairs of vectors containing the
+ * coefficients and diameters of the path from the root to the leaf.
+ */
 template <typename TreeType>
-void traverseAndStackCoefficients(
+void traverseAndStackCoefficientsAndDiameters(
     const TreeType& tree, 
-    const Vector& tdata,
-    std::map<const TreeType*, std::vector<Scalar>>& leafCoefficients) 
+    const Vector&    tdata,
+    std::map<const TreeType*, std::pair<std::vector<Scalar>, std::vector<Scalar>>>& leafData)
 {
-    // Stack used for DFS (node + level in the tree).
-    std::vector<std::pair<const TreeType*, size_t>> nodeStack{{&tree.derived(), 0}};
-    // Accumulates coefficients along the path to the current node.
+    using StackItem = std::tuple<const TreeType*, size_t, const TreeType*>;
+    std::vector<StackItem> nodeStack;
+    nodeStack.emplace_back(&tree.derived(), 0, static_cast<const TreeType*>(nullptr));
+
+    // Path stacks
     std::vector<Scalar> coefficientsStack;
+    std::vector<Scalar> diametersStack;
 
     while (!nodeStack.empty()) {
-        auto [currentNode, currentLevel] = nodeStack.back();
+        auto [currentNode, currentLevel, parentNode] = nodeStack.back();
         nodeStack.pop_back();
 
-        // If we climbed back up the tree, shrink the coefficients stack.
+        // If we are returning from a deeper level, shrink stacks accordingly
         if (coefficientsStack.size() > currentLevel) {
             coefficientsStack.resize(currentLevel);
+            diametersStack.resize(currentLevel);
         }
 
-        // Compute the coefficient for the current node.
+        // Compute the coefficient for this node (use "computeMaxCoeffNode")
         std::optional<Scalar> coeffOpt = computeMaxCoeffNode(*currentNode, tdata);
         if (!coeffOpt) {
-            // If no valid coefficient, skip this node entirely.
+            // Skip children if no valid coefficient
             continue;
         }
-        // Add the coefficient to the current path stack.
-        coefficientsStack.push_back(*coeffOpt);
 
-        // Check if this node is effectively a leaf.
+        // Compute the diameter as the norm of the last column of bb()
+        Scalar diam = (currentNode->bb().col(currentNode->bb().rows())).norm();
+
+        coefficientsStack.push_back(*coeffOpt);
+        diametersStack.push_back(diam);
+
         bool noSamplets = (currentNode->nsamplets() <= 0);
         bool isLeaf     = (currentNode->nSons() == 0);
 
-        if (noSamplets || isLeaf) {
-            // Treat it as a leaf: store coefficients for this node
-            // and do not visit children.
-            leafCoefficients[currentNode] = coefficientsStack;
-        } else {
-            // Otherwise, push children onto the stack (reverse order for DFS).
+        if (isLeaf) {
+            // A real leaf => store the entire path
+            leafData[currentNode] = std::make_pair(coefficientsStack, diametersStack);
+        }
+        else if (noSamplets) {
+            // Node has "no samplets". Treat the *parent* as a leaf
+            if (parentNode) {
+                // Pop the current node's coefficient/diam
+                auto parentCoeffs = coefficientsStack;
+                parentCoeffs.pop_back();
+                auto parentDiams = diametersStack;
+                parentDiams.pop_back();
+
+                leafData[parentNode] = std::make_pair(std::move(parentCoeffs), std::move(parentDiams));
+            }
+            // Do NOT continue to children
+        }
+        else {
+            // Normal internal node => push children for DFS
             for (int i = currentNode->nSons() - 1; i >= 0; --i) {
-                nodeStack.emplace_back(&currentNode->sons(i), currentLevel + 1);
+                nodeStack.emplace_back(&currentNode->sons(i), currentLevel + 1, currentNode);
             }
         }
     }
 }
-
 
 
 
@@ -358,73 +391,4 @@ void computeNodeAndBBActive(
       bbvec_active.push_back(node.bb());
     }
   }
-}
-
-
-
-// --------------------------------------------------------------------------------------------------
-/**
- * For each level of the tree, printMaxCoefficientsPerBranch gives the largest
- * coefficient on the branch from the leaf node to the root.
- *
- * @param leafNode the leaf node of the branch
- * @param tdata data in samplet basis
- * @return largest coefficient (worst case) for each tree level on the branch.
- */
-template <typename TreeType>
-void printMaxCoefficientsPerBranch(const TreeType* leafNode,
-                                   const Vector& tdata) {
-  // Map to store the Scalar maximum coefficient for each int level
-  std::map<int, Scalar> levelMax;
-  Vector levels;
-  Vector values;
-
-  // Traverse the branch from the leaf node to the root
-  const TreeType* currentNode = leafNode;
-  while (currentNode != nullptr) {
-    int level = currentNode->level();
-    auto segment =
-        tdata.segment(currentNode->start_index(), currentNode->nsamplets());
-    Scalar coefficient = segment.cwiseAbs().maxCoeff();
-
-    if (levelMax.find(level) == levelMax.end()) {
-      levelMax[level] = coefficient;
-    } else {
-      levelMax[level] = std::max(levelMax[level], coefficient);
-    }
-
-    // Move to the parent node
-    currentNode = currentNode->is_root() ? nullptr : &currentNode->dad();
-  }
-
-  // Print the results
-  levels.resize(levelMax.size());
-  values.resize(levelMax.size());
-  int index = 0;
-  for (const auto& [level, maxCoefficient] : levelMax) {
-    // std::cout << "Level " << level << ": Max Coefficient = " <<
-    // maxCoefficient
-    //           << std::endl;
-    levels(index) = level;
-    values(index) = maxCoefficient;
-    ++index;
-  }
-
-  std::cout << "Levels = [";
-  for (int i = 0; i < levels.size(); ++i) {
-    std::cout << levels(i);
-    if (i < levels.size() - 1) {
-      std::cout << ", ";
-    }
-  }
-  std::cout << "]" << std::endl;
-
-  std::cout << "values = [";
-  for (int i = 0; i < values.size(); ++i) {
-    std::cout << values(i);
-    if (i < values.size() - 1) {
-      std::cout << ", ";
-    }
-  }
-  std::cout << "]" << std::endl;
 }
