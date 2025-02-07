@@ -12,6 +12,8 @@
 #ifndef FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_H_
 #define FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_H_
 
+#include <execution>
+
 #include "../util/RandomTreeAccessor.h"
 
 namespace FMCA {
@@ -256,7 +258,7 @@ class SampletMatrixCompressor {
     // note that first sorting and then summing small to large makes
     // everything stable (positive numbers). Using Kahan summation did
     // not further improve afterwards, so we stay with fast summation
-    std::vector<Index> idcs(triplet_list_.size());
+    std::vector<long int> idcs(triplet_list_.size());
     std::iota(idcs.begin(), idcs.end(), 0);
     {
       struct comp {
@@ -272,7 +274,8 @@ class SampletMatrixCompressor {
         }
         const std::vector<Triplet<Scalar>> &ts_;
       };
-      std::sort(idcs.begin(), idcs.end(), comp(triplet_list_));
+      std::sort(std::execution::par_unseq, idcs.begin(), idcs.end(),
+                comp(triplet_list_));
     }
 
     Scalar squared_norm = 0;
