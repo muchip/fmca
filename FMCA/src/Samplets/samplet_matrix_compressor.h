@@ -39,6 +39,7 @@ class SampletMatrixCompressor {
             Scalar threshold = 0) {
     eta_ = eta;
     threshold_ = threshold;
+    npts_ = ST.block_size();
     rta_.init(ST, ST.block_size());
     pattern_.resize(2 * rta_.max_level() + 1);
 
@@ -216,7 +217,7 @@ class SampletMatrixCompressor {
    *  \brief creates a posteriori thresholded triplets and stores them to in
    *the triplet list
    **/
-  const std::vector<Eigen::Triplet<Scalar>> &triplets() {
+  const std::vector<Triplet<Scalar>> &triplets() {
     if (pattern_.size()) {
       triplet_list_.clear();
 #pragma omp parallel for schedule(dynamic)
@@ -245,6 +246,45 @@ class SampletMatrixCompressor {
       pattern_.resize(0);
     }
     return triplet_list_;
+  }
+
+  std::vector<Triplet<Scalar>> aposteriori_triplets(const Scalar thres) {
+    std::vector<Triplet<Scalar>> triplets = triplet_list_;
+    if (std::abs(thres) < FMCA_ZERO_TOLERANCE) return triplets;
+
+    // sort the triplets by magnitude, putting diagonal entries first
+    // note that first sorting and then summing small to large makes
+    // everything stable (positive numbers). Using Kahan summation did
+    // not further improve afterwards, so we stay with fast summation
+    {
+      struct comp {
+        bool operator()(const Triplet<Scalar> &a,
+                        const Triplet<Scalar> &b) const {
+          const Scalar val1 =
+              (a.row() == a.col()) ? FMCA_INF : std::abs(a.value());
+          const Scalar val2 =
+              (b.row() == b.col()) ? FMCA_INF : std::abs(b.value());
+          return val1 > val2;
+        }
+      };
+      std::sort(triplets.begin(), triplets.end(), comp());
+    }
+
+    Scalar squared_norm = 0;
+    for (auto it = triplets.rbegin(); it != triplets.rend(); ++it)
+      squared_norm += it->value() * it->value();
+
+    Scalar cut_snorm = 0;
+    Index cut_off = triplets.size();
+    for (auto it = triplets.rbegin(); it != triplets.rend(); ++it) {
+      cut_snorm += it->value() * it->value();
+      if (std::sqrt(cut_snorm / squared_norm) >= thres) break;
+      --cut_off;
+    }
+    // keep at least the diagonal
+    cut_off = cut_off < npts_ ? npts_ : cut_off;
+    triplets.resize(cut_off);
+    return triplets;
   }
 
   std::vector<Eigen::Triplet<Scalar>> release_triplets() {
@@ -343,6 +383,7 @@ class SampletMatrixCompressor {
   RandomTreeAccessor<Derived> rta_;
   Scalar eta_;
   Scalar threshold_;
+  Index npts_;
 };
 }  // namespace internal
 }  // namespace FMCA
