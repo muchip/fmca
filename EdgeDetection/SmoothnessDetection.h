@@ -243,7 +243,7 @@ void traverseAndStackCoefficientsAndDiameters(
     const Vector&    tdata,
     std::map<const TreeType*, std::pair<std::vector<Scalar>, std::vector<Scalar>>>& leafData)
 {
-    using StackItem = std::tuple<const TreeType*, size_t, const TreeType*>;
+    using StackItem = std::tuple<const TreeType*, size_t, const TreeType*>; // (node, level, parent)
     std::vector<StackItem> nodeStack;
     nodeStack.emplace_back(&tree.derived(), 0, static_cast<const TreeType*>(nullptr));
 
@@ -269,7 +269,7 @@ void traverseAndStackCoefficientsAndDiameters(
         }
 
         // Compute the diameter as the norm of the last column of bb()
-        Scalar diam = (currentNode->bb().col(currentNode->bb().rows())).norm();
+        Scalar diam = (currentNode->bb().col(2)).norm();
 
         coefficientsStack.push_back(*coeffOpt);
         diametersStack.push_back(diam);

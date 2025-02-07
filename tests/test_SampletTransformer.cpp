@@ -19,7 +19,7 @@
 
 using SampletInterpolator = FMCA::MonomialInterpolator;
 using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
-using SampletTree = FMCA::SampletTree<FMCA::ClusterTree>;
+using SampletTree = FMCA::SampletTree<FMCA::RandomProjectionTree>;
 
 int main() {
   const FMCA::Matrix P = Eigen::MatrixXd::Random(DIM, NPTS);

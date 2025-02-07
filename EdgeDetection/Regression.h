@@ -66,12 +66,10 @@ LinearRegressionResult<Scalar> WeightedLinearRegression(
   if (x.size() != y.size() || x.size() < 2) {
     return LinearRegressionResult<Scalar>(Scalar(0), Scalar(0));
   }
-
   // Compute mean
   Scalar sumX = 0;
   for (auto xi : x) sumX += xi;
   Scalar meanX = sumX / x.size();
-
   // Compute the sums needed for weighted linear regression
   //    slope = [Σ(w_i)*Σ(w_i*x_i*y_i) - Σ(w_i*x_i)*Σ(w_i*y_i)]
   //            / [Σ(w_i)*Σ(w_i*x_i^2) - (Σ(w_i*x_i))^2]
@@ -92,15 +90,13 @@ LinearRegressionResult<Scalar> WeightedLinearRegression(
     sumWXY += w * x[i] * y[i];
     sumWX2 += w * x[i] * x[i];
   }
-
   // If all points got skipped, then we have an horizontal line
   if (sumW <= 0) {
     return LinearRegressionResult<Scalar>(Scalar(0),
                                           y.empty() ? Scalar(0) : y[0]);
   }
-
   Scalar denominator = (sumW * sumWX2 - sumWX * sumWX);
-  if (std::abs(denominator) < std::numeric_limits<Scalar>::epsilon()) {
+  if (std::abs(denominator) < FMCA_ZERO_TOLERANCE) {
     return LinearRegressionResult<Scalar>(Scalar(0), Scalar(0));
   }
   Scalar slope = (sumW * sumWXY - sumWX * sumWY) / denominator;
@@ -578,6 +574,148 @@ std::map<const TreeType*, Scalar> computeRelativeSlopes2D(
   outputFile.close();
   return slopes;
 }
+
+
+
+// --------------------------------------------------------------------------------------------------
+template <typename TreeType, typename Scalar>
+std::map<const TreeType*, Scalar> computeRelativeSlopesDiameters(
+    const std::map<const TreeType*, std::pair<std::vector<Scalar>, std::vector<Scalar>>>& leafData,
+    const Scalar& dtilde, 
+    const Scalar& interceptThreshold){
+
+    std::map<const TreeType*, Scalar> slopes;
+    // Helper lambda to do log_{diam}(coeff), with some minimal checks
+    auto logDiam = [&](Scalar coeff, Scalar diam) {
+        Scalar c = (coeff < FMCA_ZERO_TOLERANCE ) ? FMCA_ZERO_TOLERANCE : coeff;
+        Scalar d = (diam < FMCA_ZERO_TOLERANCE)  ? FMCA_ZERO_TOLERANCE : diam;
+        return std::log2(c) / std::log2(d);
+    };
+
+    for (const auto& [leaf, dataPair] : leafData) {
+        const auto& coefficients = dataPair.first;
+        const auto& diameters    = dataPair.second;
+        size_t n = coefficients.size();
+        // Extreme case, just 1 coeff --> slope = -dtilde
+        if (n < 2) {
+            slopes[leaf] = -dtilde;
+            continue;
+        }
+         //  Extreme case, all the coeffs are closed to 0 --> slope = -dtilde
+        if (std::all_of(coefficients.begin(), coefficients.end(),
+                        [&](Scalar c){return c < FMCA_ZERO_TOLERANCE;})) {
+            slopes[leaf] = -dtilde;
+            continue;
+        }
+
+        Scalar slope = 0.;
+        bool thresholdViolated = false;
+        // 1) Check local slopes for "fast drop"
+        for (size_t i = 1; i < n; ++i) {
+            Scalar localSlope = std::abs(logDiam(coefficients[i],   diameters[i]) -
+                                         logDiam(coefficients[i-1], diameters[i-1]));
+
+            if (localSlope >= dtilde) {
+                // We suspect a fast drop => do WeightedRegression with the remaining coeffs to observe the intercept
+                std::vector<Scalar> xNext, yNext;
+                xNext.reserve(n - i);
+                yNext.reserve(n - i);
+                for (size_t j = i; j < n; ++j) {
+                    xNext.push_back(static_cast<Scalar>(j));
+                    yNext.push_back(logDiam(coefficients[j], diameters[j]));
+                }
+                auto regResult = WeightedLinearRegression<Scalar>(xNext, yNext);
+                if (std::pow(2, regResult.intercept()) < interceptThreshold) {
+                    // Conclude it dropped to ~0
+                    slope = -dtilde;
+                    thresholdViolated = true;
+                }
+                break;  // break from localSlope loop
+            }
+        }
+        // 2) If no threshold violation, compute WeightedRegression over all
+        if (!thresholdViolated) {
+            std::vector<Scalar> xAll, yAll;
+            xAll.reserve(n);
+            yAll.reserve(n);
+
+            for (size_t i = 0; i < n; ++i) {
+                xAll.push_back(static_cast<Scalar>(i));
+                yAll.push_back(logDiam(coefficients[i], diameters[i]));
+            }
+            auto regResult = WeightedLinearRegression<Scalar>(xAll, yAll);
+            slope = regResult.slope();
+        }
+    }
+    return slopes;
+}
+
+
+// --------------------------------------------------------------------------------------------------
+template <typename TreeType, typename Scalar>
+std::map<const TreeType*, Scalar> computeSSparsity(
+    const std::map<const TreeType*, std::pair<std::vector<Scalar>, std::vector<Scalar>>>& leafData,
+    const Scalar& dtilde, 
+    const Scalar& smallThreshold){
+    std::map<const TreeType*, Scalar> slopes;
+    // Helper lambda to compute log_{diam}(coeff)
+    auto logDiam = [&](Scalar coeff, Scalar diam) {
+        Scalar c = (coeff == 0) ? FMCA_ZERO_TOLERANCE : coeff;
+        Scalar d = (diam == 0)  ? FMCA_ZERO_TOLERANCE : diam;
+        return std::log2(c) / std::log2(d);
+    };
+
+    for (const auto& [leaf, dataPair] : leafData) {
+        auto coefficients = dataPair.first;
+        const auto& diameters = dataPair.second;
+        size_t n = coefficients.size();
+        Scalar accum = 0.;
+        for (int i = 0; i < n; ++i) {
+            accum += coefficients[i] * coefficients[i];
+        }
+        Scalar norm = sqrt(accum);
+        // if (norm != 0) {
+        //   for (auto& coeff : coefficients) {
+        //       coeff /= norm;
+        //   }
+        // }
+
+        // Extreme case, just 1 coeff --> slope = -dtilde
+        if (n < 2) {
+            slopes[leaf] = -dtilde;
+            continue;
+        }
+        //  Extreme case, all the coeffs are closed to 0 --> slope = -dtilde
+        if (std::all_of(coefficients.begin(), coefficients.end(),
+                        [&](Scalar c){return c < FMCA_ZERO_TOLERANCE;})) {
+            slopes[leaf] = -dtilde;
+            continue;
+        }
+
+        Scalar slope = 0.;
+        bool thresholdViolated = false;
+        // Smooth decay --> if the last 2 coeffs are 0, then slope = -dtilde
+        if (n >= 2 && 
+            coefficients[n - 1] / norm < smallThreshold && coefficients[n - 2] / norm < smallThreshold) { // && coefficients[n - 2] < smallThreshold
+            slopes[leaf] = -dtilde;
+            continue;
+        }
+
+        // In all the other cases, compute the slope of the weighted regression
+        std::vector<Scalar> xAll, yAll;
+        xAll.reserve(n);
+        yAll.reserve(n);
+        for (size_t i = 0; i < n; ++i) {
+            xAll.push_back(static_cast<Scalar>(i));
+            yAll.push_back(logDiam(coefficients[i], diameters[i]));
+        }
+        auto regResult = LinearRegression<Scalar>(xAll, yAll);
+        slope = regResult.slope();
+        slopes[leaf] = slope;
+    }
+    return slopes;
+}
+
 
 // --------------------------------------------------------------------------------------------------
 template <typename TreeType>

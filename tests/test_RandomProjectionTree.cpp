@@ -25,7 +25,9 @@ int main() {
   FMCA::Vector colr(NPTS);
   std::vector<FMCA::Scalar> colr2;
   T.tic();
-  FMCA::RandomProjectionTree ct(P, 1000);
+  FMCA::RandomProjectionTree ct(P, 10);
+  clusterTreeStatistics(ct, P);
+
   T.toc("tree computation: ");
   std::vector<FMCA::Matrix> bbvec;
   for (const auto &it : ct) {

@@ -126,7 +126,7 @@ struct RandomProjection {
     const Scalar delta = 6. *
                          (2. * Scalar(std::rand()) / Scalar(RAND_MAX) - 1) *
                          max_dist / sqrtD;
-    const Scalar medpdelta = median + delta;
+    const Scalar medpdelta = median;// + delta;
     // use that we already sorted the array, so we can determine the
     // splitting point using binary search
     Index split_bsize = 0;
