@@ -51,14 +51,28 @@ int main() {
     T.tic();
     Scomp.compress(mat_eval);
     T.toc("compressor:                  ");
+
     T.tic();
     const auto &ap_trips = Scomp.triplets();
-    std::cout << "anz (a-priori):               "
-              << std::round(ap_trips.size() / FMCA::Scalar(NPTS)) << std::endl;
+    FMCA::Scalar ap_trips_time = T.toc();
+
+    T.tic();
     const auto &trips = Scomp.aposteriori_triplets(threshold);
+    FMCA::Scalar trips_time = T.toc();
+
+    std::cout << "" << std::endl;
+    std::cout << "anz (a-priori):               "
+              << std::round(ap_trips.size() / FMCA::Scalar(NPTS))
+              << std::endl;
     std::cout << "anz (a-posteriori):           "
-              << std::round(trips.size() / FMCA::Scalar(NPTS)) << std::endl;
-    T.toc("triplets:                    ");
+              << std::round(trips.size() / FMCA::Scalar(NPTS))
+              << std::endl;
+    std::cout << "" << std::endl;
+    std::cout << "time (a-priori):              " << ap_trips_time << "sec." << std::endl;
+    std::cout << "time (a-posteriori):          " << trips_time << "sec." << std::endl;
+    std::cout << "" << std::endl;
+
+    // error
     FMCA::Vector x(NPTS), y1(NPTS), y2(NPTS);
     FMCA::Scalar err = 0;
     FMCA::Scalar nrm = 0;

@@ -6,8 +6,6 @@
 #include <set>
 #include <sstream>
 
-#include <Eigen/CholmodSupport>
-#include <Eigen/Dense>
 #include <Eigen/IterativeLinearSolvers>
 #include <Eigen/MetisSupport>
 #include <Eigen/OrderingMethods>
@@ -64,7 +62,7 @@ Vector evalFrankeFunction(Matrix Points) {
 void runForMu(Scalar nu) {
   // Redirect std::cout to a file
   std::ostringstream filename;
-  filename << "Results_simulations/ResultsFranke_nu" << nu << "_Matern52_threshold_10-6.txt";
+  filename << "ResultsFranke_nu" << nu << "_Matern52_threshold_aPost_10-6_noIDX.txt";
   std::ofstream out(filename.str());
   std::streambuf *coutbuf = std::cout.rdbuf();  // Save old buf
   std::cout.rdbuf(out.rdbuf());                 // Redirect std::cout to out
@@ -82,7 +80,7 @@ void runForMu(Scalar nu) {
   readTXT("data/square01_uniform_grid_level8.txt", P8, DIM);
   readTXT("data/square01_uniform_grid_level9.txt", P9, DIM);
   readTXT("data/square01_uniform_grid_level10.txt", P10, DIM);
-  readTXT("data/square01_uniform_grid_eval.txt", Peval, DIM);
+  readTXT("data/uniform_vertices_UnitSquare_40k.txt", Peval, DIM);
 
   ///////////////////////////////// Nested cardinality of points
   std::vector<Matrix> P_Matrices = {P1, P2, P3, P4, P5, P6, P7, P8, P9, P10};
@@ -90,7 +88,8 @@ void runForMu(Scalar nu) {
   ///////////////////////////////// Parameters
   const Scalar eta = 1. / DIM;
   const Index dtilde = 5;
-  const Scalar threshold_kernel = 1e-6;
+  const Scalar threshold_kernel = 1e-10;
+  const Scalar threshold_aPost = 1e-6;
   const Scalar threshold_weights = 0;
   const Scalar mpole_deg = 2 * (dtilde - 1);
   const std::string kernel_type = "matern52";
@@ -137,29 +136,28 @@ void runForMu(Scalar nu) {
       int n_pts_B = P_Matrices[j].cols();
       FMCA::Scalar sigma_B = nu * fill_distances[j];
       const CovarianceKernel kernel_funtion_B(kernel_type, sigma_B);
-      T.tic();
       {
         Eigen::SparseMatrix<double> B_comp = UnsymmetricCompressor(
             mom, samp_mom, hst, kernel_funtion_B, eta,
-            threshold_kernel, mpole_deg, dtilde,
+            threshold_kernel, threshold_aPost, mpole_deg, dtilde,
             P_Matrices[l], P_Matrices[j]);
-        Scalar compression_time_unsymmetric = T.toc();
         residuals[l] -= B_comp * ALPHA[j];
       }  // B_comp goes out of scope and is destroyed here
+      std::cout << "------------------------------------------" << std::endl;
     }
 
     Scalar sigma = nu * fill_distances[l];
     const CovarianceKernel kernel_funtion(kernel_type, sigma);
-    T.tic();
     {
       Eigen::SparseMatrix<double> A_comp = SymmetricCompressor(
-          mom, samp_mom, hst, kernel_funtion, eta, threshold_kernel,
+          mom, samp_mom, hst, kernel_funtion, eta, threshold_kernel, threshold_aPost,
           mpole_deg, dtilde, P_Matrices[l]);
-      Scalar compression_time = T.toc();
+      std::cout << "------------------------------------------" << std::endl;
 
       Vector rhs = residuals[l];
       Vector alpha = solveSystem(A_comp, rhs, "ConjugateGradient", 1e-6);
       ALPHA.push_back(alpha);
+      std::cout << "------------------------------------------" << std::endl;
     }  // A_comp goes out of scope and is destroyed here
   }
 
@@ -169,9 +167,10 @@ void runForMu(Scalar nu) {
   Vector exact_sol = evalFrankeFunction(Peval);
   Vector solution = Evaluate(
       mom, samp_mom, hst, kernel_type, P_Matrices, Peval, ALPHA, fill_distances,
-      max_level, nu, eta, threshold_kernel, mpole_deg, dtilde, exact_sol, hst,
+      max_level, nu, eta, threshold_kernel, threshold_aPost, mpole_deg, dtilde, exact_sol, hst,
       "");  //"Plots/SolutionFranke"
-
+  std::cout << "------------------------------------------" << std::endl;
+  std::cout << "------------------------------------------" << std::endl;
   // Restore std::cout to its original state
   std::cout.rdbuf(coutbuf);
 }

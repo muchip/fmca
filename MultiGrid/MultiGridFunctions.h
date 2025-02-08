@@ -6,7 +6,6 @@
 #include <set>
 #include <sstream>
 // ##############################
-#include <Eigen/CholmodSupport>
 #include <Eigen/Dense>
 #include <Eigen/MetisSupport>
 #include <Eigen/OrderingMethods>
@@ -42,7 +41,8 @@ Eigen::SparseMatrix<Scalar> UnsymmetricCompressor(
     const NystromSampletMoments<MonomialInterpolator>& samp_mom_rows,
     const H2SampletTree<ClusterTree>& hst_rows,
     const CovarianceKernel& function, const Scalar& eta,
-    const Scalar& threshold_kernel, const Scalar& mpole_deg,
+    const Scalar& threshold_kernel, const Scalar& threshold_aPost,
+    const Scalar& mpole_deg,
     const Scalar& dtilde, const Matrix& P_rows, const Matrix& P_cols) {
   ///////////////////////////////// Samplet quantities cols
   const NystromMoments<TotalDegreeInterpolator> mom_cols(P_cols, mpole_deg);
@@ -51,9 +51,14 @@ Eigen::SparseMatrix<Scalar> UnsymmetricCompressor(
   const H2SampletTree<ClusterTree> hst_cols(mom_cols, samp_mom_cols, 0, P_cols);
 
   //////////////////////////////// Compression
+  int n_pts_rows = P_rows.cols();
+  int n_pts_cols = P_cols.cols();
+
   const unsymmetricNystromEvaluator<NystromMoments<TotalDegreeInterpolator>,
                                     FMCA::CovarianceKernel>
       mat_eval(mom_rows, mom_cols, function);
+  FMCA::Tictoc T;
+  T.tic();
   FMCA::internal::SampletMatrixCompressorUnsymmetric<H2SampletTree<ClusterTree>>
       K_comp;
   if (P_cols.cols() < 100) {
@@ -61,12 +66,33 @@ Eigen::SparseMatrix<Scalar> UnsymmetricCompressor(
   } else {
     K_comp.init(hst_rows, hst_cols, eta, threshold_kernel);
   }
+  T.toc("planner:                     ");
+
+  T.tic();
   K_comp.compress(mat_eval);
-  const auto& triplets = K_comp.triplets();
+  T.toc("compressor:                  ");
+ 
+  T.tic();
+  const auto& triplets_aPriori = K_comp.triplets();
+  FMCA::Scalar trips_time_aPriori = T.toc();
+
+  T.tic();
+  const auto& triplets_aPost = K_comp.aposteriori_triplets(threshold_aPost);
+  FMCA::Scalar trips_time_aPost = T.toc();
+
+  std::cout << "" << std::endl;
+  std::cout << "anz (a-priori):               "
+            << std::round(triplets_aPriori.size() / FMCA::Scalar(n_pts_rows))
+            << std::endl;
+  std::cout << "anz (a-posteriori):           "
+            << std::round(triplets_aPost.size() / FMCA::Scalar(n_pts_rows))
+            << std::endl;
+  std::cout << "" << std::endl;
+  std::cout << "time (a-priori):              " << trips_time_aPriori << "sec." << std::endl;
+  std::cout << "time (a-posteriori):          " << trips_time_aPost << "sec." << std::endl;
+  std::cout << "" << std::endl;
 
   //////////////////////////////// Compression error
-  int n_pts_rows = P_rows.cols();
-  int n_pts_cols = P_cols.cols();
   Vector x(n_pts_cols), y1(n_pts_rows), y2(n_pts_rows);
   Scalar err = 0;
   Scalar nrm = 0;
@@ -82,7 +108,7 @@ Eigen::SparseMatrix<Scalar> UnsymmetricCompressor(
     x = hst_cols.sampletTransform(x);
     y2.setZero();
 
-    for (const auto& triplet : triplets) {
+    for (const auto& triplet : triplets_aPost) {
       y2(triplet.row()) += triplet.value() * x(triplet.col());
     }
 
@@ -93,12 +119,10 @@ Eigen::SparseMatrix<Scalar> UnsymmetricCompressor(
 
   std::cout << "Compression error unsymmetric      " << sqrt(err / nrm)
             << std::endl;
-  int anz = triplets.size() / n_pts_rows;
-  std::cout << "Anz                                " << anz << std::endl;
 
   //////////////////////////////// Create and return the sparse matrix
   Eigen::SparseMatrix<Scalar> Kcomp_Sparse(n_pts_rows, n_pts_cols);
-  Kcomp_Sparse.setFromTriplets(triplets.begin(), triplets.end());
+  Kcomp_Sparse.setFromTriplets(triplets_aPost.begin(), triplets_aPost.end());
   Kcomp_Sparse.makeCompressed();
 
   return Kcomp_Sparse;
@@ -107,21 +131,49 @@ Eigen::SparseMatrix<Scalar> UnsymmetricCompressor(
 Eigen::SparseMatrix<Scalar> SymmetricCompressor(
     const NystromMoments<TotalDegreeInterpolator>& mom,
     const NystromSampletMoments<MonomialInterpolator>& samp_mom,
-    const H2SampletTree<ClusterTree>& hst, const CovarianceKernel& function,
-    const Scalar& eta, const Scalar& threshold_kernel, const Scalar& mpole_deg,
+    const H2SampletTree<ClusterTree>& hst, const CovarianceKernel& function, 
+    const Scalar& eta,
+    const Scalar& threshold_kernel, const Scalar& threshold_aPost,
+    const Scalar& mpole_deg,
     const Scalar& dtilde, const Matrix& P) {
   //////////////////////////////// Compression
+  int n_pts = P.cols();
+
   const NystromEvaluator<NystromMoments<TotalDegreeInterpolator>,
                          CovarianceKernel>
       mat_eval(mom, function);
+
+  FMCA::Tictoc T;
+  T.tic();
   internal::SampletMatrixCompressor<H2SampletTree<ClusterTree>> K_comp;
   K_comp.init(hst, eta, threshold_kernel);
+  T.toc("planner:                     ");
+
+  T.tic();
   K_comp.compress(mat_eval);
-  const auto& triplets = K_comp.triplets();
-  // Scalar Frobenius_norm = K_comp.getFrobeniusNorm();
-  // std::cout << "######## Frobenius norm = " << Frobenius_norm << std::endl;
+  T.toc("compressor:                  ");
+
+  T.tic();
+  const auto& triplets_aPriori = K_comp.triplets();
+  FMCA::Scalar trips_time_aPriori = T.toc();
+
+  T.tic();
+  const auto& triplets_aPost = K_comp.aposteriori_triplets(threshold_aPost);
+  FMCA::Scalar trips_time_aPost = T.toc();
+
+  std::cout << "" << std::endl;
+  std::cout << "anz (a-priori):               "
+            << std::round(triplets_aPriori.size() / FMCA::Scalar(n_pts))
+            << std::endl;
+  std::cout << "anz (a-posteriori):           "
+            << std::round(triplets_aPost.size() / FMCA::Scalar(n_pts))
+            << std::endl;
+  std::cout << "" << std::endl;
+  std::cout << "time (a-priori):              " << trips_time_aPriori << "sec." << std::endl;
+  std::cout << "time (a-posteriori):          " << trips_time_aPost << "sec." << std::endl;
+  std::cout << "" << std::endl;
+
   //////////////////////////////// Compression error
-  int n_pts = P.cols();
   Vector x(n_pts), y1(n_pts), y2(n_pts);
   Scalar err = 0;
   Scalar nrm = 0;
@@ -134,7 +186,7 @@ Eigen::SparseMatrix<Scalar> SymmetricCompressor(
     y1 = col(Eigen::Map<const FMCA::iVector>(hst.indices(), hst.block_size()));
     x = hst.sampletTransform(x);
     y2.setZero();
-    for (const auto& i : triplets) {
+    for (const auto& i : triplets_aPost) {
       y2(i.row()) += i.value() * x(i.col());
       if (i.row() != i.col()) y2(i.col()) += i.value() * x(i.row());
     }
@@ -144,16 +196,12 @@ Eigen::SparseMatrix<Scalar> SymmetricCompressor(
   }
   std::cout << "Compression error symmetric        " << sqrt(err / nrm)
             << std::endl;
-  int anz = triplets.size() / n_pts;
+  int anz = triplets_aPost.size() / n_pts;
   std::cout << "Anz:                               " << anz << std::endl;
 
   //////////////////////////////// Create and return the sparse matrix
   Eigen::SparseMatrix<Scalar> Kcomp_Sparse(n_pts, n_pts);
-  Kcomp_Sparse.setFromTriplets(triplets.begin(), triplets.end());
-  // Compute Frobenius norm
-  // double Frobenius_norm_from_triplets = Kcomp_Sparse.norm();
-  // std::cout << "######## Frobenius Norm from triplets: " <<
-  // Frobenius_norm_from_triplets << std::endl;
+  Kcomp_Sparse.setFromTriplets(triplets_aPost.begin(), triplets_aPost.end());
   Kcomp_Sparse.makeCompressed();
 
   return Kcomp_Sparse;
@@ -166,20 +214,19 @@ Vector Evaluate(
     const std::vector<Matrix>& P_Matrices, const Matrix& Peval,
     const std::vector<Vector>& ALPHA, const Vector& fill_distances,
     const Scalar& max_level, const Scalar& nu, const Scalar& eta,
-    const Scalar& threshold_kernel, const Scalar& mpole_deg,
+    const Scalar& threshold_kernel, const Scalar& threshold_aPost,
+    const Scalar& mpole_deg,
     const Scalar& dtilde, const Vector& exact_sol,
     const H2SampletTree<ClusterTree>& hst, const std::string& base_filename) {
   Vector solution = Eigen::VectorXd::Zero(Peval.cols());
   for (Index i = 0; i < max_level; ++i) {
     std::cout << "-------- Evaluation Level " << i + 1 << " --------"
               << std::endl;
-    std::cout << "Number of points                   " << P_Matrices[i].cols()
-              << std::endl;
-
     Scalar sigma = nu * fill_distances[i];
     const CovarianceKernel function(kernel_type, sigma);
     Eigen::SparseMatrix<double> K_eval = UnsymmetricCompressor(
         mom_eval, samp_mom_eval, hst_eval, function, eta, threshold_kernel,
+        threshold_aPost,
         mpole_deg, dtilde, Peval, P_Matrices[i]);
     solution += K_eval * ALPHA[i];
     Vector solution_natural_basis = hst.inverseSampletTransform(solution);
@@ -199,21 +246,20 @@ Vector Evaluate(
       std::ostringstream oss;
       oss << base_filename << "_level_" << i << ".vtk";
       std::string filename_solution = oss.str();
-      IO::plotPointsColor(filename_solution, Peval, solution_natural_basis);
+      Plotter3D plotter;
+      plotter.plotFunction(filename_solution, Peval, solution_natural_basis);
     }
 
     Vector diff_abs(solution_natural_basis.rows());
-    Vector exact_sol_abs(solution_natural_basis.rows());
     for (Index i = 0; i < solution_natural_basis.rows(); ++i) {
       diff_abs[i] = abs(solution_natural_basis[i] - exact_sol[i]);
-      exact_sol_abs[i] = abs(exact_sol[i]);
     }
 
     std::cout << "Error l2                           "
               << (solution_natural_basis - exact_sol).norm() / exact_sol.norm()
               << std::endl;
-    std::cout << "Error l_inf                        "
-              << diff_abs.maxCoeff() / exact_sol_abs.maxCoeff() << std::endl;
+    std::cout << "Error l_inf                        " << diff_abs.maxCoeff()
+              << std::endl;
 
     K_eval.resize(0, 0);
   }
@@ -246,14 +292,8 @@ Vector solveSystem(const Eigen::SparseMatrix<double>& A_comp, const Vector& rhs,
       throw std::runtime_error("Decomposition failed");
     }
     alpha = solver.solve(rhs);
-  } else if (solverName == "Cholmod") {
-    Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> solver;
-    solver.compute(A_comp_Symmetric);
-    if (solver.info() != Eigen::Success) {
-      throw std::runtime_error("Decomposition failed");
-    }
-    alpha = solver.solve(rhs);
   } else if (solverName == "ConjugateGradient") {
+    T.tic();
     Eigen::ConjugateGradient<Eigen::SparseMatrix<double>,
                              Eigen::Lower | Eigen::Upper,
                              Eigen::IdentityPreconditioner>
@@ -264,28 +304,21 @@ Vector solveSystem(const Eigen::SparseMatrix<double>& A_comp, const Vector& rhs,
       throw std::runtime_error("Decomposition failed");
     }
     alpha = solver.solve(rhs);
+    T.toc("solver:                  ");
     std::cout << "#iterations:     " << solver.iterations() << std::endl;
   } else if (solverName == "ConjugateGradientwithPreconditioner") {
+    T.tic();
     Eigen::ConjugateGradient<Eigen::SparseMatrix<double>,
                              Eigen::Lower | Eigen::Upper>
         solver;
     solver.setTolerance(threshold_CG);
-    solver.setMaxIterations(5000);
     solver.compute(A_comp_Symmetric);
     if (solver.info() != Eigen::Success) {
       throw std::runtime_error("Decomposition failed");
     }
     alpha = solver.solve(rhs);
+    T.toc("solver:                  ");
     std::cout << "#iterations:     " << solver.iterations() << std::endl;
-  } else if (solverName == "SparseLU") {
-    Eigen::SparseLU<Eigen::SparseMatrix<double>, Eigen::MetisOrdering<int>>
-        solver;
-    solver.analyzePattern(A_comp_Symmetric);
-    solver.factorize(A_comp_Symmetric);
-    if (solver.info() != Eigen::Success) {
-      throw std::runtime_error("Decomposition failed");
-    }
-    alpha = solver.solve(rhs);
   } else {
     throw std::invalid_argument("Unknown solver name");
   }
@@ -299,62 +332,3 @@ Vector solveSystem(const Eigen::SparseMatrix<double>& A_comp, const Vector& rhs,
   return alpha;
 }
 
-///////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////
-
-Scalar largestEigenvalue(const Eigen::SparseMatrix<double>& mat,
-                         int maxIter = 5000, double tol = 1e-10) {
-  Vector b = Eigen::VectorXd::Random(mat.cols());
-  b.normalize();
-  Vector b_next;
-  Scalar eigenvalue = 0.0;
-  for (Index i = 0; i < maxIter; ++i) {
-    b_next = mat * b;
-    b_next.normalize();
-    Scalar eigenvalue_next = b_next.dot(mat * b_next);
-    if (std::abs(eigenvalue_next - eigenvalue) < tol) {
-      break;
-    }
-    eigenvalue = eigenvalue_next;
-    b = b_next;
-  }
-  return eigenvalue;
-}
-
-Scalar smallestEigenvalue(const Eigen::SparseMatrix<double>& mat,
-                          int maxIter = 5000, double tol = 1e-10) {
-  Eigen::VectorXd b = Eigen::VectorXd::Random(mat.cols());
-  b.normalize();
-  Eigen::VectorXd b_next;
-  Scalar eigenvalue = 0.0;
-
-  Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> solver;
-  double shift = 0.0;  // in the case of matrix singularity
-  Eigen::SparseMatrix<double> shiftedMat =
-      mat - shift * Eigen::SparseMatrix<double>(mat.rows(), mat.cols());
-  solver.compute(shiftedMat);
-
-  for (int i = 0; i < maxIter; ++i) {
-    b_next = solver.solve(b);
-    b_next.normalize();
-
-    Scalar eigenvalue_next = b_next.dot(mat * b_next);
-    if (std::abs(eigenvalue_next - eigenvalue) < tol) {
-      break;
-    }
-    eigenvalue = eigenvalue_next;
-    b = b_next;
-  }
-  return eigenvalue;
-}
-
-Scalar conditionNumber(const Eigen::SparseMatrix<double>& mat) {
-  if (mat.rows() != mat.cols()) {
-    throw std::invalid_argument("Matrix must be square.");
-  }
-  Scalar largest = largestEigenvalue(mat);
-  Scalar smallest = smallestEigenvalue(mat);
-  return largest / smallest;
-}

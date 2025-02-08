@@ -18,8 +18,8 @@
 #include "../FMCA/src/Samplets/samplet_matrix_compressor_unsymmetric.h"
 #include "../FMCA/src/util/Tictoc.h"
 
-#define NPTS_ROWS 200000
-#define NPTS_COLS 100000
+#define NPTS_ROWS 20000
+#define NPTS_COLS 10000
 #define DIM 2
 
 using Interpolator = FMCA::TotalDegreeInterpolator;
@@ -43,7 +43,7 @@ int main() {
   const FMCA::Scalar threshold = 1e-9;
   const FMCA::Scalar eta = 0.5;
 
-  for (int dtilde = 2; dtilde <= 6; ++dtilde) {
+  for (int dtilde = 2; dtilde <= 4; ++dtilde) {
     const FMCA::Index mpole_deg = 2 * (dtilde - 1);
     const Moments mom_rows(P_rows, mpole_deg);
     const Moments mom_cols(P_cols, mpole_deg);

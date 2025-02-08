@@ -36,6 +36,8 @@ class SampletMatrixCompressorUnsymmetric {
             Scalar threshold = 0) {
     eta_ = eta;
     threshold_ = threshold;
+    npts_rows_ = TR.block_size();
+    npts_cols_ = TC.block_size();
     r_rta_.init(TR, TR.block_size());
     c_rta_.init(TC, TC.block_size());
     pattern_.resize(c_rta_.nodes().size());
@@ -179,6 +181,96 @@ class SampletMatrixCompressorUnsymmetric {
     return triplet_list_;
   }
 
+
+  // std::vector<Triplet<Scalar>> aposteriori_triplets(const Scalar thres) {
+  //   std::vector<Triplet<Scalar>> triplets = triplet_list_;
+  //   if (std::abs(thres) < FMCA_ZERO_TOLERANCE) return triplets;
+  //
+  //   // sort the triplets by magnitude, putting diagonal entries first
+  //   // note that first sorting and then summing small to large makes
+  //   // everything stable (positive numbers). Using Kahan summation did
+  //   // not further improve afterwards, so we stay with fast summation
+  //   {
+  //     struct comp {
+  //       bool operator()(const Triplet<Scalar> &a,
+  //                       const Triplet<Scalar> &b) const {
+  //         const Scalar val1 =
+  //             (a.row() == a.col()) ? FMCA_INF : std::abs(a.value());
+  //         const Scalar val2 =
+  //             (b.row() == b.col()) ? FMCA_INF : std::abs(b.value());
+  //         return val1 > val2;
+  //       }
+  //     };
+  //     std::sort(triplets.begin(), triplets.end(), comp());
+  //   }
+  //
+  //   Scalar squared_norm = 0;
+  //   for (auto it = triplets.rbegin(); it != triplets.rend(); ++it)
+  //     squared_norm += it->value() * it->value();
+  //
+  //   Scalar cut_snorm = 0;
+  //   Index cut_off = triplets.size();
+  //   for (auto it = triplets.rbegin(); it != triplets.rend(); ++it) {
+  //     cut_snorm += it->value() * it->value();
+  //     if (std::sqrt(cut_snorm / squared_norm) >= thres) break;
+  //     --cut_off;
+  //   }
+  //   // keep at least the diagonal
+  //   Index min_pts = std::min(npts_rows_, npts_cols_);
+  //   cut_off = cut_off < min_pts ? min_pts : cut_off;
+  //   triplets.resize(cut_off);
+  //   return triplets;
+  // }
+
+  std::vector<Triplet<Scalar>> aposteriori_triplets(const Scalar thres) {
+    std::vector<Triplet<Scalar>> triplets = triplet_list_;
+    if (std::abs(thres) < FMCA_ZERO_TOLERANCE) return triplets;
+
+    // sort the triplets by magnitude, putting diagonal entries first
+    // note that first sorting and then summing small to large makes
+    // everything stable (positive numbers). Using Kahan summation did
+    // not further improve afterwards, so we stay with fast summation
+    std::vector<Index> idcs(triplet_list_.size());
+    std::iota(idcs.begin(), idcs.end(), 0);
+    {
+      struct comp {
+        comp(const std::vector<Triplet<Scalar>> &triplets) : ts_(triplets) {}
+        bool operator()(const Index &a, const Index &b) const {
+          const Scalar val1 = (ts_[a].row() == ts_[a].col())
+                                  ? FMCA_INF
+                                  : std::abs(ts_[a].value());
+          const Scalar val2 = (ts_[b].row() == ts_[b].col())
+                                  ? FMCA_INF
+                                  : std::abs(ts_[b].value());
+          return val1 > val2;
+        }
+        const std::vector<Triplet<Scalar>> &ts_;
+      };
+      std::sort(idcs.begin(), idcs.end(), comp(triplet_list_));
+    }
+
+    Scalar squared_norm = 0;
+    for (auto it = idcs.rbegin(); it != idcs.rend(); ++it)
+        squared_norm += triplet_list_[*it].value() * triplet_list_[*it].value();
+
+    Scalar cut_snorm = 0;
+    Index cut_off = triplets.size();
+    for (auto it = idcs.rbegin(); it != idcs.rend(); ++it) {
+      cut_snorm += triplet_list_[*it].value() * triplet_list_[*it].value();
+      if (std::sqrt(cut_snorm / squared_norm) >= thres) break;
+      --cut_off;
+    }
+    // keep at least the diagonal
+    const Index min_pts = std::min(npts_rows_, npts_cols_);
+    cut_off = cut_off < min_pts ? min_pts : cut_off;
+    idcs.resize(cut_off);
+    triplets.resize(cut_off);
+    for (Index i = 0; i < cut_off; ++i) triplets[i] = triplet_list_[idcs[i]];
+    return triplets;
+  }
+
+
+
   std::vector<Eigen::Triplet<Scalar>> release_triplets() {
     std::vector<Eigen::Triplet<Scalar>> retval;
     std::swap(triplet_list_, retval);
@@ -275,6 +367,8 @@ class SampletMatrixCompressorUnsymmetric {
   RandomTreeAccessor<Derived> c_rta_;
   Scalar eta_;
   Scalar threshold_;
+  Index npts_rows_;
+  Index npts_cols_;
 };
 }  // namespace internal
 }  // namespace FMCA
