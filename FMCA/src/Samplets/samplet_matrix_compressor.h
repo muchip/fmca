@@ -12,6 +12,8 @@
 #ifndef FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_H_
 #define FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_H_
 
+
+#include <execution>
 #include "../util/RandomTreeAccessor.h"
 
 namespace FMCA {
@@ -268,7 +270,7 @@ class SampletMatrixCompressor {
           return val1 > val2;
         }
       };
-      std::sort(triplets.begin(), triplets.end(), comp());
+      std::sort(std::execution::par_unseq, triplets.begin(), triplets.end(), comp());
     }
 
     Scalar squared_norm = 0;
@@ -288,51 +290,55 @@ class SampletMatrixCompressor {
     return triplets;
   }
 
-// std::vector<Triplet<Scalar>> aposteriori_triplets(const Scalar thres) {
-//     std::vector<Triplet<Scalar>> triplets = triplet_list_;
-//     if (std::abs(thres) < FMCA_ZERO_TOLERANCE) return triplets;
-//
-//     // sort the triplets by magnitude, putting diagonal entries first
-//     // note that first sorting and then summing small to large makes
-//     // everything stable (positive numbers). Using Kahan summation did
-//     // not further improve afterwards, so we stay with fast summation
-//     std::vector<Index> idcs(triplet_list_.size());
-//     std::iota(idcs.begin(), idcs.end(), 0);
-//     {
-//       struct comp {
-//         comp(const std::vector<Triplet<Scalar>> &triplets) : ts_(triplets) {}
-//         bool operator()(const Index &a, const Index &b) const {
-//           const Scalar val1 = (ts_[a].row() == ts_[a].col())
-//                                   ? FMCA_INF
-//                                   : std::abs(ts_[a].value());
-//           const Scalar val2 = (ts_[b].row() == ts_[b].col())
-//                                   ? FMCA_INF
-//                                   : std::abs(ts_[b].value());
-//           return val1 > val2;
-//         }
-//         const std::vector<Triplet<Scalar>> &ts_;
-//       };
-//       std::sort(idcs.begin(), idcs.end(), comp(triplet_list_));
-//     }
-//
-//     Scalar squared_norm = 0;
-//     for (auto it = idcs.rbegin(); it != idcs.rend(); ++it)
-//       squared_norm += triplet_list_[*it].value() * triplet_list_[*it].value();
-//
-//     Scalar cut_snorm = 0;
-//     Index cut_off = triplet_list_.size();
-//     for (auto it = idcs.rbegin(); it != idcs.rend(); ++it) {
-//       cut_snorm += triplet_list_[*it].value() * triplet_list_[*it].value();
-//       if (std::sqrt(cut_snorm / squared_norm) >= thres) break;
-//       --cut_off;
-//     }
-//     // keep at least the diagonal
-//     cut_off = cut_off < npts_ ? npts_ : cut_off;
-//     idcs.resize(cut_off);
-//     triplets.resize(cut_off);
-//     for (Index i = 0; i < cut_off; ++i) triplets[i] = triplet_list_[idcs[i]];
-//     return triplets;
-//   }
+/*
+std::vector<Triplet<Scalar>> aposteriori_triplets(const Scalar thres) {
+    std::vector<Triplet<Scalar>> triplets = triplet_list_;
+    if (std::abs(thres) < FMCA_ZERO_TOLERANCE) return triplets;
+
+    // sort the triplets by magnitude, putting diagonal entries first
+    // note that first sorting and then summing small to large makes
+    // everything stable (positive numbers). Using Kahan summation did
+    // not further improve afterwards, so we stay with fast summation
+    std::vector<long int> idcs(triplet_list_.size());
+    std::iota(idcs.begin(), idcs.end(), 0);
+    {
+      struct comp {
+        comp(const std::vector<Triplet<Scalar>> &triplets) : ts_(triplets) {}
+        bool operator()(const Index &a, const Index &b) const {
+          const Scalar val1 = (ts_[a].row() == ts_[a].col())
+                                  ? FMCA_INF
+                                  : std::abs(ts_[a].value());
+          const Scalar val2 = (ts_[b].row() == ts_[b].col())
+                                  ? FMCA_INF
+                                  : std::abs(ts_[b].value());
+          return val1 > val2;
+        }
+        const std::vector<Triplet<Scalar>> &ts_;
+      };
+      std::sort(std::execution::par_unseq, idcs.begin(), idcs.end(),
+                comp(triplet_list_));
+    }
+
+    Scalar squared_norm = 0;
+    for (auto it = idcs.rbegin(); it != idcs.rend(); ++it)
+      squared_norm += triplet_list_[*it].value() * triplet_list_[*it].value();
+
+    Scalar cut_snorm = 0;
+    Index cut_off = triplet_list_.size();
+    for (auto it = idcs.rbegin(); it != idcs.rend(); ++it) {
+      cut_snorm += triplet_list_[*it].value() * triplet_list_[*it].value();
+      if (std::sqrt(cut_snorm / squared_norm) >= thres) break;
+      --cut_off;
+    }
+    // keep at least the diagonal
+    cut_off = cut_off < npts_ ? npts_ : cut_off;
+    idcs.resize(cut_off);
+    triplets.resize(cut_off);
+    for (Index i = 0; i < cut_off; ++i) triplets[i] = triplet_list_[idcs[i]];
+    return triplets;
+  }
+*/
+
 
   std::vector<Eigen::Triplet<Scalar>> release_triplets() {
     std::vector<Eigen::Triplet<Scalar>> retval;

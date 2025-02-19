@@ -42,25 +42,23 @@ Eigen::SparseMatrix<Scalar> UnsymmetricCompressor(
     const H2SampletTree<ClusterTree>& hst_rows,
     const CovarianceKernel& function, const Scalar& eta,
     const Scalar& threshold_kernel, const Scalar& threshold_aPost,
-    const Scalar& mpole_deg,
-    const Scalar& dtilde, const Matrix& P_rows, const Matrix& P_cols) {
+    const Scalar& mpole_deg, const Scalar& dtilde,
+    const Matrix& P_rows, const Matrix& P_cols) 
+{
   ///////////////////////////////// Samplet quantities cols
   const NystromMoments<TotalDegreeInterpolator> mom_cols(P_cols, mpole_deg);
-  const NystromSampletMoments<MonomialInterpolator> samp_mom_cols(P_cols,
-                                                                  dtilde - 1);
+  const NystromSampletMoments<MonomialInterpolator> samp_mom_cols(P_cols, dtilde - 1);
   const H2SampletTree<ClusterTree> hst_cols(mom_cols, samp_mom_cols, 0, P_cols);
-
   //////////////////////////////// Compression
   int n_pts_rows = P_rows.cols();
   int n_pts_cols = P_cols.cols();
-
   const unsymmetricNystromEvaluator<NystromMoments<TotalDegreeInterpolator>,
                                     FMCA::CovarianceKernel>
       mat_eval(mom_rows, mom_cols, function);
   FMCA::Tictoc T;
   T.tic();
-  FMCA::internal::SampletMatrixCompressorUnsymmetric<H2SampletTree<ClusterTree>>
-      K_comp;
+  FMCA::internal::SampletMatrixCompressorUnsymmetric<H2SampletTree<ClusterTree>> K_comp;
+  // Decide threshold based on col-size
   if (P_cols.cols() < 100) {
     K_comp.init(hst_rows, hst_cols, eta, 0);
   } else {
@@ -71,62 +69,78 @@ Eigen::SparseMatrix<Scalar> UnsymmetricCompressor(
   T.tic();
   K_comp.compress(mat_eval);
   T.toc("compressor:                  ");
- 
+
+  // Retrieve the a-priori triplets
   T.tic();
   const auto& triplets_aPriori = K_comp.triplets();
   FMCA::Scalar trips_time_aPriori = T.toc();
 
-  T.tic();
-  const auto& triplets_aPost = K_comp.aposteriori_triplets(threshold_aPost);
-  FMCA::Scalar trips_time_aPost = T.toc();
+  // We define triplets_aPost in the outer scope so we can use it later
+  std::vector<Eigen::Triplet<Scalar>> triplets_aPost;
+  FMCA::Scalar trips_time_aPost = -1;
+  if (threshold_aPost != -1) {
+    T.tic();
+    triplets_aPost = K_comp.aposteriori_triplets(threshold_aPost);
+    trips_time_aPost = T.toc();
+  }
 
-  std::cout << "" << std::endl;
-  std::cout << "anz (a-priori):               "
+  // Printing stats
+  std::cout << "\nanz (a-priori):               "
             << std::round(triplets_aPriori.size() / FMCA::Scalar(n_pts_rows))
             << std::endl;
-  std::cout << "anz (a-posteriori):           "
-            << std::round(triplets_aPost.size() / FMCA::Scalar(n_pts_rows))
-            << std::endl;
-  std::cout << "" << std::endl;
-  std::cout << "time (a-priori):              " << trips_time_aPriori << "sec." << std::endl;
-  std::cout << "time (a-posteriori):          " << trips_time_aPost << "sec." << std::endl;
-  std::cout << "" << std::endl;
+  if (threshold_aPost != -1) {
+    std::cout << "anz (a-posteriori):           "
+              << std::round(triplets_aPost.size() / FMCA::Scalar(n_pts_rows))
+              << std::endl;
+  }
+  std::cout << "\ntime (a-priori):              " << trips_time_aPriori << " sec.\n";
+  if (threshold_aPost != -1) {
+    std::cout << "time (a-posteriori):          " << trips_time_aPost << " sec.\n\n";
+  }
 
   //////////////////////////////// Compression error
   Vector x(n_pts_cols), y1(n_pts_rows), y2(n_pts_rows);
-  Scalar err = 0;
-  Scalar nrm = 0;
+  Scalar err = 0, nrm = 0;
 
-  for (auto i = 0; i < 100; ++i) {
-    Index index = rand() % n_pts_cols;
+  for (int i = 0; i < 100; ++i) {
+    // Random index
+    int index = rand() % n_pts_cols; 
     x.setZero();
     x(index) = 1;
 
     Vector col = function.eval(P_rows, P_cols.col(hst_cols.indices()[index]));
-    y1 = col(Eigen::Map<const FMCA::iVector>(hst_rows.indices(),
-                                             hst_rows.block_size()));
+    y1 = col(Eigen::Map<const FMCA::iVector>(hst_rows.indices(), hst_rows.block_size()));
     x = hst_cols.sampletTransform(x);
     y2.setZero();
 
-    for (const auto& triplet : triplets_aPost) {
-      y2(triplet.row()) += triplet.value() * x(triplet.col());
+    // Multiply with the chosen triplets (a-posteriori or a-priori)
+    if (threshold_aPost != -1) {
+      for (const auto& triplet : triplets_aPost) {
+        y2(triplet.row()) += triplet.value() * x(triplet.col());
+      }
+    } else {
+      for (const auto& triplet : triplets_aPriori) {
+        y2(triplet.row()) += triplet.value() * x(triplet.col());
+      }
     }
-
     y2 = hst_rows.inverseSampletTransform(y2);
     err += (y1 - y2).squaredNorm();
     nrm += y1.squaredNorm();
   }
-
-  std::cout << "Compression error unsymmetric      " << sqrt(err / nrm)
-            << std::endl;
+  std::cout << "Compression error unsymmetric      " << std::sqrt(err / nrm) << std::endl;
 
   //////////////////////////////// Create and return the sparse matrix
   Eigen::SparseMatrix<Scalar> Kcomp_Sparse(n_pts_rows, n_pts_cols);
-  Kcomp_Sparse.setFromTriplets(triplets_aPost.begin(), triplets_aPost.end());
+  if (threshold_aPost != -1) {
+    Kcomp_Sparse.setFromTriplets(triplets_aPost.begin(), triplets_aPost.end());
+  } else {
+    Kcomp_Sparse.setFromTriplets(triplets_aPriori.begin(), triplets_aPriori.end());
+  }
   Kcomp_Sparse.makeCompressed();
 
   return Kcomp_Sparse;
 }
+
 
 Eigen::SparseMatrix<Scalar> SymmetricCompressor(
     const NystromMoments<TotalDegreeInterpolator>& mom,
@@ -153,25 +167,33 @@ Eigen::SparseMatrix<Scalar> SymmetricCompressor(
   K_comp.compress(mat_eval);
   T.toc("compressor:                  ");
 
+    // Retrieve the a-priori triplets
   T.tic();
   const auto& triplets_aPriori = K_comp.triplets();
   FMCA::Scalar trips_time_aPriori = T.toc();
 
-  T.tic();
-  const auto& triplets_aPost = K_comp.aposteriori_triplets(threshold_aPost);
-  FMCA::Scalar trips_time_aPost = T.toc();
+  // We define triplets_aPost in the outer scope so we can use it later
+  std::vector<Eigen::Triplet<Scalar>> triplets_aPost;
+  FMCA::Scalar trips_time_aPost = -1;
+  if (threshold_aPost != -1) {
+    T.tic();
+    triplets_aPost = K_comp.aposteriori_triplets(threshold_aPost);
+    trips_time_aPost = T.toc();
+  }
 
-  std::cout << "" << std::endl;
-  std::cout << "anz (a-priori):               "
+  // Printing stats
+  std::cout << "\nanz (a-priori):               "
             << std::round(triplets_aPriori.size() / FMCA::Scalar(n_pts))
             << std::endl;
-  std::cout << "anz (a-posteriori):           "
-            << std::round(triplets_aPost.size() / FMCA::Scalar(n_pts))
-            << std::endl;
-  std::cout << "" << std::endl;
-  std::cout << "time (a-priori):              " << trips_time_aPriori << "sec." << std::endl;
-  std::cout << "time (a-posteriori):          " << trips_time_aPost << "sec." << std::endl;
-  std::cout << "" << std::endl;
+  if (threshold_aPost != -1) {
+    std::cout << "anz (a-posteriori):           "
+              << std::round(triplets_aPost.size() / FMCA::Scalar(n_pts))
+              << std::endl;
+  }
+  std::cout << "\ntime (a-priori):              " << trips_time_aPriori << " sec.\n";
+  if (threshold_aPost != -1) {
+    std::cout << "time (a-posteriori):          " << trips_time_aPost << " sec.\n\n";
+  }
 
   //////////////////////////////// Compression error
   Vector x(n_pts), y1(n_pts), y2(n_pts);
@@ -186,22 +208,35 @@ Eigen::SparseMatrix<Scalar> SymmetricCompressor(
     y1 = col(Eigen::Map<const FMCA::iVector>(hst.indices(), hst.block_size()));
     x = hst.sampletTransform(x);
     y2.setZero();
-    for (const auto& i : triplets_aPost) {
-      y2(i.row()) += i.value() * x(i.col());
-      if (i.row() != i.col()) y2(i.col()) += i.value() * x(i.row());
+    
+    if (threshold_aPost != -1){
+      for (const auto& i : triplets_aPost) {
+        y2(i.row()) += i.value() * x(i.col());
+        if (i.row() != i.col()) y2(i.col()) += i.value() * x(i.row());
+      }
     }
+    else {
+      for (const auto& i : triplets_aPriori) {
+        y2(i.row()) += i.value() * x(i.col());
+        if (i.row() != i.col()) y2(i.col()) += i.value() * x(i.row());
+      }
+    }
+
     y2 = hst.inverseSampletTransform(y2);
     err += (y1 - y2).squaredNorm();
     nrm += y1.squaredNorm();
   }
   std::cout << "Compression error symmetric        " << sqrt(err / nrm)
             << std::endl;
-  int anz = triplets_aPost.size() / n_pts;
-  std::cout << "Anz:                               " << anz << std::endl;
 
   //////////////////////////////// Create and return the sparse matrix
   Eigen::SparseMatrix<Scalar> Kcomp_Sparse(n_pts, n_pts);
-  Kcomp_Sparse.setFromTriplets(triplets_aPost.begin(), triplets_aPost.end());
+  if (threshold_aPost != -1){
+    Kcomp_Sparse.setFromTriplets(triplets_aPost.begin(), triplets_aPost.end());
+  }
+  else {
+     Kcomp_Sparse.setFromTriplets(triplets_aPriori.begin(), triplets_aPriori.end());
+  }
   Kcomp_Sparse.makeCompressed();
 
   return Kcomp_Sparse;

@@ -1,15 +1,13 @@
 #include <algorithm>
-#include <cmath>
+#include <cmath>  // Include cmath for sqrt function
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <limits>
 #include <set>
 #include <sstream>
-#include <vector>
+#include <vector>  // Include vector for std::vector
 //////////////////////////////////////////////////////////
-#include <Eigen/CholmodSupport>
-#include <Eigen/Dense>
 #include <Eigen/IterativeLinearSolvers>
 #include <Eigen/MetisSupport>
 #include <Eigen/OrderingMethods>
@@ -66,19 +64,19 @@ Scalar averageCoordinates(const Eigen::VectorXd& Points) {
 int main() {
   Tictoc T;
   ///////////////////////////////// Inputs: points
-  Matrix P1, P2, P3, P4, P5;
-  readTXT("data/lucy4NotNested_level1.txt", P1, DIM);
-  readTXT("data/lucy4NotNested_level2.txt", P2, DIM);
-  readTXT("data/lucy4NotNested_level3.txt", P3, DIM);
-  readTXT("data/lucy4NotNested_level4.txt", P4, DIM);
-  readTXT("data/lucy4NotNested_level5.txt", P5, DIM);
+  Matrix P1, P2, P3, P4; //  P5;
+  readTXT("data/lucy4Nested_level1.txt", P1, DIM);
+  readTXT("data/lucy4Nested_level2.txt", P2, DIM);
+  readTXT("data/lucy4Nested_level3.txt", P3, DIM);
+  readTXT("data/lucy4Nested_level4.txt", P4, DIM);
+  // readTXT("data/lucy4Nested_level5.txt", P5, DIM);
 
   // Output the cardinality of each normalized matrix
   std::cout << "Cardinality P1      " << P1.cols() << std::endl;
   std::cout << "Cardinality P2      " << P2.cols() << std::endl;
   std::cout << "Cardinality P3      " << P3.cols() << std::endl;
   std::cout << "Cardinality P4      " << P4.cols() << std::endl;
-  std::cout << "Cardinality P5      " << P5.cols() << std::endl;
+  // std::cout << "Cardinality P5      " << P5.cols() << std::endl;
 
   Scalar x_m = 0.25;
   Scalar y_m = 0.94;
@@ -89,13 +87,14 @@ int main() {
   std::cout << "Cardinality Peval   " << Peval.cols() << std::endl;
 
   ///////////////////////////////// Nested cardinality of points
-  std::vector<Matrix> P_Matrices = {P1, P2, P3, P4, P5};
+  std::vector<Matrix> P_Matrices = {P1, P2, P3, P4}; //, P5};
   int max_level = P_Matrices.size();
 
   ///////////////////////////////// Parameters
-  const Scalar eta = 1. / DIM;
+  const Scalar eta = 0.5;
   const Eigen::Index dtilde = 3;
   const Scalar threshold_kernel = 1e-4;
+  const Scalar threshold_aPost = -1;
   const Scalar threshold_weights = 0;
   const Scalar mpole_deg = 2 * (dtilde - 1);
   const std::string kernel_type = "exponential";
@@ -104,6 +103,7 @@ int main() {
   std::cout << "eta                 " << eta << std::endl;
   std::cout << "dtilde              " << dtilde << std::endl;
   std::cout << "threshold_kernel    " << threshold_kernel << std::endl;
+  std::cout << "threshold_aPost     " << threshold_aPost << std::endl;
   std::cout << "mpole_deg           " << mpole_deg << std::endl;
   std::cout << "kernel_type         " << kernel_type << std::endl;
   std::cout << "nu                  " << nu << std::endl;
@@ -148,18 +148,18 @@ int main() {
       int n_pts_B = P_Matrices[j].cols();
       FMCA::Scalar sigma_B = nu * fill_distances[j];
       const CovarianceKernel kernel_funtion_B(kernel_type, sigma_B);
-      T.tic();
       // Scope block for B_comp
       {
         Eigen::SparseMatrix<double> B_comp = UnsymmetricCompressor(
-            mom, samp_mom, hst, kernel_funtion_B, eta, threshold_kernel,
+            mom, samp_mom, hst, kernel_funtion_B, eta, threshold_kernel, threshold_aPost,
             mpole_deg, dtilde, P_Matrices[l], P_Matrices[j]);
-        Scalar compression_time_unsymmetric = T.toc();
-        std::cout << "Compression time                   "
-                  << compression_time_unsymmetric << std::endl;
+        T.tic();
         residuals[l] -= B_comp * ALPHA[j];
+        T.toc("time residual update =           ");
+
         std::cout << "Residuals updated" << std::endl;
       }  // B_comp goes out of scope and is destroyed here
+      std::cout << "------------------------------------------" << std::endl;
     }
 
     ///////////////////////////////// Plot the residuals
@@ -179,20 +179,19 @@ int main() {
     // Scope block for A_comp
     {
       Eigen::SparseMatrix<double> A_comp = SymmetricCompressor(
-          mom, samp_mom, hst, kernel_funtion, eta, threshold_kernel, mpole_deg,
+          mom, samp_mom, hst, kernel_funtion, eta, threshold_kernel, threshold_aPost, mpole_deg,
           dtilde, P_Matrices[l]);
-      Scalar compression_time = T.toc();
-      std::cout << "Compression time                   " << compression_time
-                << std::endl;
+      std::cout << "------------------------------------------" << std::endl;
 
       ///////////////////////////////// Solve the linear system
       Vector rhs = residuals[l];
-      Vector alpha =
-          solveSystem(A_comp, rhs, "ConjugateGradientwithPreconditioner", 1e-6);
+      Vector alpha = solveSystem(A_comp, rhs, "ConjugateGradientwithPreconditioner", 1e-6);
       ALPHA.push_back(alpha);
+      std::cout << "------------------------------------------" << std::endl;
     }  // A_comp goes out of scope and is destroyed here
   }
 
+/*
   ///////////////////////////////// Final Evaluation
   const Moments mom(Peval, mpole_deg);
   const SampletMoments samp_mom(Peval, dtilde - 1);
@@ -200,8 +199,8 @@ int main() {
   Vector exact_sol = evalFunction(Peval, x_m, y_m, z_m);
   Vector solution = Evaluate(
       mom, samp_mom, hst, kernel_type, P_Matrices, Peval, ALPHA, fill_distances,
-      max_level, nu, eta, threshold_kernel, mpole_deg, dtilde, exact_sol, hst,
-      "Plots/SolutionLucyNotNested12");  // Plots/SolutionBunny
-
+      max_level, nu, eta, threshold_kernel, threshold_aPost, mpole_deg, dtilde, exact_sol, hst,
+      "");  // Plots/SolutionBunny
+*/
   return 0;
 }
