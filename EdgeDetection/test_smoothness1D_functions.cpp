@@ -9,6 +9,7 @@
 #include "InputOutput.h"
 #include "SmoothnessDetection.h"
 #include "Regression.h"
+#include "FitDtilde.h"
 
 #define DIM 1
 
@@ -128,7 +129,7 @@ int main() {
   readTXT("data/1D_1M_shifted2.txt", P, DIM);
   const std::string outputFile_step = "Plots/output_step2.txt";
   /////////////////////////////////
-  const std::string function_type = "f_elaboratedC1";
+  const std::string function_type = "f_elaborated";
   const Scalar eta = 1. / DIM;
   const Index dtilde = 10;
   const Scalar mpole_deg = (dtilde != 1) ? 2 * (dtilde - 1) : 2;
@@ -195,19 +196,68 @@ int main() {
   const Index nclusters = std::distance(hst.begin(), hst.end());
   std::cout << "Total number of clusters: " << nclusters << std::endl;
 
-  std::map<const ST*, std::vector<Scalar>> leafCoefficients;
-  traverseAndStackCoefficients(hst, tdata, leafCoefficients);
+  std::map<const ST*, std::pair<std::vector<Scalar>, std::vector<Scalar>>> leafData;
+  traverseAndStackCoefficientsAndDiameters(hst, tdata, leafData);
 
-  const std::string outputFile_slopes = "relativeSlopes.csv";
-  auto slopes = computeRelativeSlopes1D<ST, Scalar>(leafCoefficients, dtilde, 1e-4,
-                                                    outputFile_slopes);
+  auto results = FitDtilde(leafData, dtilde, 1e-6);
+  std::cout << "--------------------------------------------------------" << std::endl;
+  std::cout << "--------------------------------------------------------" << std::endl;
+
+
+  for (const auto& [leaf, dataPair] : leafData) {
+    // if (count >= 20) break;
+    auto coefficients = dataPair.first;  // First vector = coefficients
+    const auto& diameters = dataPair.second;     // Second vector = diameters
+    if (leaf->bb()(0, 0) > 0.099 && leaf->bb()(0, 1) < 0.101) {
+        
+    std::cout << "Leaf bb: " << leaf->bb() << "\n";
+    std::cout << "-----------------------------------------" << std::endl;
+    size_t n = coefficients.size();
+
+    Scalar accum = 0.;
+    for (int i = 0; i < n; ++i) {
+        accum += coefficients[i] * coefficients[i];
+    }
+    Scalar norm = sqrt(accum);
+    if (norm != 0) {
+      for (auto& coeff : coefficients) {
+          coeff /= norm;
+      }
+    }
+
+    std::cout << "  Coefficients: ";
+    int zero_count = 0;
+    for (const auto& coeff : coefficients) {
+        std::cout <<  coeff << " ";
+        if (coeff == 0) {
+            zero_count++;
+        }
+    }
+    // std::cout << "\n";
+    // std::cout << "number of 0 coeffs = " << zero_count << "\n";
+    std::cout << "\n";
+    std::cout << "-----------------------------------------" << std::endl;
+    
+    std::cout << "\n  Diameters: ";
+    for (const auto& diam : diameters) {
+        std::cout << diam << " ";
+    }
+    std::cout << "\n";
+    std::cout << "-------------------------" << std::endl;
+         }
+}
+
+
+  // const std::string outputFile_slopes = "relativeSlopes.csv";
+  // auto slopes = computeRelativeSlopes1D<ST, Scalar>(leafCoefficients, dtilde, 1e-4,
+  //                                                   outputFile_slopes);
   // auto slopes = computeLinearRegressionSlope(leafCoefficients, dtilde);
 
 
-  generateStepFunctionData(slopes, outputFile_step);
+  // generateStepFunctionData(slopes, outputFile_step);
 
   // Coeff decay
-  printMaxCoefficientsPerLevel(hst, tdata);
+  // printMaxCoefficientsPerLevel(hst, tdata);
 
   return 0;
 }
