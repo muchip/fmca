@@ -18,7 +18,7 @@
 #include "../FMCA/src/Samplets/samplet_matrix_compressor.h"
 #include "../FMCA/src/util/Tictoc.h"
 
-#define NPTS 10000
+#define NPTS 100000
 #define DIM 2
 
 using Interpolator = FMCA::TotalDegreeInterpolator;
@@ -32,7 +32,7 @@ int main() {
   FMCA::Tictoc T;
   const FMCA::CovarianceKernel function("MaternNu", 1., 1., .5);
   const FMCA::Matrix P = 0.5 * (FMCA::Matrix::Random(DIM, NPTS).array() + 1);
-  const FMCA::Scalar threshold = 1e-9;
+  const FMCA::Scalar threshold = 1e-6;
   const FMCA::Scalar eta = 0.5;
 
   for (int dtilde = 2; dtilde <= 6; ++dtilde) {
@@ -46,7 +46,7 @@ int main() {
     H2SampletTree hst(mom, samp_mom, 0, P);
     T.tic();
     FMCA::internal::SampletMatrixCompressor<H2SampletTree> Scomp;
-    Scomp.init(hst, eta, 1e-15);
+    Scomp.init(hst, eta, 100 * FMCA_ZERO_TOLERANCE);
     T.toc("planner:                     ");
     T.tic();
     Scomp.compress(mat_eval);
@@ -55,9 +55,57 @@ int main() {
     const auto &ap_trips = Scomp.triplets();
     std::cout << "anz (a-priori):               "
               << std::round(ap_trips.size() / FMCA::Scalar(NPTS)) << std::endl;
-    const auto &trips = Scomp.aposteriori_triplets(threshold);
+    T.toc("triplets:                    ");
+#ifdef FMCA_VERBOSE
+    FMCA::Index intervals = 17;
+    FMCA::Vector values(intervals);
+    values.setZero();
+    for (auto i = 0; i < ap_trips.size(); ++i) {
+      const FMCA::Scalar val =
+          std::log(std::abs(ap_trips[i].value())) / std::log(10.);
+      if (val >= 0)
+        values[0] += 1;
+      else if (val < -16)
+        values[16] += 1;
+      else
+        values[FMCA::Index(-std::floor(val))] += 1.;
+    }
+    FMCA::Scalar bar_factor = 40 * ap_trips.size() / values.maxCoeff();
+    bar_factor = bar_factor < FMCA_INF ? bar_factor : 0;
+    for (auto i = 0; i < intervals; ++i) {
+      std::cout << std::scientific << std::setprecision(2) << "1e-"
+                << std::setw(2) << i << "|";
+      std::cout << std::string(
+                       std::ceil(bar_factor * values(i) / ap_trips.size()), '*')
+                << std::endl;
+    }
+#endif
+    T.tic();
+    const auto &trips = Scomp.aposteriori_triplets_fast(threshold);
     std::cout << "anz (a-posteriori):           "
               << std::round(trips.size() / FMCA::Scalar(NPTS)) << std::endl;
+#ifdef FMCA_VERBOSE
+    values.setZero();
+    for (auto i = 0; i < trips.size(); ++i) {
+      const FMCA::Scalar val =
+          std::log(std::abs(trips[i].value())) / std::log(10.);
+      if (val >= 0)
+        values[0] += 1;
+      else if (val < -16)
+        values[16] += 1;
+      else
+        values[FMCA::Index(-std::floor(val))] += 1.;
+    }
+    bar_factor = 40 * trips.size() / values.maxCoeff();
+    bar_factor = bar_factor < FMCA_INF ? bar_factor : 0;
+    for (auto i = 0; i < intervals; ++i) {
+      std::cout << std::scientific << std::setprecision(2) << "1e-"
+                << std::setw(2) << i << "|";
+      std::cout << std::string(std::ceil(bar_factor * values(i) / trips.size()),
+                               '*')
+                << std::endl;
+    }
+#endif
     T.toc("triplets:                    ");
     FMCA::Vector x(NPTS), y1(NPTS), y2(NPTS);
     FMCA::Scalar err = 0;
