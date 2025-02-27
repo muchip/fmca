@@ -102,7 +102,7 @@ int main() {
   const Scalar threshold_weights = 0;
   const Scalar mpole_deg = 2 * (dtilde - 1);
   const std::string kernel_type = "exponential";
-  const Scalar nu = 2;
+  const Scalar nu = 1;
   std::cout << "eta                 " << eta << std::endl;
   std::cout << "dtilde              " << dtilde << std::endl;
   std::cout << "threshold_kernel    " << threshold_kernel << std::endl;

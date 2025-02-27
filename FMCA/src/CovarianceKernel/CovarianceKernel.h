@@ -16,7 +16,7 @@
 namespace FMCA {
 class CovarianceKernel {
  public:
-  CovarianceKernel(){};
+  CovarianceKernel() {};
   CovarianceKernel(const CovarianceKernel &other) {
     kernel_ = other.kernel_;
     ktype_ = other.ktype_;
@@ -89,14 +89,28 @@ class CovarianceKernel {
       kernel_ = [this](Scalar r) { return std::exp(-0.5 * r * r / (l_ * l_)); };
     ////////////////////////////////////////////////////////////////////////////
 
-    else if (ktype_ == "MATERNNU")
+    // else if (ktype_ == "MATERNNU")
+    //   kernel_ = [this](Scalar r) {
+    //     const Scalar arg = std::sqrt(2 * nu_) * r / l_;
+    //     return arg > FMCA_ZERO_TOLERANCE
+    //                ? 2. * std::pow(0.5 * arg, nu_) / std::tgamma(nu_) *
+    //                      std::cyl_bessel_k(nu_, arg)
+    //                : 1.;
+    //   };
+
+    /////////////////// compact support
+    else if (ktype_ == "WENDLAND20")
       kernel_ = [this](Scalar r) {
-        const Scalar arg = std::sqrt(2 * nu_) * r / l_;
-        return arg > FMCA_ZERO_TOLERANCE
-                   ? 2. * std::pow(0.5 * arg, nu_) / std::tgamma(nu_) *
-                         std::cyl_bessel_k(nu_, arg)
-                   : 1.;
+        return (r / l_) >= 1. ? 0. : std::pow(1. - (r / l_), 2);
       };
+    else if (ktype_ == "WENDLAND21")
+      kernel_ = [this](Scalar r) {
+        return (r / l_) >= 1.
+                   ? 0.
+                   : std::pow(1. - (r / l_), 4) * (1. + 4. * (r / l_)) / 20;
+      };
+    ////////////////////
+
     ////////////////////////////////////////////////////////////////////////////
     else if (ktype_ == "INVMULTIQUADRIC")
       kernel_ = [this](Scalar r) {

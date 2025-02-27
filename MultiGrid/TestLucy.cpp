@@ -64,19 +64,19 @@ Scalar averageCoordinates(const Eigen::VectorXd& Points) {
 int main() {
   Tictoc T;
   ///////////////////////////////// Inputs: points
-  Matrix P1, P2, P3, P4; //  P5;
+  Matrix P1, P2, P3, P4, P5;
   readTXT("data/lucy4Nested_level1.txt", P1, DIM);
   readTXT("data/lucy4Nested_level2.txt", P2, DIM);
   readTXT("data/lucy4Nested_level3.txt", P3, DIM);
   readTXT("data/lucy4Nested_level4.txt", P4, DIM);
-  // readTXT("data/lucy4Nested_level5.txt", P5, DIM);
+  readTXT("data/lucy4Nested_level5.txt", P5, DIM);
 
   // Output the cardinality of each normalized matrix
   std::cout << "Cardinality P1      " << P1.cols() << std::endl;
   std::cout << "Cardinality P2      " << P2.cols() << std::endl;
   std::cout << "Cardinality P3      " << P3.cols() << std::endl;
   std::cout << "Cardinality P4      " << P4.cols() << std::endl;
-  // std::cout << "Cardinality P5      " << P5.cols() << std::endl;
+  std::cout << "Cardinality P5      " << P5.cols() << std::endl;
 
   Scalar x_m = 0.25;
   Scalar y_m = 0.94;
@@ -87,7 +87,7 @@ int main() {
   std::cout << "Cardinality Peval   " << Peval.cols() << std::endl;
 
   ///////////////////////////////// Nested cardinality of points
-  std::vector<Matrix> P_Matrices = {P1, P2, P3, P4}; //, P5};
+  std::vector<Matrix> P_Matrices = {P1, P2, P3, P4, P5};
   int max_level = P_Matrices.size();
 
   ///////////////////////////////// Parameters
@@ -191,7 +191,6 @@ int main() {
     }  // A_comp goes out of scope and is destroyed here
   }
 
-/*
   ///////////////////////////////// Final Evaluation
   const Moments mom(Peval, mpole_deg);
   const SampletMoments samp_mom(Peval, dtilde - 1);
@@ -201,6 +200,6 @@ int main() {
       mom, samp_mom, hst, kernel_type, P_Matrices, Peval, ALPHA, fill_distances,
       max_level, nu, eta, threshold_kernel, threshold_aPost, mpole_deg, dtilde, exact_sol, hst,
       "");  // Plots/SolutionBunny
-*/
+
   return 0;
 }
