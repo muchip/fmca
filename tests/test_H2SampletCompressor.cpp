@@ -32,7 +32,7 @@ int main() {
   FMCA::Tictoc T;
   const FMCA::CovarianceKernel function("MaternNu", 1., 1., .5);
   const FMCA::Matrix P = 0.5 * (FMCA::Matrix::Random(DIM, NPTS).array() + 1);
-  const FMCA::Scalar threshold = 1e-6;
+  const FMCA::Scalar threshold = 1e-8;
   const FMCA::Scalar eta = 0.5;
 
   for (int dtilde = 2; dtilde <= 6; ++dtilde) {
