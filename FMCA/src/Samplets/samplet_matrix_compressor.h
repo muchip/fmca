@@ -250,48 +250,42 @@ class SampletMatrixCompressor {
     return triplet_list_;
   }
 
-
-  std::vector<Triplet<Scalar>> aposteriori_triplets(const Scalar thres) {
-    std::vector<Triplet<Scalar>> triplets = triplet_list_;
-    if (std::abs(thres) < FMCA_ZERO_TOLERANCE) return triplets;
-
-    // sort the triplets by magnitude, putting diagonal entries first
-    // note that first sorting and then summing small to large makes
-    // everything stable (positive numbers). Using Kahan summation did
-    // not further improve afterwards, so we stay with fast summation
-    {
-      struct comp {
-        bool operator()(const Triplet<Scalar> &a,
-                        const Triplet<Scalar> &b) const {
-          const Scalar val1 =
-              (a.row() == a.col()) ? FMCA_INF : std::abs(a.value());
-          const Scalar val2 =
-              (b.row() == b.col()) ? FMCA_INF : std::abs(b.value());
-          return val1 > val2;
-        }
-      };
-      std::sort(std::execution::par_unseq, triplets.begin(), triplets.end(), comp());
+  std::vector<Triplet<Scalar>> aposteriori_triplets_fast(const Scalar thres) {
+    std::vector<Triplet<Scalar>> retval;
+    std::vector<std::vector<Index>> buckets(17);
+    std::vector<Scalar> norms2(17);
+    constexpr Scalar invlog10 = 1. / std::log(10.);
+    for (FMCA::Index i = 0; i < triplet_list_.size(); ++i) {
+      const Scalar entry = std::abs(triplet_list_[i].value());
+      const Scalar val = -std::floor(invlog10 * std::log(entry));
+      const Index ind = val < 0 ? 0 : val;
+      buckets[ind > 16 ? 16 : ind].push_back(i);
+      norms2[ind > 16 ? 16 : ind] += entry * entry;
     }
-
-    Scalar squared_norm = 0;
-    for (auto it = triplets.rbegin(); it != triplets.rend(); ++it)
-      squared_norm += it->value() * it->value();
-
+    Scalar fnorm2 = 0;
+    for (int i = 16; i >= 0; --i) fnorm2 += norms2[i];
     Scalar cut_snorm = 0;
-    Index cut_off = triplets.size();
-    for (auto it = triplets.rbegin(); it != triplets.rend(); ++it) {
-      cut_snorm += it->value() * it->value();
-      if (std::sqrt(cut_snorm / squared_norm) >= thres) break;
+    Index cut_off = 17;
+    for (int i = 16; i >= 0; --i) {
+      cut_snorm += norms2[i];
+      if (std::sqrt(cut_snorm / fnorm2) >= thres) break;
       --cut_off;
     }
-    // keep at least the diagonal
-    cut_off = cut_off < npts_ ? npts_ : cut_off;
-    triplets.resize(cut_off);
-    return triplets;
+    Index ntriplets = 0;
+    for (Index i = 0; i < cut_off; ++i) ntriplets += buckets[i].size();
+    retval.reserve(ntriplets + npts_);
+    for (Index i = 0; i < cut_off; ++i)
+      for (const auto &it : buckets[i]) retval.push_back(triplet_list_[it]);
+    // make sure the matrix contains the diagonal
+    for (Index i = cut_off; i < 17; ++i)
+      for (const auto &it : buckets[i])
+        if (triplet_list_[it].row() == triplet_list_[it].col())
+          retval.push_back(triplet_list_[it]);
+    retval.shrink_to_fit();
+    return retval;
   }
 
-/*
-std::vector<Triplet<Scalar>> aposteriori_triplets(const Scalar thres) {
+  std::vector<Triplet<Scalar>> aposteriori_triplets(const Scalar thres) {
     std::vector<Triplet<Scalar>> triplets = triplet_list_;
     if (std::abs(thres) < FMCA_ZERO_TOLERANCE) return triplets;
 
@@ -315,8 +309,8 @@ std::vector<Triplet<Scalar>> aposteriori_triplets(const Scalar thres) {
         }
         const std::vector<Triplet<Scalar>> &ts_;
       };
-      std::sort(std::execution::par_unseq, idcs.begin(), idcs.end(),
-                comp(triplet_list_));
+      std::stable_sort(std::execution::par_unseq, idcs.begin(), idcs.end(),
+                       comp(triplet_list_));
     }
 
     Scalar squared_norm = 0;
@@ -337,8 +331,6 @@ std::vector<Triplet<Scalar>> aposteriori_triplets(const Scalar thres) {
     for (Index i = 0; i < cut_off; ++i) triplets[i] = triplet_list_[idcs[i]];
     return triplets;
   }
-*/
-
 
   std::vector<Eigen::Triplet<Scalar>> release_triplets() {
     std::vector<Eigen::Triplet<Scalar>> retval;
@@ -420,6 +412,51 @@ std::vector<Triplet<Scalar>> aposteriori_triplets(const Scalar thres) {
             (srow == scol && j == k))
           triplet_buffer.push_back(
               Eigen::Triplet<Scalar>(srow + j, scol + k, block(j, k)));
+  }
+
+  /**
+   *  \brief writes a given matrix block into a-posteriori thresholded
+   *         triplet format
+   **/
+  void storeBlock2(std::vector<Eigen::Triplet<Scalar>> &triplet_buffer,
+                   Index srow, Index scol, Index nrows, Index ncols,
+                   const Matrix &block) {
+    struct comp {
+      bool operator()(const Eigen::Triplet<Scalar> &a,
+                      const Eigen::Triplet<Scalar> &b) const {
+        const Scalar val1 =
+            (a.row() == a.col()) ? FMCA_INF : std::abs(a.value());
+        const Scalar val2 =
+            (b.row() == b.col()) ? FMCA_INF : std::abs(b.value());
+        return val1 > val2;
+      }
+    };
+    std::vector<Eigen::Triplet<Scalar>> triplets;
+    triplets.reserve(block.size());
+    for (auto k = 0; k < ncols; ++k)
+      for (auto j = 0; j < nrows; ++j)
+        if ((srow + j <= scol + k &&
+             std::abs(block(j, k)) > FMCA_ZERO_TOLERANCE) ||
+            (srow == scol && j == k))
+          triplets.push_back(
+              Eigen::Triplet<Scalar>(srow + j, scol + k, block(j, k)));
+    std::sort(triplets.begin(), triplets.end(), comp());
+
+    Scalar squared_norm = 0;
+    for (auto it = triplets.rbegin(); it != triplets.rend(); ++it)
+      squared_norm += it->value() * it->value();
+    Scalar cut_snorm = 0;
+    Index cut_off = triplets.size();
+    for (auto it = triplets.rbegin(); it != triplets.rend(); ++it) {
+      cut_snorm += it->value() * it->value();
+      if (std::sqrt(cut_snorm / squared_norm) >= threshold_) break;
+      --cut_off;
+    }
+    // keep at least the diagonal
+    if (srow == scol) cut_off = cut_off < nrows ? nrows : cut_off;
+    triplets.resize(cut_off);
+    triplet_buffer.insert(triplet_buffer.end(), triplets.begin(),
+                          triplets.end());
   }
 
   void storeEmptyBlock(std::vector<Eigen::Triplet<Scalar>> &triplet_buffer,
