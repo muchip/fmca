@@ -71,7 +71,7 @@ void runForMu(Scalar nu)
 
     // Create output filename
     std::ostringstream filename;
-    filename << "ResultsFranke_nu" << nu << "_matern32_stats1.txt";
+    filename << "ResultsFranke_nu" << nu << "_exponential_stats1.txt";
     std::ofstream outFile(filename.str());
     if (!outFile.is_open()) {
         std::cerr << "Could not open file " << filename.str() << std::endl;
@@ -86,7 +86,7 @@ void runForMu(Scalar nu)
     std::cout.rdbuf(outFile.rdbuf());            // redirect
 
     // 1) read data
-    Matrix P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, Peval;
+    Matrix P1, P2, P3, P4, P5, P6, P7, P8, Peval; // P9, P10,
     readTXT("data/square01_uniform_grid_level1.txt",  P1, DIM);
     readTXT("data/square01_uniform_grid_level2.txt",  P2, DIM);
     readTXT("data/square01_uniform_grid_level3.txt",  P3, DIM);
@@ -95,21 +95,21 @@ void runForMu(Scalar nu)
     readTXT("data/square01_uniform_grid_level6.txt",  P6, DIM);
     readTXT("data/square01_uniform_grid_level7.txt",  P7, DIM);
     readTXT("data/square01_uniform_grid_level8.txt",  P8, DIM);
-    readTXT("data/square01_uniform_grid_level9.txt",  P9, DIM);
-    readTXT("data/square01_uniform_grid_level10.txt", P10, DIM);
+    // readTXT("data/square01_uniform_grid_level9.txt",  P9, DIM);
+    // readTXT("data/square01_uniform_grid_level10.txt", P10, DIM);
     readTXT("data/uniform_vertices_UnitSquare_40k.txt", Peval, DIM);
 
-    std::vector<Matrix> P_Matrices = {P1, P2, P3, P4, P5, P6, P7, P8, P9, P10};
+    std::vector<Matrix> P_Matrices = {P1, P2, P3, P4, P5, P6, P7, P8}; // P9, P10
     int max_level = (int) P_Matrices.size();
 
     // 2) define parameters
     const Scalar eta            = 1. / DIM;
     const Index dtilde          = 5;
-    const Scalar threshold_kernel = 1e-6;
+    const Scalar threshold_kernel = 1e-5;
     const Scalar threshold_aPost  = -1;
     const Scalar threshold_weights= 0;
     const Scalar mpole_deg       = 2 * (dtilde - 1);
-    const std::string kernel_type= "matern52";
+    const std::string kernel_type= "exponential";
 
     std::cout << "eta:               " << eta << std::endl;
     std::cout << "dtilde:            " << dtilde << std::endl;

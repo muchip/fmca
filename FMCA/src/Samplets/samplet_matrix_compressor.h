@@ -12,8 +12,8 @@
 #ifndef FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_H_
 #define FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_H_
 
-
 #include <execution>
+
 #include "../util/RandomTreeAccessor.h"
 
 namespace FMCA {

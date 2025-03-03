@@ -16,6 +16,7 @@
 #include "../FMCA/H2Matrix"
 #include "../FMCA/Samplets"
 #include "../FMCA/src/Clustering/ClusterTreeMetrics.h"
+#include "../FMCA/src/Samplets/samplet_matrix_compressor_unsymmetric.h"
 #include "../FMCA/src/util/IO.h"
 #include "../FMCA/src/util/Macros.h"
 #include "../FMCA/src/util/Plotter.h"
@@ -159,7 +160,7 @@ Eigen::SparseMatrix<Scalar> SymmetricCompressor(
 
   FMCA::Tictoc T;
   T.tic();
-  internal::SampletMatrixCompressor<H2SampletTree<ClusterTree>> K_comp;
+  FMCA::internal::SampletMatrixCompressor<H2SampletTree<ClusterTree>> K_comp;
   K_comp.init(hst, eta, threshold_kernel);
   T.toc("planner:                     ");
 
@@ -267,23 +268,23 @@ Vector Evaluate(
     Vector solution_natural_basis = hst.inverseSampletTransform(solution);
     solution_natural_basis = hst.toNaturalOrder(solution_natural_basis);
 
-    if (base_filename != "" and Peval.rows() == 2) {
-      // Create the filename for the current level
-      std::ostringstream oss;
-      oss << base_filename << "_level_" << i << ".vtk";
-      std::string filename_solution = oss.str();
-      Plotter2D plotter;
-      plotter.plotFunction2D(filename_solution, Peval, solution_natural_basis);
-    }
+    // if (base_filename != "" and Peval.rows() == 2) {
+    //   // Create the filename for the current level
+    //   std::ostringstream oss;
+    //   oss << base_filename << "_level_" << i << ".vtk";
+    //   std::string filename_solution = oss.str();
+    //   Plotter2D plotter;
+    //   plotter.plotFunction2D(filename_solution, Peval, solution_natural_basis);
+    // }
 
-    if (base_filename != "" and Peval.rows() == 3) {
-      // Create the filename for the current level
-      std::ostringstream oss;
-      oss << base_filename << "_level_" << i << ".vtk";
-      std::string filename_solution = oss.str();
-      Plotter3D plotter;
-      plotter.plotFunction(filename_solution, Peval, solution_natural_basis);
-    }
+    // if (base_filename != "" and Peval.rows() == 3) {
+    //   // Create the filename for the current level
+    //   std::ostringstream oss;
+    //   oss << base_filename << "_level_" << i << ".vtk";
+    //   std::string filename_solution = oss.str();
+    //   Plotter3D plotter;
+    //   plotter.plotFunction(filename_solution, Peval, solution_natural_basis);
+    // }
 
     Vector diff_abs(solution_natural_basis.rows());
     for (Index i = 0; i < solution_natural_basis.rows(); ++i) {

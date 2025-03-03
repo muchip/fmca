@@ -64,38 +64,33 @@ Vector evalAnalyticalSolution(Matrix Points) {
 int main() {
   Tictoc T;
   ///////////////////////////////// Inputs: points + maximum level
-  Matrix P1;
+  Matrix P1, P2, P3, P4, P5, P6, P7, P8, P9;
   readTXT("data/L_shape_uniform_grid_level1.txt", P1, DIM);
   std::cout << "Cardianlity P1      " << P1.cols() << std::endl;
-  Matrix P2;
   readTXT("data/L_shape_uniform_grid_level2.txt", P2, DIM);
   std::cout << "Cardianlity P2      " << P2.cols() << std::endl;
-  Matrix P3;
   readTXT("data/L_shape_uniform_grid_level3.txt", P3, DIM);
   std::cout << "Cardianlity P3      " << P3.cols() << std::endl;
-  Matrix P4;
   readTXT("data/L_shape_uniform_grid_level4.txt", P4, DIM);
   std::cout << "Cardianlity P4      " << P4.cols() << std::endl;
-  Matrix P5;
   readTXT("data/L_shape_uniform_grid_level5.txt", P5, DIM);
   std::cout << "Cardianlity P5      " << P5.cols() << std::endl;
-  Matrix P6;
   readTXT("data/L_shape_uniform_grid_level6.txt", P6, DIM);
   std::cout << "Cardianlity P6      " << P6.cols() << std::endl;
-  Matrix P7;
   readTXT("data/L_shape_uniform_grid_level7.txt", P7, DIM);
   std::cout << "Cardianlity P7      " << P7.cols() << std::endl;
-  Matrix P8;
   readTXT("data/L_shape_uniform_grid_level8.txt", P8, DIM);
   std::cout << "Cardianlity P8      " << P8.cols() << std::endl;
+
   Matrix Peval;
   readTXT("data/L_shape_uniform_grid_level9.txt", Peval, DIM);
   std::cout << "Cardianlity Peval   " << Peval.cols() << std::endl;
+
   ///////////////////////////////// Nested cardinality of points
   std::vector<Matrix> P_Matrices = {P1, P2, P3, P4, P5, P6, P7, P8};
   int max_level = P_Matrices.size();
+
   ///////////////////////////////// Parameters
-  const Scalar eta = 1. / DIM;
   const Index dtilde = 5;
   const Scalar threshold_kernel = 1e-6;
   const Scalar threshold_aPost = -1;
@@ -103,15 +98,16 @@ int main() {
   const Scalar mpole_deg = 2 * (dtilde - 1);
   const std::string kernel_type = "exponential";
   const Scalar nu = 1;
-  std::cout << "eta                 " << eta << std::endl;
   std::cout << "dtilde              " << dtilde << std::endl;
   std::cout << "threshold_kernel    " << threshold_kernel << std::endl;
   std::cout << "threshold_aPost     " << threshold_aPost << std::endl;
   std::cout << "mpole_deg           " << mpole_deg << std::endl;
   std::cout << "kernel_type         " << kernel_type << std::endl;
   std::cout << "nu                  " << nu << std::endl;
+
   ///////////////////////////////// Rhs
   std::vector<Vector> residuals;
+
   ///////////////////////////////// Fill Distances and Residuals
   Vector fill_distances(max_level);
   for (Index i = 0; i < max_level; ++i) {
@@ -132,8 +128,11 @@ int main() {
   ///////////////////////////////// Coeffs Initialization
   std::vector<Vector> ALPHA;
   std::string base_filename_residuals = "Plots/LogResidualsLShape";
+  
   ///////////////////////////////// Resolution --> Scheme = Matricial form
   for (Index l = 0; l < max_level; ++l) {
+    Scalar eta = 1 / (DIM * fill_distances[l] * nu);
+
     std::cout << "-------- Level " << l + 1 << " --------" << std::endl;
     std::cout << "Fill distance                      " << fill_distances[l]
               << std::endl;
