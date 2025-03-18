@@ -183,122 +183,79 @@ class SampletMatrixCompressorUnsymmetric {
   }
 
 
-
-
-// std::vector<Triplet<Scalar>> aposteriori_triplets(const Scalar thres) {
-//     if (std::abs(thres) < FMCA_ZERO_TOLERANCE) return triplet_list_;
-
-//     // Pre-compute values we'll need multiple times
-//     const size_t n = triplet_list_.size();
-//     std::vector<std::pair<Scalar, size_t>> value_idx_pairs(n);
-    
-//     // Compute squared norm and prepare value-index pairs in one pass
-//     Scalar squared_norm = 0;
-//     #pragma omp parallel sections
-//     {
-//         #pragma omp section
-//         {
-//             #pragma omp parallel for reduction(+:squared_norm) schedule(static)
-//             for (size_t i = 0; i < n; ++i) {
-//                 const Scalar val = triplet_list_[i].value();
-//                 squared_norm += val * val;
-//             }
-//         }
-//         #pragma omp section
-//         {
-//             #pragma omp parallel for schedule(static)
-//             for (size_t i = 0; i < n; ++i) {
-//                 const auto& trip = triplet_list_[i];
-//                 value_idx_pairs[i] = {
-//                     (trip.row() == trip.col()) ? FMCA_INF : std::abs(trip.value()),
-//                     i
-//                 };
-//             }
-//         }
-//     }
-
-//     // Sort using the pre-computed values
-//     #pragma omp parallel
-//     {
-//         #pragma omp single
-//         std::sort(std::execution::par_unseq, 
-//                  value_idx_pairs.begin(), 
-//                  value_idx_pairs.end(),
-//                  [](const auto& a, const auto& b) {
-//                      return a.first > b.first;
-//                  });
-//     }
-
-//     // Find cutoff point
-//     Scalar cut_snorm = 0;
-//     Index cut_off = n;
-//     for (auto it = value_idx_pairs.rbegin(); it != value_idx_pairs.rend(); ++it) {
-//         const auto& val = triplet_list_[it->second].value();
-//         cut_snorm += val * val;
-//         if (std::sqrt(cut_snorm / squared_norm) >= thres) break;
-//         --cut_off;
-//     }
-
-//     // Ensure minimum size
-//     const Index min_pts = std::min(npts_rows_, npts_cols_);
-//     cut_off = std::max(cut_off, min_pts);
-
-//     // Create result vector
-//     std::vector<Triplet<Scalar>> result;
-//     result.reserve(cut_off);
-    
-//     #pragma omp parallel
-//     {
-//         std::vector<Triplet<Scalar>> local_results;
-//         local_results.reserve(cut_off / omp_get_num_threads() + 1);
-        
-//         #pragma omp for schedule(static)
-//         for (Index i = 0; i < cut_off; ++i) {
-//             local_results.push_back(triplet_list_[value_idx_pairs[i].second]);
-//         }
-        
-//         #pragma omp critical
-//         {
-//             result.insert(result.end(), 
-//                          std::make_move_iterator(local_results.begin()),
-//                          std::make_move_iterator(local_results.end()));
-//         }
-//     }
-
-//     return result;
-// }
+  std::vector<Triplet<Scalar>> aposteriori_triplets_fast(const Scalar thres) {
+    std::vector<Triplet<Scalar>> retval;
+    std::vector<std::vector<Index>> buckets(17);
+    std::vector<Scalar> norms2(17);
+    const Scalar invlog10 = 1. / std::log(10.);
+    for (FMCA::Index i = 0; i < triplet_list_.size(); ++i) {
+      const Scalar entry = std::abs(triplet_list_[i].value());
+      const Scalar val = -std::floor(invlog10 * std::log(entry));
+      const Index ind = val < 0 ? 0 : val;
+      buckets[ind > 16 ? 16 : ind].push_back(i);
+      norms2[ind > 16 ? 16 : ind] += entry * entry;
+    }
+    Scalar fnorm2 = 0;
+    for (int i = 16; i >= 0; --i) fnorm2 += norms2[i];
+    Scalar cut_snorm = 0;
+    Index cut_off = 17;
+    for (int i = 16; i >= 0; --i) {
+      cut_snorm += norms2[i];
+      if (std::sqrt(cut_snorm / fnorm2) >= thres) break;
+      --cut_off;
+    }
+    Index ntriplets = 0;
+    Index min_pts = std::min(npts_rows_, npts_cols_);
+    for (Index i = 0; i < cut_off; ++i) ntriplets += buckets[i].size();
+    retval.reserve(ntriplets + min_pts);
+    for (Index i = 0; i < cut_off; ++i)
+      for (const auto &it : buckets[i]) retval.push_back(triplet_list_[it]);
+    // make sure the matrix contains the diagonal
+    for (Index i = cut_off; i < 17; ++i)
+      for (const auto &it : buckets[i])
+        if (triplet_list_[it].row() == triplet_list_[it].col())
+          retval.push_back(triplet_list_[it]);
+    retval.shrink_to_fit();
+    return retval;
+  }
 
 
   std::vector<Triplet<Scalar>> aposteriori_triplets(const Scalar thres) {
     std::vector<Triplet<Scalar>> triplets = triplet_list_;
     if (std::abs(thres) < FMCA_ZERO_TOLERANCE) return triplets;
-  
+
     // sort the triplets by magnitude, putting diagonal entries first
     // note that first sorting and then summing small to large makes
     // everything stable (positive numbers). Using Kahan summation did
     // not further improve afterwards, so we stay with fast summation
+    std::vector<long int> idcs(triplet_list_.size());
+    std::iota(idcs.begin(), idcs.end(), 0);
     {
       struct comp {
-        bool operator()(const Triplet<Scalar> &a,
-                        const Triplet<Scalar> &b) const {
-          const Scalar val1 =
-              (a.row() == a.col()) ? FMCA_INF : std::abs(a.value());
-          const Scalar val2 =
-              (b.row() == b.col()) ? FMCA_INF : std::abs(b.value());
+        comp(const std::vector<Triplet<Scalar>> &triplets) : ts_(triplets) {}
+        bool operator()(const Index &a, const Index &b) const {
+          const Scalar val1 = (ts_[a].row() == ts_[a].col())
+                                  ? FMCA_INF
+                                  : std::abs(ts_[a].value());
+          const Scalar val2 = (ts_[b].row() == ts_[b].col())
+                                  ? FMCA_INF
+                                  : std::abs(ts_[b].value());
           return val1 > val2;
         }
+        const std::vector<Triplet<Scalar>> &ts_;
       };
-      std::sort(std::execution::par_unseq, triplets.begin(), triplets.end(), comp());
+      std::stable_sort(idcs.begin(), idcs.end(),
+                       comp(triplet_list_));
     }
-  
+
     Scalar squared_norm = 0;
-    for (auto it = triplets.rbegin(); it != triplets.rend(); ++it)
-      squared_norm += it->value() * it->value();
-  
+    for (auto it = idcs.rbegin(); it != idcs.rend(); ++it)
+      squared_norm += triplet_list_[*it].value() * triplet_list_[*it].value();
+
     Scalar cut_snorm = 0;
-    Index cut_off = triplets.size();
-    for (auto it = triplets.rbegin(); it != triplets.rend(); ++it) {
-      cut_snorm += it->value() * it->value();
+    Index cut_off = triplet_list_.size();
+    for (auto it = idcs.rbegin(); it != idcs.rend(); ++it) {
+      cut_snorm += triplet_list_[*it].value() * triplet_list_[*it].value();
       if (std::sqrt(cut_snorm / squared_norm) >= thres) break;
       --cut_off;
     }
@@ -306,6 +263,7 @@ class SampletMatrixCompressorUnsymmetric {
     Index min_pts = std::min(npts_rows_, npts_cols_);
     cut_off = cut_off < min_pts ? min_pts : cut_off;
     triplets.resize(cut_off);
+    for (Index i = 0; i < cut_off; ++i) triplets[i] = triplet_list_[idcs[i]];
     return triplets;
   }
 

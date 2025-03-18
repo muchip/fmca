@@ -2,3 +2,4 @@ local_tests/
 degub.sh
 compile_and_run.sh
 read_files_txt.h
+.vscode/

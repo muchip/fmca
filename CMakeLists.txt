@@ -22,20 +22,25 @@ license and without any warranty, see <https://github.com/muchip/FMCA>
 for further information.
 ")
 
+# Add CMake modules path
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+
+# Find required packages
 find_package(Eigen3 REQUIRED)
 find_package(Python COMPONENTS Interpreter Development)
 find_package(pybind11 CONFIG)
 find_package(OpenMP)
 
+# Include Eigen headers
 include_directories(${EIGEN3_INCLUDE_DIR})
-message("${CMAKE_MODULE_PATH}")
-message("${EIGEN3_INCLUDE_DIR}")
 
+# Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
-set (FMCA_PATH ${PROJECT_SOURCE_DIR})
-message("${PROJECT_SOURCE_DIR}")
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(FMCA_PATH ${PROJECT_SOURCE_DIR})
+
+# Set compiler flags
 set(CMAKE_CXX_FLAGS "-I${FMCA_PATH}")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 if(OpenMP_CXX_FOUND)
@@ -44,9 +49,16 @@ else()
   set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 endif()
 
-set( PROJECT_SOURCE_DIR "${PROJECT_SOURCE_DIR}")
+# Include project source directory
 include_directories("${PROJECT_SOURCE_DIR}")
 
+# Include MulitGrid source directory
+include_directories("${PROJECT_SOURCE_DIR}/MultiGrid/MULTIGRID/src")
+
+# Add tests and pybind11 subdirectories
 add_subdirectory(tests)
 add_subdirectory(py)
+
+# Enable testing
 enable_testing()
+
