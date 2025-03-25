@@ -12,8 +12,6 @@
 #ifndef FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_H_
 #define FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_H_
 
-#include <execution>
-
 #include "../util/RandomTreeAccessor.h"
 
 namespace FMCA {
@@ -309,8 +307,7 @@ class SampletMatrixCompressor {
         }
         const std::vector<Triplet<Scalar>> &ts_;
       };
-      std::stable_sort(std::execution::par_unseq, idcs.begin(), idcs.end(),
-                       comp(triplet_list_));
+      std::sort(idcs.begin(), idcs.end(), comp(triplet_list_));
     }
 
     Scalar squared_norm = 0;
@@ -412,51 +409,6 @@ class SampletMatrixCompressor {
             (srow == scol && j == k))
           triplet_buffer.push_back(
               Eigen::Triplet<Scalar>(srow + j, scol + k, block(j, k)));
-  }
-
-  /**
-   *  \brief writes a given matrix block into a-posteriori thresholded
-   *         triplet format
-   **/
-  void storeBlock2(std::vector<Eigen::Triplet<Scalar>> &triplet_buffer,
-                   Index srow, Index scol, Index nrows, Index ncols,
-                   const Matrix &block) {
-    struct comp {
-      bool operator()(const Eigen::Triplet<Scalar> &a,
-                      const Eigen::Triplet<Scalar> &b) const {
-        const Scalar val1 =
-            (a.row() == a.col()) ? FMCA_INF : std::abs(a.value());
-        const Scalar val2 =
-            (b.row() == b.col()) ? FMCA_INF : std::abs(b.value());
-        return val1 > val2;
-      }
-    };
-    std::vector<Eigen::Triplet<Scalar>> triplets;
-    triplets.reserve(block.size());
-    for (auto k = 0; k < ncols; ++k)
-      for (auto j = 0; j < nrows; ++j)
-        if ((srow + j <= scol + k &&
-             std::abs(block(j, k)) > FMCA_ZERO_TOLERANCE) ||
-            (srow == scol && j == k))
-          triplets.push_back(
-              Eigen::Triplet<Scalar>(srow + j, scol + k, block(j, k)));
-    std::sort(triplets.begin(), triplets.end(), comp());
-
-    Scalar squared_norm = 0;
-    for (auto it = triplets.rbegin(); it != triplets.rend(); ++it)
-      squared_norm += it->value() * it->value();
-    Scalar cut_snorm = 0;
-    Index cut_off = triplets.size();
-    for (auto it = triplets.rbegin(); it != triplets.rend(); ++it) {
-      cut_snorm += it->value() * it->value();
-      if (std::sqrt(cut_snorm / squared_norm) >= threshold_) break;
-      --cut_off;
-    }
-    // keep at least the diagonal
-    if (srow == scol) cut_off = cut_off < nrows ? nrows : cut_off;
-    triplets.resize(cut_off);
-    triplet_buffer.insert(triplet_buffer.end(), triplets.begin(),
-                          triplets.end());
   }
 
   void storeEmptyBlock(std::vector<Eigen::Triplet<Scalar>> &triplet_buffer,
