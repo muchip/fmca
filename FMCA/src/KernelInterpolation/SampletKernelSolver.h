@@ -10,12 +10,11 @@
 // for further information.
 //
 
-#ifndef FMCA_SAMPLETS_SAMPLETKERNELSOLVER_H_
-#define FMCA_SAMPLETS_SAMPLETKERNELSOLVER_H_
+#ifndef FMCA_KERNELINTERPOLATION_SAMPLETKERNELSOLVER_H_
+#define FMCA_KERNELINTERPOLATION_SAMPLETKERNELSOLVER_H_
 
 namespace FMCA {
-template <typename SparseMatrix =
-              Eigen::SparseMatrix<FMCA::Scalar, Eigen::ColMajor, int>>
+template <typename SparseMatrix = Eigen::SparseMatrix<FMCA::Scalar>>
 class SampletKernelSolver {
  public:
   using Interpolator = TotalDegreeInterpolator;
@@ -24,6 +23,14 @@ class SampletKernelSolver {
   using SampletMoments = NystromSampletMoments<SampletInterpolator>;
   using MatrixEvaluator = NystromEvaluator<Moments, FMCA::CovarianceKernel>;
   using SampletTree = H2SampletTree<ClusterTree>;
+#ifdef CHOLMOD_SUPPORT
+  using Cholesky = Eigen::CholmodSupernodalLLT<SparseMatrix, Eigen::Upper>;
+#elif METIS_SUPPORT
+  using Cholesky = Eigen::SimplicialLDLT<SparseMatrix, Eigen::Upper,
+                                         Eigen::MetisOrdering<int>>;
+#else
+  using Cholesky = Eigen::SimplicialLDLT<SparseMatrix, Eigen::Upper>;
+#endif
 
   SampletKernelSolver() {}
 
@@ -97,6 +104,7 @@ class SampletKernelSolver {
     Matrix sol = hst_.toClusterOrder(rhs);
     sol = hst_.sampletTransform(sol);
     sol = llt_.solve(sol);
+    sol = hst_.inverseSampletTransform(sol);
     return hst_.toNaturalOrder(sol);
   }
 

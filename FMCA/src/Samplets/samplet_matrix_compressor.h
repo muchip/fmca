@@ -252,7 +252,7 @@ class SampletMatrixCompressor {
     std::vector<Triplet<Scalar>> retval;
     std::vector<std::vector<Index>> buckets(17);
     std::vector<Scalar> norms2(17);
-    constexpr Scalar invlog10 = 1. / std::log(10.);
+    const Scalar invlog10 = 1. / std::log(10.);
     for (FMCA::Index i = 0; i < triplet_list_.size(); ++i) {
       const Scalar entry = std::abs(triplet_list_[i].value());
       const Scalar val = -std::floor(invlog10 * std::log(entry));

@@ -16,7 +16,7 @@
 namespace FMCA {
 class CovarianceKernel {
  public:
-  CovarianceKernel(){};
+  CovarianceKernel() {};
   CovarianceKernel(const CovarianceKernel &other) {
     kernel_ = other.kernel_;
     ktype_ = other.ktype_;
@@ -88,7 +88,6 @@ class CovarianceKernel {
     else if (ktype_ == "GAUSSIAN")
       kernel_ = [this](Scalar r) { return std::exp(-0.5 * r * r / (l_ * l_)); };
     ////////////////////////////////////////////////////////////////////////////
-
     else if (ktype_ == "MATERNNU")
       kernel_ = [this](Scalar r) {
         const Scalar arg = std::sqrt(2 * nu_) * r / l_;
