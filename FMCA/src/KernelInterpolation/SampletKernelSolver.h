@@ -58,13 +58,19 @@ class SampletKernelSolver {
     threshold_ = threshold >= 0 ? threshold : 0;
     ridgep_ = ridgep >= 0 ? ridgep : 0;
     // init moments and samplet tree
-    Moments mom(P, mpole_deg_);
-    SampletMoments smom(P, dtilde_ - 1);
+    const Moments mom(P, mpole_deg_);
+    const SampletMoments smom(P, dtilde_ - 1);
     hst_.init(mom, smom, 0, P);
-    Vector minvec = minDistanceVector(hst_, P);
+    const Vector minvec = minDistanceVector(hst_, P);
     fill_distance_ = minvec.maxCoeff();
     separation_radius_ = minvec.minCoeff();
     // compress kernel
+
+    return;
+  }
+
+  void compress(const Matrix& P) {
+    const Moments mom(P, mpole_deg_);
     compressor_.init(hst_, eta_, FMCA_ZERO_TOLERANCE);
     const MatrixEvaluator mat_eval(mom, kernel_);
     compressor_.compress(mat_eval);
@@ -74,10 +80,8 @@ class SampletKernelSolver {
     K_.setFromTriplets(trips.begin(), trips.end());
     if (ridgep_ > 0) K_.diagonal() = K_.diagonal().array() + ridgep_;
     K_.makeCompressed();
-
     return;
   }
-
   //////////////////////////////////////////////////////////////////////////////
   Scalar compressionError(const Matrix& P) const {
     Vector x(K_.cols()), y1(K_.rows()), y2(K_.rows());

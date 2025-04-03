@@ -32,6 +32,7 @@ int main() {
   const FMCA::Scalar eta = 0.5;
   T.tic();
   FMCA::SampletKernelSolver SKS(function, P, dtilde, eta, threshold);
+  SKS.compress(P);
   FMCA::MultipoleFunctionEvaluator MFE(function, P, Peval, eta, 10);
   T.toc("compression time:            ");
   std::cout << "Compression error:            " << SKS.compressionError(P)
