@@ -32,11 +32,18 @@ class SampletKernelSolver {
   using Cholesky = Eigen::SimplicialLDLT<SparseMatrix, Eigen::Upper>;
 #endif
 
-  SampletKernelSolver() {}
+  SampletKernelSolver() noexcept {}
+
+  SampletKernelSolver(const SampletKernelSolver& other) = delete;
+
+  SampletKernelSolver(SampletKernelSolver&& other) noexcept {
+    // this is a dummy move constructor needed to be able to wrap the class into
+    // std::vector
+  }
 
   SampletKernelSolver(const CovarianceKernel& kernel, const Matrix& P,
                       Index dtilde, Scalar eta = 0., Scalar threshold = 0.,
-                      Scalar ridgep = 0.) {
+                      Scalar ridgep = 0.) noexcept {
     init(kernel, P, dtilde, eta, threshold, ridgep);
     return;
   }
@@ -105,7 +112,8 @@ class SampletKernelSolver {
     sol = hst_.sampletTransform(sol);
     sol = llt_.solve(sol);
     sol = hst_.inverseSampletTransform(sol);
-    return hst_.toNaturalOrder(sol);
+    sol = hst_.toNaturalOrder(sol);
+    return sol;
   }
 
  private:
