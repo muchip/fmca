@@ -103,7 +103,7 @@ class SampletKernelSolver {
 
   //////////////////////////////////////////////////////////////////////////////
   // getter
-  const SparseMatrix& K() const {}
+  const SparseMatrix& K() const { return K_; }
   const Scalar fill_distance() const { return fill_distance_; }
   const Scalar separation_radius() const { return separation_radius_; }
   //////////////////////////////////////////////////////////////////////////////
