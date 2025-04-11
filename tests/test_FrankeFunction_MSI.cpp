@@ -68,19 +68,6 @@ Matrix generateUniformGrid(int n) {
     return P;
 }
 
-// Function to calculate minimum distance between points
-Vector minDistanceVector(const H2SampletTree<ClusterTree>& hst, const Matrix& P) {
-    // Simple implementation for unit test - for a uniform grid, 
-    // the min distance is just the grid spacing
-    int n = P.cols();
-    int gridSize = std::sqrt(n);
-    Scalar h = 1.0 / (gridSize - 1);
-    
-    Vector minDistance(n);
-    minDistance.setConstant(h);
-    
-    return minDistance;
-}
 
 void runMultigridTest(Scalar nu) {
     std::cout << "======== Running Multigrid Test with nu = " << nu << " ========" << std::endl;
