@@ -21,7 +21,7 @@ namespace internal {
 template <>
 struct traits<RandomProjectionTree> {
   typedef ClusterTreeNode Node;
-  typedef ClusterSplitter::FastRandomProjection Splitter;
+  typedef ClusterSplitter::RandomProjection Splitter;
 };
 }  // namespace internal
 
@@ -45,6 +45,7 @@ struct RandomProjectionTree : public ClusterTreeBase<RandomProjectionTree> {
   using Base::node;
   using Base::nSons;
   using Base::sons;
+  using initializer = internal::ClusterTreeInitializer<ClusterTree>;
   //////////////////////////////////////////////////////////////////////////////
   // constructors
   //////////////////////////////////////////////////////////////////////////////
@@ -56,7 +57,7 @@ struct RandomProjectionTree : public ClusterTreeBase<RandomProjectionTree> {
   // implementation of init
   //////////////////////////////////////////////////////////////////////////////
   void init(const Matrix &P, Index min_csize = 1) {
-    internal::ClusterTreeInitializer<ClusterTree>::init(*this, min_csize, P);
+    initializer::init(*this, min_csize, P);
   }
 };
 

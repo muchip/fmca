@@ -27,15 +27,20 @@ class Grid2D {
     nx_ = nx;
     ny_ = ny;
     P_.resize(3, nx_ * ny_);
+    px_.resize(1, nx_);
+    py_.resize(1, ny_);
     P_.setZero();
     hx_ = (pts_max_(0) - pts_min_(0)) / (nx_ - 1);
     hy_ = (pts_max_(1) - pts_min_(1)) / (ny_ - 1);
     Index l = 0;
+    for (Index i = 0; i < nx_; ++i) px_(0, i) = pts_min_(0) + hx_ * i;
+    for (Index j = 0; j < ny_; ++j) py_(0, j) = pts_min_(1) + hy_ * j;
     for (Index j = 0; j < ny_; ++j)
-      for (Index i = 0; i < nx_; ++i, ++l)
-        P_.col(l) << pts_min_(0) + hx_ * i, pts_min_(1) + hy_ * j, 0;
+      for (Index i = 0; i < nx_; ++i, ++l) P_.col(l) << px_(0, i), py_(0, j), 0;
   }
   const Matrix &P() const { return P_; }
+  const Matrix &px() const { return px_; }
+  const Matrix &py() const { return py_; }
 
   void plotFunction(const std::string &fileName, const Eigen::VectorXd &f) {
     std::ofstream myfile;
@@ -59,6 +64,8 @@ class Grid2D {
   Matrix P_;
   Vector pts_min_;
   Vector pts_max_;
+  Matrix px_;
+  Matrix py_;
   Scalar hx_;
   Scalar hy_;
   Index nx_;

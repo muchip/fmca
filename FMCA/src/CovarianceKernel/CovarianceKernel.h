@@ -16,7 +16,7 @@
 namespace FMCA {
 class CovarianceKernel {
  public:
-  CovarianceKernel(){};
+  CovarianceKernel() {};
   CovarianceKernel(const CovarianceKernel &other) {
     kernel_ = other.kernel_;
     ktype_ = other.ktype_;
@@ -88,7 +88,6 @@ class CovarianceKernel {
     else if (ktype_ == "GAUSSIAN")
       kernel_ = [this](Scalar r) { return std::exp(-0.5 * r * r / (l_ * l_)); };
     ////////////////////////////////////////////////////////////////////////////
-
     else if (ktype_ == "MATERNNU")
       kernel_ = [this](Scalar r) {
         const Scalar arg = std::sqrt(2 * nu_) * r / l_;
@@ -110,11 +109,6 @@ class CovarianceKernel {
       assert(false && "desired kernel not implemented");
   }
 
-  //////////////////////////////////////////////////////////////////////////////
-  void setNu(const Scalar nu) { nu_ = nu; }
-  void setL(const Scalar l) { l_ = l; }
-  void setC(const Scalar c) { c_ = c; }
-
   template <typename derived, typename otherDerived>
   Scalar operator()(const Eigen::MatrixBase<derived> &x,
                     const Eigen::MatrixBase<otherDerived> &y) const {
@@ -129,7 +123,16 @@ class CovarianceKernel {
     return retval;
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+  const Scalar &nu() const { return nu_; }
+  const Scalar &l() const { return l_; }
+  const Scalar &c() const { return c_; }
+  Scalar &nu() { return nu_; }
+  Scalar &l() { return l_; }
+  Scalar &c() { return c_; }
+
   std::string kernelType() const { return ktype_; }
+  const std::function<Scalar(Scalar)> &kernel() { return kernel_; }
 
  private:
   // member variables
