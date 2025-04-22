@@ -33,6 +33,11 @@
   #include <Eigen/MetisSupport>
 #endif
 
+#ifdef CG_SUPPORT
+  #include <Eigen/IterativeLinearSolvers>
+#endif
+
+#include "src/KernelInterpolation/MultilevelSampletKernelSolver.h"
 #include "src/KernelInterpolation/SampletKernelSolver.h"
 #include "src/KernelInterpolation/MultipoleFunctionEvaluator.h"
 #endif

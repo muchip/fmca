@@ -43,7 +43,7 @@ class MultipoleFunctionEvaluator {
     hct_.init(cmom, 0, P);
     hct_eval_.init(rmom, 0, Peval);
     h2mat_.computePattern(hct_eval_, hct_, eta_);
-    h2mat_.statistics();
+    // h2mat_.statistics();
 
     return;
   }
