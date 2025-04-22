@@ -13,11 +13,11 @@
 #ifndef FMCA_KERNELINTERPOLATION_MULTILEVELSAMPLETKERNELSOLVER_H_
 #define FMCA_KERNELINTERPOLATION_MULTILEVELSAMPLETKERNELSOLVER_H_
 
-#include <../util/Tictoc.h>
-
 #include <random>
 #include <stdexcept>
 #include <string>
+
+#include "../util/Tictoc.h"
 
 namespace FMCA {
 //////////////////////////////////////////////////////////////////////////////
@@ -46,11 +46,6 @@ class MultilevelSampletKernelSolver {
   using SampletMoments = NystromSampletMoments<SampletInterpolator>;
   using MatrixEvaluator = NystromEvaluator<Moments, FMCA::CovarianceKernel>;
   using SampletTree = H2SampletTree<ClusterTree>;
-  #ifdef CG_SUPPORT
-    using CG = Eigen::ConjugateGradient<SparseMatrix, Eigen::Lower | Eigen::Upper,
-    Eigen::IdentityPreconditioner>;
-    using CGPrecond = Eigen::ConjugateGradient<SparseMatrix, Eigen::Lower | Eigen::Upper>;
-  #endif
 
   MultilevelSampletKernelSolver() noexcept {}
 
@@ -161,17 +156,17 @@ class MultilevelSampletKernelSolver {
                         const std::string& solverName = "ConjugateGradient",
                         Scalar threshold_CG = 1e-6) {
     Tictoc timer;
-    // rhs in samplet basis
     Vector rhs_copy = rhs;
     rhs_copy = hst_.toClusterOrder(rhs_copy);
     rhs_copy = hst_.sampletTransform(rhs_copy);
-    // solution initialization
     Vector sol;
-    // selfadjointView for CG
     SparseMatrix K_sym = K_.template selfadjointView<Eigen::Upper>();
+
     if (solverName == "ConjugateGradient") {
       timer.tic();
-      CG solver;
+      Eigen::ConjugateGradient<SparseMatrix, Eigen::Lower | Eigen::Upper,
+                               Eigen::IdentityPreconditioner>
+          solver;
       solver.setTolerance(threshold_CG);
       solver.compute(K_sym);
       if (solver.info() != Eigen::Success)
@@ -182,7 +177,8 @@ class MultilevelSampletKernelSolver {
       CG_stats_.residual_error = (K_sym * sol - rhs_copy).norm();
     } else if (solverName == "ConjugateGradientwithPreconditioner") {
       timer.tic();
-      CGPrecond solver;
+      Eigen::ConjugateGradient<SparseMatrix, Eigen::Lower | Eigen::Upper>
+          solver;
       solver.setTolerance(threshold_CG);
       solver.compute(K_sym);
       if (solver.info() != Eigen::Success)
@@ -198,6 +194,7 @@ class MultilevelSampletKernelSolver {
           "'ConjugateGradient' or "
           "'ConjugateGradientwithPreconditioner'");
     }
+
     sol = hst_.inverseSampletTransform(sol);
     sol = hst_.toNaturalOrder(sol);
     return sol;

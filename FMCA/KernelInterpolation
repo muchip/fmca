@@ -20,6 +20,10 @@
  **/
  
 #include<Eigen/Sparse>
+#include <Eigen/IterativeLinearSolvers>
+#include <random>
+#include <stdexcept>
+#include <string>
 
 #include "CovarianceKernel"
 #include "Samplets"
@@ -33,9 +37,6 @@
   #include <Eigen/MetisSupport>
 #endif
 
-#ifdef CG_SUPPORT
-  #include <Eigen/IterativeLinearSolvers>
-#endif
 
 #include "src/KernelInterpolation/MultilevelSampletKernelSolver.h"
 #include "src/KernelInterpolation/SampletKernelSolver.h"

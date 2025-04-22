@@ -1,10 +1,8 @@
 find_package(Eigen3 REQUIRED)
 
 link_directories(${CMAKE_SOURCE_DIR}/FMCA)
-link_directories(${CMAKE_SOURCE_DIR}/MSI)
 
 include_directories(${CMAKE_SOURCE_DIR}/FMCA)
-include_directories(${CMAKE_SOURCE_DIR}/MSI)
 
 add_executable(test_ClusterTreeMetrics.out test_ClusterTreeMetrics.cpp)
 add_test(ClusterTreeMetrics test_ClusterTreeMetrics.out)
@@ -52,7 +50,7 @@ add_test(AdaptiveTreeSearch test_AdaptiveTreeSearch.out)
 add_executable(test_kNN.out test_kNN.cpp)
 add_test(kNN test_kNN.out)
 
-add_executable(test_FrankeFunction_MSI.out test_FrankeFunction_MSI.cpp)
-add_test(FrankeFunction_MSI test_FrankeFunction_MSI.out)
+add_executable(test_MultilevelFrankeFunction.out test_MultilevelFrankeFunction.cpp)
+add_test(test_MultilevelFrankeFunction test_MultilevelFrankeFunction.out)
 
 enable_testing()
