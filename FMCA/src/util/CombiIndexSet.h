@@ -37,7 +37,7 @@ class CombiIndexSet {
   typedef std::map<std::vector<Index>, std::ptrdiff_t,
                    FMCA_Compare<std::vector<Index>>>
       combi_index_set;
-  CombiIndexSet(){};
+  CombiIndexSet() {};
   template <typename... Ts>
   CombiIndexSet(Ts &&...ts) {
     init(std::forward<Ts>(ts)...);
@@ -224,6 +224,63 @@ struct CombiIndexSetInitializer<WeightedTotalDegree> {
     return cw;
   }
 };
+
+#if 1
+template <>
+struct CombiIndexSetInitializer<WeightedDroplet> {
+  template <typename T>
+  static void init(T &set, Index dim, Index max_degree,
+                   const std::vector<Scalar> &weights) {
+    set.dim() = dim;
+    set.max_degree() = max_degree;
+    set.is_element().weights_ = weights;
+    set.is_element().max_degree_ = max_degree;
+    set.index_set().clear();
+    std::vector<Index> index(set.dim(), 0);
+    Scalar sumw = 0;
+
+    for (auto i = 0; i < dim; ++i) sumw += weights[i];
+
+    Index p = 0;
+    while (index[set.dim() - 1] * weights[dim - 1] <= set.max_degree()) {
+      Scalar scap = 0;
+      for (auto j = 0; j < dim; ++j) scap += Scalar(index[j]) * weights[j];
+      if (scap > max_degree) {
+        index[p] = 0;
+        ++p;
+      } else {
+        size_t cw = 0;
+        if (scap > max_degree - sumw)
+          cw = combinationWeight(set, 0, 1, 1, max_degree - scap);
+        if (cw) set.index_set().insert(std::make_pair(index, cw));
+        p = 0;
+      }
+      index[p] += 1;
+    }
+    return;
+  }
+
+  template <typename T>
+  static std::ptrdiff_t combinationWeight(T &set, Index maxBit,
+                                          std::ptrdiff_t cw, Index lvl,
+                                          Scalar q) {
+    for (auto i = maxBit; i < set.dim(); ++i) {
+      q -= set.is_element().weights_[i];
+      if (q >= 0) {
+        cw += (lvl % 2) ? -1 : 1;
+        cw = combinationWeight(set, i + 1, cw, lvl + 1, q);
+        q += set.is_element().weights_[i];
+      } else {
+        // this is the major difference to the general class, we may break
+        // here due to the increasingly ordered weights
+        q += set.is_element().weights_[i];
+        break;
+      }
+    }
+    return cw;
+  }
+};
+#endif
 
 }  // namespace FMCA
 
