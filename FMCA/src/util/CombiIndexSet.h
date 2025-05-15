@@ -37,7 +37,7 @@ class CombiIndexSet {
   typedef std::map<std::vector<Index>, std::ptrdiff_t,
                    FMCA_Compare<std::vector<Index>>>
       combi_index_set;
-  CombiIndexSet(){};
+  CombiIndexSet() {};
   template <typename... Ts>
   CombiIndexSet(Ts &&...ts) {
     init(std::forward<Ts>(ts)...);
