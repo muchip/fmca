@@ -25,7 +25,6 @@ enum IndexSetType {
   TotalDegree,
   TensorProduct,
   WeightedTotalDegree,
-  WeightedDroplet
 };
 
 template <IndexSetType T>
@@ -52,24 +51,6 @@ struct IndexSetCriterion<TotalDegree> {
 
 template <>
 struct IndexSetCriterion<WeightedTotalDegree> {
-  IndexSetCriterion() {};
-  IndexSetCriterion(Index max_degree, const std::vector<Scalar> &weights)
-      : max_degree_(max_degree), weights_(weights) {}
-
-  template <typename T>
-  bool operator()(const T &index) {
-    assert(index.size() == weights_.size() && "dimension mismatch");
-    Scalar sum = 0;
-    for (auto i = 0; i < index.size(); ++i) sum += index[i] * weights_[i];
-    return sum <= max_degree_;
-  }
-
-  Index max_degree_;
-  std::vector<Scalar> weights_;
-};
-
-template <>
-struct IndexSetCriterion<WeightedDroplet> {
   IndexSetCriterion() {};
   IndexSetCriterion(Index max_degree, const std::vector<Scalar> &weights)
       : max_degree_(max_degree), weights_(weights) {}

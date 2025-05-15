@@ -21,7 +21,7 @@ namespace FMCA {
  *         a given multi index n;
  **/
 template <typename MultiIndexSet>
-void TensorProductDroplet(const typename MultiIndexSet::key_type &n,
+void tensorProductDroplet(const typename MultiIndexSet::key_type &n,
                           MultiIndexSet &set) {
   const Index dim = n.size();
   typename MultiIndexSet::key_type mult_ind(dim);
@@ -48,7 +48,7 @@ void TensorProductDroplet(const typename MultiIndexSet::key_type &n,
  *         than q
  **/
 template <typename VectorT, typename MultiIndexSet>
-void WeightedTotalDegreeDroplet(const VectorT &w, const Scalar q,
+void weightedTotalDegreeDroplet(const VectorT &w, const Scalar q,
                                 MultiIndexSet &set) {
   const Index dim = w.size();
   typename MultiIndexSet::key_type mult_ind(dim);
@@ -77,7 +77,7 @@ void WeightedTotalDegreeDroplet(const VectorT &w, const Scalar q,
  *  \brief computes the combination weight using a droplet algorithm
  **/
 template <typename VectorT>
-int CombiWeightDroplet(const VectorT &w, const Scalar q) {
+int weightedTotalDegreecombiWeightDroplet(const VectorT &w, const Scalar q) {
   int cw = 0;
   const Index dim = w.size();
   std::vector<Index> mult_ind(dim, 0);
@@ -101,31 +101,8 @@ int CombiWeightDroplet(const VectorT &w, const Scalar q) {
   return cw;
 }
 
-template <typename VectorT>
-static std::ptrdiff_t combinationWeight2(const VectorT &w, Index maxBit,
-                                         std::ptrdiff_t cw, Index lvl,
-                                         Scalar q) {
-  for (auto i = maxBit; i < w.size(); ++i) {
-    q -= w[i];
-    if (q >= 0) {
-      if (lvl % 2)
-        --cw;
-      else
-        ++cw;
-      cw = combinationWeight2(w, i + 1, cw, lvl + 1, q);
-      q += w[i];
-    } else {
-      // this is the major difference to the general class, we may break
-      // here due to the increasingly ordered weights
-      q += w[i];
-      break;
-    }
-  }
-  return cw;
-}
-
 template <typename VectorT, typename MultiIndexSet>
-void WeightedTotalDegreeCombiDroplet(const VectorT &w, const Scalar q,
+void weightedTotalDegreeCombiDroplet(const VectorT &w, const Scalar q,
                                      MultiIndexSet &set) {
   const Index dim = w.size();
   typename MultiIndexSet::key_type mult_ind(dim);
@@ -144,12 +121,8 @@ void WeightedTotalDegreeCombiDroplet(const VectorT &w, const Scalar q,
       ++p;
     } else {
       std::ptrdiff_t cw = 0;
-      if (scap > q - sumw) {
-        cw = CombiWeightDroplet(w, q - scap);
-        //cw = combinationWeight2(w, 0, 1, 1, q - scap);
-        //    std::cout << cw << " " << combinationWeight2(w, 0, 1, 1, q - scap)
-        //            << std::endl;
-      }
+      if (scap > q - sumw)
+        cw = weightedTotalDegreecombiWeightDroplet(w, q - scap);
       if (cw) set.insert(std::make_pair(mult_ind, cw));
       p = 0;
     }

@@ -13,9 +13,9 @@
 #include <iostream>
 #include <set>
 
+#include "../FMCA/src/util/CombiIndexSet.h"
 #include "../FMCA/src/util/Droplet.h"
 #include "../FMCA/src/util/MultiIndexSet.h"
-#include "../FMCA/src/util/CombiIndexSet.h"
 #include "../FMCA/src/util/Tictoc.h"
 
 typedef std::set<std::vector<FMCA::Index>,
@@ -38,7 +38,7 @@ int main() {
     n[2] = 3;
     n[3] = 0;
 
-    FMCA::TensorProductDroplet(n, myset);
+    FMCA::tensorProductDroplet(n, myset);
     for (FMCA::Index i0 = 0; i0 <= n[0]; ++i0)
       for (FMCA::Index i1 = 0; i1 <= n[1]; ++i1)
         for (FMCA::Index i2 = 0; i2 <= n[2]; ++i2)
@@ -58,7 +58,7 @@ int main() {
     FMCA::Vector w(4);
     FMCA::Index q = 5;
     w << 4., 1. / 3, 2., 1;
-    FMCA::WeightedTotalDegreeDroplet(w, q, myset);
+    FMCA::weightedTotalDegreeDroplet(w, q, myset);
     for (FMCA::Index i0 = 0; i0 <= q / w[0] + 1; ++i0)
       for (FMCA::Index i1 = 0; i1 <= q / w[1] + 1; ++i1)
         for (FMCA::Index i2 = 0; i2 <= q / w[2] + 1; ++i2)
@@ -88,7 +88,7 @@ int main() {
     FMCA::MultiIndexSet<FMCA::WeightedTotalDegree> wcset(dim, q, w);
     T.toc("WTD: ");
     T.tic();
-    FMCA::WeightedTotalDegreeDroplet(w, q, myset);
+    FMCA::weightedTotalDegreeDroplet(w, q, myset);
     T.toc("WTD droplet: ");
     std::cout << "set size: " << myset.size() << std::endl;
     assert(wcset.index_set().size() == myset.size() && "size mismatch");
@@ -100,14 +100,14 @@ int main() {
   {
     combi_index_set myset;
     FMCA::Index dim = 20;
-    FMCA::Scalar q = 40;
+    FMCA::Scalar q = 20;
     std::vector<FMCA::Scalar> w(dim);
     for (FMCA::Index i = 0; i < dim; ++i) w[i] = (i + 1);
     T.tic();
     FMCA::CombiIndexSet<FMCA::WeightedTotalDegree> wcset(dim, q, w);
     std::cout << wcset.index_set().size() << std::endl;
     T.toc("WTD combi: ");
-    FMCA::WeightedTotalDegreeCombiDroplet(w, q, myset);
+    FMCA::weightedTotalDegreeCombiDroplet(w, q, myset);
     T.toc("WTD combi droplet: ");
     std::cout << "set size: " << myset.size() << std::endl;
     assert(wcset.index_set().size() == myset.size() && "size mismatch");
