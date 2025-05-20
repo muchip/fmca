@@ -30,6 +30,7 @@
 
 #include "src/util/ForwardDeclarations.h"
 #include "src/util/Macros.h"
+#include "src/util/Graph.h"
 #include "src/util/TreeBase.h"
 
 #include "src/Clustering/Admissibility.h"
@@ -38,9 +39,11 @@
 #include "src/Clustering/ClusterTreeBase.h"
 #include "src/Clustering/ClusterTreeInitializer_ClusterTree.h"
 #include "src/Clustering/ClusterTreeInitializer_MortonClusterTree.h"
+#include "src/Clustering/ClusterTreeInitializer_MetisClusterTree.h"
 #include "src/Clustering/RandomProjectionTree.h"
 #include "src/Clustering/ClusterTree.h"
 #include "src/Clustering/MortonClusterTree.h"
+#include "src/Clustering/MetisClusterTree.h"
 #include "src/Clustering/ClusterTreeMetrics.h"
 #include "src/Clustering/kNN.h"
 #include "src/Clustering/epsNN.h"
