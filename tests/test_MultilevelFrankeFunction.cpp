@@ -78,7 +78,7 @@ void runMultigridTest(Scalar nu) {
   const Scalar mpole_deg = 2 * (dtilde - 1);
   const std::string kernel_type = "matern52";
   const Scalar ridgep = 0;
-  std::string solverName = "ConjugateGradient";
+  std::string solverName = "ConjugateGradientwithPreconditioner";
   Scalar cg_threshold = 1e-6;
 
   std::cout << "Parameters:" << std::endl;
