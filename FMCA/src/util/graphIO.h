@@ -23,10 +23,11 @@ namespace IO {
 /**
  *  \brief exports a list of points in vtk
  **/
-template <typename Derived>
+template <typename Derived, typename otherDerived>
 void plotGraph(const std::string &fileName, const Eigen::MatrixBase<Derived> &P,
-               const std::vector<Eigen::Triplet<Index>> &A) {
+               const Eigen::SparseMatrixBase<otherDerived> &A) {
   if (P.rows() > 3 || P.rows() < 2) return;
+  std::vector<Scalar> color;
   std::ofstream myfile;
   myfile.open(fileName);
   myfile << "# vtk DataFile Version 3.1\n";
@@ -45,17 +46,34 @@ void plotGraph(const std::string &fileName, const Eigen::MatrixBase<Derived> &P,
 
   // print element list
   const int nvertices = 2;
-  const int nedges = A.size();
+  const int nedges = A.derived().nonZeros() / 2;
+  color.reserve(nedges);
   myfile << "CELLS " << nedges << " " << (nvertices + 1) * nedges << "\n";
-  for (auto i = 0; i < A.size(); ++i) {
-    myfile << Index(nvertices);
-    myfile << " " << A[i].row() << " " << A[i].col() << "\n";
+  for (Index k = 0; k < A.outerSize(); ++k) {
+    for (typename otherDerived::InnerIterator it(A.derived(), k); it; ++it) {
+      // Access row, column, and value:
+      Index row = it.row();
+      Index col = it.col();
+      Scalar value = it.value();
+      if (row > col) {
+        color.push_back(value);
+        myfile << Index(nvertices);
+        myfile << " " << row << " " << col << "\n";
+      }
+    }
   }
+
   myfile << "\n";
 
   myfile << "CELL_TYPES " << nedges << "\n";
   for (auto i = 0; i < nedges; ++i) myfile << Index(3) << "\n";
   myfile << "\n";
+
+  myfile << "CELL_DATA " << color.size() << "\n";
+  myfile << "SCALARS Distance FLOAT\n";
+  myfile << "LOOKUP_TABLE default\n";
+  for (auto i = 0; i < color.size(); ++i) myfile << color[i] << "\n";
+
   myfile.close();
   return;
 }

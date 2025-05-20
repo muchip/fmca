@@ -69,7 +69,7 @@ iMatrix kNN(const ClusterTreeBase<Derived> &CT, const Matrix &P,
   plist.reserve(P.cols());
   for (auto it = CT.cbegin(); it != CT.cend(); ++it)
     if (!it->nSons() && it->block_size()) plist.push_back(std::addressof(*it));
-      // compute min_distance at the leafs
+  // compute min_distance at the leafs
 #pragma omp parallel for
   for (auto it = plist.begin(); it != plist.end(); ++it) {
     // for (auto it = CT.cbegin(); it != CT.cend(); ++it) {
@@ -97,6 +97,59 @@ iMatrix kNN(const ClusterTreeBase<Derived> &CT, const Matrix &P,
     for (const auto &it : qvec[i].list()) kmin_distance(i, j++) = it.first;
   }
   return kmin_distance;
+}
+
+template <typename Derived>
+std::vector<Eigen::Triplet<Scalar>> symKNN(const ClusterTreeBase<Derived> &CT,
+                                           const Matrix &P, const Index k = 1) {
+  assert(k < P.cols() && "too few data points for kmin");
+  std::vector<Eigen::Triplet<Scalar>> retval;
+  std::vector<KMinList> qvec(P.cols());
+#pragma omp parallel for
+  for (Index i = 0; i < qvec.size(); ++i) {
+    qvec[i] = KMinList(k);
+    for (Index j = 1; j <= k; ++j) {
+      const Index idx = (i + j) % P.cols();
+      assert(idx != i && "should never happen");
+      const Scalar dist = (P.col(i) - P.col(idx)).norm();
+      qvec[i].insert(std::make_pair(idx, dist));
+    }
+  }
+  std::vector<const Derived *> plist;
+  plist.reserve(P.cols());
+  for (auto it = CT.cbegin(); it != CT.cend(); ++it)
+    if (!it->nSons() && it->block_size()) plist.push_back(std::addressof(*it));
+  // compute min_distance at the leafs
+#pragma omp parallel for
+  for (auto it = plist.begin(); it != plist.end(); ++it) {
+    // for (auto it = CT.cbegin(); it != CT.cend(); ++it) {
+    // if (!it->nSons() && it->block_size()) {
+    const Index *idcs = (*it)->indices();
+    for (Index j = 0; j < (*it)->block_size(); ++j)
+      for (Index i = 0; i < j; ++i) {
+        const Scalar dist = (P.col(idcs[i]) - P.col(idcs[j])).norm();
+        qvec[idcs[i]].insert(std::make_pair(idcs[j], dist));
+        qvec[idcs[j]].insert(std::make_pair(idcs[i], dist));
+      }
+    // determine max_min_distance within cluster
+    Scalar max_min_distance = 0;
+    for (Index j = 0; j < (*it)->block_size(); ++j) {
+      const Scalar dist = qvec[idcs[j]].max_min();
+      max_min_distance = max_min_distance < dist ? dist : max_min_distance;
+    }
+    assert(max_min_distance > 0 && "min_dist should be positive");
+    updateClusterKMinDistance(qvec, max_min_distance, **it, CT, P);
+    //}
+  }
+  retval.reserve(2 * P.cols() * k);
+  for (Index i = 0; i < qvec.size(); ++i)
+    for (const auto &it : qvec[i].list())
+      if (i > it.first) {
+        retval.push_back(Eigen::Triplet<Scalar>(i, it.first, it.second));
+        retval.push_back(Eigen::Triplet<Scalar>(it.first, i, it.second));
+      }
+  retval.shrink_to_fit();
+  return retval;
 }
 
 }  // namespace FMCA
