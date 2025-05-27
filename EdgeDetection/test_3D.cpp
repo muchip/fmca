@@ -22,8 +22,8 @@ int main() {
   // Scalar threshold_active_leaves = 1e-10;
   /////////////////////////////////
   Matrix P;
-  readTXT("local_tests/data/coordinates_grid_3d.txt", P, DIM);
-  // readTXT("local_tests/data/coordinates_bunny.txt", P, DIM);
+  // readTXT("local_tests/data/coordinates_grid_3d.txt", P, DIM);
+  readTXT("local_tests/data/coordinates_bunny.txt", P, DIM);
   std::cout << "Dimension P = " << P.rows() << " x " << P.cols() << std::endl;
 
   Matrix P_bunny;
@@ -33,15 +33,15 @@ int main() {
   // FMCA::IO::plotPoints("Plots/Points_bunny_3d.vtk", P_bunny);
 
   Vector f;
-  readTXT("local_tests/data/values_grid_3d.txt", f);
-  // readTXT("local_tests/data/values_2functions_bunny.txt", f);
+  // readTXT("local_tests/data/values_grid_3d.txt", f);
+  readTXT("local_tests/data/values_2functions_bunny.txt", f);
   std::cout << "Dimension f = " << f.rows() << " x " << f.cols() << std::endl;
 
   /////////////////////////////////
 
   const Scalar eta = 1. / DIM;
-  const Index dtilde = 3;
-  const Scalar mpole_deg = (dtilde != 1) ? 2 * (dtilde - 1) : 2;
+  const Index dtilde = 1;
+  const Scalar mpole_deg = (dtilde != 1) ? 2 * (dtilde - 1) : 1;
   std::cout << "eta                 " << eta << std::endl;
   std::cout << "dtilde              " << dtilde << std::endl;
   std::cout << "mpole_deg           " << mpole_deg << std::endl;
@@ -79,7 +79,7 @@ int main() {
   coeff_analyzer.traverseAndStackCoefficientsAndDiameters(hst, tdata, leafData);
 
   SlopeFitter<ST> fitter;
-  fitter.init(leafData, dtilde, 1e-8);
+  fitter.init(leafData, dtilde, 1e-16);
   auto results = fitter.fitSlope();
   std::cout << "--------------------------------------------------------"
             << std::endl;
@@ -161,7 +161,7 @@ int main() {
     for (int j = 0; j < leaf->block_size(); ++j) {
       Scalar slope = res.get_slope();
       Scalar dtilde_binned = std::abs(std::floor((slope + 0.25) / 0.5) * 0.5);
-      colr(leaf->indices()[j]) = slope;
+      colr(leaf->indices()[j]) = dtilde_binned;
     }
   }
 

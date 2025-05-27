@@ -34,8 +34,8 @@ int main() {
   /////////////////////////////////
 
   const Scalar eta = 1. / DIM;
-  const Index dtilde = 3;
-  const Scalar mpole_deg = (dtilde != 1) ? 2 * (dtilde - 1) : 2;
+  const Index dtilde = 1;
+  const Scalar mpole_deg = (dtilde != 1) ? 2 * (dtilde - 1) : 1;
   std::cout << "eta                 " << eta << std::endl;
   std::cout << "dtilde              " << dtilde << std::endl;
   std::cout << "mpole_deg           " << mpole_deg << std::endl;
@@ -75,8 +75,8 @@ int main() {
   coeff_analyzer.traverseAndStackCoefficientsAndDiameters(hst, tdata, leafData);
 
   SlopeFitter<ST> fitter;
-  fitter.init(leafData, dtilde, 1e-8);
-  auto results = fitter.fitSlopeRegression(true);
+  fitter.init(leafData, dtilde, 1e-12);
+  auto results = fitter.fitSlope();
   std::cout << "--------------------------------------------------------"
             << std::endl;
 
@@ -117,7 +117,7 @@ int main() {
     count++;
   }
 
- */
+
 
   for (const auto& [leaf, dataPair] : leafData) {
     auto coefficients = dataPair.first;
@@ -148,7 +148,7 @@ int main() {
       }
     }
   }
-
+ */
 
 ///////////////////////////////////////////////////////////////////////////////////
 
@@ -164,12 +164,12 @@ int main() {
     }
   }
 
-  Matrix P3(3, P.cols());
-  P3.topRows(2) = P;
-  P3.row(2).setZero();
-  // P3.row(2) = f;
-  FMCA::IO::plotPointsColor("Slope_picture.vtk", P3, colr);
-  FMCA::IO::plotPointsColor("Function_picture.vtk", P3, f);
+  // Matrix P3(3, P.cols());
+  // P3.topRows(2) = P;
+  // P3.row(2).setZero();
+  // // P3.row(2) = f;
+  // FMCA::IO::plotPointsColor("Slope_picture.vtk", P3, colr);
+  // FMCA::IO::plotPointsColor("Function_picture.vtk", P3, f);
 
   // Print the min value of colr
   std::cout << "Min value of colr: " << colr.minCoeff() << std::endl;

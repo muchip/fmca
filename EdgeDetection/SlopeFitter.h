@@ -356,6 +356,50 @@ class SlopeFitter {
   }
 
   //////////////////////////////////////////////////////////////////////////////
+  ResultMap fitSlopeRelative() {
+    std::map<const TreeType*, std::vector<Scalar>> relative_result;
+
+    for (const auto& [leaf, dataPair] : leaf_data_) {
+      auto coefficients = dataPair.first;
+      // const auto& diameters = dataPair.second;
+      size_t n = coefficients.size();
+
+      // Filter out NaN/infinite values
+      std::vector<Scalar> filtered_coefficients;
+      // std::vector<Scalar> filtered_diameters;
+
+      for (size_t i = 0; i < n; ++i) {
+        if (std::isfinite(coefficients[i])) {
+          filtered_coefficients.push_back(coefficients[i]);
+          // filtered_diameters.push_back(diameters[i]);
+        }
+      }
+
+      size_t filtered_n = filtered_coefficients.size();
+
+      if (filtered_n < 2) {
+        continue;  // Need at least 2 points for slope calculation
+      }
+
+      relative_result[leaf].resize(filtered_n - 1);
+
+      for (size_t i = 1; i < filtered_n; ++i) {
+        auto coef0 = std::max(std::abs(filtered_coefficients[i - 1]),
+                              FMCA_ZERO_TOLERANCE);
+        auto coef1 =
+            std::max(std::abs(filtered_coefficients[i]), FMCA_ZERO_TOLERANCE);
+        Scalar x_0 = std::log(filtered_diameters[i - 1]);
+        Scalar x_1 = std::log(filtered_diameters[i]);
+        Scalar y_0 = std::log(coef0);
+        Scalar y_1 = std::log(coef1);
+        relative_result[leaf][i - 1] = (y_1 - y_0) / (x_1 - x_0);
+        // (x_1 - x_0);
+      }
+    }
+    return relative_result;
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
   // Getter
   Scalar dtilde() const { return dtilde_; }
   Scalar smallThreshold() const { return small_threshold_; }

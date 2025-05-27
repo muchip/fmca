@@ -124,10 +124,10 @@ int main() {
   Matrix P;
   readTXT("data/1D_4M.txt", P, DIM);
   /////////////////////////////////
-  const std::string function_type = "wave";
+  const std::string function_type = "jump";
   const Scalar eta = 1. / DIM;
-  const Index dtilde = 3;
-  const Scalar mpole_deg = (dtilde != 1) ? 2 * (dtilde - 1) : 2;
+  const Index dtilde = 2;
+  const Scalar mpole_deg = (dtilde != 1) ? 2 * (dtilde - 1) : 1;
   std::cout << "eta                 " << eta << std::endl;
   std::cout << "dtilde              " << dtilde << std::endl;
   std::cout << "mpole_deg           " << mpole_deg << std::endl;
