@@ -71,5 +71,21 @@ int main(int argc, char *argv[]) {
   G1 = G.split(part);
   G1.print("graph3.vtk", P);
   G.print("graph4.vtk", P);
+
+  FMCA::Graph<idx_t, FMCA::Scalar> G2;
+  A.clear();
+  G.init(5, A);
+  std::cout << FMCA::Matrix(G.graph()) << std::endl << "---------\n";
+  std::cout << G.distanceMatrix() << std::endl << "=========\n";
+  A.clear();
+  for (FMCA::Index i = 0; i < 5; ++i)
+    for (FMCA::Index j = 0; j < i; ++j) {
+      FMCA::Scalar w = 0.5 * (rand() % 3);
+      A.push_back(Eigen::Triplet<FMCA::Scalar>(i, j, w));
+      A.push_back(Eigen::Triplet<FMCA::Scalar>(j, i, w));
+    }
+  G.init(5, A);
+  std::cout << FMCA::Matrix(G.graph()) << std::endl << "---------\n";
+  std::cout << G.distanceMatrix() << std::endl;
   return 0;
 }

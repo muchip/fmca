@@ -91,6 +91,7 @@ class Graph {
   const std::vector<IndexType> &labels() const { return labels_; }
   GraphType &graph() { return A_; }
   const GraphType &graph() const { return A_; }
+  Matrix distanceMatrix() const { return FloydWarshall(); }
 
   template <typename Derived>
   void print(const std::string &fileName, const Eigen::MatrixBase<Derived> &P) {
@@ -101,6 +102,21 @@ class Graph {
   }
 
  private:
+  Matrix FloydWarshall() const {
+    Matrix D = A_;
+    for (Index j = 0; j < nnodes(); ++j) {
+      for (Index i = 0; i < nnodes(); ++i)
+        D(i, j) = std::abs(D(i, j)) < FMCA_ZERO_TOLERANCE ? FMCA_INF : D(i, j);
+      D(j, j) = 0;
+    }
+    for (Index k = 0; k < nnodes(); ++k)
+      for (Index j = 0; j < nnodes(); ++j)
+        for (Index i = 0; i < nnodes(); ++i) {
+          const Scalar w = D(i, k) + D(k, j);
+          D(i, j) = D(i, j) > w ? w : D(i, j);
+        }
+    return D;
+  }
   GraphType A_;
   std::vector<IndexType> labels_;
 };
