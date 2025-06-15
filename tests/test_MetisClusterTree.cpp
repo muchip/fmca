@@ -19,13 +19,10 @@
 #include "../FMCA/src/util/IO.h"
 #include "../FMCA/src/util/Tictoc.h"
 
-#define DIM 3
-#define NPTS 1000
-
 int main() {
   FMCA::Tictoc T;
   const FMCA::Index npts = 1000000;
-  const FMCA::Index leaf_size = 100;
+  const FMCA::Index leaf_size = 10;
 
   std::mt19937 mt;
   mt.seed(0);
@@ -39,8 +36,7 @@ int main() {
   }
   T.tic();
   FMCA::ClusterTree CT(P, 100);
-  std::vector<Eigen::Triplet<FMCA::Scalar>> A =
-      FMCA::symKNN(CT, P, 10);
+  std::vector<Eigen::Triplet<FMCA::Scalar>> A = FMCA::symKNN(CT, P, 100);
   T.toc("kNN:");
 
   FMCA::Graph<idx_t, FMCA::Scalar> G;
@@ -60,6 +56,41 @@ int main() {
       }
     }
   }
+
+  std::cout << "playing with leaves\n";
+  T.tic();
+  for (auto &&it : MCT) {
+    if (!it.nSons()) {
+      std::vector<Eigen::Triplet<FMCA::Scalar>> trips;
+      trips.reserve(it.block_size() * it.block_size());
+      for (FMCA::Index i = 0; i < it.block_size(); ++i)
+        for (FMCA::Index j = 0; j < i; ++j) {
+          const FMCA::Scalar w =
+              G.graph().coeff(it.indices()[i], it.indices()[j]);
+          if (std::abs(w > FMCA_ZERO_TOLERANCE)) {
+            trips.push_back(Eigen::Triplet<FMCA::Scalar>(i, j, w));
+            trips.push_back(Eigen::Triplet<FMCA::Scalar>(j, i, w));
+          }
+        }
+      FMCA::Graph<idx_t, FMCA::Scalar> G2;
+      G2.init(it.block_size(), trips);
+      FMCA::Matrix D = G2.distanceMatrix();
+      D = D.array().square();
+      FMCA::Vector ones = FMCA::Vector::Ones(D.rows());
+      auto H = FMCA::Matrix::Identity(D.rows(), D.rows()) -
+               (1. / D.rows()) * (ones * ones.transpose());
+      FMCA::Matrix B = -0.5 * H * D * H;
+      Eigen::SelfAdjointEigenSolver<FMCA::Matrix> es(B);
+      int neg = (es.eigenvalues().array() < 0).count();
+      for (int i = es.eigenvalues().size() - 1; i >= 0; --i) {
+        std::cout << es.eigenvalues()(i) << std::endl;
+      }
+      std::cout << "pos: " << es.eigenvalues().size() - neg << " neg: " << neg
+                << " bsize: " << D.rows() << std::endl;
+    }
+  }
+  T.toc("Applied MDS to leaves");
+
   assert(labels.sum() == P.cols() && "missing or duplicate labels");
   FMCA::IO::plotPointsColor("points.vtk", P, color);
   return 0;
