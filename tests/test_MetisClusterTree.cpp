@@ -17,6 +17,7 @@
 
 #include "../FMCA/Clustering"
 #include "../FMCA/src/util/IO.h"
+#include "../FMCA/src/util/MDS.h"
 #include "../FMCA/src/util/Tictoc.h"
 
 int main() {
@@ -75,18 +76,7 @@ int main() {
       FMCA::Graph<idx_t, FMCA::Scalar> G2;
       G2.init(it.block_size(), trips);
       FMCA::Matrix D = G2.distanceMatrix();
-      D = D.array().square();
-      FMCA::Vector ones = FMCA::Vector::Ones(D.rows());
-      auto H = FMCA::Matrix::Identity(D.rows(), D.rows()) -
-               (1. / D.rows()) * (ones * ones.transpose());
-      FMCA::Matrix B = -0.5 * H * D * H;
-      Eigen::SelfAdjointEigenSolver<FMCA::Matrix> es(B);
-      int neg = (es.eigenvalues().array() < 0).count();
-      for (int i = es.eigenvalues().size() - 1; i >= 0; --i) {
-        std::cout << es.eigenvalues()(i) << std::endl;
-      }
-      std::cout << "pos: " << es.eigenvalues().size() - neg << " neg: " << neg
-                << " bsize: " << D.rows() << std::endl;
+      FMCA::Matrix P = FMCA::MDS(D, 1e-5);
     }
   }
   T.toc("Applied MDS to leaves");
