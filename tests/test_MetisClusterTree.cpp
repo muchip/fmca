@@ -36,14 +36,17 @@ int main() {
     }
   }
   T.tic();
-  FMCA::ClusterTree CT(P, 100);
+  FMCA::ClusterTree CT(P, 200);
+  T.toc("RPT: ");
+  T.tic();
   std::vector<Eigen::Triplet<FMCA::Scalar>> A = FMCA::symKNN(CT, P, 100);
   T.toc("kNN:");
 
+  T.tic();
   FMCA::Graph<idx_t, FMCA::Scalar> G;
   G.init(npts, A);
-
   FMCA::MetisClusterTree MCT(G, leaf_size);
+  T.toc("Cluster tree: ");
   FMCA::Vector color(P.cols());
   FMCA::iVector labels(P.cols());
   color.setZero();
@@ -75,8 +78,7 @@ int main() {
         }
       FMCA::Graph<idx_t, FMCA::Scalar> G2;
       G2.init(it.block_size(), trips);
-      FMCA::Matrix D = G2.distanceMatrix();
-      FMCA::Matrix P = FMCA::MDS(D, 1e-5);
+      FMCA::Matrix P = FMCA::MDS(G2.distanceMatrix(), 2);
     }
   }
   T.toc("Applied MDS to leaves");

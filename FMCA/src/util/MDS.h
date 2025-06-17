@@ -20,7 +20,9 @@
 
 namespace FMCA {
 
-Matrix MDS(const Matrix &D, Scalar tol) {
+Matrix MDS(const Matrix &D, const Index emb_dim) {
+  const Scalar dim =
+      emb_dim >= 1 ? (emb_dim <= D.rows() ? emb_dim : D.rows()) : 1;
   const Vector ones = Vector::Ones(D.rows());
   Matrix D_clean = D;
   for (Index j = 0; j < D.cols(); ++j)
@@ -32,16 +34,13 @@ Matrix MDS(const Matrix &D, Scalar tol) {
   Eigen::SelfAdjointEigenSolver<FMCA::Matrix> es(B);
   const Index nneg = (es.eigenvalues().array() < 0).count();
   const Index npos = D.rows() - nneg;
+  const Index cutr = npos >= dim ? dim : npos;
   const Scalar total_energy = es.eigenvalues().tail(npos).sum();
-  Scalar acc_energy = 0;
-  Index cutr = 0;
-  for (int i = es.eigenvalues().size() - 1; i >= nneg; --i, ++cutr) {
-    if (total_energy - acc_energy <= tol * total_energy) break;
-    acc_energy += es.eigenvalues()(i);
-  }
+  const Scalar acc_energy = es.eigenvalues().tail(cutr).sum();
 #ifdef FMCA_VERBOSE
-  std::cout << "msize: " << D.rows() << " npos: " << npos << " nneg: " << nneg
-            << " cutr: " << cutr << std::endl;
+  std::cout << "msize: " << D.rows() << " cutr: " << cutr
+            << " relative lost energy: "
+            << (total_energy - acc_energy) / total_energy << std::endl;
 #endif
   return es.eigenvalues().tail(cutr).cwiseSqrt().asDiagonal() *
          es.eigenvectors().rightCols(cutr).transpose();
