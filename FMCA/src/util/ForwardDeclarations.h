@@ -42,6 +42,8 @@ class RandomProjectionTree;
 template <typename ClusterTreeType>
 class SampletTree;
 
+class GraphSampletTree;
+
 template <typename ClusterTreeType>
 class H2ClusterTree;
 
