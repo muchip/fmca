@@ -25,9 +25,13 @@ Matrix MDS(const Matrix &D, const Index emb_dim) {
       emb_dim >= 1 ? (emb_dim <= D.rows() ? emb_dim : D.rows()) : 1;
   const Vector ones = Vector::Ones(D.rows());
   Matrix D_clean = D;
+  Scalar maxc = 0;
   for (Index j = 0; j < D.cols(); ++j)
     for (Index i = 0; i < D.rows(); ++i)
-      D_clean(i, j) = D(i, j) < 1e10 ? D(i, j) : 1e10;
+      if (D(i, j) < FMCA_INF) maxc = maxc < D(i, j) ? D(i, j) : maxc;
+  for (Index j = 0; j < D.cols(); ++j)
+    for (Index i = 0; i < D.rows(); ++i)
+      D_clean(i, j) = D(i, j) < 1e1 * maxc ? D(i, j) : 1e1 * maxc;
   const auto H = Matrix::Identity(D.rows(), D.rows()) -
                  (1. / D.rows()) * (ones * ones.transpose());
   const Matrix B = -0.5 * H * (D_clean.array().square().matrix()) * H;

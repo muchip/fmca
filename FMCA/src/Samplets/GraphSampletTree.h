@@ -110,11 +110,19 @@ struct GraphSampletTree : public SampletTreeBase<GraphSampletTree> {
         }
       Graph G2;
       G2.init(block_size(), trips);
-      Matrix P = MDS(G2.distanceMatrix(), 2);
-      Matrix mp = P.rowwise().mean();
-      node().mom_buffer_.resize(interp.Xi().cols(), P.cols());
+      node().D = G2.distanceMatrix();
+      node().P = MDS(node().D, interp.dim());
+      if (node().P.rows() < interp.dim()) {
+        Matrix Pdim(interp.dim(), node().P.cols());
+        Pdim.setZero();
+        Pdim.topRows(node().P.rows()) = node().P;
+        node().P = Pdim;
+      }
+      Vector mp = node().P.rowwise().mean();
+      node().mom_buffer_.resize(interp.Xi().cols(), node().P.cols());
       for (auto i = 0; i < block_size(); ++i)
-        node().mom_buffer_.col(i) = interp.evalPolynomials(P.col(i) - mp);
+        node().mom_buffer_.col(i) =
+            interp.evalPolynomials(node().P.col(i) - mp);
     }
     // are there samplets?
     if (nmom < node().mom_buffer_.cols()) {

@@ -20,15 +20,12 @@
 #include "../FMCA/src/Samplets/GraphSampletTree.h"
 #include "../FMCA/src/util/Tictoc.h"
 
-#define DIM 2
-#define NPTS 1000
-
 using SampletInterpolator = FMCA::TotalDegreeInterpolator;
 using SampletTree = FMCA::GraphSampletTree;
 
 int main() {
   FMCA::Tictoc T;
-  const FMCA::Index npts = 100000;
+  const FMCA::Index npts = 100;
   const FMCA::Index leaf_size = 10;
 
   std::mt19937 mt;
@@ -42,18 +39,33 @@ int main() {
     }
   }
   T.tic();
-  FMCA::ClusterTree CT(P, 200);
+  FMCA::ClusterTree CT(P, 10);
   T.toc("RPT: ");
   T.tic();
-  std::vector<Eigen::Triplet<FMCA::Scalar>> A = FMCA::symKNN(CT, P, 100);
+  std::vector<Eigen::Triplet<FMCA::Scalar>> A = FMCA::symKNN(CT, P, 50);
   T.toc("kNN:");
 
   T.tic();
   FMCA::Graph<idx_t, FMCA::Scalar> G;
   G.init(npts, A);
   T.toc("construct graph");
-  FMCA::TotalDegreeInterpolator interp;
+  FMCA::MonomialInterpolator interp;
   interp.init(2, 4);
+  FMCA::Vector signal(P.cols());
+  for (FMCA::Index i = 0; i < signal.size(); ++i) signal(i) = P(0, i);
   SampletTree st(interp, 10, G);
+  FMCA::Matrix I(npts, npts);
+  I.setIdentity();
+  FMCA::Matrix S = st.sampletTransform(I);
+  std::cout << "err: " << (S * S.transpose() - I).norm() / I.norm() << " "
+            << (S.transpose() * S - I).norm() / I.norm() << std::endl;
+  FMCA::Vector Ss = st.sampletTransform(st.toClusterOrder(signal));
+  int ctr = 0;
+  for (FMCA::Index i = 0; i < Ss.size(); ++i)
+    if (abs(Ss(i) / Ss.norm()) > 1e-4) {
+      std::cout << i << " " << Ss(i) << std::endl;
+      ++ctr;
+    }
+  std::cout << "non-negligible: " << ctr << std::endl;
   return 0;
 }
