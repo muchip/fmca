@@ -25,7 +25,7 @@ using SampletTree = FMCA::GraphSampletTree;
 
 int main() {
   FMCA::Tictoc T;
-  const FMCA::Index npts = 100;
+  const FMCA::Index npts = 1000000;
   const FMCA::Index leaf_size = 10;
 
   std::mt19937 mt;
@@ -42,7 +42,7 @@ int main() {
   FMCA::ClusterTree CT(P, 10);
   T.toc("RPT: ");
   T.tic();
-  std::vector<Eigen::Triplet<FMCA::Scalar>> A = FMCA::symKNN(CT, P, 50);
+  std::vector<Eigen::Triplet<FMCA::Scalar>> A = FMCA::symKNN(CT, P, 100);
   T.toc("kNN:");
 
   T.tic();
@@ -50,15 +50,15 @@ int main() {
   G.init(npts, A);
   T.toc("construct graph");
   FMCA::MonomialInterpolator interp;
-  interp.init(2, 4);
+  interp.init(2, 2);
   FMCA::Vector signal(P.cols());
-  for (FMCA::Index i = 0; i < signal.size(); ++i) signal(i) = P(0, i);
-  SampletTree st(interp, 10, G);
+  for (FMCA::Index i = 0; i < signal.size(); ++i) signal(i) = P(0, i) * P(1, i);
+  SampletTree st(interp, 20, G);
   FMCA::Matrix I(npts, npts);
   I.setIdentity();
-  FMCA::Matrix S = st.sampletTransform(I);
-  std::cout << "err: " << (S * S.transpose() - I).norm() / I.norm() << " "
-            << (S.transpose() * S - I).norm() / I.norm() << std::endl;
+  // FMCA::Matrix S = st.sampletTransform(I);
+  // std::cout << "err: " << (S * S.transpose() - I).norm() / I.norm() << " "
+  //           << (S.transpose() * S - I).norm() / I.norm() << std::endl;
   FMCA::Vector Ss = st.sampletTransform(st.toClusterOrder(signal));
   int ctr = 0;
   for (FMCA::Index i = 0; i < Ss.size(); ++i)

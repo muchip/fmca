@@ -103,7 +103,7 @@ struct GraphSampletTree : public SampletTreeBase<GraphSampletTree> {
       for (FMCA::Index i = 0; i < block_size(); ++i)
         for (FMCA::Index j = 0; j < i; ++j) {
           const FMCA::Scalar w = G.graph().coeff(indices()[i], indices()[j]);
-          if (std::abs(w > FMCA_ZERO_TOLERANCE)) {
+          if (std::abs(w) > FMCA_ZERO_TOLERANCE) {
             trips.push_back(Eigen::Triplet<FMCA::Scalar>(i, j, w));
             trips.push_back(Eigen::Triplet<FMCA::Scalar>(j, i, w));
           }
