@@ -101,6 +101,13 @@ class Graph {
     return;
   }
 
+  template <typename Derived>
+  void printSignal(const std::string &fileName,
+                   const Eigen::MatrixBase<Derived> &P, const Vector &sig) {
+    IO::plotGraphSignal(fileName, P, A_, sig);
+    return;
+  }
+
  private:
   Matrix FloydWarshall() const {
     Matrix D = A_;
