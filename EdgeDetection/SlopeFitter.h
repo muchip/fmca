@@ -361,17 +361,17 @@ class SlopeFitter {
 
     for (const auto& [leaf, dataPair] : leaf_data_) {
       auto coefficients = dataPair.first;
-      // const auto& diameters = dataPair.second;
+      const auto& diameters = dataPair.second;
       size_t n = coefficients.size();
 
       // Filter out NaN/infinite values
       std::vector<Scalar> filtered_coefficients;
-      // std::vector<Scalar> filtered_diameters;
+      std::vector<Scalar> filtered_diameters;
 
       for (size_t i = 0; i < n; ++i) {
         if (std::isfinite(coefficients[i])) {
           filtered_coefficients.push_back(coefficients[i]);
-          // filtered_diameters.push_back(diameters[i]);
+          filtered_diameters.push_back(diameters[i]);
         }
       }
 
@@ -392,7 +392,7 @@ class SlopeFitter {
         Scalar x_1 = std::log(filtered_diameters[i]);
         Scalar y_0 = std::log(coef0);
         Scalar y_1 = std::log(coef1);
-        relative_result[leaf][i - 1] = (y_1 - y_0) / (x_1 - x_0);
+        relative_result[leaf][i - 1] = (y_1 - y_0) / std::log(2);
         // (x_1 - x_0);
       }
     }

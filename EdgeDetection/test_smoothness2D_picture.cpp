@@ -1,21 +1,21 @@
-#include <algorithm>
-#include <cstdlib>
-#include <fstream>
 #include <iostream>
-#include <limits>
-#include <set>
-#include <sstream>
-// ########################
-#include "InputOutput.h"
-#include "Regression.h"
-#include "SmoothnessDetection.h"
+
+#include "../FMCA/src/util/IO.h"
+#include "../FMCA/src/util/Tictoc.h"
+#include "SampletCoefficientsAnalyzer.h"
+#include "SlopeFitter.h"
+#include "read_files_txt.h"
 
 #define DIM 2
 
 using ST = FMCA::SampletTree<FMCA::ClusterTree>;
-using H2ST = FMCA::H2SampletTree<FMCA::ClusterTree>;
-
+using SampletInterpolator = FMCA::MonomialInterpolator;
+using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
+using MapCoeffDiam =
+    std::map<const ST*,
+             std::pair<std::vector<FMCA::Scalar>, std::vector<FMCA::Scalar>>>;
 using namespace FMCA;
+
 
 //////////////////////////////////////////////////////////////////////////////////////////
 int main() {
@@ -35,51 +35,88 @@ int main() {
       "/Users/saraavesani/Desktop/Archive/output_boxes_picture.py";
 
   const Scalar eta = 1. / DIM;
-  const Index dtilde = 10;
+  const Index dtilde = 3;
   const Scalar mpole_deg = (dtilde != 1) ? 2 * (dtilde - 1) : 2;
   std::cout << "eta                 " << eta << std::endl;
   std::cout << "dtilde              " << dtilde << std::endl;
   std::cout << "mpole_deg           " << mpole_deg << std::endl;
-
-  const Moments mom(P, mpole_deg);
+  
+  Tictoc t;
+  t.tic();
   const SampletMoments samp_mom(P, dtilde - 1);
-  const ST hst(samp_mom, 0, P);
-  // const H2ST hst(mom, samp_mom, 0, P);
-  std::cout << "Tree done." << std::endl;
+  const ST st(samp_mom, 0, P);
+  t.toc("Tree creation: ");
 
-  Vector f_phantom_ordered = hst.toClusterOrder(f_phantom);
-  Vector f_phantom_Samplets = hst.sampletTransform(f_phantom_ordered);
+  const RandomProjectionTree rp(P, 10);
+
+  Vector f_phantom_ordered = st.toClusterOrder(f_phantom);
+  Vector f_phantom_Samplets = st.sampletTransform(f_phantom_ordered);
 
   ///////////////////////////////////////////////// Compute the decay of the
   /// coeffcients
-  Vector tdata;
-  tdata = f_phantom_Samplets;
+  Vector scoeffs;
+  scoeffs = f_phantom_Samplets;
 
-  Index max_level = computeMaxLevel(hst);
-  std::cout << "Maximum level of the tree: " << max_level << std::endl;
-  const Index nclusters = std::distance(hst.begin(), hst.end());
-  std::cout << "Total number of clusters: " << nclusters << std::endl;
+   ///////////////////////////////////////////////// Compute the global decay of
+  /// the
+  /// coeffcients
+  SampletCoefficientsAnalyzer<ST> coeff_analyzer;
+  coeff_analyzer.init(st, scoeffs);
 
-  // std::map<const ST*, std::vector<Scalar>> leafCoefficients;
-  // traverseAndStackCoefficients(hst, tdata, leafCoefficients);
+  Index max_level = coeff_analyzer.computeMaxLevel(st);
+  std::cout << "Max level = " << max_level << std::endl;
 
-  // const std::string outputFile_slopes = "relativeSlopes2D.csv";
-  // auto slopes = computeRelativeSlopes2D<ST, Scalar>(leafCoefficients, dtilde,
-  //                                                   1e-4, outputFile_slopes);
+  auto squared_coeff_per_level =
+      coeff_analyzer.getSumSquaredPerLevel(st, scoeffs);
+  std::cout << "--------------------------------------------------------"
+            << std::endl;
 
-  // saveBoxesWithSlopesToFile(slopes, outputFile_step);
+  for (FMCA::Index i = 0; i < squared_coeff_per_level.size(); ++i)
+    std::cout << std::sqrt(squared_coeff_per_level[i]) << "," << std::endl;
 
-  // Coeff decay
-  printMaxCoefficientsPerLevel(hst, tdata);
+  std::cout << "--------------------------------------------------------"
+            << std::endl;
+  for (FMCA::Index i = 1; i < squared_coeff_per_level.size(); ++i)
+    std::cout << "c=" << std::sqrt(squared_coeff_per_level[i]) / std::sqrt(scoeffs.rows())
+              << " alpha="
+              << std::log(std::sqrt(squared_coeff_per_level[i - 1]) /
+                          std::sqrt(squared_coeff_per_level[i])) /
+                     (std::log(2))
+              << std::endl;
+  //////////////////////////////////////////////////////////////
+  Tictoc t2;
+  t2.tic();
+  MapCoeffDiam leafData;
+  coeff_analyzer.traverseAndStackCoefficientsAndDiametersL2Norm(st, scoeffs,
+                                                                leafData);
 
-  // detect singularities
-  // Singularity localization
-  std::vector<const ST*> adaptive_tree =
-      computeAdaptiveTree(hst, tdata, threshold_active_leaves);
-  std::vector<const ST*> nodes;
-  std::vector<FMCA::Matrix> bbvec_active;
-  computeNodeAndBBActive(adaptive_tree, nodes, bbvec_active);
-  saveBoxesToFile(bbvec_active, outputFile_boxes);
+  SlopeFitter<ST> fitter;
+  fitter.init(leafData, dtilde, 1e-12);
+  auto results = fitter.fitSlope();
+  t2.toc("Result traverse and fit: ");
+  std::cout << "--------------------------------------------------------"
+            << std::endl;
+
+  // Initialize color vector for each column in P
+  Vector colr(P.cols());
+  for (const auto& [leaf, res] : results) {
+    for (int j = 0; j < leaf->block_size(); ++j) {
+      Scalar slope = res.get_slope();
+      // save the slope just if slope < 2, otherwirse save dtilde
+      Scalar slope_filtered = (slope < 1.75) ? slope : dtilde;
+      Scalar dtilde_binned = std::abs(std::floor((slope + 0.3) / 0.5) * 0.5);
+      colr(leaf->indices()[j]) = slope_filtered;
+    }
+  }
+  // Print the min value of colr
+  std::cout << "Min value of colr: " << colr.minCoeff() << std::endl;
+
+  Matrix P3(3, P.cols());
+  P3.topRows(2) = P;
+  P3.row(2).setZero();
+  // P3.row(2) = f;
+  FMCA::IO::plotPointsColor("Slope_picture.vtk", P3, colr);
+  FMCA::IO::plotPointsColor("Function_picture.vtk", P3, f_phantom);
 
   return 0;
 }

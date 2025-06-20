@@ -6,7 +6,7 @@
 #include "SlopeFitter.h"
 #include "read_files_txt.h"
 
-#define DIM 2
+#define DIM 3
 
 using ST = FMCA::SampletTree<FMCA::ClusterTree>;
 using SampletInterpolator = FMCA::MonomialInterpolator;
@@ -18,46 +18,54 @@ using namespace FMCA;
 
 //////////////////////////////////////////////////////////////////////////////////////////
 int main() {
-  // Scalar threshold_active_leaves = 1e-10;
+  constexpr FMCA::Index l = 8;
+  constexpr FMCA::Index d = 3;
+  constexpr FMCA::Index N = 1 << l;
+  constexpr FMCA::Scalar h = 1. / N;
+  FMCA::Index Nd = std::pow(N, d);
+  constexpr FMCA::Index dtilde = 3;
+  FMCA::Tictoc T;
+  FMCA::Matrix P(d, Nd);
+  FMCA::Vector data(Nd);
+  T.tic();
+  {
+    // generate a uniform 3D grid
+    FMCA::Vector pt(d);
+    pt.setZero();
+    FMCA::Index p = 0;
+    FMCA::Index i = 0;
+    while (pt(d - 1) < N) {
+      if (pt(p) >= N) {
+        pt(p) = 0;
+        ++p;
+      } else {
+        P.col(i++) = h * (pt.array() + 0.5).matrix();
+        p = 0;
+      }
+      pt(p) += 1;
+    }
+  }
+  {
+    FMCA::Vector pt(d);
+    // create a non axis aligned jump in 3D
+    pt.setOnes();
+    pt /= std::sqrt(d);
+    for (FMCA::Index i = 0; i < Nd; ++i) {
+      Scalar signed_dist = P.col(i).dot(pt) - 0.5 * sqrt(d);
+      data(i) = std::abs(signed_dist);
+      // data(i) = P.col(i).dot(pt) > 0.5 * sqrt(d);
+    }
+  }
+  T.toc("data generation: ");
+  std::cout << "Nd=" << Nd << std::endl;
   /////////////////////////////////
-  Matrix P;
-  readTXT("local_tests/data/coordinates_phantom1.txt", P, DIM);
-  std::cout << "Dimension P = " << P.rows() << " x " << P.cols() << std::endl;
-
-  Vector f_phantom;
-  readTXT("local_tests/data/values_phantom1.txt", f_phantom);
-  std::cout << "Dimension f = " << f_phantom.rows() << " x " << f_phantom.cols() << std::endl;
-
-  /////////////////////////////////
-  const std::string outputFile_boxes =
-      "/Users/saraavesani/Desktop/Archive/output_boxes_phantom.py";
-    const std::string outputFile_boxes_total =
-      "/Users/saraavesani/Desktop/Archive/output_boxes_total_phantom.py";
-  const std::string outputFile_slopes_py =
-      "/Users/saraavesani/Desktop/Archive/output_slopes_phantom.py";
-  const std::string outputFile_points_slope =
-      "/Users/saraavesani/Desktop/Archive/output_points_slope.txt";
-
-  const Scalar eta = 1. / DIM;
-  const Index dtilde = 3;
-  const Scalar mpole_deg = (dtilde != 1) ? 2 * (dtilde - 1) : 2;
-  std::cout << "eta                 " << eta << std::endl;
-  std::cout << "dtilde              " << dtilde << std::endl;
-  std::cout << "mpole_deg           " << mpole_deg << std::endl;
-
+  T.tic();
   const SampletMoments samp_mom(P, dtilde - 1);
-  const ST st(samp_mom, 0, P);
-  const RandomProjectionTree rp(P, 10);
+  ST st(samp_mom, 0, P);
+  T.toc("samplet tree generation:");
+  const FMCA::Vector scoeffs = st.sampletTransform(st.toClusterOrder(data));
 
-  Vector f_phantom_ordered = st.toClusterOrder(f_phantom);
-  Vector f_phantom_Samplets = st.sampletTransform(f_phantom_ordered);
-
-  ///////////////////////////////////////////////// Compute the decay of the
-  /// coeffcients
-  Vector scoeffs;
-  scoeffs = f_phantom_Samplets;
-
-   ///////////////////////////////////////////////// Compute the global decay of
+  ///////////////////////////////////////////////// Compute the global decay of
   /// the
   /// coeffcients
 
@@ -67,23 +75,36 @@ int main() {
   Index max_level = coeff_analyzer.computeMaxLevel(st);
   std::cout << "Max level = " << max_level << std::endl;
 
+  auto max_coeff_per_level =
+      coeff_analyzer.getMaxCoefficientsPerLevel(st, scoeffs);
+
+  for (FMCA::Index i = 1; i < max_coeff_per_level.size(); ++i)
+    std::cout << "c=" << max_coeff_per_level[i] / std::sqrt(Nd) << " alpha="
+              << std::log(max_coeff_per_level[i - 1] / max_coeff_per_level[i]) /
+                     (std::log(2))
+              << std::endl;
+
+  std::cout << "--------------------------------------------------------"
+            << std::endl;
+
   auto squared_coeff_per_level =
       coeff_analyzer.getSumSquaredPerLevel(st, scoeffs);
   std::cout << "--------------------------------------------------------"
             << std::endl;
 
-  for (FMCA::Index i = 0; i < squared_coeff_per_level.size(); ++i)
-    std::cout << std::sqrt(squared_coeff_per_level[i]) << "," << std::endl;
+  for (FMCA::Index i = 1; i < squared_coeff_per_level.size(); ++i)
+    std::cout << "c=" << std::sqrt(squared_coeff_per_level[i]) << std::endl;
 
   std::cout << "--------------------------------------------------------"
             << std::endl;
   for (FMCA::Index i = 1; i < squared_coeff_per_level.size(); ++i)
-    std::cout << "c=" << std::sqrt(squared_coeff_per_level[i]) / std::sqrt(scoeffs.rows())
+    std::cout << "c=" << std::sqrt(squared_coeff_per_level[i]) / std::sqrt(Nd)
               << " alpha="
               << std::log(std::sqrt(squared_coeff_per_level[i - 1]) /
                           std::sqrt(squared_coeff_per_level[i])) /
                      (std::log(2))
               << std::endl;
+
   //////////////////////////////////////////////////////////////
 
   MapCoeffDiam leafData;
@@ -92,7 +113,7 @@ int main() {
 
   SlopeFitter<ST> fitter;
   fitter.init(leafData, dtilde, 1e-12);
-  auto results = fitter.fitSlopeRegression(true);
+  auto results = fitter.fitSlope();
   std::cout << "--------------------------------------------------------"
             << std::endl;
 
@@ -102,20 +123,16 @@ int main() {
     for (int j = 0; j < leaf->block_size(); ++j) {
       Scalar slope = res.get_slope();
       // save the slope just if slope < 2, otherwirse save dtilde
-      // Scalar slope_filtered = (slope <= 1.5) ? slope : dtilde;
-      Scalar dtilde_binned = std::abs(std::floor((slope + 0.3) / 0.5) * 0.5);
+      Scalar slope_filtered = (slope <= 1.5) ? slope : dtilde;
+      Scalar dtilde_binned = std::abs(std::floor((slope + 0.25) / 0.5) * 0.5);
       colr(leaf->indices()[j]) = slope;
     }
   }
   // Print the min value of colr
   std::cout << "Min value of colr: " << colr.minCoeff() << std::endl;
 
-  Matrix P3(3, P.cols());
-  P3.topRows(2) = P;
-  P3.row(2).setZero();
-  // P3.row(2) = f;
-  FMCA::IO::plotPointsColor("Slope_phantom.vtk", P3, colr);
-  FMCA::IO::plotPointsColor("Function_phantom.vtk", P3, f_phantom);
+  FMCA::IO::plotPointsColor("Slope3D.vtk", P, colr);
+  FMCA::IO::plotPointsColor("Function3D.vtk", P, data);
 
   return 0;
 }

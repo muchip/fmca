@@ -1,7 +1,9 @@
+#include <iostream>
+
+#include "../FMCA/src/util/IO.h"
 #include "SampletCoefficientsAnalyzer.h"
 #include "SlopeFitter.h"
 #include "read_files_txt.h"
-#include "../FMCA/src/util/IO.h"
 
 #define DIM 1
 
@@ -11,7 +13,9 @@ using Interpolator = FMCA::TotalDegreeInterpolator;
 using SampletInterpolator = FMCA::MonomialInterpolator;
 using Moments = FMCA::NystromMoments<Interpolator>;
 using SampletMoments = FMCA::MinNystromSampletMoments<SampletInterpolator>;
-using MapCoeffDiam = std::map<const ST*, std::pair<std::vector<FMCA::Scalar>, std::vector<FMCA::Scalar>>>;
+using MapCoeffDiam =
+    std::map<const ST*,
+             std::pair<std::vector<FMCA::Scalar>, std::vector<FMCA::Scalar>>>;
 
 using namespace FMCA;
 
@@ -50,20 +54,26 @@ Scalar f_elaborated(Scalar x) {
   return 0;
 }
 
+// Scalar f_elaboratedC1(Scalar x) {
+//   if (x < -0.6) {
+//     return 5. * 0. + 2.;
+//   } else if (x >= -0.6 && x < -0.2) {
+//     return 5. * (-x - 6. / 10) + 2.;
+//   } else if (x >= -0.2 && x < 0.2) {
+//     return 5. * (10. * x * std::abs(x)) + 2.;
+//   } else if (x >= 0.2 && x < 0.6) {
+//     return 5. * (-x + 6. / 10) + 2.;
+//   } else if (x >= 0.6) {
+//     return 5. * 0. + 2.;
+//   }
+//   return 0;
+// }
+
 Scalar f_elaboratedC1(Scalar x) {
-  if (x < -0.6) {
-    return 5. * 0. + 2.;
-  } else if (x >= -0.6 && x < -0.2) {
-    return 5. * (-x - 6. / 10) + 2.;
-  } else if (x >= -0.2 && x < 0.2) {
-    return 5. * (10. * x * std::abs(x)) + 2.;
-  } else if (x >= 0.2 && x < 0.6) {
-    return 5. * (-x + 6. / 10) + 2.;
-  } else if (x >= 0.6) {
-    return 5. * 0. + 2.;
-  }
-  return 0;
+  return (3 * (x+0.15) * std::abs(x+0.15));
 }
+
+
 
 //////////////////////////////////////////////////////////////////////////////////////////
 Vector eval_f_smooth(Matrix Points) {
@@ -120,13 +130,14 @@ int main() {
   Scalar step = 0.3;
   Scalar jump = 1;
   Scalar freq = 20;
+  std::string filename = "/Users/saraavesani/Desktop/Archive/points_with_color_C1_shifted.txt";
   /////////////////////////////////
   Matrix P;
-  readTXT("data/1D_4M.txt", P, DIM);
+  readTXT("local_tests/data/1D_1M_shifted2.txt", P, DIM);
   /////////////////////////////////
-  const std::string function_type = "jump";
+  const std::string function_type = "f_elaboratedC1";
   const Scalar eta = 1. / DIM;
-  const Index dtilde = 2;
+  const Index dtilde = 3;
   const Scalar mpole_deg = (dtilde != 1) ? 2 * (dtilde - 1) : 1;
   std::cout << "eta                 " << eta << std::endl;
   std::cout << "dtilde              " << dtilde << std::endl;
@@ -185,167 +196,169 @@ int main() {
     tdata = f_elaboratedC1_Samplets;
   }
 
-  // int counter = 0;
-  // while (counter < 10) {
-  //   for (auto& node : hst) {
-  //     if (node.nsamplets() <= 0) {std::cout << "Node with no samplets" << std::endl;}
-  //     else if (node.start_index() < 0) {std::cout << "Node with negative start index" << std::endl;}
-  //     else if (node.start_index() + node.nsamplets() > tdata.size()) {std::cout << "Node with too many samplets" << std::endl;}
-  //     else if (node.block_size() <= 0) {std::cout << "Node with negative block size" << std::endl;}
-  //     ++counter;
-  //   }
-  // }
-
   SampletCoefficientsAnalyzer<ST> coeff_analyzer;
   coeff_analyzer.init(hst, tdata);
-  Index max_level = coeff_analyzer.computeMaxLevel(hst);
-  std::cout << "Maximum level of the tree: " << max_level << std::endl;
 
-  auto max_coeff_per_level =
-      coeff_analyzer.getMaxCoefficientsPerLevel(hst, tdata);
-  for (auto [lvl, coeff] : max_coeff_per_level) {
-    std::cout << "Level " << lvl << ": max coeff = " << coeff << "\n";
-  }
+  Index max_level = coeff_analyzer.computeMaxLevel(hst);
+  std::cout << "Max level = " << max_level << std::endl;
+
+  auto squared_coeff_per_level =
+      coeff_analyzer.getSumSquaredPerLevel(hst, tdata);
+  std::cout << "--------------------------------------------------------"
+            << std::endl;
+
+  for (FMCA::Index i = 0; i < squared_coeff_per_level.size(); ++i)
+    std::cout << "c=" << std::sqrt(squared_coeff_per_level[i]) << std::endl;
+
+  std::cout << "--------------------------------------------------------"
+            << std::endl;
+  for (FMCA::Index i = 1; i < squared_coeff_per_level.size(); ++i)
+    std::cout << "c=" << std::sqrt(squared_coeff_per_level[i]) / std::sqrt(tdata.rows())
+              << " alpha="
+              << std::log(std::sqrt(squared_coeff_per_level[i - 1]) /
+                          std::sqrt(squared_coeff_per_level[i])) /
+                     (std::log(2))
+              << std::endl;
+  //////////////////////////////////////////////////////////////
 
   MapCoeffDiam leafData;
-  coeff_analyzer.traverseAndStackCoefficientsAndDiameters(hst, tdata, leafData);
+  coeff_analyzer.traverseAndStackCoefficientsAndDiametersL2Norm(hst, tdata,
+                                                                leafData);
 
   SlopeFitter<ST> fitter;
-  fitter.init(leafData, dtilde, 1e-10);
-  auto results = fitter.fitSlopeRegression(true);
-
-  std::cout << "--------------------------------------------------------"
-            << std::endl;
+  fitter.init(leafData, dtilde, 1e-16);
+  auto results = fitter.fitSlope();
   std::cout << "--------------------------------------------------------"
             << std::endl;
 
-/*
-  // print some slopes and some coefficients
-  size_t count = 0;
-  for (const auto& [leaf, dataPair] : leafData) {
-    if (count >= 2) break;
-    auto coefficients = dataPair.first;  // First vector = coefficients
-    std::cout << "Leaf bb: " << leaf->bb() << "\n";
-    std::cout << "-----------------------------------------" << std::endl;
-    size_t n = coefficients.size();
-    for (auto& coeff : coefficients) {
-      std::cout << coeff << " ";
+  /*
+    // print some slopes and some coefficients
+    size_t count = 0;
+    for (const auto& [leaf, dataPair] : leafData) {
+      if (count >= 2) break;
+      auto coefficients = dataPair.first;  // First vector = coefficients
+      std::cout << "Leaf bb: " << leaf->bb() << "\n";
+      std::cout << "-----------------------------------------" << std::endl;
+      size_t n = coefficients.size();
+      for (auto& coeff : coefficients) {
+        std::cout << coeff << " ";
+      }
+      std::cout << "\n";
+      std::cout << "-----------------------------------------" << std::endl;
+      count++;
     }
-    std::cout << "\n";
-    std::cout << "-----------------------------------------" << std::endl;
-    count++;
-  }
 
-  int count1 = 0;
-  for (const auto& [leaf, res] : results) {
-    if (count1 >= 2) break;
-    if (res.get_slope() != dtilde) {
-      std::cout << "Slope: " << res.get_slope() << "\n";
-      std::cout << "-------------------------" << std::endl;
+    int count1 = 0;
+    for (const auto& [leaf, res] : results) {
+      if (count1 >= 2) break;
+      if (res.get_slope() != dtilde) {
+        std::cout << "Slope: " << res.get_slope() << "\n";
+        std::cout << "-------------------------" << std::endl;
 
-      // Check if leaf exists in leafData
-      auto it = leafData.find(leaf);
-      if (it != leafData.end()) {
-        const auto& coefficients =
-            it->second.first;  // First vector = coefficients
-        const auto& diameters = it->second.second;  // Second vector = diameters
+        // Check if leaf exists in leafData
+        auto it = leafData.find(leaf);
+        if (it != leafData.end()) {
+          const auto& coefficients =
+              it->second.first;  // First vector = coefficients
+          const auto& diameters = it->second.second;  // Second vector =
+    diameters
+
+          std::cout << "  Coefficients: ";
+          for (const auto& coeff : coefficients) {
+            std::cout << coeff << " ";
+          }
+          std::cout << "\n";
+          std::cout << "-----------------------------------------" << std::endl;
+
+          std::cout << "Diameters: ";
+          for (const auto& diam : diameters) {
+            std::cout << diam << " ";
+          }
+          std::cout << "\n";
+          std::cout << "-------------------------" << std::endl;
+        }
+        std::cout << "=========================" << std::endl;
+        count1++;
+      }
+    }
+
+
+    for (const auto& [leaf, dataPair] : leafData) {
+      // if (count >= 20) break;
+      auto coefficients = dataPair.first;       // First vector = coefficients
+      const auto& diameters = dataPair.second;  // Second vector = diameters
+      if (leaf->bb()(0, 0) > 0.299 && leaf->bb()(0, 1) < 0.301) {
+        std::cout << "Leaf bb: " << leaf->bb() << "\n";
+        std::cout << "-----------------------------------------" << std::endl;
+        size_t n = coefficients.size();
+
+        Scalar accum = 0.;
+        for (int i = 0; i < n; ++i) {
+          accum += coefficients[i] * coefficients[i];
+        }
+        Scalar norm = sqrt(accum);
+        if (norm != 0) {
+          for (auto& coeff : coefficients) {
+            coeff /= norm;
+          }
+        }
 
         std::cout << "  Coefficients: ";
+        int zero_count = 0;
         for (const auto& coeff : coefficients) {
           std::cout << coeff << " ";
+          if (coeff == 0) {
+            zero_count++;
+          }
         }
+        // std::cout << "\n";
+        // std::cout << "number of 0 coeffs = " << zero_count << "\n";
         std::cout << "\n";
         std::cout << "-----------------------------------------" << std::endl;
 
-        std::cout << "Diameters: ";
+        std::cout << "\n  Diameters: ";
         for (const auto& diam : diameters) {
           std::cout << diam << " ";
         }
         std::cout << "\n";
         std::cout << "-------------------------" << std::endl;
       }
-      std::cout << "=========================" << std::endl;
-      count1++;
+    }
+
+    // const std::string outputFile_slopes = "relativeSlopes.csv";
+    // auto slopes = computeRelativeSlopes1D<ST, Scalar>(leafCoefficients,
+    dtilde,
+    // 1e-4,
+    //                                                   outputFile_slopes);
+    // auto slopes = computeLinearRegressionSlope(leafCoefficients, dtilde);
+
+    // generateStepFunctionData(slopes, outputFile_step);
+
+    // Coeff decay
+    // printMaxCoefficientsPerLevel(hst, tdata);
+  */
+
+  Vector colr(P.cols());
+  for (const auto& [leaf, res] : results) {
+    for (int j = 0; j < leaf->block_size(); ++j) {
+      Scalar slope = res.get_slope();
+      Scalar dtilde_binned = std::abs(std::floor((slope + 0.25) / 0.5) * 0.5);
+      colr(leaf->indices()[j]) = slope;
     }
   }
 
-
-  for (const auto& [leaf, dataPair] : leafData) {
-    // if (count >= 20) break;
-    auto coefficients = dataPair.first;       // First vector = coefficients
-    const auto& diameters = dataPair.second;  // Second vector = diameters
-    if (leaf->bb()(0, 0) > 0.299 && leaf->bb()(0, 1) < 0.301) {
-      std::cout << "Leaf bb: " << leaf->bb() << "\n";
-      std::cout << "-----------------------------------------" << std::endl;
-      size_t n = coefficients.size();
-
-      Scalar accum = 0.;
-      for (int i = 0; i < n; ++i) {
-        accum += coefficients[i] * coefficients[i];
-      }
-      Scalar norm = sqrt(accum);
-      if (norm != 0) {
-        for (auto& coeff : coefficients) {
-          coeff /= norm;
-        }
-      }
-
-      std::cout << "  Coefficients: ";
-      int zero_count = 0;
-      for (const auto& coeff : coefficients) {
-        std::cout << coeff << " ";
-        if (coeff == 0) {
-          zero_count++;
-        }
-      }
-      // std::cout << "\n";
-      // std::cout << "number of 0 coeffs = " << zero_count << "\n";
-      std::cout << "\n";
-      std::cout << "-----------------------------------------" << std::endl;
-
-      std::cout << "\n  Diameters: ";
-      for (const auto& diam : diameters) {
-        std::cout << diam << " ";
-      }
-      std::cout << "\n";
-      std::cout << "-------------------------" << std::endl;
-    }
+  std::ofstream out(filename);
+  for (int i = 0; i < P.cols(); ++i) {
+    out << P(0, i) << " " << colr(i) << "\n";
   }
+  out.close();
 
-  // const std::string outputFile_slopes = "relativeSlopes.csv";
-  // auto slopes = computeRelativeSlopes1D<ST, Scalar>(leafCoefficients, dtilde,
-  // 1e-4,
-  //                                                   outputFile_slopes);
-  // auto slopes = computeLinearRegressionSlope(leafCoefficients, dtilde);
-
-  // generateStepFunctionData(slopes, outputFile_step);
-
-  // Coeff decay
-  // printMaxCoefficientsPerLevel(hst, tdata);
-*/
-
-Vector colr(P.cols());
-for (const auto& [leaf, res] : results) {
-  for (int j = 0; j < leaf->block_size(); ++j) {
-    Scalar slope = res.get_slope();
-    Scalar dtilde_binned = std::abs(std::floor((slope + 0.25) / 0.5) * 0.5);
-    colr(leaf->indices()[j]) = slope;
-  }
-}
-
-std::ofstream out("/Users/saraavesani/Desktop/Archive/points_with_color.txt");
-for (int i = 0; i < P.cols(); ++i) {
-  out << P(0, i) << " " << colr(i) << "\n";
-}
-out.close();
-
-
-Matrix P3(3, P.cols());
-P3.topRows(1) = P;
-P3.row(1).setZero();
-P3.row(2).setZero();
-FMCA::IO::plotPointsColor("Slope_picture_1D.vtk", P3, colr);
-FMCA::IO::plotPointsColor("Function_picture_1D.vtk", P3, f);
+  // Matrix P3(3, P.cols());
+  // P3.topRows(1) = P;
+  // P3.row(1).setZero();
+  // P3.row(2).setZero();
+  // FMCA::IO::plotPointsColor("Slope_picture_1D.vtk", P3, colr);
+  // FMCA::IO::plotPointsColor("Function_picture_1D.vtk", P3, f);
 
   return 0;
 }

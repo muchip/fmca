@@ -34,6 +34,7 @@ class SampletCoefficientsAnalyzer {
     tdata_ptr_ = &tdata;
     max_level_ = computeMaxLevel(tree);
     max_coeff_per_level_ = getMaxCoefficientsPerLevel(tree, tdata);
+    sum_squared_per_level_ = getSumSquaredPerLevel(tree, tdata);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -56,7 +57,19 @@ class SampletCoefficientsAnalyzer {
     Scalar coefficient = segment.cwiseAbs().maxCoeff();
     return coefficient;
   }
-  
+
+  //////////////////////////////////////////////////////////////////////////////
+  Scalar computeSumSquaredCoeffNode(const TreeType& node, const Vector& tdata) {
+    if (node.nsamplets() <= 0 || node.start_index() < 0 ||
+        node.start_index() + node.nsamplets() > tdata.size() ||
+        node.block_size() <= 0) {
+      return std::numeric_limits<Scalar>::quiet_NaN();  // Return NaN
+    }
+    auto segment = tdata.segment(node.start_index(), node.nsamplets());
+    Scalar coefficient = segment.cwiseProduct(segment).sum();
+    return coefficient;
+  }
+
   //////////////////////////////////////////////////////////////////////////////
   LevelMap getMaxCoefficientsPerLevel(const TreeType& tree,
                                       const Vector& tdata) {
@@ -74,6 +87,27 @@ class SampletCoefficientsAnalyzer {
         levelCoeff[level] = coefficient;
       } else {
         levelCoeff[level] = std::max(levelCoeff[level], coefficient);
+      }
+    }
+    return levelCoeff;
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  LevelMap getSumSquaredPerLevel(const TreeType& tree, const Vector& tdata) {
+    LevelMap levelCoeff;
+    for (const auto& node : tree) {
+      auto level = node.level();
+      auto coefficient = computeSumSquaredCoeffNode(node, tdata);
+
+      // Skip nodes that returned NaN (invalid nodes)
+      if (std::isnan(coefficient)) {
+        continue;
+      }
+
+      if (levelCoeff.find(level) == levelCoeff.end()) {
+        levelCoeff[level] = coefficient;
+      } else {
+        levelCoeff[level] += coefficient;
       }
     }
     return levelCoeff;
@@ -133,11 +167,150 @@ class SampletCoefficientsAnalyzer {
   }
 
   //////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////
+  void traverseAndStackCoefficientsAndDiametersL2Norm(const TreeType& tree,
+                                                      const Vector& tdata,
+                                                      LeafDataMap& leafData) {
+    Scalar N = tdata.rows();
+    using StackItem = std::tuple<const TreeType*, size_t, const TreeType*>;
+    std::vector<StackItem> nodeStack;
+
+    // First pass: compute sum of squared coefficients per level
+    LevelMap levelNorms = getSumSquaredPerLevel(tree, tdata);
+
+    // Convert to sqrt for normalization
+    for (auto& [level, sumSquared] : levelNorms) {
+      levelNorms[level] = std::sqrt(sumSquared);
+    }
+
+    // Start from the actual root of the tree (not tree.derived())
+    nodeStack.emplace_back(&tree.derived(), 0, nullptr);
+
+    std::vector<Scalar> coefficientsStack;
+    std::vector<Scalar> diametersStack;
+
+    while (!nodeStack.empty()) {
+      auto [currentNode, currentLevel, parentNode] = nodeStack.back();
+      nodeStack.pop_back();
+
+      // If we backtrack to a shallower level, resize the stacks
+      if (coefficientsStack.size() > currentLevel) {
+        coefficientsStack.resize(currentLevel);
+        diametersStack.resize(currentLevel);
+      }
+
+      // Compute sum of squares for this node
+      Scalar coeff = computeSumSquaredCoeffNode(*currentNode, tdata);
+      Scalar diam = (currentNode->bb().col(2)).norm();
+
+      // Normalize coefficient by level norm
+      Scalar normalizedCoeff = std::sqrt(coeff);
+      if (levelNorms.find(currentLevel) != levelNorms.end() &&
+          levelNorms[currentLevel] > 0) {
+        normalizedCoeff = normalizedCoeff; // / ( std::sqrt(currentNode->block_size()) ); // /= levelNorms[currentLevel];
+      }
+
+      coefficientsStack.push_back(normalizedCoeff);
+      diametersStack.push_back(diam);
+
+      bool isLeaf = (currentNode->nSons() == 0);
+      if (isLeaf) {
+        // Store the full path of normalized sqrt(coefficients) and diameters
+        // for this leaf
+        leafData[currentNode] =
+            std::make_pair(coefficientsStack, diametersStack);
+      } else {
+        // Push children (in reverse order to process leftmost child first)
+        for (int i = currentNode->nSons() - 1; i >= 0; --i) {
+          nodeStack.emplace_back(&currentNode->sons(i), currentLevel + 1,
+                                 currentNode);
+        }
+      }
+    }
+  }
+
+  // void traverseAndStackCoefficientsAndDiametersL2Norm(const TreeType& tree,
+  //                                                     const Vector& tdata,
+  //                                                     LeafDataMap& leafData)
+  //                                                     {
+  //   using StackItem = std::tuple<const TreeType*, size_t, const TreeType*>;
+  //   std::vector<StackItem> nodeStack;
+
+  //   // Start from the actual root of the tree (not tree.derived())
+  //   nodeStack.emplace_back(&tree.derived(), 0, nullptr);
+
+  //   std::vector<Scalar> coefficientsStack;
+  //   std::vector<Scalar> diametersStack;
+
+  //   while (!nodeStack.empty()) {
+  //     auto [currentNode, currentLevel, parentNode] = nodeStack.back();
+  //     nodeStack.pop_back();
+
+  //     std::cout << "\n=== NEW ITERATION ===\n";
+  //     std::cout << "Current node: " << currentNode << " (Level " <<
+  //     currentLevel
+  //               << ")\n";
+  //     std::cout << "Parent node: " << parentNode << "\n";
+  //     std::cout << "Stack size before processing: " << nodeStack.size() <<
+  //     "\n";
+
+  //     // If we backtrack to a shallower level, resize the stacks
+  //     if (coefficientsStack.size() > currentLevel) {
+  //       std::cout << "\n*** STACK RESIZE TRIGGERED ***\n";
+  //       std::cout << "Old sizes - Coefficients: " << coefficientsStack.size()
+  //                 << ", Diameters: " << diametersStack.size() << "\n";
+  //       std::cout << "New sizes - Coefficients: " << currentLevel
+  //                 << ", Diameters: " << currentLevel << "\n";
+  //       coefficientsStack.resize(currentLevel);
+  //       diametersStack.resize(currentLevel);
+  //     }
+
+  //     // Compute sum of squares for this node
+  //     Scalar coeff = computeSumSquaredCoeffNode(*currentNode, tdata);
+  //     Scalar diam = (currentNode->bb().col(2)).norm();
+
+  //     std::cout << "\nComputed values:";
+  //     std::cout << "\n  SumSquaredCoeff: " << coeff;
+  //     std::cout << "\n  sqrt(SumSquaredCoeff): " << std::sqrt(coeff);
+  //     std::cout << "\n  Diameter: " << diam << "\n";
+
+  //     coefficientsStack.push_back(std::sqrt(coeff));
+  //     diametersStack.push_back(diam);
+
+  //     bool isLeaf = (currentNode->nSons() == 0);
+  //     if (isLeaf) {
+  //       std::cout << "\n*** LEAF NODE FOUND ***\n";
+  //       std::cout << "Stored data:";
+  //       std::cout << "\n  Coefficients stack: ";
+  //       for (auto& c : coefficientsStack) std::cout << c << " ";
+  //       std::cout << "\n  Diameters stack: ";
+  //       for (auto& d : diametersStack) std::cout << d << " ";
+  //       std::cout << "\n";
+  //       // Store the full path of sqrt(coefficients) and diameters for this
+  //       leaf leafData[currentNode] =
+  //           std::make_pair(coefficientsStack, diametersStack);
+  //     } else {
+  //       std::cout << "\nProcessing " << currentNode->nSons() << "
+  //       children:\n";
+  //       // Push children (in reverse order to process leftmost child first)
+  //       for (int i = currentNode->nSons() - 1; i >= 0; --i) {
+  //         std::cout << "  Pushed child #" << i << " (" <<
+  //         &currentNode->sons(i)
+  //                   << ") - New level: " << currentLevel + 1 << "\n";
+  //         nodeStack.emplace_back(&currentNode->sons(i), currentLevel + 1,
+  //                                currentNode);
+  //       }
+  //     }
+  //   }
+  // }
+
+  //////////////////////////////////////////////////////////////////////////////
  private:
   const TreeType* tree_ptr_ = nullptr;
   const Vector* tdata_ptr_ = nullptr;
   Index max_level_ = 0;
   LevelMap max_coeff_per_level_;
+  LevelMap sum_squared_per_level_;
 };
 
 }  // namespace FMCA
