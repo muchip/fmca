@@ -57,17 +57,21 @@ struct GraphSampletTree : public SampletTreeBase<GraphSampletTree> {
   // constructors
   //////////////////////////////////////////////////////////////////////////////
   GraphSampletTree() {}
-  template <typename Interpolator, typename Graph>
-  GraphSampletTree(const Interpolator &interp, Index min_cluster_size,
-                   const Graph &G) {
-    init(interp, min_cluster_size, G);
+  template <typename Graph, typename Interpolator>
+  GraphSampletTree(const Graph &G, Index emb_dim, Index min_cluster_size,
+                   Index dtilde) {
+    init<Graph, Interpolator>(G, emb_dim, min_cluster_size, dtilde);
   }
   //////////////////////////////////////////////////////////////////////////////
   // init
   //////////////////////////////////////////////////////////////////////////////
   template <typename Interpolator, typename Graph>
-  void init(const Interpolator &interp, Index min_cluster_size,
-            const Graph &G) {
+  void init(const Graph &G, Index emb_dim, Index min_cluster_size,
+            Index dtilde) {
+    const Index q = dtilde > 0 ? dtilde - 1 : 0;
+    const Index internal_q = q;  // SampletHelper::internal_q(q, emb_dim);
+    Interpolator interp;
+    interp.init(emb_dim, internal_q);
     const Index mincsize = min_cluster_size > interp.Xi().cols()
                                ? min_cluster_size
                                : interp.Xi().cols();
