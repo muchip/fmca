@@ -27,11 +27,11 @@ using SampletTree = FMCA::GraphSampletTree;
 int main() {
   FMCA::Tictoc T;
   const FMCA::Index npts = 1000;
-  const FMCA::Index leaf_size = 100;
+  const FMCA::Index tpts = 8;
+  const FMCA::Index leaf_size = 3;
 
   std::mt19937 mt;
   mt.seed(0);
-#if 0
   FMCA::Matrix P(3, npts);
   {
     std::normal_distribution<FMCA::Scalar> dist(0.0, 1.0);
@@ -40,28 +40,50 @@ int main() {
       P.col(i) /= P.col(i).norm();
     }
   }
-#endif
-  FMCA::Matrix P = FMCA::IO::ascii2Matrix("america_2e6_S.txt").transpose();
-  P = P.topRows(3);
-  P = P.leftCols(100000);
+  P.setZero();
+  P.topRows(2).setRandom();
   T.tic();
   FMCA::ClusterTree CT(P, 10);
   T.toc("RPT: ");
   T.tic();
-  std::vector<Eigen::Triplet<FMCA::Scalar>> A = FMCA::symKNN(CT, P, 50);
+  std::vector<Eigen::Triplet<FMCA::Scalar>> A = FMCA::symKNN(CT, P, 100);
   T.toc("kNN:");
 
   T.tic();
   FMCA::Graph<idx_t, FMCA::Scalar> G;
   G.init(npts, A);
   T.toc("construct graph");
-  FMCA::Vector signal(P.cols());
-  for (FMCA::Index i = 0; i < signal.size(); ++i)
-    signal(i) = P(0, i) * P(1, i) + P(2, i) * P(2, i);
-  G.printSignal("data_graph.vtk", P, signal);
   SampletTree st;
   st.init<FMCA::TotalDegreeInterpolator, FMCA::Graph<idx_t, FMCA::Scalar>>(
-      G, 2, 50, 2);
+      G, 2, leaf_size, 2);
+  FMCA::Matrix sP = P;
+  for (FMCA::Index i = 0; i < sP.cols(); ++i)
+    sP.col(i) = P.col(st.indices()[i]);
+  {
+    FMCA::Matrix test(npts, tpts);
+    std::vector<FMCA::Index> indices(npts);
+    std::iota(indices.begin(), indices.end(), 0);
+    std::random_device rd;
+    std::mt19937 g(rd());
+    std::shuffle(indices.begin(), indices.end(), g);
+    test.setZero();
+    for (FMCA::Index i = 0; i < tpts; ++i) {
+      test(indices[i], i) = 1;
+    }
+    const FMCA::Matrix samp_basis =
+        st.inverseSampletTransform(FMCA::Matrix::Identity(npts, npts));
+    for (FMCA::Index i = 0; i < 1000; ++i)
+      G.printSignal("global_sampl" + std::to_string(i) + ".vtk", sP,
+                    samp_basis.col(i));
+    const FMCA::Matrix sample_cols = st.inverseSampletTransform(test);
+    const FMCA::Matrix test_I = sample_cols.transpose() * sample_cols;
+
+    std::cout << "orthogonality error: "
+              << (test_I - FMCA::Matrix::Identity(tpts, tpts)).norm() /
+                     std::sqrt(tpts)
+              << std::endl;
+  }
+#if 0
   FMCA::Vector unit(npts);
   unit.setZero();
   unit(0) = 1;
@@ -138,5 +160,6 @@ int main() {
       }
     }
   }
+#endif
   return 0;
 }
