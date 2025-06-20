@@ -20,7 +20,7 @@
 
 namespace FMCA {
 
-Matrix MDS(const Matrix &D, const Index emb_dim) {
+Matrix MDS(const Matrix& D, const Index emb_dim, Scalar* nrg = nullptr) {
   const Scalar dim =
       emb_dim >= 1 ? (emb_dim <= D.rows() ? emb_dim : D.rows()) : 1;
   const Vector ones = Vector::Ones(D.rows());
@@ -41,8 +41,9 @@ Matrix MDS(const Matrix &D, const Index emb_dim) {
   const Index cutr = npos >= dim ? dim : npos;
   const Scalar total_energy = es.eigenvalues().tail(npos).sum();
   const Scalar acc_energy = es.eigenvalues().tail(cutr).sum();
+  if (nrg != nullptr) *nrg = (total_energy - acc_energy) / total_energy;
 #ifdef FMCA_VERBOSE
-  std::cout << "msize: " << D.rows() << " cutr: " << cutr
+  std::cout << "msize: " << D.rows() << " nneg: " << nneg << " cutr: " << cutr
             << " relative lost energy: "
             << (total_energy - acc_energy) / total_energy << std::endl;
 #endif

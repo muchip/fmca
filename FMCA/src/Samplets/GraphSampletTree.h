@@ -76,19 +76,22 @@ struct GraphSampletTree : public SampletTreeBase<GraphSampletTree> {
                                ? min_cluster_size
                                : interp.Xi().cols();
     MetisClusterTree::initializer::init(*this, mincsize, G);
-    computeSamplets(interp, G);
+    Scalar lost_nrg = 0;
+    computeSamplets(interp, G, &lost_nrg);
+    std::cout << "maximum energy lost: " << lost_nrg << std::endl;
     internal::sampletMapper<GraphSampletTree>(*this);
     return;
   }
 
  private:
   template <typename Interpolator, typename Graph>
-  void computeSamplets(const Interpolator &interp, const Graph &G) {
+  void computeSamplets(const Interpolator &interp, const Graph &G,
+                       Scalar *lost_nrg) {
     const Index nmom = interp.idcs().index_set().size();
     if (nSons()) {
       Index offset = 0;
       for (auto i = 0; i < nSons(); ++i) {
-        sons(i).computeSamplets(interp, G);
+        sons(i).computeSamplets(interp, G, lost_nrg);
         // the son now has moments, lets grep them...
         node().mom_buffer_.conservativeResize(
             sons(i).node().mom_buffer_.rows(),
@@ -101,6 +104,7 @@ struct GraphSampletTree : public SampletTreeBase<GraphSampletTree> {
         sons(i).node().mom_buffer_.resize(0, 0);
       }
     } else {
+      Scalar nrg = 0;
       // compute cluster basis of the leaf
       std::vector<Eigen::Triplet<FMCA::Scalar>> trips;
       trips.reserve(block_size() * block_size());
@@ -115,18 +119,17 @@ struct GraphSampletTree : public SampletTreeBase<GraphSampletTree> {
       Graph G2;
       G2.init(block_size(), trips);
       node().D = G2.distanceMatrix();
-      node().P = MDS(node().D, interp.dim());
+      node().P = MDS(node().D, interp.dim(), &nrg);
+      *lost_nrg = *lost_nrg < nrg ? nrg : *lost_nrg;
       if (node().P.rows() < interp.dim()) {
         Matrix Pdim(interp.dim(), node().P.cols());
         Pdim.setZero();
         Pdim.topRows(node().P.rows()) = node().P;
         node().P = Pdim;
       }
-      Vector mp = node().P.rowwise().mean();
       node().mom_buffer_.resize(interp.Xi().cols(), node().P.cols());
       for (auto i = 0; i < block_size(); ++i)
-        node().mom_buffer_.col(i) =
-            interp.evalPolynomials(node().P.col(i) - mp);
+        node().mom_buffer_.col(i) = interp.evalPolynomials(node().P.col(i));
     }
     // are there samplets?
     if (nmom < node().mom_buffer_.cols()) {
