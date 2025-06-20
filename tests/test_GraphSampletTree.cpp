@@ -26,7 +26,7 @@ using SampletTree = FMCA::GraphSampletTree;
 
 int main() {
   FMCA::Tictoc T;
-  const FMCA::Index npts = 100000;
+  const FMCA::Index npts = 1000;
   const FMCA::Index leaf_size = 100;
 
   std::mt19937 mt;
@@ -48,20 +48,20 @@ int main() {
   FMCA::ClusterTree CT(P, 10);
   T.toc("RPT: ");
   T.tic();
-  std::vector<Eigen::Triplet<FMCA::Scalar>> A = FMCA::symKNN(CT, P, 10);
+  std::vector<Eigen::Triplet<FMCA::Scalar>> A = FMCA::symKNN(CT, P, 50);
   T.toc("kNN:");
 
   T.tic();
   FMCA::Graph<idx_t, FMCA::Scalar> G;
   G.init(npts, A);
   T.toc("construct graph");
-  FMCA::TotalDegreeInterpolator interp;
-  interp.init(2, 4);
   FMCA::Vector signal(P.cols());
   for (FMCA::Index i = 0; i < signal.size(); ++i)
     signal(i) = P(0, i) * P(1, i) + P(2, i) * P(2, i);
   G.printSignal("data_graph.vtk", P, signal);
-  SampletTree st(interp, leaf_size, G);
+  SampletTree st;
+  st.init<FMCA::TotalDegreeInterpolator, FMCA::Graph<idx_t, FMCA::Scalar>>(
+      G, 2, 50, 2);
   FMCA::Vector unit(npts);
   unit.setZero();
   unit(0) = 1;
@@ -82,7 +82,6 @@ int main() {
   int ctr = 0;
   for (FMCA::Index i = 0; i < Ss.size(); ++i)
     if (abs(Ss(i) / Ss.norm()) > 1e-4) {
-      std::cout << i << " " << Ss(i) << std::endl;
       ++ctr;
     }
   std::cout << "non-negligible: " << ctr << std::endl;
