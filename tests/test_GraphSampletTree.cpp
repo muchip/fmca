@@ -27,10 +27,11 @@ using SampletTree = FMCA::GraphSampletTree;
 int main() {
   FMCA::Tictoc T;
   const FMCA::Index npts = 100000;
-  const FMCA::Index leaf_size = 200;
+  const FMCA::Index leaf_size = 100;
 
   std::mt19937 mt;
   mt.seed(0);
+#if 0
   FMCA::Matrix P(3, npts);
   {
     std::normal_distribution<FMCA::Scalar> dist(0.0, 1.0);
@@ -39,33 +40,48 @@ int main() {
       P.col(i) /= P.col(i).norm();
     }
   }
+#endif
+  FMCA::Matrix P = FMCA::IO::ascii2Matrix("america_2e6_S.txt").transpose();
+  P = P.topRows(3);
+  P = P.leftCols(100000);
   T.tic();
   FMCA::ClusterTree CT(P, 10);
   T.toc("RPT: ");
   T.tic();
-  std::vector<Eigen::Triplet<FMCA::Scalar>> A = FMCA::symKNN(CT, P, 500);
+  std::vector<Eigen::Triplet<FMCA::Scalar>> A = FMCA::symKNN(CT, P, 10);
   T.toc("kNN:");
 
   T.tic();
   FMCA::Graph<idx_t, FMCA::Scalar> G;
   G.init(npts, A);
   T.toc("construct graph");
-  FMCA::MonomialInterpolator interp;
+  FMCA::TotalDegreeInterpolator interp;
   interp.init(2, 4);
   FMCA::Vector signal(P.cols());
   for (FMCA::Index i = 0; i < signal.size(); ++i)
     signal(i) = P(0, i) * P(1, i) + P(2, i) * P(2, i);
   G.printSignal("data_graph.vtk", P, signal);
   SampletTree st(interp, leaf_size, G);
-  FMCA::Matrix I(npts, npts);
-  I.setIdentity();
+  FMCA::Vector unit(npts);
+  unit.setZero();
+  unit(0) = 1;
+  G.printSignal("global_sampl" + std::to_string(0) + ".vtk", P,
+                st.sampletTransform(unit));
+  unit(0) = 0;
+  unit(100) = 1;
+  G.printSignal("global_sampl" + std::to_string(1) + ".vtk", P,
+                st.sampletTransform(unit));
+  unit(100) = 0;
+  unit(1000) = 1;
+  G.printSignal("global_sampl" + std::to_string(2) + ".vtk", P,
+                st.sampletTransform(unit));
   // FMCA::Matrix S = st.sampletTransform(I);
   // std::cout << "err: " << (S * S.transpose() - I).norm() / I.norm() << " "
   //           << (S.transpose() * S - I).norm() / I.norm() << std::endl;
   FMCA::Vector Ss = st.sampletTransform(st.toClusterOrder(signal));
   int ctr = 0;
   for (FMCA::Index i = 0; i < Ss.size(); ++i)
-    if (abs(Ss(i) / Ss.norm()) > 1e-2) {
+    if (abs(Ss(i) / Ss.norm()) > 1e-4) {
       std::cout << i << " " << Ss(i) << std::endl;
       ++ctr;
     }
@@ -105,6 +121,22 @@ int main() {
       G2.printSignal("leaf" + std::to_string(f) + ".vtk", P3, sig);
 
       ++f;
+      if (f < 2) {
+        FMCA::Matrix P3(3, it.node().P.cols());
+        P3.setZero();
+        P3.topRows(2) = it.node().P;
+        FMCA::Vector minP = P3.rowwise().minCoeff();
+        FMCA::Vector maxP = P3.rowwise().maxCoeff();
+        FMCA::Vector inv_dist = 1. / (maxP - minP).array();
+        inv_dist(2) = 0;
+        P3 = inv_dist.asDiagonal() *
+             (P3 - minP * FMCA::Vector::Ones(P3.cols()).transpose());
+        for (FMCA::Index i = 0; i < it.Q().cols(); ++i) {
+          P3.bottomRows(1) = it.Q().col(i).transpose();
+          G2.printSignal("samplets" + std::to_string(i) + ".vtk", P3,
+                         it.Q().col(i));
+        }
+      }
     }
   }
   return 0;
