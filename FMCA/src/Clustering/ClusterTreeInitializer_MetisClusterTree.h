@@ -1,7 +1,7 @@
 // This file is part of FMCA, the Fast Multiresolution Covariance Analysis
 // package.
 //
-// Copyright (c) 2022, Michael Multerer
+// Copyright (c) 2025, Michael Multerer
 //
 // All rights reserved.
 //
@@ -11,6 +11,8 @@
 //
 #ifndef FMCA_CLUSTERING_INITMETISCLUSTERTREEIMPL_H_
 #define FMCA_CLUSTERING_INITMETISCLUSTERTREEIMPL_H_
+
+#ifdef _METIS_H_
 
 namespace FMCA {
 namespace internal {
@@ -75,5 +77,5 @@ struct ClusterTreeInitializer<MetisClusterTree> {
 }  // namespace internal
 
 }  // namespace FMCA
-
+#endif
 #endif

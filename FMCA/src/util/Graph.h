@@ -174,6 +174,8 @@ class Graph {
 };
 
 #ifdef _METIS_H_
+namespace METIS {
+
 template <typename ValueType>
 std::vector<idx_t> partitionGraph(Graph<idx_t, ValueType> &G) {
   idx_t nvtxs = G.nnodes();
@@ -225,6 +227,6 @@ std::vector<idx_t> partitionGraphKWay(Graph<idx_t, ValueType> &G, Index K) {
 }
 
 #endif
-
+}
 }  // namespace FMCA
 #endif

@@ -12,6 +12,8 @@
 #ifndef FMCA_CLUSTERING_METISCLUSTERTREE_H_
 #define FMCA_CLUSTERING_METISCLUSTERTREE_H_
 
+#ifdef _METIS_H_
+
 namespace FMCA {
 
 struct MetisClusterTreeNode : public ClusterTreeNodeBase<MetisClusterTreeNode> {
@@ -64,4 +66,5 @@ struct MetisClusterTree : public ClusterTreeBase<MetisClusterTree> {
 };
 
 }  // namespace FMCA
+#endif
 #endif
