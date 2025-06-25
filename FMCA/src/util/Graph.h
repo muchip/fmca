@@ -198,6 +198,32 @@ std::vector<idx_t> partitionGraph(Graph<idx_t, ValueType> &G) {
   assert(status == METIS_OK);
   return part;
 }
+
+template <typename ValueType>
+std::vector<idx_t> partitionGraphKWay(Graph<idx_t, ValueType> &G, Index K) {
+  idx_t nvtxs = G.nnodes();
+  idx_t ncon = 1;
+  idx_t nparts = K;
+  idx_t wgtflag = 1;  // only edge weights
+  idx_t numflag = 0;
+  idx_t options[METIS_NOPTIONS];
+  METIS_SetDefaultOptions(options);
+
+  idx_t objval;
+  std::vector<idx_t> part(nvtxs);
+  idx_t *xadj = (G.graph()).outerIndexPtr();
+  idx_t *adjncy = (G.graph()).innerIndexPtr();
+  std::vector<idx_t> adjwgt(G.nedges());
+  for (idx_t i = 0; i < adjwgt.size(); ++i)
+    adjwgt[i] = 1. / (1e-3 + G.graph().valuePtr()[i] * G.graph().valuePtr()[i]);
+
+  int status = METIS_PartGraphKway(&nvtxs, &ncon, xadj, adjncy, NULL, NULL,
+                                   adjwgt.data(), &nparts, NULL, NULL, options,
+                                   &objval, part.data());
+  assert(status == METIS_OK);
+  return part;
+}
+
 #endif
 
 }  // namespace FMCA
