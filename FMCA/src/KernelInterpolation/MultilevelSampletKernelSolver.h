@@ -13,18 +13,12 @@
 #ifndef FMCA_KERNELINTERPOLATION_MULTILEVELSAMPLETKERNELSOLVER_H_
 #define FMCA_KERNELINTERPOLATION_MULTILEVELSAMPLETKERNELSOLVER_H_
 
-#include <random>
-#include <stdexcept>
-#include <string>
-
-#include "../util/Tictoc.h"
-
 namespace FMCA {
+
 //////////////////////////////////////////////////////////////////////////////
 struct CompressionStats {
-  Scalar time_planner = 0.0;       // Time for compression planning
-  Scalar time_compressor = 0.0;    // Time for actual compression
-  Scalar assembly_time = 0.0;      // Time for a posteriori compression
+  Scalar time_compressor = 0.0;    // Total compression time
+  Scalar assembly_time = 0.0;      // Total assembly time
   size_t anz = 0;                  // Number of a posteriori triplets per row
   Scalar compression_error = 0.0;  // Relative compression error
 };
@@ -46,6 +40,14 @@ class MultilevelSampletKernelSolver {
   using SampletMoments = NystromSampletMoments<SampletInterpolator>;
   using MatrixEvaluator = NystromEvaluator<Moments, FMCA::CovarianceKernel>;
   using SampletTree = H2SampletTree<ClusterTree>;
+#ifdef CHOLMOD_SUPPORT
+  using Cholesky = Eigen::CholmodSupernodalLLT<SparseMatrix, Eigen::Upper>;
+#elif METIS_SUPPORT
+  using Cholesky = Eigen::SimplicialLDLT<SparseMatrix, Eigen::Upper,
+                                         Eigen::MetisOrdering<int>>;
+#else
+  using Cholesky = Eigen::SimplicialLDLT<SparseMatrix, Eigen::Upper>;
+#endif
 
   MultilevelSampletKernelSolver() noexcept {}
 
@@ -67,17 +69,6 @@ class MultilevelSampletKernelSolver {
   }
 
   //////////////////////////////////////////////////////////////////////////////
-  Scalar computeFillDistance(const Matrix& P) const {
-    // Create a temporary tree just for computing the fill distance
-    const Moments tmp_mom(P, mpole_deg_);
-    const SampletMoments tmp_smom(P, mpole_deg_ - 1);
-    SampletTree tmp_tree;
-    tmp_tree.init(tmp_mom, tmp_smom, 0, P);
-    const Vector minvec = minDistanceVector(tmp_tree, P);
-    return minvec.maxCoeff();
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
   void init(const CovarianceKernel& kernel, const Matrix& P, Index dtilde,
             Scalar eta = 0., Scalar threshold = 0., Scalar ridgep = 0.) {
     // set parameters
@@ -91,29 +82,32 @@ class MultilevelSampletKernelSolver {
     const Moments mom(P, mpole_deg_);
     const SampletMoments smom(P, dtilde_ - 1);
     hst_.init(mom, smom, 0, P);
+    const Vector minvec = minDistanceVector(hst_, P);
+    fill_distance_ = minvec.maxCoeff();
+    separation_radius_ = minvec.minCoeff();
+    // compress kernel
+
     return;
   }
-
+  //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
   void compress(const Matrix& P) {
     Tictoc timer;
     const Moments mom(P, mpole_deg_);
     // init
-    timer.tic();
     compressor_.init(hst_, eta_, FMCA_ZERO_TOLERANCE);
-    compressor_stats_.time_planner = timer.toc();
     // compress
     const MatrixEvaluator mat_eval(mom, kernel_);
     timer.tic();
     compressor_.compress(mat_eval);
-    compressor_stats_.time_compressor = timer.toc();
+    compression_stats_.time_compressor = timer.toc();
     // a priori compression
     compressor_.triplets();
     // a posteriori compression
     timer.tic();
     const auto& trips = compressor_.aposteriori_triplets_fast(threshold_);
-    compressor_stats_.assembly_time = timer.toc();
-    compressor_stats_.anz = std::round(trips.size() / double(P.cols()));
+    compression_stats_.assembly_time = timer.toc();
+    compression_stats_.anz = std::round(trips.size() / double(P.cols()));
     // final compressed matrix
     K_.resize(hst_.block_size(), hst_.block_size());
     K_.setFromTriplets(trips.begin(), trips.end());
@@ -145,15 +139,31 @@ class MultilevelSampletKernelSolver {
       err += (y1 - y2).squaredNorm();
       nrm += y1.squaredNorm();
     }
-    compressor_stats_.compression_error = sqrt(err / nrm);
+    compression_stats_.compression_error = sqrt(err / nrm);
   }
 
+#if defined(CHOLMOD_SUPPORT) || defined(METIS_SUPPORT)
   //////////////////////////////////////////////////////////////////////////////
-  void setCompressedKernel(const SparseMatrix& K) { K_ = K; }
+  void factorize() { llt_.compute(K_); }
 
   //////////////////////////////////////////////////////////////////////////////
-  Vector solveIterative(const Vector& rhs,
-                        const std::string& solverName = "ConjugateGradient",
+  Matrix solveCholesky(const Matrix& rhs) {
+    Tictoc timer;
+    Matrix sol = hst_.toClusterOrder(rhs);
+    sol = hst_.sampletTransform(sol);
+    timer.tic();
+    sol = llt_.solve(sol);
+    solver_stats_.solver_time = timer.toc();
+    sol = hst_.inverseSampletTransform(sol);
+    sol = hst_.toNaturalOrder(sol);
+    solver_stats_.iterations = 1;        // Direct solver
+    solver_stats_.residual_error = 0.0;  // Direct solver
+    return sol;
+  }
+#endif
+
+  //////////////////////////////////////////////////////////////////////////////
+  Vector solveIterative(const Vector& rhs, bool CGwithPreconditioner = true,
                         Scalar threshold_CG = 1e-6) {
     Tictoc timer;
     Vector rhs_copy = rhs;
@@ -162,68 +172,66 @@ class MultilevelSampletKernelSolver {
     Vector sol;
     SparseMatrix K_sym = K_.template selfadjointView<Eigen::Upper>();
 
-    if (solverName == "ConjugateGradient") {
-      timer.tic();
+    if (!CGwithPreconditioner) {
       Eigen::ConjugateGradient<SparseMatrix, Eigen::Lower | Eigen::Upper,
                                Eigen::IdentityPreconditioner>
           solver;
       solver.setTolerance(threshold_CG);
-      solver.compute(K_sym);
-      if (solver.info() != Eigen::Success)
-        throw std::runtime_error("CG: Matrix decomposition failed");
-      sol = solver.solve(rhs_copy);
-      CG_stats_.iterations = solver.iterations();
-      CG_stats_.solver_time = timer.toc();
-      CG_stats_.residual_error = (K_sym * sol - rhs_copy).norm();
-    } else if (solverName == "ConjugateGradientwithPreconditioner") {
       timer.tic();
+      solver.compute(K_sym);
+      sol = solver.solve(rhs_copy);
+      solver_stats_.solver_time = timer.toc();
+      solver_stats_.iterations = solver.iterations();
+      solver_stats_.residual_error = (K_sym * sol - rhs_copy).norm();
+    } else {
       Eigen::ConjugateGradient<SparseMatrix, Eigen::Lower | Eigen::Upper>
           solver;
       solver.setTolerance(threshold_CG);
+      timer.tic();
       solver.compute(K_sym);
-      if (solver.info() != Eigen::Success)
-        throw std::runtime_error(
-            "CG with Preconditioner: Decomposition failed");
       sol = solver.solve(rhs_copy);
-      CG_stats_.iterations = solver.iterations();
-      CG_stats_.solver_time = timer.toc();
-      CG_stats_.residual_error = (K_sym * sol - rhs_copy).norm();
-    } else {
-      throw std::invalid_argument(
-          "Invalid solver name. Options are: "
-          "'ConjugateGradient' or "
-          "'ConjugateGradientwithPreconditioner'");
+      solver_stats_.solver_time = timer.toc();
+      solver_stats_.iterations = solver.iterations();
+      solver_stats_.residual_error = (K_sym * sol - rhs_copy).norm();
     }
-
     sol = hst_.inverseSampletTransform(sol);
     sol = hst_.toNaturalOrder(sol);
     return sol;
   }
 
   //////////////////////////////////////////////////////////////////////////////
-  // Getter
+  // Getters
   const SparseMatrix& K() const { return K_; }
-  const SampletTree& sampletTree() const { return hst_; }
-  const CompressionStats& getCompressorStats() const {
-    return compressor_stats_;
+  const SampletTree& getSampletTree() const { return hst_; }
+  const Scalar fill_distance() const { return fill_distance_; }
+  const Scalar separation_radius() const { return separation_radius_; }
+  const CompressionStats& getCompressionStats() const {
+    return compression_stats_;
   }
-  const SolverStats& getCGStats() const { return CG_stats_; }
+  const SolverStats& getSolverStats() const { return solver_stats_; }
 
-  //////////////////////////////////////////////////////////////////////////////
  private:
-  CompressionStats compressor_stats_;
-  SolverStats CG_stats_;
   internal::SampletMatrixCompressor<SampletTree> compressor_;
   SampletTree hst_;
   CovarianceKernel kernel_;
+#if defined(CHOLMOD_SUPPORT) || defined(METIS_SUPPORT)
+  Cholesky llt_;
+#endif
   SparseMatrix K_;
   Scalar dtilde_;
   Scalar mpole_deg_;
   Scalar eta_;
+  Scalar nu_;
   Scalar threshold_;
   Scalar ridgep_;
-};
+  Scalar fill_distance_;
+  Scalar separation_radius_;
+  CompressionStats compression_stats_;
+  SolverStats solver_stats_;
 
+ public:
+  void updateKernel(const CovarianceKernel& kernel) { kernel_ = kernel; }
+};
 }  // namespace FMCA
 
-#endif  // FMCA_KERNELINTERPOLATION_SAMPLETKERNELSOLVER_H_
+#endif

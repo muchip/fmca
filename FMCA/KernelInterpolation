@@ -24,6 +24,13 @@
 #include <random>
 #include <stdexcept>
 #include <string>
+#include <cmath>
+#include <iomanip>
+#include <iostream>
+#include <vector>
+
+
+#include "src/util/Tictoc.h"
 
 #include "CovarianceKernel"
 #include "Samplets"
@@ -37,8 +44,7 @@
   #include <Eigen/MetisSupport>
 #endif
 
-
-#include "src/KernelInterpolation/MultilevelSampletKernelSolver.h"
 #include "src/KernelInterpolation/SampletKernelSolver.h"
 #include "src/KernelInterpolation/MultipoleFunctionEvaluator.h"
+#include "src/KernelInterpolation/MultilevelSampletKernelSolver.h"
 #endif

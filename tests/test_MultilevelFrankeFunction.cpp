@@ -78,7 +78,7 @@ void runMultigridTest(Scalar nu) {
   const Scalar mpole_deg = 2 * (dtilde - 1);
   const std::string kernel_type = "matern52";
   const Scalar ridgep = 0;
-  std::string solverName = "ConjugateGradientwithPreconditioner";
+  const bool preconditioner = true;
   Scalar cg_threshold = 1e-6;
 
   std::cout << "Parameters:" << std::endl;
@@ -87,7 +87,6 @@ void runMultigridTest(Scalar nu) {
   std::cout << "- threshold a post: " << threshold << std::endl;
   std::cout << "- mpole_deg:        " << mpole_deg << std::endl;
   std::cout << "- kernel_type:      " << kernel_type << std::endl;
-  std::cout << "- solver:           " << solverName << std::endl;
   std::cout << "- nu:               " << nu << std::endl;
 
   ////////////////////////////// Residuals
@@ -116,7 +115,9 @@ void runMultigridTest(Scalar nu) {
     std::cout << std::endl;
     std::cout << "-------- LEVEL " << (l + 1) << " --------" << std::endl;
     MultilevelSampletKernelSolver<> solver;
-    Scalar h = solver.computeFillDistance(P_Matrices[l]);
+    CovarianceKernel kernel(kernel_type, 1);
+    solver.init(kernel, P_Matrices[l], dtilde, eta, threshold, ridgep);
+    Scalar h = solver.fill_distance();
     fill_distances.push_back(h);
     int n_pts = P_Matrices[l].cols();
     std::cout << "Fill distance: " << h << std::endl;
@@ -137,15 +138,13 @@ void runMultigridTest(Scalar nu) {
     ////////////////////////////// Compress the diagonal block
     Scalar sigma_l = nu * fill_distances[l];
     CovarianceKernel kernel_l(kernel_type, sigma_l);
-    solver.init(kernel_l, P_Matrices[l], dtilde, eta, threshold, ridgep);
+    solver.updateKernel(kernel_l);
     solver.compress(P_Matrices[l]);
     solver.compressionError(P_Matrices[l]);
 
     ////////////////////////////// Statistics
-    const auto& compressor_stats = solver.getCompressorStats();
+    const auto& compressor_stats = solver.getCompressionStats();
     std::cout << "\nCompression Stats:" << std::endl;
-    std::cout << "- Planning time:    " << compressor_stats.time_planner
-              << std::endl;
     std::cout << "- Compression time: " << compressor_stats.time_compressor
               << " s" << std::endl;
     // std::cout << "- Assembly time:    " << compressor_stats.assembly_time
@@ -157,10 +156,10 @@ void runMultigridTest(Scalar nu) {
 
     ////////////////////////////// Solver 
     Vector solution =
-        solver.solveIterative(residuals[l], solverName, cg_threshold);
+        solver.solveIterative(residuals[l], preconditioner, cg_threshold);
     solution /= std::pow(sigma_l, -DIM);
 
-    const auto& cg_stats = solver.getCGStats();
+    const auto& cg_stats = solver.getSolverStats();
     std::cout << "Solver Stats:" << std::endl;
     std::cout << "- Iterations: " << cg_stats.iterations << std::endl;
     std::cout << "- Residual: " << cg_stats.residual_error << std::endl;
