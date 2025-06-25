@@ -26,7 +26,7 @@ extern "C" {
 
 int main(int argc, char *argv[]) {
   FMCA::Tictoc T;
-  const FMCA::Index npts = 1000000;
+  const FMCA::Index npts = 100000;
   const FMCA::Index kNN = 10;
   const FMCA::Index M = 10;
 #if 1
@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
       P.col(i) /= P.col(i).norm();
     }
   }
-#if 0
+#if 1
   {
     for (FMCA::Index i = 0; i < npts; ++i) {
       const FMCA::Scalar u = FMCA::Scalar(rand()) / RAND_MAX;
@@ -67,8 +67,12 @@ int main(int argc, char *argv[]) {
   FMCA::Graph<idx_t, FMCA::Scalar> G;
   G.init(P.cols(), A);
   G.print("graph0.vtk", P);
+  auto lm = G.computeLandmarkNodes(100);
+  FMCA::Matrix LM(3, 100);
+  for (FMCA::Index i = 0; i < LM.cols(); ++i) LM.col(i) = P.col(lm[i]);
+  FMCA::IO::plotPoints("landmarks.vtk", LM);
   T.tic();
-  auto part = FMCA::partitionGraphKWay(G, M);
+  auto part = FMCA::METIS::partitionGraphKWay(G, M);
   FMCA::Vector v(part.size());
   for (FMCA::Index i = 0; i < v.size(); ++i) v(i) = part[i];
   T.toc("metis part: ");

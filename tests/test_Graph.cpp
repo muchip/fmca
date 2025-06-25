@@ -54,8 +54,7 @@ int main(int argc, char *argv[]) {
   }
   FMCA::ClusterTree CT(P, leaf_size);
   T.tic();
-  std::vector<Eigen::Triplet<FMCA::Scalar>> A =
-      FMCA::symKNN(CT, P, 10);
+  std::vector<Eigen::Triplet<FMCA::Scalar>> A = FMCA::symKNN(CT, P, 10);
   T.toc("kNN:");
 
   FMCA::Graph<idx_t, FMCA::Scalar> G;
@@ -74,16 +73,16 @@ int main(int argc, char *argv[]) {
       assert(std::abs(D(i, j) - DDijkstra[i][j]) < 1e3 * FMCA_ZERO_TOLERANCE ||
              D(i, j) == DDijkstra[i][j]);
     }
-  std::vector<idx_t> part = partitionGraph(G);
+  std::vector<idx_t> part = FMCA::METIS::partitionGraph(G);
   FMCA::Graph<idx_t, FMCA::Scalar> G1 = G.split(part);
   G1.print("graph1.vtk", P);
   G.print("graph2.vtk", P);
   FMCA::IO::plotPointsColor(
       "points.vtk", P, Eigen::Map<Eigen::VectorXi>(part.data(), part.size()));
-  part = partitionGraph(G);
+  part = FMCA::METIS::partitionGraph(G);
   G1 = G.split(part);
   G1.print("graph3.vtk", P);
-  G.print("graph4.vtk", P);
+  G.print("graph4vtk", P);
   // check distance matrices
 
   FMCA::Graph<idx_t, FMCA::Scalar> G2;
