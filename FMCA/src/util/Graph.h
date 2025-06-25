@@ -11,9 +11,10 @@
 //
 #ifndef FMCA_UTIL_GRAPH_H_
 #define FMCA_UTIL_GRAPH_H_
-
+#include <queue>
+//
 #include <Eigen/Sparse>
-
+//
 #include "Macros.h"
 #include "graphIO.h"
 
@@ -93,6 +94,11 @@ class Graph {
   const GraphType &graph() const { return A_; }
   Matrix distanceMatrix() const { return FloydWarshall(); }
 
+  template <typename T>
+  std::vector<std::vector<ValueType>> partialDistanceMatrix(
+      const T &indices) const {
+    return Dijkstra(indices);
+  }
   template <typename Derived>
   void print(const std::string &fileName, const Eigen::MatrixBase<Derived> &P) {
     Derived Ploc(P.rows(), labels_.size());
@@ -111,19 +117,58 @@ class Graph {
  private:
   Matrix FloydWarshall() const {
     Matrix D = A_;
+#pragma omp parallel for
     for (Index j = 0; j < nnodes(); ++j) {
       for (Index i = 0; i < nnodes(); ++i)
         D(i, j) = std::abs(D(i, j)) < FMCA_ZERO_TOLERANCE ? FMCA_INF : D(i, j);
       D(j, j) = 0;
     }
     for (Index k = 0; k < nnodes(); ++k)
-      for (Index j = 0; j < nnodes(); ++j)
+#pragma omp parallel for
+      for (Index j = 0; j < nnodes(); ++j) {
+        const Scalar dkj = D(k, j);
         for (Index i = 0; i < nnodes(); ++i) {
-          const Scalar w = D(i, k) + D(k, j);
+          const Scalar w = D(i, k) + dkj;
           D(i, j) = D(i, j) > w ? w : D(i, j);
         }
+      }
     return D;
   }
+
+  template <typename T>
+  std::vector<std::vector<ValueType>> Dijkstra(const T &indices) const {
+    using qPair = std::pair<ValueType, IndexType>;
+    using pQueue =
+        std::priority_queue<qPair, std::vector<qPair>, std::greater<qPair>>;
+    std::vector<pQueue> pqueues(indices.size());
+    std::vector<std::vector<ValueType>> dists(indices.size());
+    // initialize distance vectors and priority queues. We opt here for random
+    // access at the expense of an indices.size() x nnodes() storage
+#pragma omp parallel for
+    for (Index i = 0; i < indices.size(); ++i) {
+      std::vector<bool> settled(nnodes(), false);
+      dists[i].assign(nnodes(), std::numeric_limits<ValueType>::infinity());
+      dists[i][indices[i]] = 0;
+      pqueues[i].push(std::make_pair(0., indices[i]));
+      while (not pqueues[i].empty()) {
+        const ValueType du = pqueues[i].top().first;
+        const IndexType u = pqueues[i].top().second;
+        pqueues[i].pop();
+        if (settled[u]) continue;
+        settled[u] = true;
+        for (typename GraphType::InnerIterator it(A_, u); it; ++it) {
+          const IndexType v = it.col();
+          const ValueType w = it.value();
+          if (dists[i][v] > du + w) {
+            dists[i][v] = du + w;
+            pqueues[i].push(std::make_pair(dists[i][v], v));
+          }
+        }
+      }
+    }
+    return dists;
+  }
+
   GraphType A_;
   std::vector<IndexType> labels_;
 };

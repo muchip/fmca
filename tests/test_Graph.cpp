@@ -55,12 +55,25 @@ int main(int argc, char *argv[]) {
   FMCA::ClusterTree CT(P, leaf_size);
   T.tic();
   std::vector<Eigen::Triplet<FMCA::Scalar>> A =
-      FMCA::symKNN(CT, P, std::log(npts));
+      FMCA::symKNN(CT, P, 10);
   T.toc("kNN:");
 
   FMCA::Graph<idx_t, FMCA::Scalar> G;
   G.init(npts, A);
   G.print("graph0.vtk", P);
+  T.tic();
+  FMCA::Matrix D = G.distanceMatrix();
+  T.toc("Floyd Warshall: ");
+  std::vector<FMCA::Index> idcs(npts);
+  std::iota(idcs.begin(), idcs.end(), 0);
+  T.tic();
+  auto DDijkstra = G.partialDistanceMatrix(idcs);
+  T.toc("Dijkstra: ");
+  for (FMCA::Index j = 0; j < G.nnodes(); ++j)
+    for (FMCA::Index i = 0; i < G.nnodes(); ++i) {
+      assert(std::abs(D(i, j) - DDijkstra[i][j]) < 1e3 * FMCA_ZERO_TOLERANCE ||
+             D(i, j) == DDijkstra[i][j]);
+    }
   std::vector<idx_t> part = partitionGraph(G);
   FMCA::Graph<idx_t, FMCA::Scalar> G1 = G.split(part);
   G1.print("graph1.vtk", P);
@@ -71,6 +84,7 @@ int main(int argc, char *argv[]) {
   G1 = G.split(part);
   G1.print("graph3.vtk", P);
   G.print("graph4.vtk", P);
+  // check distance matrices
 
   FMCA::Graph<idx_t, FMCA::Scalar> G2;
   A.clear();
