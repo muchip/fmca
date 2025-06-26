@@ -27,13 +27,12 @@ using Graph = FMCA::Graph<idx_t, FMCA::Scalar>;
 
 int main(int argc, char *argv[]) {
   FMCA::Tictoc T;
-  // const FMCA::Index npts = 1000000;
-  const FMCA::Index k = 100;
+  const FMCA::Index npts = 1000000;
+  const FMCA::Index k = 40;
 
   std::mt19937 mt;
   mt.seed(0);
-  // FMCA::Matrix P(3, npts);
-#if 0
+  FMCA::Matrix P(3, npts);
   {
     std::normal_distribution<FMCA::Scalar> dist(0.0, 1.0);
     for (FMCA::Index i = 0; i < P.cols(); ++i) {
@@ -41,6 +40,8 @@ int main(int argc, char *argv[]) {
       P.col(i) /= P.col(i).norm();
     }
   }
+#if 0
+
   {
     for (FMCA::Index i = 0; i < npts; ++i) {
       const FMCA::Scalar u = FMCA::Scalar(rand()) / RAND_MAX;
@@ -53,17 +54,55 @@ int main(int argc, char *argv[]) {
     }
   }
 #endif
-  FMCA::Matrix data =
-      FMCA::IO::ascii2Matrix("era5_20-06-24-12h_full.txt").transpose();
+  FMCA::Vector signal(P.cols());
+  {
+    FMCA::Matrix data =
+        FMCA::IO::ascii2Matrix("era5_20-06-24-12h_full.txt").transpose();
+
+    FMCA::Matrix Pdata = data.topRows(3);
+    FMCA::iVector idcs(P.cols());
+    FMCA::Vector dists(P.cols());
+    dists.setOnes();
+    dists *= FMCA_INF;
+    idcs.setOnes();
+    idcs *= idcs.size() + 1;
+    FMCA::ClusterTree data_CT(Pdata, 100);
+#pragma omp parallel for
+    for (FMCA::Index i = 0; i < idcs.size(); ++i) {
+      std::vector<const FMCA::ClusterTree *> queue;
+      queue.push_back(&data_CT);
+      while (queue.size()) {
+        const FMCA::ClusterTree &node = *(queue.back());
+        queue.pop_back();
+        if (node.nSons()) {
+          for (FMCA::Index j = 0; j < node.nSons(); ++j) {
+            const bool larger =
+                (P.col(i).array() >= node.sons(j).bb().col(0).array() - 1e-1)
+                    .all();
+            const bool smaller =
+                (P.col(i).array() <= node.sons(j).bb().col(1).array() + 1e-1)
+                    .all();
+            if (larger && smaller)
+              queue.push_back(std::addressof(node.sons(j)));
+          }
+        } else {
+          for (FMCA::Index j = 0; j < node.block_size(); ++j) {
+            const FMCA::Scalar cur_dist =
+                (P.col(i) - Pdata.col(node.indices()[j])).norm();
+            if (dists(i) > cur_dist) {
+              dists(i) = cur_dist;
+              idcs(i) = node.indices()[j];
+            }
+          }
+        }
+      }
+    }
+    for (FMCA::Index i = 0; i < P.cols(); ++i) signal(i) = data(3, idcs(i));
+  }
+
+  FMCA::IO::plotPointsColor("data.vtk", P, signal);
   FMCA::Matrix outline =
       FMCA::IO::ascii2Matrix("outline.txt").transpose().topRows(3);
-  FMCA::Matrix P = data.topRows(3);
-  const FMCA::Index npts = P.cols();
-  FMCA::Vector signal(P.cols());
-  for (FMCA::Index i = 0; i < P.cols(); ++i)
-    signal(i) = P(0, i) * P(0, i) + P(1, i) + P(2, i);
-  signal = data.row(3);
-  FMCA::IO::plotPointsColor("data.vtk", P, signal);
   FMCA::IO::plotPoints("outline.vtk", outline);
 
   FMCA::ClusterTree CT(P, 100);
@@ -73,7 +112,7 @@ int main(int argc, char *argv[]) {
   FMCA::Graph<idx_t, FMCA::Scalar> G;
   G.init(P.cols(), A);
   T.tic();
-  FMCA::GraphSampletForest<Graph> gsf(G, 6, 2, 3, 1000);
+  FMCA::GraphSampletForest<Graph> gsf(G, 10, 2, 4, 600);
   T.toc("samplet forest: ");
   for (FMCA::Index i = 0; i < gsf.lost_energies().size(); ++i)
     std::cout << gsf.lost_energies()[i] << std::endl;
