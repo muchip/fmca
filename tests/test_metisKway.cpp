@@ -26,9 +26,9 @@ extern "C" {
 
 int main(int argc, char *argv[]) {
   FMCA::Tictoc T;
-  const FMCA::Index npts = 100000;
+  const FMCA::Index npts = 200000;
   const FMCA::Index kNN = 10;
-  const FMCA::Index M = 10;
+  const FMCA::Index M = 20;
 #if 1
   std::mt19937 mt;
   mt.seed(0);
@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
       P.col(i) /= P.col(i).norm();
     }
   }
-#if 1
+#if 0
   {
     for (FMCA::Index i = 0; i < npts; ++i) {
       const FMCA::Scalar u = FMCA::Scalar(rand()) / RAND_MAX;
@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
   FMCA::Matrix P = data.topRows(3);
   FMCA::Matrix temp = data.row(3);
 #endif
-  FMCA::ClusterTree CT(P, kNN);
+  FMCA::ClusterTree CT(P, 100);
   T.tic();
   std::vector<Eigen::Triplet<FMCA::Scalar>> A = FMCA::symKNN(CT, P, kNN);
   T.toc("kNN:");
@@ -73,6 +73,15 @@ int main(int argc, char *argv[]) {
   FMCA::IO::plotPoints("landmarks.vtk", LM);
   T.tic();
   auto part = FMCA::METIS::partitionGraphKWay(G, M);
+  auto Gs = FMCA::METIS::splitGraph(G, part);
+  for (FMCA::Index i = 0; i < Gs.size(); ++i) {
+    Gs[i].print("split_graph" + std::to_string(i) + ".vtk", P);
+    auto lm = Gs[i].computeLandmarkNodes(1000);
+    FMCA::Matrix LM(3, 1000);
+    for (FMCA::Index j = 0; j < LM.cols(); ++j)
+      LM.col(j) = P.col(Gs[i].labels()[lm[j]]);
+    FMCA::IO::plotPoints("landmarks" + std::to_string(i) + ".vtk", LM);
+  }
   FMCA::Vector v(part.size());
   for (FMCA::Index i = 0; i < v.size(); ++i) v(i) = part[i];
   T.toc("metis part: ");

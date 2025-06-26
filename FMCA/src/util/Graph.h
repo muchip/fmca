@@ -20,9 +20,11 @@
 
 namespace FMCA {
 
-template <typename IndexType, typename ValueType>
+template <typename IndexT, typename ValueT>
 class Graph {
  public:
+  using IndexType = IndexT;
+  using ValueType = ValueT;
   using GraphType = Eigen::SparseMatrix<ValueType, Eigen::RowMajor, IndexType>;
   Graph() {};
   template <typename T>
@@ -126,6 +128,7 @@ class Graph {
   const IndexType nnodes() const { return A_.rows(); }
   const IndexType nedges() const { return A_.nonZeros(); }
   const std::vector<IndexType> &labels() const { return labels_; }
+  std::vector<IndexType> &labels() { return labels_; }
   GraphType &graph() { return A_; }
   const GraphType &graph() const { return A_; }
   Matrix distanceMatrix() const { return FloydWarshall(); }
@@ -209,6 +212,41 @@ class Graph {
 
 #ifdef _METIS_H_
 namespace METIS {
+
+template <typename Graph, typename T>
+std::vector<Graph> splitGraph(const Graph &G, const T &part) {
+  using ValueType = typename Graph::ValueType;
+  using IndexType = typename Graph::IndexType;
+  IndexType K = 0;
+  for (const auto &it : part) K = K < it ? it : K;
+  ++K;
+  std::vector<Graph> retval(K);
+#pragma omp parallel for
+  for (IndexType l = 0; l < K; ++l) {
+    IndexType nnodes = 0;
+    std::vector<Eigen::Triplet<ValueType, IndexType>> trips;
+    trips.reserve(G.graph().nonZeros() / K);
+    std::vector<IndexType> index_map(G.nnodes(), -1);
+    for (IndexType i = 0; i < G.nnodes(); ++i)
+      if (part[i] == l) index_map[i] = nnodes++;
+    const IndexType *ia = G.graph().outerIndexPtr();
+    const IndexType *ja = G.graph().innerIndexPtr();
+    const ValueType *aij = G.graph().valuePtr();
+    for (IndexType i = 0; i < G.nnodes(); ++i)
+      if (part[i] == l)
+        for (IndexType k = ia[i]; k < ia[i + 1]; ++k) {
+          const IndexType j = ja[k];
+          const ValueType val = aij[k];
+          if (part[j] == l)
+            trips.push_back(Eigen::Triplet<ValueType, IndexType>(
+                index_map[i], index_map[j], val));
+        }
+    retval[l].init(nnodes, trips);
+    for (IndexType i = 0; i < G.nnodes(); ++i)
+      if (part[i] == l) retval[l].labels()[index_map[i]] = i;
+  }
+  return retval;
+}
 
 template <typename ValueType>
 std::vector<idx_t> partitionGraph(Graph<idx_t, ValueType> &G) {
