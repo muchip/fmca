@@ -37,7 +37,7 @@ class Graph {
     return;
   }
 
-  std::vector<IndexType> computeLandmarkNodes(IndexType M) {
+  std::vector<IndexType> computeLandmarkNodes(IndexType M) const {
     std::vector<IndexType> landmarks(M > nnodes() ? nnodes() : M);
     std::vector<bool> is_member(nnodes(), false);
     if (landmarks.size() == nnodes()) {

@@ -22,6 +22,7 @@ extern "C" {
 #include "../FMCA/Clustering"
 #include "../FMCA/src/util/Graph.h"
 #include "../FMCA/src/util/IO.h"
+#include "../FMCA/src/util/LIsomap.h"
 #include "../FMCA/src/util/Tictoc.h"
 
 int main(int argc, char *argv[]) {
@@ -81,6 +82,14 @@ int main(int argc, char *argv[]) {
     for (FMCA::Index j = 0; j < LM.cols(); ++j)
       LM.col(j) = P.col(Gs[i].labels()[lm[j]]);
     FMCA::IO::plotPoints("landmarks" + std::to_string(i) + ".vtk", LM);
+    FMCA::Scalar nrg = 0;
+    FMCA::Matrix Pred = LIsomap(Gs[i], 1000, 2, &nrg);
+    std::cout << "lost energy:" << nrg << std::endl;
+    FMCA::Matrix P3D(3, Pred.cols());
+    P3D.setZero();
+    P3D.topRows(2) = Pred;
+    for (FMCA::Index j = 0; j < P3D.cols(); ++j) Gs[i].labels()[j] = j;
+    Gs[i].print("emb_graph" + std::to_string(i) + ".vtk", P3D);
   }
   FMCA::Vector v(part.size());
   for (FMCA::Index i = 0; i < v.size(); ++i) v(i) = part[i];
