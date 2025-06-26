@@ -37,58 +37,6 @@ class Graph {
     return;
   }
 
-  Graph split(const std::vector<IndexType> &part) {
-    Graph retval;
-    std::vector<IndexType> labels0(part.size(), 0);
-    std::vector<IndexType> labels1(part.size(), 0);
-    std::vector<Eigen::Triplet<ValueType, IndexType>> trips0;
-    std::vector<Eigen::Triplet<ValueType, IndexType>> trips1;
-    std::vector<IndexType> index_map(part.size(), 0);
-    {
-      IndexType k = 0;
-      IndexType l = 0;
-      for (IndexType i = 0; i < part.size(); ++i) {
-        if (0 == part[i]) {
-          labels0[k] = labels_[i];
-          index_map[i] = k++;
-        } else if (1 == part[i]) {
-          labels1[l] = labels_[i];
-          index_map[i] = l++;
-        }
-      }
-      labels0.resize(k);
-      labels1.resize(l);
-    }
-
-    {
-      trips0.reserve(labels0.size());
-      trips1.reserve(labels1.size());
-      const IndexType *ia = A_.outerIndexPtr();
-      const IndexType *ja = A_.innerIndexPtr();
-      const ValueType *aij = A_.valuePtr();
-      for (IndexType i = 0; i < A_.rows(); ++i)
-        for (IndexType k = ia[i]; k < ia[i + 1]; ++k) {
-          const IndexType j = ja[k];
-          const ValueType val = aij[k];
-          if (0 == part[i] && part[i] == part[j])
-            trips0.push_back(Eigen::Triplet<ValueType, IndexType>(
-                index_map[i], index_map[j], val));
-          else if (1 == part[i] && part[i] == part[j])
-            trips1.push_back(Eigen::Triplet<ValueType, IndexType>(
-                index_map[i], index_map[j], val));
-        }
-    }
-    A_.resize(labels0.size(), labels0.size());
-    A_.setFromTriplets(trips0.begin(), trips0.end());
-    A_.makeCompressed();
-    labels_ = labels0;
-    retval.A_.resize(labels1.size(), labels1.size());
-    retval.A_.setFromTriplets(trips1.begin(), trips1.end());
-    retval.A_.makeCompressed();
-    retval.labels_ = labels1;
-    return retval;
-  }
-
   std::vector<IndexType> computeLandmarkNodes(IndexType M) {
     std::vector<IndexType> landmarks(M > nnodes() ? nnodes() : M);
     std::vector<bool> is_member(nnodes(), false);
