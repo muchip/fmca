@@ -88,6 +88,7 @@ class CovarianceKernel {
     else if (ktype_ == "GAUSSIAN")
       kernel_ = [this](Scalar r) { return std::exp(-0.5 * r * r / (l_ * l_)); };
     ////////////////////////////////////////////////////////////////////////////
+#ifdef FMCA_MATERNNU
     else if (ktype_ == "MATERNNU")
       kernel_ = [this](Scalar r) {
         const Scalar arg = std::sqrt(2 * nu_) * r / l_;
@@ -96,6 +97,7 @@ class CovarianceKernel {
                          std::cyl_bessel_k(nu_, arg)
                    : 1.;
       };
+#endif
     ////////////////////////////////////////////////////////////////////////////
     else if (ktype_ == "INVMULTIQUADRIC")
       kernel_ = [this](Scalar r) {
