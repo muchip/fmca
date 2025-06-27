@@ -49,27 +49,19 @@ class GraphSampletForest {
     }
     global_pos_[0] = 0;
     for (Index i = 1; i <= M_; ++i)
-      global_pos_[i] = global_pos_[i - 1] + sub_graphs_[i - 1].labels().size();
+      global_pos_[i] = global_pos_[i - 1] + sub_graphs_[i - 1].nnodes();
     return;
   }
   const std::vector<Scalar> &lost_energies() { return nrgs_; }
 
-  Matrix sampletTransform(const Matrix &lhs, const Scalar thres = 0) {
+  Matrix sampletTransform(const Matrix &lhs) {
     Matrix retval(lhs.rows(), lhs.cols());
 #pragma omp parallel for schedule(dynamic)
     for (Index i = 0; i < M_; ++i) {
       Matrix loc_rhs = global2local(lhs, i);
       loc_rhs = trees_[i].toClusterOrder(loc_rhs);
       loc_rhs = trees_[i].sampletTransform(loc_rhs);
-      if (thres > 0) {
-        Vector nrms = loc_rhs.colwise().norm();
-        for (Index j = 0; j < loc_rhs.cols(); ++j) {
-          loc_rhs.col(j) = (loc_rhs.col(j).array().abs() >= thres * nrms(j))
-                               .select(loc_rhs.col(j), 0.0);
-        }
-      }
-      retval.middleRows(global_pos_[i], sub_graphs_[i].labels().size()) =
-          loc_rhs;
+      retval.middleRows(global_pos_[i], sub_graphs_[i].nnodes()) = loc_rhs;
     }
     return retval;
   }
@@ -78,8 +70,7 @@ class GraphSampletForest {
     Matrix retval(lhs.rows(), lhs.cols());
 #pragma omp parallel for schedule(dynamic)
     for (Index i = 0; i < M_; ++i) {
-      Matrix loc_lhs =
-          lhs.middleRows(global_pos_[i], sub_graphs_[i].labels().size());
+      Matrix loc_lhs = lhs.middleRows(global_pos_[i], sub_graphs_[i].nnodes());
       loc_lhs = trees_[i].inverseSampletTransform(loc_lhs);
       loc_lhs = trees_[i].toNaturalOrder(loc_lhs);
       local2global(retval, loc_lhs, i);
@@ -87,15 +78,45 @@ class GraphSampletForest {
     return retval;
   }
 
+  Vector threshold(const Vector &lhs, const Scalar thres) {
+    Vector retval(lhs.size());
+    for (Index i = 0; i < M_; ++i) {
+      const Vector loc_lhs =
+          lhs.segment(global_pos_[i], sub_graphs_[i].nnodes());
+      const Scalar norm2 = loc_lhs.squaredNorm();
+      std::vector<const SampletTree *> adaptive_tree =
+          adaptiveTreeSearch<SampletTree>(trees_[i], loc_lhs, thres * norm2);
+
+      Vector thres_tdata = loc_lhs;
+      Index nnz = 0;
+      {
+        thres_tdata.setZero();
+
+        for (Index j = 0; j < adaptive_tree.size(); ++j) {
+          if (adaptive_tree[j] != nullptr) {
+            const SampletTree &node = *(adaptive_tree[j]);
+            const Index ndist =
+                node.is_root() ? node.Q().cols() : node.nsamplets();
+            thres_tdata.segment(node.start_index(), ndist) =
+                loc_lhs.segment(node.start_index(), ndist);
+            nnz += ndist;
+          }
+        }
+      }
+      retval.segment(global_pos_[i], sub_graphs_[i].nnodes()) = thres_tdata;
+    }
+    return retval;
+  }
+
  private:
   Matrix global2local(const Matrix &rhs, const Index i) {
-    Matrix loc_rhs(sub_graphs_[i].labels().size(), rhs.cols());
-    for (Index j = 0; j < sub_graphs_[i].labels().size(); ++j)
+    Matrix loc_rhs(sub_graphs_[i].nnodes(), rhs.cols());
+    for (Index j = 0; j < sub_graphs_[i].nnodes(); ++j)
       loc_rhs.row(j) = rhs.row(sub_graphs_[i].labels()[j]);
     return loc_rhs;
   }
   void local2global(Matrix &lhs, const Matrix &loc_lhs, Index i) {
-    for (Index j = 0; j < sub_graphs_[i].labels().size(); ++j)
+    for (Index j = 0; j < sub_graphs_[i].nnodes(); ++j)
       lhs.row(sub_graphs_[i].labels()[j]) = loc_lhs.row(j);
     return;
   }

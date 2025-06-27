@@ -246,7 +246,7 @@ std::vector<idx_t> partitionGraphKWay(Graph<idx_t, ValueType> &G, Index K) {
   return part;
 }
 
+}  // namespace METIS
 #endif
-}
 }  // namespace FMCA
 #endif

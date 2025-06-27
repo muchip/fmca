@@ -19,6 +19,8 @@ extern "C" {
 #include <iostream>
 #include <random>
 //
+
+//
 #include "../FMCA/Samplets"
 #include "../FMCA/src/util/IO.h"
 #include "../FMCA/src/util/Tictoc.h"
@@ -30,17 +32,10 @@ int main(int argc, char *argv[]) {
   const FMCA::Index npts = 1000000;
   const FMCA::Index k = 40;
 
-  std::mt19937 mt;
-  mt.seed(0);
   FMCA::Matrix P(3, npts);
-  {
-    std::normal_distribution<FMCA::Scalar> dist(0.0, 1.0);
-    for (FMCA::Index i = 0; i < P.cols(); ++i) {
-      P.col(i) << dist(mt), dist(mt), dist(mt);
-      P.col(i) /= P.col(i).norm();
-    }
-  }
-#if 0
+  FMCA::Vector signal(P.cols());
+
+#if 1
 
   {
     for (FMCA::Index i = 0; i < npts; ++i) {
@@ -51,10 +46,12 @@ int main(int argc, char *argv[]) {
       const FMCA::Scalar y = 21.0 * v;
       const FMCA::Scalar z = t * std::sin(t);
       P.col(i) << x, y, z;
+      signal(i) = P(0, i) * P(0, i) * P(1, i) +
+                  P(2, i) * P(1, i);
     }
+    signal /= signal.norm();
   }
-#endif
-  FMCA::Vector signal(P.cols());
+#else
   {
     FMCA::Matrix data =
         FMCA::IO::ascii2Matrix("era5_20-06-24-12h_full.txt").transpose();
@@ -67,6 +64,15 @@ int main(int argc, char *argv[]) {
     idcs.setOnes();
     idcs *= idcs.size() + 1;
     FMCA::ClusterTree data_CT(Pdata, 100);
+    {
+      std::mt19937 mt;
+      mt.seed(0);
+      std::normal_distribution<FMCA::Scalar> dist(0.0, 1.0);
+      for (FMCA::Index i = 0; i < P.cols(); ++i) {
+        P.col(i) << dist(mt), dist(mt), dist(mt);
+        P.col(i) /= P.col(i).norm();
+      }
+    }
 #pragma omp parallel for
     for (FMCA::Index i = 0; i < idcs.size(); ++i) {
       std::vector<const FMCA::ClusterTree *> queue;
@@ -99,11 +105,11 @@ int main(int argc, char *argv[]) {
     }
     for (FMCA::Index i = 0; i < P.cols(); ++i) signal(i) = data(3, idcs(i));
   }
-
-  FMCA::IO::plotPointsColor("data.vtk", P, signal);
   FMCA::Matrix outline =
       FMCA::IO::ascii2Matrix("outline.txt").transpose().topRows(3);
   FMCA::IO::plotPoints("outline.vtk", outline);
+#endif
+  FMCA::IO::plotPointsColor("data.vtk", P, signal);
 
   FMCA::ClusterTree CT(P, 100);
   T.tic();
@@ -112,12 +118,14 @@ int main(int argc, char *argv[]) {
   FMCA::Graph<idx_t, FMCA::Scalar> G;
   G.init(P.cols(), A);
   T.tic();
-  FMCA::GraphSampletForest<Graph> gsf(G, 10, 2, 4, 600);
+  FMCA::GraphSampletForest<Graph> gsf(G, std::atoi(argv[1]), 2,
+                                      std::atoi(argv[2]), 100);
   T.toc("samplet forest: ");
   for (FMCA::Index i = 0; i < gsf.lost_energies().size(); ++i)
     std::cout << gsf.lost_energies()[i] << std::endl;
   T.tic();
-  FMCA::Vector Tsignal = gsf.sampletTransform(signal, 1e-3);
+  FMCA::Vector Tsignal = gsf.sampletTransform(signal);
+  Tsignal = gsf.threshold(Tsignal, std::atof(argv[3]));
   T.toc("samplet transform: ");
   T.tic();
   FMCA::Vector TtTsignal = gsf.inverseSampletTransform(Tsignal);
