@@ -17,13 +17,16 @@
 #include "../FMCA/src/util/Tictoc.h"
 
 #define DIM 3
-#define NPTS 10000
+#define NPTS 10000000
 
 int main() {
   FMCA::Tictoc T;
+
   FMCA::Scalar fill_distance = 0;
-  FMCA::Scalar separation_radius = 1. / 0.;
+  FMCA::Scalar separation_radius = FMCA_INF;
   const FMCA::Matrix P = Eigen::MatrixXd::Random(DIM, NPTS);
+#if 0
+#pragma omp parallel for
   for (auto j = 0; j < P.cols(); ++j) {
     FMCA::Scalar dist = FMCA::Scalar(1. / 0.);
     for (auto i = 0; i < P.cols(); ++i) {
@@ -38,19 +41,20 @@ int main() {
   std::cout << "fill_distance:                " << fill_distance << std::endl;
   std::cout << "separation_radius:            " << separation_radius
             << std::endl;
+#endif
   std::cout
       << "Cluster splitter:             "
       << FMCA::internal::traits<FMCA::ClusterTree>::Splitter::splitterName()
       << std::endl;
+  T.tic();
   for (auto i = 0; i < 10; ++i) {
     FMCA::iVector index_hits(P.cols());
     index_hits.setZero();
     FMCA::Index leaf_size = rand() % 200 + 5;
     FMCA::ClusterTree CT(P, leaf_size);
-    for (i = 0; i < P.cols(); ++i) 
-      index_hits(CT.indices()[i]) = 1;
+    for (i = 0; i < P.cols(); ++i) index_hits(CT.indices()[i]) = 1;
     assert(index_hits.sum() == P.cols() && "CT lost indices");
-
   }
+  T.toc("construction of 10 cluster trees: ");
   return 0;
 }
