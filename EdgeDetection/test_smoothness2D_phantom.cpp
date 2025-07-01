@@ -21,11 +21,11 @@ int main() {
   // Scalar threshold_active_leaves = 1e-10;
   /////////////////////////////////
   Matrix P;
-  readTXT("local_tests/data/coordinates_phantom1.txt", P, DIM);
+  readTXT("local_tests/data/coordinates_phantom.txt", P, DIM);
   std::cout << "Dimension P = " << P.rows() << " x " << P.cols() << std::endl;
 
   Vector f_phantom;
-  readTXT("local_tests/data/values_phantom1.txt", f_phantom);
+  readTXT("local_tests/data/values_phantom.txt", f_phantom);
   std::cout << "Dimension f = " << f_phantom.rows() << " x " << f_phantom.cols() << std::endl;
 
   /////////////////////////////////
@@ -45,9 +45,13 @@ int main() {
   std::cout << "dtilde              " << dtilde << std::endl;
   std::cout << "mpole_deg           " << mpole_deg << std::endl;
 
+  FMCA::Tictoc T;
+  T.tic();
   const SampletMoments samp_mom(P, dtilde - 1);
   const ST st(samp_mom, 0, P);
+  T.toc("Tree creation: ");
   const RandomProjectionTree rp(P, 10);
+
 
   Vector f_phantom_ordered = st.toClusterOrder(f_phantom);
   Vector f_phantom_Samplets = st.sampletTransform(f_phantom_ordered);
@@ -85,7 +89,7 @@ int main() {
                      (std::log(2))
               << std::endl;
   //////////////////////////////////////////////////////////////
-
+  T.tic();
   MapCoeffDiam leafData;
   coeff_analyzer.traverseAndStackCoefficientsAndDiametersL2Norm(st, scoeffs,
                                                                 leafData);
@@ -96,6 +100,7 @@ int main() {
   std::cout << "--------------------------------------------------------"
             << std::endl;
 
+  T.toc("Slope Fitting: ");
   // Initialize color vector for each column in P
   Vector colr(P.cols());
   for (const auto& [leaf, res] : results) {

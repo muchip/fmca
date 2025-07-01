@@ -4,6 +4,7 @@
 #include "SampletCoefficientsAnalyzer.h"
 #include "SlopeFitter.h"
 #include "read_files_txt.h"
+#include "../FMCA/src/util/Tictoc.h"
 
 #define DIM 1
 
@@ -143,10 +144,13 @@ int main() {
   std::cout << "dtilde              " << dtilde << std::endl;
   std::cout << "mpole_deg           " << mpole_deg << std::endl;
 
+  FMCA::Tictoc T;
+  T.tic();
   const Moments mom(P, mpole_deg);
   const SampletMoments samp_mom(P, dtilde - 1);
   // const H2SampletTree<ClusterTree> hst(mom, samp_mom, 0, P);
   const ST hst(samp_mom, 0, P);
+  T.toc("samplet tree generation:");
   // const H2ST hst(mom, samp_mom, 0, P);
 
   Vector f_smooth = eval_f_smooth(P);
@@ -220,7 +224,7 @@ int main() {
                      (std::log(2))
               << std::endl;
   //////////////////////////////////////////////////////////////
-
+  T.tic();
   MapCoeffDiam leafData;
   coeff_analyzer.traverseAndStackCoefficientsAndDiametersL2Norm(hst, tdata,
                                                                 leafData);
@@ -230,7 +234,7 @@ int main() {
   auto results = fitter.fitSlope();
   std::cout << "--------------------------------------------------------"
             << std::endl;
-
+  T.toc("Slope fitting:");
   /*
     // print some slopes and some coefficients
     size_t count = 0;

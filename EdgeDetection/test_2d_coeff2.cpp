@@ -53,7 +53,7 @@ int main() {
     for (FMCA::Index i = 0; i < Nd; ++i) {
       Scalar signed_dist = P.col(i).dot(pt) - 0.5 * sqrt(d);
       data(i) = std::abs(signed_dist);
-      //data(i) = P.col(i).dot(pt) > 0.5 * sqrt(d);
+      // data(i) = P.col(i).dot(pt) > 0.5 * sqrt(d);
     }
   }
   T.toc("data generation: ");
@@ -106,7 +106,7 @@ int main() {
                      (std::log(2))
               << std::endl;
   //////////////////////////////////////////////////////////////
-
+  T.tic();
   MapCoeffDiam leafData;
   coeff_analyzer.traverseAndStackCoefficientsAndDiametersL2Norm(st, scoeffs,
                                                                 leafData);
@@ -116,6 +116,7 @@ int main() {
   auto results = fitter.fitSlope();
   std::cout << "--------------------------------------------------------"
             << std::endl;
+  T.toc("Fitting: ");
 
   // Initialize color vector for each column in P
   Vector colr(P.cols());

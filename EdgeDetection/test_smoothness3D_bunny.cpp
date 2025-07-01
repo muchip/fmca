@@ -48,7 +48,8 @@ int main() {
   ///////////////////////////////////////////////// Compute the global decay of
   /// the
   /// coeffcients
-
+  FMCA::Tictoc T1;
+  T1.tic();
   SampletCoefficientsAnalyzer<ST> coeff_analyzer;
   coeff_analyzer.init(st, scoeffs);
 
@@ -96,6 +97,8 @@ int main() {
   auto results = fitter.fitSlope();
   std::cout << "--------------------------------------------------------"
             << std::endl;
+
+  T.toc("samplet tree generation:");
 
   // Initialize color vector for each column in P
   Vector colr(P.cols());

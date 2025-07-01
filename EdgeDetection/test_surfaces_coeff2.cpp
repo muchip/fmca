@@ -103,7 +103,7 @@ int main() {
   ///////////////////////////////////////////////// Compute the global decay of
   /// the
   /// coeffcients
-
+  T.tic();
   SampletCoefficientsAnalyzer<ST> coeff_analyzer;
   coeff_analyzer.init(st, scoeffs);
 
@@ -151,23 +151,24 @@ int main() {
   auto results = fitter.fitSlope();
   std::cout << "--------------------------------------------------------"
             << std::endl;
+  T.toc("Slope Fitting: ");
 
-  // Initialize color vector for each column in P
-  Vector colr(P.cols());
-  for (const auto& [leaf, res] : results) {
-    for (int j = 0; j < leaf->block_size(); ++j) {
-      Scalar slope = res.get_slope();
-      // save the slope just if slope < 2, otherwirse save dtilde
-      Scalar slope_filtered = (slope <= 1.5) ? slope : dtilde;
-      Scalar dtilde_binned = std::abs(std::floor((slope + 0.25) / 0.5) * 0.5);
-      colr(leaf->indices()[j]) = slope;
-    }
-  }
-  // Print the min value of colr
-  std::cout << "Min value of colr: " << colr.minCoeff() << std::endl;
+  // // Initialize color vector for each column in P
+  // Vector colr(P.cols());
+  // for (const auto& [leaf, res] : results) {
+  //   for (int j = 0; j < leaf->block_size(); ++j) {
+  //     Scalar slope = res.get_slope();
+  //     // save the slope just if slope < 2, otherwirse save dtilde
+  //     Scalar slope_filtered = (slope <= 1.5) ? slope : dtilde;
+  //     Scalar dtilde_binned = std::abs(std::floor((slope + 0.25) / 0.5) * 0.5);
+  //     colr(leaf->indices()[j]) = slope;
+  //   }
+  // }
+  // // Print the min value of colr
+  // std::cout << "Min value of colr: " << colr.minCoeff() << std::endl;
 
-  FMCA::IO::plotPointsColor("SlopeSphere.vtk", P, colr);
-  FMCA::IO::plotPointsColor("FunctionSphere.vtk", P, data);
+  // FMCA::IO::plotPointsColor("SlopeSphere.vtk", P, colr);
+  // FMCA::IO::plotPointsColor("FunctionSphere.vtk", P, data);
 
   return 0;
 }
