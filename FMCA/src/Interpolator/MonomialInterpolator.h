@@ -50,6 +50,7 @@ class MonomialInterpolator {
     return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
+  const Index dim() const { return dim_; }
   const Matrix &Xi() const { return TD_xi_; }
   const Matrix &invV() const { return invV_; }
   const Matrix &V() const { return V_; }

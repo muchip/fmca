@@ -9,17 +9,22 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#ifndef FMCA_SAMPLETS_SAMPLETTREE_H_
-#define FMCA_SAMPLETS_SAMPLETTREE_H_
+#ifndef FMCA_SAMPLETS_GRAPHSAMPLETTREE_H_
+#define FMCA_SAMPLETS_GRAPHSAMPLETTREE_H_
 
+#include "../util/Graph.h"
+#include "../util/MDS.h"
 namespace FMCA {
 
-struct SampletTreeNode : public SampletTreeNodeBase<SampletTreeNode> {};
+struct GraphSampletTreeNode : public SampletTreeNodeBase<GraphSampletTreeNode> {
+  Matrix D;
+  Matrix P;
+};
 
 namespace internal {
-template <typename ClusterTreeType>
-struct traits<SampletTree<ClusterTreeType>> : public traits<ClusterTreeType> {
-  typedef SampletTreeNode Node;
+template <>
+struct traits<GraphSampletTree> : public traits<MetisClusterTree> {
+  typedef GraphSampletTreeNode Node;
 };
 }  // namespace internal
 
@@ -27,11 +32,10 @@ struct traits<SampletTree<ClusterTreeType>> : public traits<ClusterTreeType> {
  *  \ingroup Samplets
  *  \brief The SampletTree class manages samplets constructed on a cluster tree.
  */
-template <typename ClusterTreeType>
-struct SampletTree : public SampletTreeBase<SampletTree<ClusterTreeType>> {
+struct GraphSampletTree : public SampletTreeBase<GraphSampletTree> {
  public:
-  typedef typename internal::traits<SampletTree>::Node Node;
-  typedef SampletTreeBase<SampletTree<ClusterTreeType>> Base;
+  typedef typename internal::traits<GraphSampletTree>::Node Node;
+  typedef SampletTreeBase<GraphSampletTree> Base;
   // make base class methods visible
   using Base::appendSons;
   using Base::bb;
@@ -52,67 +56,90 @@ struct SampletTree : public SampletTreeBase<SampletTree<ClusterTreeType>> {
   //////////////////////////////////////////////////////////////////////////////
   // constructors
   //////////////////////////////////////////////////////////////////////////////
-  SampletTree() {}
-  template <typename Moments, typename... Ts>
-  SampletTree(const Moments &mom, Index min_cluster_size, Ts &&...ts) {
-    init(mom, min_cluster_size, std::forward<Ts>(ts)...);
+  GraphSampletTree() {}
+  template <typename Graph, typename Interpolator>
+  GraphSampletTree(const Graph &G, Index emb_dim, Index min_cluster_size,
+                   Index dtilde) {
+    init<Graph, Interpolator>(G, emb_dim, min_cluster_size, dtilde);
   }
   //////////////////////////////////////////////////////////////////////////////
   // init
   //////////////////////////////////////////////////////////////////////////////
-  template <typename Moments, typename... Ts>
-  void init(const Moments &mom, Index min_cluster_size, Ts &&...ts) {
-    const Index mincsize = min_cluster_size > mom.interp().Xi().cols()
+  template <typename Interpolator, typename Graph>
+  void init(const Graph &G, Index emb_dim, Index min_cluster_size,
+            Index dtilde) {
+    const Index q = dtilde > 0 ? dtilde - 1 : 0;
+    const Index internal_q = q;  // SampletHelper::internal_q(q, emb_dim);
+    Interpolator interp;
+    interp.init(emb_dim, internal_q);
+    const Index mincsize = min_cluster_size > interp.Xi().cols()
                                ? min_cluster_size
-                               : mom.interp().Xi().cols();
-    ClusterTreeType::initializer::init(*this, mincsize,
-                                       std::forward<Ts>(ts)...);
-#pragma omp parallel
-    {
-#pragma omp single
-      {
-        computeSamplets(mom);
-      }
-    }
-    internal::sampletMapper<SampletTree>(*this);
+                               : interp.Xi().cols();
+    MetisClusterTree::initializer::init(*this, mincsize, G);
+    Scalar lost_nrg = 0;
+    computeSamplets(interp, G, &lost_nrg);
+    std::cout << "maximum energy lost: " << lost_nrg << std::endl;
+    internal::sampletMapper<GraphSampletTree>(*this);
     return;
   }
 
  private:
-  template <typename Moments>
-  void computeSamplets(const Moments &mom) {
+  template <typename Interpolator, typename Graph>
+  void computeSamplets(const Interpolator &interp, const Graph &G,
+                       Scalar *lost_nrg) {
+    const Index nmom = interp.idcs().index_set().size();
     if (nSons()) {
       Index offset = 0;
       for (auto i = 0; i < nSons(); ++i) {
-#pragma omp task
-        {
-          sons(i).computeSamplets(mom);
-        }
+        sons(i).computeSamplets(interp, G, lost_nrg);
         // the son now has moments, lets grep them...
-        Matrix shift = 0.5 * (sons(i).bb().col(0) - bb().col(0) +
-                              sons(i).bb().col(1) - bb().col(1));
         node().mom_buffer_.conservativeResize(
             sons(i).node().mom_buffer_.rows(),
             offset + sons(i).node().mom_buffer_.cols());
         node().mom_buffer_.block(0, offset, sons(i).node().mom_buffer_.rows(),
                                  sons(i).node().mom_buffer_.cols()) =
-            mom.shift_matrix(shift) * sons(i).node().mom_buffer_;
+            sons(i).node().mom_buffer_;
         offset += sons(i).node().mom_buffer_.cols();
         // clear moment buffer of the children
         sons(i).node().mom_buffer_.resize(0, 0);
       }
-    } else
+    } else {
+      Scalar nrg = 0;
       // compute cluster basis of the leaf
-      node().mom_buffer_ = mom.moment_matrix(*this);
+      std::vector<Eigen::Triplet<FMCA::Scalar>> trips;
+      trips.reserve(block_size() * block_size());
+      for (FMCA::Index i = 0; i < block_size(); ++i)
+        for (FMCA::Index j = 0; j < i; ++j) {
+          const FMCA::Scalar w = G.graph().coeff(indices()[i], indices()[j]);
+          if (std::abs(w) > FMCA_ZERO_TOLERANCE) {
+            trips.push_back(Eigen::Triplet<FMCA::Scalar>(i, j, w));
+            trips.push_back(Eigen::Triplet<FMCA::Scalar>(j, i, w));
+          }
+        }
+      Graph G2;
+      G2.init(block_size(), trips);
+      node().D = G2.distanceMatrix();
+      node().P = MDS(node().D, interp.dim(), &nrg);
+      *lost_nrg = *lost_nrg < nrg ? nrg : *lost_nrg;
+      if (node().P.rows() < interp.dim()) {
+        Matrix Pdim(interp.dim(), node().P.cols());
+        Pdim.setZero();
+        Pdim.topRows(node().P.rows()) = node().P;
+        node().P = Pdim;
+      }
+      node().mom_buffer_.resize(interp.Xi().cols(), node().P.cols());
+      for (auto i = 0; i < block_size(); ++i)
+        node().mom_buffer_.col(i) = interp.evalPolynomials(node().P.col(i));
+    }
     // are there samplets?
-    if (mom.mdtilde() < node().mom_buffer_.cols()) {
+    if (nmom < node().mom_buffer_.cols()) {
       Eigen::HouseholderQR<Matrix> qr(node().mom_buffer_.transpose());
       node().Q_ = qr.householderQ();
-      node().nscalfs_ = mom.mdtilde();
+      node().nscalfs_ = nmom;
       node().nsamplets_ = node().Q_.cols() - node().nscalfs_;
       // this is the moment for the dad cluster
       node().mom_buffer_ = qr.matrixQR()
-                               .block(0, 0, mom.mdtilde(), mom.mdtilde2())
+                               .block(0, 0, nmom, qr.matrixQR().cols())
                                .template triangularView<Eigen::Upper>()
                                .transpose();
     } else {
@@ -123,7 +150,7 @@ struct SampletTree : public SampletTreeBase<SampletTree<ClusterTreeType>> {
     }
     return;
   }
-};  // namespace FMCA
+};
 }  // namespace FMCA
 #endif
 

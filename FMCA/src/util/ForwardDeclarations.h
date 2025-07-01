@@ -33,12 +33,16 @@ struct ClusterTreeInitializer;
 
 class ClusterTree;
 
+class MetisClusterTree;
+
 class MortonClusterTree;
 
 class RandomProjectionTree;
 
 template <typename ClusterTreeType>
 class SampletTree;
+
+class GraphSampletTree;
 
 template <typename ClusterTreeType>
 class H2ClusterTree;
