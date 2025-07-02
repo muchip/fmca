@@ -89,18 +89,20 @@ struct ArrayCompare {
 struct RandomProjection {
   static std::string splitterName() { return "RandomProjection"; }
   template <class CTNode>
-  // USE std::nth_element here to do the work!!!!!
   void operator()(const Matrix &P, CTNode &c1, CTNode &c2) const {
     Index *idcs = c1.indices_.get() + c1.indices_begin_;
     const Index D = P.rows();
     const Index bsize = c1.block_size_;
     const Scalar sqrtD = std::sqrt(Scalar(D));
-    // create random direction
-    Vector v = Matrix::Random(D, 1);
+    const Index seed = Index(std::random_device{}()) ^ Index(time(0));
+    std::mt19937 mt(seed);
+    std::normal_distribution<Scalar> dist(0.0, 1.0);
+    Vector v(D);
+    for (Index i = 0; i < D; ++i) v(i) = dist(mt);
     Vector projections(bsize);
     v.normalize();
     // project all points into the random direction
-    if (bsize > 100000) {
+    if (bsize > 10000) {
 #pragma omp parallel for
       for (Index i = 0; i < bsize; ++i) projections(i) = P.col(idcs[i]).dot(v);
     } else {
