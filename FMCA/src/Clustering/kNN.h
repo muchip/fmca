@@ -72,8 +72,6 @@ iMatrix kNN(const ClusterTreeBase<Derived> &CT, const Matrix &P,
   // compute min_distance at the leafs
 #pragma omp parallel for
   for (auto it = plist.begin(); it != plist.end(); ++it) {
-    // for (auto it = CT.cbegin(); it != CT.cend(); ++it) {
-    // if (!it->nSons() && it->block_size()) {
     const Index *idcs = (*it)->indices();
     for (Index j = 0; j < (*it)->block_size(); ++j)
       for (Index i = 0; i < j; ++i) {

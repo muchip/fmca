@@ -21,46 +21,36 @@ namespace FMCA {
 class KMinList {
  public:
   using value_type = std::pair<Index, Scalar>;
-
-  struct cmp {
-    bool operator()(const value_type& a, const value_type& b) const {
-      return a.second < b.second;
+  struct my_less {
+    bool operator()(const value_type &a, const value_type &b) const {
+      return a.second == b.second ? a.first < b.first : a.second < b.second;
     }
   };
-  using PriorityQueue =
-      std::priority_queue<value_type, std::vector<value_type>, cmp>;
 
-  template <typename T>
-  typename T::container_type& container_getter(T& t) {
-    struct hack : private T {
-      static typename T::container_type& get(T& t) { return t.*&hack::c; }
-    };
-    return hack::get(t);
-  }
+  KMinList() noexcept { k_ = 0; }
+  KMinList(Index k) noexcept { k_ = k; }
 
-  KMinList() noexcept : k_(1) {}
-  KMinList(Index k) noexcept : k_(k) {}
-
-  void insert(const value_type& tuple) {
-    if (queue_.size() < k_) {
-      queue_.push(tuple);
-    } else if (tuple.second < queue_.top().second) {
-      queue_.pop();
-      queue_.push(tuple);
+  void insert(const value_type &tuple) {
+    if (queue_.size() < k_)
+      queue_.emplace(tuple);
+    else {
+      if (tuple.second < max_min()) {
+        std::set<value_type, my_less>::iterator it = queue_.find(tuple);
+        if (it == queue_.end()) {
+          queue_.erase(std::prev(it));
+          queue_.emplace(tuple);
+        }
+      }
     }
   }
 
-  Scalar max_min() const {
-    if (queue_.empty()) return FMCA_INF;
-    return queue_.top().second;
-  }
+  Scalar max_min() const { return queue_.rbegin()->second; }
 
-  const std::vector<value_type>& list() { return container_getter(queue_); }
+  const std::set<value_type, my_less> &list() const { return queue_; }
 
  private:
-  PriorityQueue queue_;
+  std::set<value_type, my_less> queue_;
   Index k_;
 };
-
 }  // namespace FMCA
 #endif
