@@ -106,15 +106,8 @@ std::vector<Eigen::Triplet<Scalar>> symKNN(const ClusterTreeBase<Derived> &CT,
   std::vector<Eigen::Triplet<Scalar>> retval;
   std::vector<KMinList> qvec(P.cols());
 #pragma omp parallel for
-  for (Index i = 0; i < qvec.size(); ++i) {
-    qvec[i] = KMinList(k);
-    for (Index j = 1; j <= k; ++j) {
-      const Index idx = (i + j) % P.cols();
-      assert(idx != i && "should never happen");
-      const Scalar dist = (P.col(i) - P.col(idx)).norm();
-      qvec[i].insert(std::make_pair(idx, dist));
-    }
-  }
+  for (Index i = 0; i < qvec.size(); ++i) qvec[i] = KMinList(k);
+
   std::vector<const Derived *> plist;
   plist.reserve(P.cols());
   for (auto it = CT.cbegin(); it != CT.cend(); ++it)

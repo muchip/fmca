@@ -17,7 +17,7 @@
 #include "../FMCA/src/util/Tictoc.h"
 
 #define DIM 2
-#define NPTS 100000
+#define NPTS 10000000
 
 int main() {
   FMCA::Tictoc T;
@@ -25,7 +25,7 @@ int main() {
   FMCA::Vector colr(NPTS);
   std::vector<FMCA::Scalar> colr2;
   T.tic();
-  FMCA::RandomProjectionTree ct(P, 1000);
+  FMCA::RandomProjectionTree ct(P, 10000);
   T.toc("tree computation: ");
   std::vector<FMCA::Matrix> bbvec;
   for (const auto &it : ct) {
@@ -40,6 +40,7 @@ int main() {
       }
     }
   }
+  FMCA::clusterTreeStatistics(ct, P);
   std::vector<FMCA::Index> found(NPTS);
   for (FMCA::Index i = 0; i < ct.block_size(); ++i) ++(found[ct.indices()[i]]);
   for (FMCA::Index i = 0; i < found.size(); ++i)
