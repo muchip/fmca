@@ -9,14 +9,13 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#ifndef FMCA_CLUSTERING_KNN_H_
-#define FMCA_CLUSTERING_KNN_H_
+#ifndef FMCA_CLUSTERING_APPROXIMATEKNN_H_
+#define FMCA_CLUSTERING_APPROXIMATEKNN_H_
 
 #include "../util/KMinList.h"
 
 namespace FMCA {
 
-template <typename Derived>
 std::vector<Eigen::Triplet<Scalar>> approximateSymKNN(
     const Matrix &P, const Index k = 1, const Index leaf_size = 100,
     const Index n_trees = 10) {
@@ -61,7 +60,7 @@ std::vector<Eigen::Triplet<Scalar>> approximateSymKNN(
       }
     }
   }
-  
+
   retval.reserve(2 * P.cols() * k);
   for (Index i = 0; i < qvec.size(); ++i)
     for (const auto &it : qvec[i].list())

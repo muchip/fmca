@@ -87,7 +87,6 @@ iMatrix kNN(const ClusterTreeBase<Derived> &CT, const Matrix &P,
     }
     assert(max_min_distance > 0 && "min_dist should be positive");
     updateClusterKMinDistance(qvec, max_min_distance, **it, CT, P);
-    //}
   }
 #pragma omp parallel for
   for (Index i = 0; i < qvec.size(); ++i) {
@@ -97,6 +96,10 @@ iMatrix kNN(const ClusterTreeBase<Derived> &CT, const Matrix &P,
   return kmin_distance;
 }
 
+}  // namespace FMCA
+
+#if 1
+namespace FMCA {
 template <typename Derived>
 std::vector<Eigen::Triplet<Scalar>> symKNN(const ClusterTreeBase<Derived> &CT,
                                            const Matrix &P, const Index k = 1) {
@@ -113,8 +116,6 @@ std::vector<Eigen::Triplet<Scalar>> symKNN(const ClusterTreeBase<Derived> &CT,
   // compute min_distance at the leafs
 #pragma omp parallel for
   for (auto it = plist.begin(); it != plist.end(); ++it) {
-    // for (auto it = CT.cbegin(); it != CT.cend(); ++it) {
-    // if (!it->nSons() && it->block_size()) {
     const Index *idcs = (*it)->indices();
     for (Index j = 0; j < (*it)->block_size(); ++j)
       for (Index i = 0; i < j; ++i) {
@@ -130,7 +131,6 @@ std::vector<Eigen::Triplet<Scalar>> symKNN(const ClusterTreeBase<Derived> &CT,
     }
     assert(max_min_distance > 0 && "min_dist should be positive");
     updateClusterKMinDistance(qvec, max_min_distance, **it, CT, P);
-    //}
   }
   retval.reserve(2 * P.cols() * k);
   for (Index i = 0; i < qvec.size(); ++i)
@@ -144,4 +144,5 @@ std::vector<Eigen::Triplet<Scalar>> symKNN(const ClusterTreeBase<Derived> &CT,
 }
 
 }  // namespace FMCA
+#endif
 #endif
