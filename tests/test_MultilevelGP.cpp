@@ -1,144 +1,37 @@
-#include <Eigen/Sparse>
-#include <algorithm>
-#include <cmath>
-#include <iomanip>
-#include <iostream>
-#include <sstream>
-#include <vector>
-#include <random>
-#include <fstream>
-#include <chrono>
-
-#include "../FMCA/CovarianceKernel"
-#include "../FMCA/Samplets"
-#include "../FMCA/KernelInterpolation"
-#include "../FMCA/src/util/Tictoc.h"
+#include "GP_utils.cpp"
 
 #define DIM 1
 
-using namespace FMCA;
 
-// 1D Test functions
+
+////////////////////////////////////////////////////////////////////////////////////////////////////// Test Functions
 Scalar SinFunction1D(Scalar x) {
-  return std::sin(2 * M_PI * x) + 0.5 * std::sin(6 * M_PI * x) + 0.2 * std::sin(12 * M_PI * x);
+  return std::sin(2 * M_PI * x) + 0.5 * std::sin(6 * M_PI * x) +
+         0.2 * std::sin(12 * M_PI * x);
 }
 
 Scalar SinFunction1D_Noisy(Scalar x) {
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-    static std::normal_distribution<Scalar> noise(0.0, 0.1); // mean=0, std=0.1
-    
-    Scalar clean_value = std::sin(2 * M_PI * x) + 0.5 * std::sin(6 * M_PI * x) + 0.2 * std::sin(12 * M_PI * x);
-    return clean_value + noise(gen);
+  static std::random_device rd;
+  static std::mt19937 gen(rd());
+  static std::normal_distribution<Scalar> noise(0.0, 0.1);  // mean=0, std=0.1
+
+  Scalar clean_value = std::sin(2 * M_PI * x) + 0.5 * std::sin(6 * M_PI * x) +
+                       0.2 * std::sin(12 * M_PI * x);
+  return clean_value + noise(gen);
 }
 
-// Export results to Python
-void exportResults1DToPython(const std::vector<Matrix>& P_Matrices,
-                             const Matrix& Peval,
-                             const Vector& exact_sol,
-                             const Vector& noisy_data,
-                             const Vector& final_res,
-                             const std::vector<Vector>& ALPHA,
-                             const std::vector<Scalar>& fill_distances,
-                             const std::vector<int>& levels,
-                             const std::vector<int>& N,
-                             const std::vector<Scalar>& assembly_time,
-                             const std::vector<Scalar>& cg_time,
-                             const std::vector<int>& iterationsCG,
-                             const std::vector<Scalar>& anz,
-                             const std::vector<Scalar>& l2_errors,
-                             const std::vector<Scalar>& linf_errors,
-                             Scalar nu,
-                             const std::string& kernel_type,
-                             const std::string& test_function,
-                             const std::string& filename = "/Users/saraavesani/Desktop/Archive/hierarchical_gp_1d_results.py") {
-  
-  std::ofstream file(filename);
-  if (!file.is_open()) {
-    std::cerr << "Error: Could not open file " << filename << " for writing." << std::endl;
-    return;
-  }
-  
-  file << "import numpy as np\nimport matplotlib.pyplot as plt\nfrom matplotlib.patches import Rectangle\nimport seaborn as sns\n\n";
-  file << "# Set style\nplt.style.use('seaborn-v0_8')\nsns.set_palette('husl')\n\n";
-  
-  // Export basic parameters
-  file << "# Parameters\n";
-  file << "nu = " << nu << "\n";
-  file << "kernel_type = '" << kernel_type << "'\n";
-  file << "test_function = '" << test_function << "'\n";
-  file << "num_levels = " << levels.size() << "\n\n";
-  
-  // Export basic vectors
-  auto exportVector = [&file](const std::string& name, const auto& vec) {
-    file << name << " = np.array([";
-    for (size_t i = 0; i < vec.size(); ++i) {
-      file << vec[i];
-      if (i + 1 < vec.size()) file << ", ";
-    }
-    file << "])\n";
-  };
-  
-  file << "# Statistics\n";
-  exportVector("levels", levels);
-  exportVector("N", N);
-  exportVector("fill_distances", fill_distances);
-  exportVector("assembly_time", assembly_time);
-  exportVector("cg_time", cg_time);
-  exportVector("cg_iterations", iterationsCG);
-  exportVector("anz", anz);
-  exportVector("l2_errors", l2_errors);
-  exportVector("linf_errors", linf_errors);
-  
-  // Export evaluation data
-  file << "\n# Evaluation data\n";
-  file << "eval_x = np.array([";
-  for (Index i = 0; i < Peval.cols(); ++i) {
-    file << Peval(0, i);
-    if (i + 1 < Peval.cols()) file << ", ";
-  }
-  file << "])\n";
-  
-  file << "true_values = np.array([";
-  for (Index i = 0; i < exact_sol.size(); ++i) {
-    file << exact_sol(i);
-    if (i + 1 < exact_sol.size()) file << ", ";
-  }
-  file << "])\n";
-  
-  file << "noisy_values = np.array([";
-  for (Index i = 0; i < noisy_data.size(); ++i) {
-    file << noisy_data(i);
-    if (i + 1 < noisy_data.size()) file << ", ";
-  }
-  file << "])\n";
+Vector addNoise(const Vector& clean_data, Scalar noise_std,
+                unsigned seed = 123) {
+  std::mt19937 gen(seed);
+  std::normal_distribution<Scalar> noise_dist(0.0, noise_std);
 
-  file << "predicted_values = np.array([";
-  for (Index i = 0; i < final_res.size(); ++i) {
-    file << final_res(i);
-    if (i + 1 < final_res.size()) file << ", ";
+  Vector noisy_data = clean_data;
+  for (Index i = 0; i < clean_data.size(); ++i) {
+    noisy_data(i) += noise_dist(gen);
   }
-  file << "])\n";
-  
-  // Export training points for each level
-  file << "\n# Training points for each level\n";
-  file << "training_points = []\n";
-  for (size_t l = 0; l < P_Matrices.size(); ++l) {
-    file << "training_points.append(np.array([";
-    for (Index i = 0; i < P_Matrices[l].cols(); ++i) {
-      file << P_Matrices[l](0, i);
-      if (i + 1 < P_Matrices[l].cols()) file << ", ";
-    }
-    file << "]))\n";
-  }
-  
-  file << "\nprint('Data exported successfully to Python!')\n";
-  file.close();
-  
-  std::cout << "Results exported to " << filename << std::endl;
+  return noisy_data;
 }
-
-
+////////////////////////////////////////////////////////////////////////////////////////////////////// Evaluate Functions
 Vector evalFunction1D(const Matrix& Points, const std::string& func_name) {
   Vector f(Points.cols());
   for (Index i = 0; i < Points.cols(); ++i) {
@@ -151,7 +44,7 @@ Vector evalFunction1D(const Matrix& Points, const std::string& func_name) {
   return f;
 }
 
-// Generate uniform points on [0,1]
+ ////////////////////////////////////////////////////////////////////////////////////////////////////// Points generators
 Matrix generateUniformPoints1D(int n) {
   Matrix P(DIM, n);
   for (int i = 0; i < n; ++i) {
@@ -159,18 +52,15 @@ Matrix generateUniformPoints1D(int n) {
   }
   return P;
 }
-
-// Generate random points on [0,1]
+/////////////////////////////////////////////////////////////////////////
 Matrix generateRandomPoints1D(int n, unsigned seed = 42) {
   std::mt19937 gen(seed);
   std::uniform_real_distribution<Scalar> dist(0.0, 1.0);
-  
   Matrix P(DIM, n);
   for (int i = 0; i < n; ++i) {
     P(0, i) = dist(gen);
   }
-  
-  // Sort the points for better visualization
+  // Sort the points 
   std::vector<Scalar> points;
   for (int i = 0; i < n; ++i) {
     points.push_back(P(0, i));
@@ -179,16 +69,15 @@ Matrix generateRandomPoints1D(int n, unsigned seed = 42) {
   for (int i = 0; i < n; ++i) {
     P(0, i) = points[i];
   }
-  
   return P;
 }
 
-// Generate hierarchical points (nested sets)
-std::vector<Matrix> generateHierarchicalPoints1D(const std::vector<int>& sizes, 
-                                                  const std::string& distribution,
-                                                  unsigned seed = 42) {
+ ////////////////////////////////////////////////////////////////////////////////////////////////////// Points sets generators
+std::vector<Matrix> generateHierarchicalPoints1D(
+    const std::vector<int>& sizes, const std::string& distribution,
+    unsigned seed = 42) {
   std::vector<Matrix> P_Matrices;
-  
+
   if (distribution == "uniform") {
     for (int size : sizes) {
       P_Matrices.push_back(generateUniformPoints1D(size));
@@ -197,16 +86,13 @@ std::vector<Matrix> generateHierarchicalPoints1D(const std::vector<int>& sizes,
     // For random points, ensure nested structure
     std::mt19937 gen(seed);
     std::uniform_real_distribution<Scalar> dist(0.0, 1.0);
-    
     std::vector<Scalar> all_points;
-    
     // Generate points for the finest level
     int max_size = *std::max_element(sizes.begin(), sizes.end());
     for (int i = 0; i < max_size; ++i) {
       all_points.push_back(dist(gen));
     }
     std::sort(all_points.begin(), all_points.end());
-    
     // Create nested subsets
     for (int size : sizes) {
       Matrix P(DIM, size);
@@ -218,38 +104,29 @@ std::vector<Matrix> generateHierarchicalPoints1D(const std::vector<int>& sizes,
       P_Matrices.push_back(P);
     }
   }
-  
   return P_Matrices;
 }
 
-///////////////////////////////////////////////////////////////////////////////////// Add Gaussian noise to observations
-Vector addNoise(const Vector& clean_data, Scalar noise_std, unsigned seed = 123) {
-  std::mt19937 gen(seed);
-  std::normal_distribution<Scalar> noise_dist(0.0, noise_std);
-  
-  Vector noisy_data = clean_data;
-  for (Index i = 0; i < clean_data.size(); ++i) {
-    noisy_data(i) += noise_dist(gen);
-  }
-  return noisy_data;
-}
-///////////////////////////////////////////////////////////////////////////////////// Main function
+ //////////////////////////////////////////////////////////////////////////////////////////////////////
+ ////////////////////////////////////////////////////////////////////////////////////////////////////// Main function
 
 void runHierarchicalGPTest1D(Scalar nu) {
   std::cout << "======== Running 1D Hierarchical GP Test with nu = " << nu
             << " ========" << std::endl;
-
-  ////////////////////////////// Configuration
+  ////////////////////////////// 
   std::string test_function = "sin";
   std::string point_distribution = "uniform";
-  std::vector<int> level_sizes = {65, 129, 257, 513, 1025, 2049, 4097, 8193, 16385, 32769};
-  std::vector<Scalar> noise_levels = {0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1};
+  std::vector<int> level_sizes = {
+      65, 129, 257, 513};  // 1025, 2049, 4097, 8193, 16385, 32769};
+  std::vector<Scalar> noise_levels = {
+      0., 0., 0., 0., 0., 0., 0., 0., 0., 0.};  // {0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1};
   std::string kernel_type = "matern52";
   Index dtilde = 5;
-  Scalar eta = 1.0 / 2;
+  Scalar mpole_deg = 2 * (dtilde - 1);
+  Scalar eta = 1. / 2;
   Scalar threshold = 1e-8;
-  Scalar ridge_param = 0;
-  std::string solver_name = "ConjugateGradientwithPreconditioner";
+  Scalar ridgep = 0;
+  const bool preconditioner = true;
   Scalar cg_threshold = 1e-6;
   int eval_points_count = 1000;
   unsigned random_seed = 42;
@@ -259,27 +136,26 @@ void runHierarchicalGPTest1D(Scalar nu) {
   std::cout << "- dtilde:           " << dtilde << std::endl;
   std::cout << "- threshold:        " << threshold << std::endl;
   std::cout << "- kernel_type:      " << kernel_type << std::endl;
-  std::cout << "- solver:           " << solver_name << std::endl;
   std::cout << "- nu:               " << nu << std::endl;
 
   ////////////////////////////// Points
   int max_level = level_sizes.size();
-  std::vector<Matrix> P_Matrices = generateHierarchicalPoints1D(level_sizes, point_distribution, random_seed);
+  std::vector<Matrix> P_Matrices = generateHierarchicalPoints1D(
+      level_sizes, point_distribution, random_seed);
   Matrix Peval = generateUniformPoints1D(eval_points_count);
 
   ////////////////////////////// Residuals
   std::vector<Vector> residuals;
   for (int i = 0; i < max_level; ++i) {
     Vector clean_obs = evalFunction1D(P_Matrices[i], test_function);
-    Scalar noise_std = (i < noise_levels.size()) ? noise_levels[i] : 0.01;
-    Vector noisy_obs = addNoise(clean_obs, noise_std, random_seed + i);
     residuals.push_back(clean_obs);
   }
 
-  ////////////////////////////// Vector of coefficients 
+  ////////////////////////////// Vector of coefficients
   std::vector<Vector> ALPHA;
   ALPHA.reserve(max_level);
   std::vector<Scalar> fill_distances;
+  Vector posterior_std = Vector::Zero(eval_points_count);
 
   ////////////////////////////// Summary results
   std::vector<int> levels;
@@ -294,7 +170,16 @@ void runHierarchicalGPTest1D(Scalar nu) {
     std::cout << std::endl;
     std::cout << "-------- LEVEL " << (l + 1) << " --------" << std::endl;
     MultilevelSampletKernelSolver<> solver;
-    Scalar h = solver.computeFillDistance(P_Matrices[l]);
+    CovarianceKernel kernel(kernel_type, 1);
+
+    // Add ridge regression for noise
+    Scalar ridge = ridgep;
+    if (l < noise_levels.size() && noise_levels[l] > 0) {
+      ridge += noise_levels[l] * noise_levels[l];
+    }
+
+    solver.init(kernel, P_Matrices[l], dtilde, eta, threshold, ridgep);
+    Scalar h = solver.fill_distance();
     fill_distances.push_back(h);
     int n_pts = P_Matrices[l].cols();
     std::cout << "Fill distance: " << h << std::endl;
@@ -308,7 +193,8 @@ void runHierarchicalGPTest1D(Scalar nu) {
       CovarianceKernel kernel_B(kernel_type, sigma_B);
       MultipoleFunctionEvaluator evaluator;
       evaluator.init(kernel_B, P_Matrices[j], P_Matrices[l]);
-      Matrix correction = evaluator.evaluate(P_Matrices[j], P_Matrices[l], ALPHA[j]);
+      Matrix correction =
+          evaluator.evaluate(P_Matrices[j], P_Matrices[l], ALPHA[j]);
       correction *= std::pow(sigma_B, -DIM);
       residuals[l] -= correction;
     }
@@ -316,29 +202,27 @@ void runHierarchicalGPTest1D(Scalar nu) {
     ////////////////////////////// Compress the diagonal block
     Scalar sigma_l = nu * fill_distances[l];
     CovarianceKernel kernel_l(kernel_type, sigma_l);
-    
-    // Add ridge regression for noise
-    Scalar ridge = ridge_param;
-    if (l < noise_levels.size() && noise_levels[l] > 0) {
-      ridge += noise_levels[l] * noise_levels[l];
-    }
-    
-    solver.init(kernel_l, P_Matrices[l], dtilde, eta, threshold, ridge);
+
+    solver.updateKernel(kernel_l);
     solver.compress(P_Matrices[l]);
     solver.compressionError(P_Matrices[l]);
 
     ////////////////////////////// Statistics
-    const auto& compressor_stats = solver.getCompressorStats();
+    const auto& compressor_stats = solver.getCompressionStats();
     std::cout << "\nCompression Stats:" << std::endl;
-    std::cout << "- Planning time:    " << compressor_stats.time_planner << std::endl;
-    std::cout << "- Compression time: " << compressor_stats.time_compressor << " s" << std::endl;
-    std::cout << "- Compression error: " << compressor_stats.compression_error << std::endl;
+    std::cout << "- Compression time: " << compressor_stats.time_compressor
+              << " s" << std::endl;
+    std::cout << "- ANZ (non-zeros per row): " << compressor_stats.anz
+              << std::endl;
+    std::cout << "- Compression error: " << compressor_stats.compression_error
+              << std::endl;
 
     ////////////////////////////// Solver
-    Vector solution = solver.solveIterative(residuals[l], solver_name, cg_threshold);
+    Vector solution =
+        solver.solveIterative(residuals[l], preconditioner, cg_threshold);
     solution /= std::pow(sigma_l, -DIM);
 
-    const auto& cg_stats = solver.getCGStats();
+    const auto& cg_stats = solver.getSolverStats();
     std::cout << "Solver Stats:" << std::endl;
     std::cout << "- Iterations: " << cg_stats.iterations << std::endl;
     std::cout << "- Residual: " << cg_stats.residual_error << std::endl;
@@ -356,12 +240,13 @@ void runHierarchicalGPTest1D(Scalar nu) {
   }
 
   ////////////////////////////// Evaluation
-  std::cout << "\nEvaluating solution on " << Peval.cols() << " points..." << std::endl;
+  std::cout << "\nEvaluating solution on " << Peval.cols() << " points..."
+            << std::endl;
   Vector exact_sol = evalFunction1D(Peval, test_function);
   Vector final_res = Vector::Zero(Peval.cols());
   std::vector<Scalar> l2_errors;
   std::vector<Scalar> linf_errors;
-  
+
   for (int l = 0; l < max_level; ++l) {
     Scalar sigma = nu * fill_distances[l];
     CovarianceKernel kernel(kernel_type, sigma);
@@ -370,47 +255,49 @@ void runHierarchicalGPTest1D(Scalar nu) {
     Vector eval = evaluator.evaluate(P_Matrices[l], Peval, ALPHA[l]);
     eval *= std::pow(sigma, -DIM);
     final_res += eval;
-    
+
     // Errors
     Scalar l2_err = (final_res - exact_sol).norm() / exact_sol.norm();
     Scalar linf_err = (final_res - exact_sol).cwiseAbs().maxCoeff();
     l2_errors.push_back(l2_err);
     linf_errors.push_back(linf_err);
-    
-    std::cout << "======= Evaluation Level " << (l + 1) << " =======" << std::endl;
+
+    std::cout << "======= Evaluation Level " << (l + 1)
+              << " =======" << std::endl;
     std::cout << "- L2 error: " << l2_err << std::endl;
     std::cout << "- Linf error: " << linf_err << std::endl;
     std::cout << std::endl;
   }
 
-  ////////////////////////////// Results Summary
+
+
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /// Results Summary
   ////////////////////////////// Export to Python
   Vector noisy_data = evalFunction1D(Peval, "sin_noisy");
 
-  exportResults1DToPython(P_Matrices, Peval, exact_sol, noisy_data, final_res, ALPHA, fill_distances, 
-                          levels, N, assembly_time, cg_time, iterationsCG, anz, 
-                          l2_errors, linf_errors, nu, kernel_type, test_function);
+  exportResults1DToPython(P_Matrices, Peval, exact_sol, noisy_data, final_res,
+                          posterior_std, ALPHA, fill_distances, levels, N,
+                          assembly_time, cg_time, iterationsCG, anz, l2_errors,
+                          linf_errors, nu, kernel_type, test_function);
 
   ////////////////////////////// Results Summary
   std::cout << "\n======== Results Summary ========" << std::endl;
-  std::cout << std::left << std::setw(8) << "Level" 
-            << std::setw(8) << "N"
-            << std::setw(12) << "AssemblyT"
-            << std::setw(10) << "CGTime"
-            << std::setw(8) << "CGIter"
-            << std::setw(10) << "ANZ"
-            << std::setw(12) << "L2Error"
-            << std::setw(12) << "L∞Error" << std::endl;
-  
+  std::cout << std::left << std::setw(8) << "Level" << std::setw(8) << "N"
+            << std::setw(12) << "AssemblyT" << std::setw(10) << "CGTime"
+            << std::setw(8) << "CGIter" << std::setw(10) << "ANZ"
+            << std::setw(12) << "L2Error" << std::setw(12) << "L∞Error"
+            << std::endl;
+
   for (size_t i = 0; i < levels.size(); ++i) {
-    std::cout << std::left << std::setw(8) << levels[i]
-              << std::setw(8) << N[i]
-              << std::setw(12) << std::fixed << std::setprecision(6) << assembly_time[i]
-              << std::setw(10) << std::fixed << std::setprecision(6) << cg_time[i]
-              << std::setw(8) << iterationsCG[i]
-              << std::setw(10) << static_cast<int>(anz[i])
-              << std::setw(12) << std::scientific << std::setprecision(3) << l2_errors[i]
-              << std::setw(12) << std::scientific << std::setprecision(3) << linf_errors[i] << std::endl;
+    std::cout << std::left << std::setw(8) << levels[i] << std::setw(8) << N[i]
+              << std::setw(12) << std::fixed << std::setprecision(6)
+              << assembly_time[i] << std::setw(10) << std::fixed
+              << std::setprecision(6) << cg_time[i] << std::setw(8)
+              << iterationsCG[i] << std::setw(10) << static_cast<int>(anz[i])
+              << std::setw(12) << std::scientific << std::setprecision(3)
+              << l2_errors[i] << std::setw(12) << std::scientific
+              << std::setprecision(3) << linf_errors[i] << std::endl;
   }
 }
 
