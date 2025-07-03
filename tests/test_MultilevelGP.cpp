@@ -2,9 +2,16 @@
 
 #define DIM 1
 
+using Interpolator = FMCA::TotalDegreeInterpolator;
+using SampletInterpolator = FMCA::MonomialInterpolator;
+using Moments = FMCA::NystromMoments<Interpolator>;
+using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
+using MatrixEvaluator = FMCA::NystromEvaluator<Moments, FMCA::CovarianceKernel>;
+using usMatrixEvaluator =
+    FMCA::unsymmetricNystromEvaluator<Moments, FMCA::CovarianceKernel>;
 
-
-////////////////////////////////////////////////////////////////////////////////////////////////////// Test Functions
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Test Functions
 Scalar SinFunction1D(Scalar x) {
   return std::sin(2 * M_PI * x) + 0.5 * std::sin(6 * M_PI * x) +
          0.2 * std::sin(12 * M_PI * x);
@@ -31,7 +38,8 @@ Vector addNoise(const Vector& clean_data, Scalar noise_std,
   }
   return noisy_data;
 }
-////////////////////////////////////////////////////////////////////////////////////////////////////// Evaluate Functions
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Evaluate Functions
 Vector evalFunction1D(const Matrix& Points, const std::string& func_name) {
   Vector f(Points.cols());
   for (Index i = 0; i < Points.cols(); ++i) {
@@ -44,7 +52,8 @@ Vector evalFunction1D(const Matrix& Points, const std::string& func_name) {
   return f;
 }
 
- ////////////////////////////////////////////////////////////////////////////////////////////////////// Points generators
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Points generators
 Matrix generateUniformPoints1D(int n) {
   Matrix P(DIM, n);
   for (int i = 0; i < n; ++i) {
@@ -60,7 +69,7 @@ Matrix generateRandomPoints1D(int n, unsigned seed = 42) {
   for (int i = 0; i < n; ++i) {
     P(0, i) = dist(gen);
   }
-  // Sort the points 
+  // Sort the points
   std::vector<Scalar> points;
   for (int i = 0; i < n; ++i) {
     points.push_back(P(0, i));
@@ -72,7 +81,8 @@ Matrix generateRandomPoints1D(int n, unsigned seed = 42) {
   return P;
 }
 
- ////////////////////////////////////////////////////////////////////////////////////////////////////// Points sets generators
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Points sets generators
 std::vector<Matrix> generateHierarchicalPoints1D(
     const std::vector<int>& sizes, const std::string& distribution,
     unsigned seed = 42) {
@@ -107,19 +117,22 @@ std::vector<Matrix> generateHierarchicalPoints1D(
   return P_Matrices;
 }
 
- //////////////////////////////////////////////////////////////////////////////////////////////////////
- ////////////////////////////////////////////////////////////////////////////////////////////////////// Main function
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Main function
 
 void runHierarchicalGPTest1D(Scalar nu) {
   std::cout << "======== Running 1D Hierarchical GP Test with nu = " << nu
             << " ========" << std::endl;
-  ////////////////////////////// 
+  //////////////////////////////
   std::string test_function = "sin";
   std::string point_distribution = "uniform";
   std::vector<int> level_sizes = {
-      65, 129, 257, 513};  // 1025, 2049, 4097, 8193, 16385, 32769};
+      65,   129,  257,   513,  1025, 2049, 8193, 16385, 32769};
+      // 2049, 8193, 16385, 32769};  // 1025, 2049, 4097, 8193, 16385, 32769};
   std::vector<Scalar> noise_levels = {
-      0., 0., 0., 0., 0., 0., 0., 0., 0., 0.};  // {0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1};
+      0.1, 0.1, 0.1, 0.1, 0.1, 0.1,
+      0.1, 0.1, 0.1, 0.1};  // {0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1};
   std::string kernel_type = "matern52";
   Index dtilde = 5;
   Scalar mpole_deg = 2 * (dtilde - 1);
@@ -128,7 +141,7 @@ void runHierarchicalGPTest1D(Scalar nu) {
   Scalar ridgep = 0;
   const bool preconditioner = true;
   Scalar cg_threshold = 1e-6;
-  int eval_points_count = 1000;
+  int eval_points_count = 40000;
   unsigned random_seed = 42;
 
   std::cout << "Parameters:" << std::endl;
@@ -155,6 +168,7 @@ void runHierarchicalGPTest1D(Scalar nu) {
   std::vector<Vector> ALPHA;
   ALPHA.reserve(max_level);
   std::vector<Scalar> fill_distances;
+  Vector posterior_var = Vector::Zero(eval_points_count);
   Vector posterior_std = Vector::Zero(eval_points_count);
 
   ////////////////////////////// Summary results
@@ -173,10 +187,7 @@ void runHierarchicalGPTest1D(Scalar nu) {
     CovarianceKernel kernel(kernel_type, 1);
 
     // Add ridge regression for noise
-    Scalar ridge = ridgep;
-    if (l < noise_levels.size() && noise_levels[l] > 0) {
-      ridge += noise_levels[l] * noise_levels[l];
-    }
+    Scalar ridgep = noise_levels[l] * noise_levels[l];
 
     solver.init(kernel, P_Matrices[l], dtilde, eta, threshold, ridgep);
     Scalar h = solver.fill_distance();
@@ -235,6 +246,100 @@ void runHierarchicalGPTest1D(Scalar nu) {
     iterationsCG.push_back(cg_stats.iterations);
     anz.push_back(compressor_stats.anz);
 
+    ////////////////////////////// Posterior variance
+    if (l == max_level - 1) {
+      std::cout << "\nComputing posterior variance..." << std::endl;
+
+      /////////////////////////// K (P_ell, P_ell)
+      SparseMatrix K_ell = solver.K();
+
+      /////////////////////////// K (Peval, Peval)
+      MultilevelSampletKernelSolver<> solver_eval;
+      solver_eval.init(kernel_l, Peval, dtilde, eta, threshold, ridgep);
+      solver_eval.compress(Peval);
+      SparseMatrix K_eval = solver_eval.K();
+
+      /////////////////////////// K (Peval, P_ell)
+      const Moments mom_rows(Peval, mpole_deg);
+      const Moments mom_cols(P_Matrices[l], mpole_deg);
+      const usMatrixEvaluator mat_eval(mom_rows, mom_cols, kernel_l);
+      const SampletMoments samp_mom_rows(Peval, dtilde - 1);
+      const SampletMoments samp_mom_cols(P_Matrices[l], dtilde - 1);
+      FMCA::H2SampletTree<FMCA::ClusterTree> hst_rows(mom_rows, samp_mom_rows,
+                                                      0, Peval);
+      FMCA::H2SampletTree<FMCA::ClusterTree> hst_cols(mom_cols, samp_mom_cols,
+                                                      0, P_Matrices[l]);
+      FMCA::internal::SampletMatrixCompressorUnsymmetric<
+          FMCA::H2SampletTree<FMCA::ClusterTree>>
+          K_eval_ell_comp;
+      K_eval_ell_comp.init(hst_rows, hst_cols, eta, 1e-15);
+      K_eval_ell_comp.compress(mat_eval);
+      K_eval_ell_comp.triplets();
+      const auto& trips = K_eval_ell_comp.aposteriori_triplets(1e-8);
+      SparseMatrix K_eval_ell(Peval.cols(), P_Matrices[l].cols());
+      K_eval_ell.setFromTriplets(trips.begin(), trips.end());
+      K_eval_ell.makeCompressed();
+
+      /////////////////////////// Fully Sparse Posterior Variance Computation
+      Vector K_eval_diag = Vector::Zero(eval_points_count);
+      for (int i = 0; i < eval_points_count; ++i) {
+        K_eval_diag(i) = K_eval.coeff(i, i);
+      }
+
+      // Process evaluation points in chunks to show progress
+      const int chunk_size = 10000;
+      const int num_chunks = (eval_points_count + chunk_size - 1) / chunk_size;
+
+#pragma omp parallel for schedule(dynamic)
+      for (int chunk = 0; chunk < num_chunks; ++chunk) {
+        int start_idx = chunk * chunk_size;
+        int end_idx = std::min(start_idx + chunk_size, eval_points_count);
+
+        for (int i = start_idx; i < end_idx; ++i) {
+          // Extract i-th row of K_eval_ell as a sparse vector
+          Vector k_eval_ell_i = Vector::Zero(P_Matrices[l].cols());
+
+          // Only iterate over non-zero elements in row i
+          for (SparseMatrix::InnerIterator it(K_eval_ell, i); it; ++it) {
+            k_eval_ell_i(it.col()) = it.value();
+          }
+
+          // Skip if row is empty (no covariance)
+          if (k_eval_ell_i.norm() < 1e-15) {
+            posterior_var(i) = K_eval_diag(i);
+            continue;
+          }
+
+          // Solve K_ell * a_i = k_eval_ell_i
+          Vector a_i =
+              solver.solveIterative(k_eval_ell_i, preconditioner, cg_threshold);
+
+          // Compute variance: Var_i = K_eval[i,i] - k_eval_ell_i^T * a_i
+          Scalar quadratic_form = k_eval_ell_i.dot(a_i);
+          Scalar variance = K_eval_diag(i) - quadratic_form;
+
+          // Ensure non-negative variance (numerical stability)
+          posterior_var(i) = std::max(0.0, variance);
+        }
+
+// Progress reporting (thread-safe)
+#pragma omp critical
+        {
+          if (chunk % 10 == 0) {
+            std::cout << "Processed chunks: " << chunk << "/" << num_chunks
+                      << " (" << (chunk * 100 / num_chunks) << "%)"
+                      << std::endl;
+          }
+        }
+      }
+      // posterior_var /= std::pow(sigma_l, -DIM);
+      posterior_var = hst_rows.inverseSampletTransform(posterior_var);
+      posterior_var = hst_rows.toNaturalOrder(posterior_var);
+    }
+
+    std::cout << "Posterior variance computation completed." << std::endl;
+    posterior_std = posterior_var;
+
     ////////////////////////////// Solution update
     ALPHA.push_back(solution);
   }
@@ -268,8 +373,6 @@ void runHierarchicalGPTest1D(Scalar nu) {
     std::cout << "- Linf error: " << linf_err << std::endl;
     std::cout << std::endl;
   }
-
-
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   /// Results Summary
