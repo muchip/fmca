@@ -103,9 +103,9 @@ int main() {
     for (int j = 0; j < leaf->block_size(); ++j) {
       Scalar slope = res.get_slope();
       // save the slope just if slope < 2, otherwirse save dtilde
-      Scalar slope_filtered = (slope < 1.8) ? slope : dtilde;
+      Scalar slope_filtered = (slope <= 1.6) ? slope : dtilde;
       Scalar dtilde_binned = std::abs(std::floor((slope + 0.3) / 0.5) * 0.5);
-      colr(leaf->indices()[j]) = slope_filtered;
+      colr(leaf->indices()[j]) = slope;
     }
   }
   // Print the min value of colr
