@@ -1,7 +1,7 @@
 // This file is part of FMCA, the Fast Multiresolution Covariance Analysis
 // package.
 //
-// Copyright (c) 2022, Michael Multerer
+// Copyright (c) 2025, Michael Multerer
 //
 // All rights reserved.
 //
@@ -11,8 +11,6 @@
 //
 #ifndef FMCA_CLUSTERING_KNN_H_
 #define FMCA_CLUSTERING_KNN_H_
-
-#include "../util/KMinList.h"
 
 namespace FMCA {
 
@@ -96,10 +94,6 @@ iMatrix kNN(const ClusterTreeBase<Derived> &CT, const Matrix &P,
   return kmin_distance;
 }
 
-}  // namespace FMCA
-
-#if 1
-namespace FMCA {
 template <typename Derived>
 std::vector<Eigen::Triplet<Scalar>> symKNN(const ClusterTreeBase<Derived> &CT,
                                            const Matrix &P, const Index k = 1) {
@@ -144,5 +138,4 @@ std::vector<Eigen::Triplet<Scalar>> symKNN(const ClusterTreeBase<Derived> &CT,
 }
 
 }  // namespace FMCA
-#endif
 #endif

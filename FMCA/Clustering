@@ -28,12 +28,13 @@
 #include <random>
 #include <string>
 #include <vector>
-
+//
 #include "src/util/ForwardDeclarations.h"
 #include "src/util/Macros.h"
 #include "src/util/Graph.h"
 #include "src/util/TreeBase.h"
-
+#include "src/util/KMinList.h"
+//
 #include "src/Clustering/Admissibility.h"
 #include "src/Clustering/MortonCompare.h"
 #include "src/Clustering/ClusterTreeSplitter.h"
@@ -47,6 +48,7 @@
 #include "src/Clustering/MetisClusterTree.h"
 #include "src/Clustering/ClusterTreeMetrics.h"
 #include "src/Clustering/kNN.h"
+#include "src/Clustering/approximateKNN.h"
 #include "src/Clustering/epsNN.h"
 
 #endif

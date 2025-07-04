@@ -197,10 +197,10 @@ std::vector<Graph> splitGraph(const Graph &G, const T &part) {
 }
 
 template <typename ValueType>
-std::vector<idx_t> partitionGraph(Graph<idx_t, ValueType> &G) {
+std::vector<idx_t> partitionGraph(Graph<idx_t, ValueType> &G, Index K) {
   idx_t nvtxs = G.nnodes();
   idx_t ncon = 1;
-  idx_t nparts = 2;
+  idx_t nparts = K;
   idx_t wgtflag = 1;  // only edge weights
   idx_t numflag = 0;
   idx_t options[METIS_NOPTIONS];
@@ -212,7 +212,7 @@ std::vector<idx_t> partitionGraph(Graph<idx_t, ValueType> &G) {
   idx_t *adjncy = (G.graph()).innerIndexPtr();
   std::vector<idx_t> adjwgt(G.nedges());
   for (idx_t i = 0; i < adjwgt.size(); ++i)
-    adjwgt[i] = 1. / (1e-3 + G.graph().valuePtr()[i] * G.graph().valuePtr()[i]);
+    adjwgt[i] = 1. / (1e-6 + G.graph().valuePtr()[i] * G.graph().valuePtr()[i]);
 
   int status = METIS_PartGraphRecursive(
       &nvtxs, &ncon, xadj, adjncy, adjwgt.data(), NULL, NULL, &nparts, NULL,
@@ -237,7 +237,7 @@ std::vector<idx_t> partitionGraphKWay(Graph<idx_t, ValueType> &G, Index K) {
   idx_t *adjncy = (G.graph()).innerIndexPtr();
   std::vector<idx_t> adjwgt(G.nedges());
   for (idx_t i = 0; i < adjwgt.size(); ++i)
-    adjwgt[i] = 1. / (1e-3 + G.graph().valuePtr()[i] * G.graph().valuePtr()[i]);
+    adjwgt[i] = 1. / (1e-6 + G.graph().valuePtr()[i] * G.graph().valuePtr()[i]);
 
   int status = METIS_PartGraphKway(&nvtxs, &ncon, xadj, adjncy, NULL, NULL,
                                    adjwgt.data(), &nparts, NULL, NULL, options,

@@ -34,7 +34,9 @@ class GraphSampletForest {
     dtilde_ = dtilde > 0 ? dtilde : 1;
     parts_ = std::vector<IndexType>(G.nnodes(), 0);
     if (M_ > 1) parts_ = METIS::partitionGraphKWay(G, M_);
+    std::cout << "graph partitioned" << std::endl;
     sub_graphs_ = METIS::splitGraph(G, parts_);
+    std::cout << "graph split" << std::endl;
     global_ids_.resize(M_);
     points_.resize(M_);
     trees_.resize(M_);
@@ -45,6 +47,9 @@ class GraphSampletForest {
       const IndexType n =
           nlm > sub_graphs_[i].nnodes() ? sub_graphs_[i].nnodes() : nlm;
       points_[i] = LIsomap(sub_graphs_[i], n, emb_dim, nrgs_.data() + i);
+      std::cout << "sub graph size: " << sub_graphs_[i].nnodes();
+
+      std::cout << " isomap " << i << " done." << std::endl;
       const SampletMoments samp_mom(points_[i], dtilde_ - 1);
       trees_[i].init(samp_mom, 0, points_[i]);
     }
