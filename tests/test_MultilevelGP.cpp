@@ -127,12 +127,12 @@ void runHierarchicalGPTest1D(Scalar nu) {
   //////////////////////////////
   std::string test_function = "sin";
   std::string point_distribution = "uniform";
-  std::vector<int> level_sizes = {
-      65,   129,  257,   513,  1025, 2049, 8193, 16385, 32769};
-      // 2049, 8193, 16385, 32769};  // 1025, 2049, 4097, 8193, 16385, 32769};
+  std::vector<int> level_sizes = {65,   129,  257,   513};
+                                  // ,  1025, 2049, 8193, 16385, 32769};
   std::vector<Scalar> noise_levels = {
-      0.1, 0.1, 0.1, 0.1, 0.1, 0.1,
-      0.1, 0.1, 0.1, 0.1};  // {0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1};
+      0., 0., 0., 0., 0., 0.,
+      0., 0., 0., 0.};  // {0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1,
+                            // 0.1};
   std::string kernel_type = "matern52";
   Index dtilde = 5;
   Scalar mpole_deg = 2 * (dtilde - 1);
@@ -141,7 +141,7 @@ void runHierarchicalGPTest1D(Scalar nu) {
   Scalar ridgep = 0;
   const bool preconditioner = true;
   Scalar cg_threshold = 1e-6;
-  int eval_points_count = 40000;
+  int eval_points_count = 1000;
   unsigned random_seed = 42;
 
   std::cout << "Parameters:" << std::endl;
@@ -247,98 +247,102 @@ void runHierarchicalGPTest1D(Scalar nu) {
     anz.push_back(compressor_stats.anz);
 
     ////////////////////////////// Posterior variance
-    if (l == max_level - 1) {
-      std::cout << "\nComputing posterior variance..." << std::endl;
+    // if (l == max_level - 1) {
+    std::cout << "\nComputing posterior variance..." << std::endl;
 
-      /////////////////////////// K (P_ell, P_ell)
-      SparseMatrix K_ell = solver.K();
+    /////////////////////////// K (P_L P_L)
+    MultilevelSampletKernelSolver<> solver_cov;
+    solver_cov.init(kernel_l, P_Matrices[max_level-1], dtilde, eta, threshold, ridgep);
+    solver_cov.compress(P_Matrices[max_level-1]);
+    SparseMatrix K_ell = solver_cov.K();
 
-      /////////////////////////// K (Peval, Peval)
-      MultilevelSampletKernelSolver<> solver_eval;
-      solver_eval.init(kernel_l, Peval, dtilde, eta, threshold, ridgep);
-      solver_eval.compress(Peval);
-      SparseMatrix K_eval = solver_eval.K();
+    /////////////////////////// K (Peval, Peval)
+    MultilevelSampletKernelSolver<> solver_eval;
+    solver_eval.init(kernel_l, Peval, dtilde, eta, threshold, ridgep);
+    solver_eval.compress(Peval);
+    SparseMatrix K_eval = solver_eval.K();
 
-      /////////////////////////// K (Peval, P_ell)
-      const Moments mom_rows(Peval, mpole_deg);
-      const Moments mom_cols(P_Matrices[l], mpole_deg);
-      const usMatrixEvaluator mat_eval(mom_rows, mom_cols, kernel_l);
-      const SampletMoments samp_mom_rows(Peval, dtilde - 1);
-      const SampletMoments samp_mom_cols(P_Matrices[l], dtilde - 1);
-      FMCA::H2SampletTree<FMCA::ClusterTree> hst_rows(mom_rows, samp_mom_rows,
-                                                      0, Peval);
-      FMCA::H2SampletTree<FMCA::ClusterTree> hst_cols(mom_cols, samp_mom_cols,
-                                                      0, P_Matrices[l]);
-      FMCA::internal::SampletMatrixCompressorUnsymmetric<
-          FMCA::H2SampletTree<FMCA::ClusterTree>>
-          K_eval_ell_comp;
-      K_eval_ell_comp.init(hst_rows, hst_cols, eta, 1e-15);
-      K_eval_ell_comp.compress(mat_eval);
-      K_eval_ell_comp.triplets();
-      const auto& trips = K_eval_ell_comp.aposteriori_triplets(1e-8);
-      SparseMatrix K_eval_ell(Peval.cols(), P_Matrices[l].cols());
-      K_eval_ell.setFromTriplets(trips.begin(), trips.end());
-      K_eval_ell.makeCompressed();
+    /////////////////////////// K (Peval, P_ell)
+    const Moments mom_rows(Peval, mpole_deg);
+    const Moments mom_cols(P_Matrices[max_level-1], mpole_deg);
+    const usMatrixEvaluator mat_eval(mom_rows, mom_cols, kernel_l);
+    const SampletMoments samp_mom_rows(Peval, dtilde - 1);
+    const SampletMoments samp_mom_cols(P_Matrices[max_level-1], dtilde - 1);
+    FMCA::H2SampletTree<FMCA::ClusterTree> hst_rows(mom_rows, samp_mom_rows, 0, Peval);
+    FMCA::H2SampletTree<FMCA::ClusterTree> hst_cols(mom_cols, samp_mom_cols, 0, P_Matrices[max_level-1]);
+    FMCA::internal::SampletMatrixCompressorUnsymmetric<
+        FMCA::H2SampletTree<FMCA::ClusterTree>>
+        K_eval_ell_comp;
+    K_eval_ell_comp.init(hst_rows, hst_cols, eta, 1e-15);
+    K_eval_ell_comp.compress(mat_eval);
+    K_eval_ell_comp.triplets();
+    const auto& trips = K_eval_ell_comp.aposteriori_triplets(1e-8);
+    SparseMatrix K_eval_ell(Peval.cols(), P_Matrices[max_level-1].cols());
+    K_eval_ell.setFromTriplets(trips.begin(), trips.end());
+    K_eval_ell.makeCompressed();
 
-      /////////////////////////// Fully Sparse Posterior Variance Computation
-      Vector K_eval_diag = Vector::Zero(eval_points_count);
-      for (int i = 0; i < eval_points_count; ++i) {
-        K_eval_diag(i) = K_eval.coeff(i, i);
-      }
+    /////////////////////////// Fully Sparse Posterior Variance Computation
+    Vector K_eval_diag = Vector::Zero(eval_points_count);
+    for (int i = 0; i < eval_points_count; ++i) {
+      K_eval_diag(i) = K_eval.coeff(i, i);
+    }
 
-      // Process evaluation points in chunks to show progress
-      const int chunk_size = 10000;
-      const int num_chunks = (eval_points_count + chunk_size - 1) / chunk_size;
+    // Process evaluation points in chunks to show progress
+    const int chunk_size = 10000;
+    const int num_chunks = (eval_points_count + chunk_size - 1) / chunk_size;
 
 #pragma omp parallel for schedule(dynamic)
-      for (int chunk = 0; chunk < num_chunks; ++chunk) {
-        int start_idx = chunk * chunk_size;
-        int end_idx = std::min(start_idx + chunk_size, eval_points_count);
+    for (int chunk = 0; chunk < num_chunks; ++chunk) {
+      int start_idx = chunk * chunk_size;
+      int end_idx = std::min(start_idx + chunk_size, eval_points_count);
 
-        for (int i = start_idx; i < end_idx; ++i) {
-          // Extract i-th row of K_eval_ell as a sparse vector
-          Vector k_eval_ell_i = Vector::Zero(P_Matrices[l].cols());
+      for (int i = start_idx; i < end_idx; ++i) {
+        // Extract i-th row of K_eval_ell as a sparse vector
+        Vector k_eval_ell_i = Vector::Zero(P_Matrices[max_level-1].cols());
 
-          // Only iterate over non-zero elements in row i
-          for (SparseMatrix::InnerIterator it(K_eval_ell, i); it; ++it) {
-            k_eval_ell_i(it.col()) = it.value();
-          }
-
-          // Skip if row is empty (no covariance)
-          if (k_eval_ell_i.norm() < 1e-15) {
-            posterior_var(i) = K_eval_diag(i);
-            continue;
-          }
-
-          // Solve K_ell * a_i = k_eval_ell_i
-          Vector a_i =
-              solver.solveIterative(k_eval_ell_i, preconditioner, cg_threshold);
-
-          // Compute variance: Var_i = K_eval[i,i] - k_eval_ell_i^T * a_i
-          Scalar quadratic_form = k_eval_ell_i.dot(a_i);
-          Scalar variance = K_eval_diag(i) - quadratic_form;
-
-          // Ensure non-negative variance (numerical stability)
-          posterior_var(i) = std::max(0.0, variance);
+        // Only iterate over non-zero elements in row i
+        for (SparseMatrix::InnerIterator it(K_eval_ell, i); it; ++it) {
+          k_eval_ell_i(it.col()) = it.value();
         }
+
+        // Skip if row is empty (no covariance)
+        if (k_eval_ell_i.norm() < 1e-15) {
+          posterior_var(i) = K_eval_diag(i);
+          continue;
+        }
+
+        // Solve K_ell * a_i = k_eval_ell_i
+        Vector a_i =
+            solver_cov.solveIterative(k_eval_ell_i, preconditioner, cg_threshold);
+
+        // Compute variance: Var_i = K_eval[i,i] - k_eval_ell_i^T * a_i
+        Scalar quadratic_form = k_eval_ell_i.dot(a_i);
+        Scalar variance = K_eval_diag(i) - quadratic_form;
+
+        // Ensure non-negative variance (numerical stability)
+        posterior_var(i) = std::max(0.0, variance);
+      }
 
 // Progress reporting (thread-safe)
 #pragma omp critical
-        {
-          if (chunk % 10 == 0) {
-            std::cout << "Processed chunks: " << chunk << "/" << num_chunks
-                      << " (" << (chunk * 100 / num_chunks) << "%)"
-                      << std::endl;
-          }
+      {
+        if (chunk % 10 == 0) {
+          std::cout << "Processed chunks: " << chunk << "/" << num_chunks
+                    << " (" << (chunk * 100 / num_chunks) << "%)" << std::endl;
         }
       }
-      // posterior_var /= std::pow(sigma_l, -DIM);
-      posterior_var = hst_rows.inverseSampletTransform(posterior_var);
-      posterior_var = hst_rows.toNaturalOrder(posterior_var);
     }
+    // posterior_var *= std::pow(sigma_l, -DIM);
+    posterior_var = hst_rows.inverseSampletTransform(posterior_var);
+    posterior_var = hst_rows.toNaturalOrder(posterior_var);
+    // }
 
     std::cout << "Posterior variance computation completed." << std::endl;
-    posterior_std = posterior_var;
+    if (l == 0) {
+      posterior_std = posterior_var;
+    } else {
+      posterior_std += posterior_var;
+    }
 
     ////////////////////////////// Solution update
     ALPHA.push_back(solution);
