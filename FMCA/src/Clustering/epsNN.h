@@ -45,5 +45,51 @@ std::vector<Index> epsNN(const ClusterTreeBase<Derived> &ct, const Matrix &P,
   return retval;
 }
 
+/**
+ *  \ingroup Clustering
+ *  \brief uses the cluster tree ct to efficiently determined the indices
+ *         of all points in P that are less than eps away from pt.
+ **/
+template <typename Derived>
+std::vector<Eigen::Triplet<Scalar>> symEpsNN(const ClusterTreeBase<Derived> &ct,
+                                             const Matrix &P,
+                                             const Scalar eps) {
+  std::vector<Eigen::Triplet<Scalar>> retval;
+#pragma omp parallel for schedule(dynamic)
+  for (FMCA::Index k = 0; k < P.cols(); ++k) {
+    std::vector<const Derived *> queue;
+    const Vector pt = P.col(k);
+    std::vector<Eigen::Triplet<Scalar>> loc_list;
+    loc_list.reserve(1000);
+    queue.push_back(std::addressof(ct.derived()));
+    while (queue.size()) {
+      const Derived &nd = *(queue.back());
+      queue.pop_back();
+      if (!nd.nSons()) {
+        // at all indices to the result
+        for (Index i = 0; i < nd.block_size(); ++i) {
+          const Scalar dist = (pt - P.col(nd.indices()[i])).norm();
+          if (k < nd.indices()[i] && dist < eps) {
+            loc_list.push_back(
+                Eigen::Triplet<Scalar>(k, nd.indices()[i], dist));
+            loc_list.push_back(
+                Eigen::Triplet<Scalar>(nd.indices()[i], k, dist));
+          }
+        }
+      } else {
+        for (Index i = 0; i < nd.nSons(); ++i) {
+          const Vector bpt = (nd.sons(i).bb().col(0).cwiseMax(pt))
+                                 .cwiseMin(nd.sons(i).bb().col(1));
+          if ((pt - bpt).norm() < eps)
+            queue.push_back(std::addressof(nd.sons(i)));
+        }
+      }
+    }
+#pragma omp critical
+    retval.insert(retval.end(), loc_list.begin(), loc_list.end());
+  }
+  return retval;
+}
+
 }  // namespace FMCA
 #endif

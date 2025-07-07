@@ -58,9 +58,13 @@ class GraphSampletForest {
       global_pos_[i] = global_pos_[i - 1] + sub_graphs_[i - 1].nnodes();
     return;
   }
-  const std::vector<Scalar> &lost_energies() { return nrgs_; }
+  const std::vector<Scalar> &lost_energies() const { return nrgs_; }
+  const std::vector<IndexType> &parts() const { return parts_; }
+  const std::vector<Graph> &sub_graphs() const { return sub_graphs_; }
+  const std::vector<SampletTree> &samplet_trees() const { return trees_; }
+  const std::vector<Matrix> &points() const { return points_; }
 
-  Matrix sampletTransform(const Matrix &lhs) {
+  Matrix sampletTransform(const Matrix &lhs) const {
     Matrix retval(lhs.rows(), lhs.cols());
 #pragma omp parallel for schedule(dynamic)
     for (Index i = 0; i < M_; ++i) {
@@ -115,13 +119,13 @@ class GraphSampletForest {
   }
 
  private:
-  Matrix global2local(const Matrix &rhs, const Index i) {
+  Matrix global2local(const Matrix &rhs, const Index i) const {
     Matrix loc_rhs(sub_graphs_[i].nnodes(), rhs.cols());
     for (Index j = 0; j < sub_graphs_[i].nnodes(); ++j)
       loc_rhs.row(j) = rhs.row(sub_graphs_[i].labels()[j]);
     return loc_rhs;
   }
-  void local2global(Matrix &lhs, const Matrix &loc_lhs, Index i) {
+  void local2global(Matrix &lhs, const Matrix &loc_lhs, Index i) const {
     for (Index j = 0; j < sub_graphs_[i].nnodes(); ++j)
       lhs.row(sub_graphs_[i].labels()[j]) = loc_lhs.row(j);
     return;

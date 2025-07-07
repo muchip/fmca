@@ -92,16 +92,23 @@ class Graph {
   }
 
   template <typename Derived>
-  void print(const std::string &fileName, const Eigen::MatrixBase<Derived> &P) {
+  void print(const std::string &fileName, const Eigen::MatrixBase<Derived> &P,
+             const bool use_labels = true) const {
     Derived Ploc(P.rows(), labels_.size());
-    for (IndexType i = 0; i < Ploc.cols(); ++i) Ploc.col(i) = P.col(labels_[i]);
+    if (use_labels)
+      for (IndexType i = 0; i < Ploc.cols(); ++i)
+        Ploc.col(i) = P.col(labels_[i]);
+    else
+      for (IndexType i = 0; i < Ploc.cols(); ++i) Ploc.col(i) = P.col(i);
+
     IO::plotGraph(fileName, Ploc, A_);
     return;
   }
 
   template <typename Derived>
   void printSignal(const std::string &fileName,
-                   const Eigen::MatrixBase<Derived> &P, const Vector &sig) {
+                   const Eigen::MatrixBase<Derived> &P,
+                   const Vector &sig) const {
     IO::plotGraphSignal(fileName, P, A_, sig);
     return;
   }
