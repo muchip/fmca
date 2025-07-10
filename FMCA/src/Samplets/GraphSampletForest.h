@@ -34,10 +34,9 @@ class GraphSampletForest {
     dtilde_ = dtilde > 0 ? dtilde : 1;
     parts_ = std::vector<IndexType>(G.nnodes(), 0);
     if (M_ > 1) parts_ = METIS::partitionGraphKWay(G, M_);
-    std::cout << "graph partitioned" << std::endl;
     sub_graphs_ = METIS::splitGraph(G, parts_);
-    std::cout << "graph split" << std::endl;
     global_ids_.resize(M_);
+    lm_ids_.resize(M_);
     points_.resize(M_);
     trees_.resize(M_);
     nrgs_.resize(M_);
@@ -46,23 +45,35 @@ class GraphSampletForest {
     for (Index i = 0; i < M_; ++i) {
       const IndexType n =
           nlm > sub_graphs_[i].nnodes() ? sub_graphs_[i].nnodes() : nlm;
-      points_[i] = LIsomap(sub_graphs_[i], n, emb_dim, nrgs_.data() + i);
-      std::cout << "sub graph size: " << sub_graphs_[i].nnodes();
-
-      std::cout << " isomap " << i << " done." << std::endl;
-      const SampletMoments samp_mom(points_[i], dtilde_ - 1);
-      trees_[i].init(samp_mom, 0, points_[i]);
+      points_[i] = LIsomap(sub_graphs_[i], n, emb_dim, nrgs_.data() + i,
+                           std::addressof(lm_ids_[i]));
     }
     global_pos_[0] = 0;
     for (Index i = 1; i <= M_; ++i)
       global_pos_[i] = global_pos_[i - 1] + sub_graphs_[i - 1].nnodes();
+
+    init_sampletTrees(dtilde);
     return;
   }
+
+  void init_sampletTrees(const Index dtilde) {
+    dtilde_ = dtilde > 0 ? dtilde : 1;
+    trees_.clear();
+    trees_.resize(M_);
+#pragma omp parallel for schedule(dynamic)
+    for (Index i = 0; i < M_; ++i) {
+      const SampletMoments samp_mom(points_[i], dtilde_ - 1);
+      trees_[i].init(samp_mom, 0, points_[i]);
+    }
+    return;
+  }
+
   const std::vector<Scalar> &lost_energies() const { return nrgs_; }
   const std::vector<IndexType> &parts() const { return parts_; }
   const std::vector<Graph> &sub_graphs() const { return sub_graphs_; }
   const std::vector<SampletTree> &samplet_trees() const { return trees_; }
   const std::vector<Matrix> &points() const { return points_; }
+  const std::vector<std::vector<IndexType>> &lm_ids() const { return lm_ids_; }
 
   Matrix sampletTransform(const Matrix &lhs) const {
     Matrix retval(lhs.rows(), lhs.cols());
@@ -136,6 +147,7 @@ class GraphSampletForest {
   std::vector<IndexType> parts_;
   std::vector<IndexType> global_pos_;
   std::vector<std::vector<IndexType>> global_ids_;
+  std::vector<std::vector<IndexType>> lm_ids_;
   std::vector<Scalar> nrgs_;
   IndexType M_;
   Index dtilde_;

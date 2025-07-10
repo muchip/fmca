@@ -22,7 +22,8 @@ namespace FMCA {
 
 template <typename Graph>
 Matrix LIsomap(const Graph &G, const Index M, const Index emb_dim,
-               Scalar *nrg = nullptr) {
+               Scalar *nrg = nullptr,
+               std::vector<typename Graph::IndexType> *ids = nullptr) {
   using IndexType = typename Graph::IndexType;
   using ValueType = typename Graph::ValueType;
   const Index dim = emb_dim >= 1 ? (emb_dim <= M ? emb_dim : M) : 1;
@@ -54,6 +55,7 @@ Matrix LIsomap(const Graph &G, const Index M, const Index emb_dim,
   const Scalar total_energy = es.eigenvalues().tail(npos).sum();
   const Scalar acc_energy = es.eigenvalues().tail(cutr).sum();
   if (nrg != nullptr) *nrg = (total_energy - acc_energy) / total_energy;
+  if (ids != nullptr) *ids = lm_ids;
   // construct embedding, using the exact embedding for landmarks
   Matrix P(dim, G.nnodes());
   const Matrix E = es.eigenvectors().rightCols(cutr).transpose();
