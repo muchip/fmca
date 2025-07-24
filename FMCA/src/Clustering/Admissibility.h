@@ -32,6 +32,33 @@ Scalar computeDistance(const ClusterTreeBase<Derived> &cluster1,
  *  \brief classical admissibility condition based on the relative
  *         distance of the bounding boxes
  **/
+struct CompareClusterStrict {
+  template <typename Derived, typename otherDerived>
+  static Admissibility compare(const ClusterTreeBase<Derived> &cluster1,
+                               const ClusterTreeBase<otherDerived> &cluster2,
+                               Scalar eta) {
+    const bool A =
+        (cluster1.bb().col(0).array() <= cluster2.bb().col(0).array()).all() &&
+        (cluster2.bb().col(1).array() <= cluster1.bb().col(1).array()).all();
+    const bool B =
+        (cluster2.bb().col(0).array() <= cluster1.bb().col(0).array()).all() &&
+        (cluster1.bb().col(1).array() <= cluster2.bb().col(1).array()).all();
+    if (A || B) {
+      // check if either cluster is a leaf in that case,
+      // compute the full matrix block
+      if (!cluster1.nSons() || !cluster2.nSons())
+        return Dense;
+      else
+        return Refine;
+    } else
+      return LowRank;
+  }
+};
+
+/**
+ *  \brief classical admissibility condition based on the relative
+ *         distance of the bounding boxes
+ **/
 struct CompareClusterBB {
   template <typename Derived, typename otherDerived>
   static Admissibility compare(const ClusterTreeBase<Derived> &cluster1,

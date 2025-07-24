@@ -21,7 +21,7 @@ namespace internal {
 template <>
 struct traits<MortonClusterTree> {
   typedef MortonClusterTreeNode Node;
-  typedef ClusterSplitter::CardinalityBisection Splitter;
+  typedef ClusterSplitter::GeometricBisection Splitter;
 };
 }  // namespace internal
 
@@ -45,6 +45,7 @@ struct MortonClusterTree : public ClusterTreeBase<MortonClusterTree> {
   using Base::node;
   using Base::nSons;
   using Base::sons;
+  using initializer = internal::ClusterTreeInitializer<MortonClusterTree>;
   //////////////////////////////////////////////////////////////////////////////
   // constructors
   //////////////////////////////////////////////////////////////////////////////
@@ -56,8 +57,7 @@ struct MortonClusterTree : public ClusterTreeBase<MortonClusterTree> {
   // implementation of init
   //////////////////////////////////////////////////////////////////////////////
   void init(const Matrix &P, Index min_csize = 1) {
-    internal::ClusterTreeInitializer<MortonClusterTree>::init(*this, min_csize,
-                                                              P);
+    initializer::init(*this, min_csize, P);
   }
 };
 

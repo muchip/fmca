@@ -21,7 +21,7 @@ template <typename ClusterTreeType>
 struct traits<SampletTree<ClusterTreeType>> : public traits<ClusterTreeType> {
   typedef SampletTreeNode Node;
 };
-} // namespace internal
+}  // namespace internal
 
 /**
  *  \ingroup Samplets
@@ -29,7 +29,7 @@ struct traits<SampletTree<ClusterTreeType>> : public traits<ClusterTreeType> {
  */
 template <typename ClusterTreeType>
 struct SampletTree : public SampletTreeBase<SampletTree<ClusterTreeType>> {
-public:
+ public:
   typedef typename internal::traits<SampletTree>::Node Node;
   typedef SampletTreeBase<SampletTree<ClusterTreeType>> Base;
   // make base class methods visible
@@ -63,24 +63,34 @@ public:
   template <typename Moments, typename... Ts>
   void init(const Moments &mom, Index min_cluster_size, Ts &&...ts) {
     const Index mincsize = min_cluster_size > mom.interp().Xi().cols()
-                                   ? min_cluster_size
-                                   : mom.interp().Xi().cols();
-    internal::ClusterTreeInitializer<ClusterTreeType>::init(
-        *this, mincsize, std::forward<Ts>(ts)...);
-    computeSamplets(mom);
+                               ? min_cluster_size
+                               : mom.interp().Xi().cols();
+    ClusterTreeType::initializer::init(*this, mincsize,
+                                       std::forward<Ts>(ts)...);
+#pragma omp parallel
+    {
+#pragma omp single
+      {
+        computeSamplets(mom);
+      }
+    }
     internal::sampletMapper<SampletTree>(*this);
     return;
   }
 
-private:
-  template <typename Moments> void computeSamplets(const Moments &mom) {
+ private:
+  template <typename Moments>
+  void computeSamplets(const Moments &mom) {
     if (nSons()) {
       Index offset = 0;
       for (auto i = 0; i < nSons(); ++i) {
-        sons(i).computeSamplets(mom);
+#pragma omp task
+        {
+          sons(i).computeSamplets(mom);
+        }
         // the son now has moments, lets grep them...
         Matrix shift = 0.5 * (sons(i).bb().col(0) - bb().col(0) +
-                                   sons(i).bb().col(1) - bb().col(1));
+                              sons(i).bb().col(1) - bb().col(1));
         node().mom_buffer_.conservativeResize(
             sons(i).node().mom_buffer_.rows(),
             offset + sons(i).node().mom_buffer_.cols());
@@ -107,14 +117,14 @@ private:
                                .transpose();
     } else {
       node().Q_ = Matrix::Identity(node().mom_buffer_.cols(),
-                                        node().mom_buffer_.cols());
+                                   node().mom_buffer_.cols());
       node().nscalfs_ = node().mom_buffer_.cols();
       node().nsamplets_ = 0;
     }
     return;
   }
-};
-} // namespace FMCA
+};  // namespace FMCA
+}  // namespace FMCA
 #endif
 
 #if 0

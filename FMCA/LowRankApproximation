@@ -1,0 +1,26 @@
+// This file is part of FMCA, the Fast Multiresolution Covariance Analysis
+// package.
+//
+// Copyright (c) 2022, Michael Multerer
+//
+// All rights reserved.
+//
+// This source code is subject to the GNU Affero General Public License v3.0
+// license and without any warranty, see <https://github.com/muchip/FMCA>
+// for further information.
+//
+#ifndef FMCA_LOWRANKAPPROXIMATION_MODULE_
+#define FMCA_LOWRANKAPPROXIMATION_MODULE_
+
+/**
+ *  \ingroup Modules
+ *  \defgroup LowRankApproximation LowRankApproximation
+ *  \brief The LowRankApproximation module collects different algorithms for
+           performing low-rank approximations of covariance matrices
+ **/
+#include "CovarianceKernel"
+#include "src/LowRankApproximation/FALKON.h"
+#include "src/LowRankApproximation/NystromApproximation.h"
+#include "src/LowRankApproximation/PivotedCholesky.h"
+
+#endif

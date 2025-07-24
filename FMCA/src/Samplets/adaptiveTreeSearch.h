@@ -17,7 +17,7 @@ namespace FMCA {
 namespace internal {
 template <typename T>
 struct CompIndexSort {
-  CompIndexSort(const T &field) : field_(field){};
+  CompIndexSort(const T &field) : field_(field) {};
 
   template <typename R, typename S>
   bool operator()(const R &i, const S &j) {
@@ -64,7 +64,6 @@ std::vector<const Derived *> adaptiveTreeSearch(
       e(node.block_id()) += q(node.block_id());
     }
   }
-  std::cout << " " << e(0) << " " << tdata.squaredNorm() << std::endl;
   // set up etilde functional (top down tree traversal)
   for (auto it = cluster_map.begin(); it != cluster_map.end(); ++it) {
     const Derived &node = **it;
@@ -93,9 +92,11 @@ std::vector<const Derived *> adaptiveTreeSearch(
     retval[block_ids[nnz]] = cluster_map[block_ids[nnz]];
     ++nnz;
   }
+#ifdef FMCA_VERBOSE
   std::cout << "total energy in tree:         " << total_Etilde << std::endl;
   std::cout << "total number of clusters:     " << nclusters << std::endl;
   std::cout << "clusters in adaptive tree:    " << nnz << std::endl;
+#endif
   // add also non present children
   for (Index i = 0; i < retval.size(); ++i)
     if (retval[i] != nullptr) {

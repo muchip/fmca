@@ -153,7 +153,7 @@ void clusterTreeStatistics(const ClusterTreeBase<Derived> &CT,
   if (n_cluster > 1) {
     for (auto it = CT.cbegin(); it != CT.cend(); ++it) {
       const auto &node = *it;
-      if (!node.is_root() && node.block_size()) {
+      if (!node.is_root() && node.block_size() > 1) {
         Scalar discrepancy = std::abs(Scalar(node.block_size()) / N -
                                       node.bb().col(2).prod() / vol);
         disc_vec.push_back(discrepancy);

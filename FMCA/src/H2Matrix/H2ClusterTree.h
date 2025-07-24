@@ -68,8 +68,8 @@ class H2ClusterTree : public H2ClusterTreeBase<H2ClusterTree<ClusterTreeType>> {
     const Index mincsize = min_cluster_size > mom.interp().Xi().cols()
                                ? min_cluster_size
                                : mom.interp().Xi().cols();
-    internal::ClusterTreeInitializer<ClusterTreeType>::init(
-        *this, mincsize, std::forward<Ts>(ts)...);
+    ClusterTreeType::initializer::init(*this, mincsize,
+                                       std::forward<Ts>(ts)...);
     internal::compute_cluster_bases_impl::compute(*this, mom);
   }
 };
