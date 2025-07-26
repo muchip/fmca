@@ -27,6 +27,8 @@ struct ClusterTreeNodeBase : public NodeBase<Derived> {
     bb_.resize(0, 0);
   }
   Matrix bb_;
+  Vector c_;
+  Scalar r_;
   std::shared_ptr<Index> indices_;
   Index indices_begin_;
   Index block_id_;

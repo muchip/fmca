@@ -34,6 +34,7 @@ struct traits<H2SampletTree<ClusterTreeType>>
 template <typename ClusterTreeType>
 class H2SampletTree : public H2SampletTreeBase<H2SampletTree<ClusterTreeType>> {
  public:
+  typedef ClusterTreeType ClusterTree;
   typedef typename internal::traits<H2SampletTree>::Node Node;
   typedef H2SampletTreeBase<H2SampletTree<ClusterTreeType>> Base;
   // make base class methods visible
