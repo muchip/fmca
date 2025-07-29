@@ -1,7 +1,7 @@
 // This file is part of FMCA, the Fast Multiresolution Covariance Analysis
 // package.
 //
-// Copyright (c) 2022, Michael Multerer
+// Copyright (c) 2025, Michael Multerer
 //
 // All rights reserved.
 //
@@ -33,21 +33,45 @@ FMCA::Matrix FibonacciLattice(const FMCA::Index N) {
 int main() {
   FMCA::Tictoc T;
   const FMCA::Index npts = 1000000;
+  const FMCA::Index nsamples = 100000;
   const FMCA::Index deg = 100;
-  const FMCA::Scalar alpha = .25;
+  const FMCA::Scalar alpha = .5;
   const FMCA::Matrix P = FibonacciLattice(npts);
+  T.tic();
   const FMCA::Matrix SH = FMCA::SphericalHarmonics::evaluate(P, deg);
+  T.toc("setup time for spherical harmonics: ");
+  //
+  T.tic();
   FMCA::NormalDistribution nd(0, 1);
-  FMCA::Vector rdm = nd.randN((deg + 1) * (deg + 1), 1);
+  FMCA::Matrix X = nd.randN((deg + 1) * (deg + 1), nsamples);
+  FMCA::Vector Al((deg + 1) * (deg + 1));
+  FMCA::Vector update_norms(deg + 1);
 
+  for (int l = 0; l <= deg; ++l) {
+    FMCA::Scalar Cl = std::pow(1.0 + l, -(alpha + 1.0));
+    for (int m = -l; m <= l; ++m) Al(l * (l + 1) + m) = Cl;
+  }
+  X = Al.asDiagonal() * X;
+  T.toc("setup time for random vectors: ");
   FMCA::Vector sample(npts, 1);
   sample.setZero();
 
-  for (int l = 0; l <= deg; ++l) {
-    FMCA::Scalar Cl = std::pow(1.0 + l, -(1.0 * alpha + 1.0));
-    for (int m = -l; m <= l; ++m)
-      sample += rdm(l * (l + 1) + m) * Cl * SH.col(l * (l + 1) + m);
+  for (int nsample = 1; nsample <= 10; ++nsample) {
+    sample.setZero();
+#pragma omp parallel for schedule(dynamic)
+    for (int l = 0; l <= deg; ++l) {
+      FMCA::Vector update(npts);
+      update.setZero();
+      for (int m = -l; m <= l; ++m)
+        update += X(l * (l + 1) + m, nsample) * SH.col(l * (l + 1) + m);
+      update_norms(l) = update.norm();
+#pragma omp critical
+      sample += update;
+    }
+    std::cout << "relative last update norm: "
+              << update_norms.tail(1) / sample.norm() << std::endl;
+    FMCA::IO::plotPointsColor("sample" + std::to_string(nsample) + ".vtk", P,
+                              sample);
   }
-  FMCA::IO::plotPointsColor("sample.vtk", P, sample);
   return 0;
 }

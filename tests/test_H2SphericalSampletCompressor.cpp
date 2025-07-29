@@ -26,7 +26,7 @@
 #include "../FMCA/src/util/IO.h"
 #include "../FMCA/src/util/Tictoc.h"
 #include "../FMCA/src/util/uniformSphericalPoints.h"
-#define NPTS 100000
+#define NPTS 10000
 
 using Cholesky = Eigen::SimplicialLLT<Eigen::SparseMatrix<FMCA::Scalar>,
                                       Eigen::Upper, Eigen::MetisOrdering<int>>;
@@ -60,7 +60,7 @@ int main() {
   //////////////////////////////////////////////////////////////////////////////
   const FMCA::Matrix P = FibonacciLattice(NPTS);
   const FMCA::Index npts = P.cols();
-  const FMCA::Index nsamples = 100000;
+  const FMCA::Index nsamples = 10000;
   const FMCA::Scalar threshold = 1e-4;
   const FMCA::Scalar eta = .1;
   const FMCA::Scalar dtilde = 3;

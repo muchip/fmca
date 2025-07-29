@@ -14,13 +14,14 @@
 
 #include "../FMCA/CovarianceKernel"
 #include "../FMCA/H2Matrix"
-#include "../FMCA/src/util/Tictoc.h"
+#include "../FMCA/HMatrix"
 #include "../FMCA/src/util/IO.h"
+#include "../FMCA/src/util/Tictoc.h"
 #include "../FMCA/src/util/uniformSphericalPoints.h"
 
 #define NPTS 100000
 #define DIM 3
-#define MPOLE_DEG 3
+#define MPOLE_DEG 4
 
 using Interpolator = FMCA::TotalDegreeInterpolator;
 using Moments = FMCA::NystromMoments<Interpolator>;
@@ -29,6 +30,8 @@ using MatrixEvaluatorUS =
     FMCA::unsymmetricNystromEvaluator<Moments, FMCA::CovarianceKernel>;
 using H2ClusterTree = FMCA::H2ClusterTree<FMCA::SphereClusterTree>;
 using H2Matrix = FMCA::H2Matrix<H2ClusterTree, FMCA::CompareSphericalCluster>;
+using HMatrix =
+    FMCA::HMatrix<FMCA::SphereClusterTree, FMCA::CompareSphericalCluster>;
 
 int main() {
   FMCA::Tictoc T;
@@ -46,14 +49,16 @@ int main() {
             << std::endl;
   T.tic();
   H2ClusterTree ct(mom, 0, P);
+  FMCA::SphereClusterTree hct(P, 10);
   T.toc("H2 cluster tree:");
   FMCA::internal::compute_cluster_bases_impl::check_transfer_matrices(ct, mom);
   const MatrixEvaluatorUS mat_eval(mom, mom, function);
   for (FMCA::Scalar eta = 0.8; eta >= 0.1; eta *= 0.5) {
     std::cout << "eta:                          " << eta << std::endl;
     T.tic();
-    H2Matrix hmat;
-    hmat.computePattern(ct, ct, eta);
+    HMatrix hmat;
+    hmat.computeHMatrix(hct, hct, mat_eval, eta, 1e-5);
+    // hmat.computePattern(ct, ct, eta);
     T.toc("elapsed time:                ");
     hmat.statistics();
 
@@ -70,7 +75,7 @@ int main() {
       }
       std::cout << "set test data" << std::endl;
       T.tic();
-      Y2 = hmat.action(mat_eval, X);
+      Y2 = hmat * X;  // hmat.action(mat_eval, X);
       FMCA::Scalar err = (Y1 - Y2).norm() / Y1.norm();
       std::cout << "compression error:            " << err << std::endl;
     }
