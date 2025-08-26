@@ -1,7 +1,7 @@
 // This file is part of FMCA, the Fast Multiresolution Covariance Analysis
 // package.
 //
-// Copyright (c) 2022, Michael Multerer
+// Copyright (c) 2025, Michael Multerer
 //
 // All rights reserved.
 //
@@ -9,11 +9,12 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#ifndef FMCA_CLUSTERING_INITCLUSTERTREEIMPL_H_
-#define FMCA_CLUSTERING_INITCLUSTERTREEIMPL_H_
+#ifndef FMCA_CLUSTERING_INITKDTREEIMPL_H_
+#define FMCA_CLUSTERING_INITKDTREEIMPL_H_
 
 namespace FMCA {
 namespace internal {
+
 /** \ingroup internal
  *  \brief initializes a bounding box for the geometry
  **/
@@ -61,25 +62,94 @@ struct ClusterTreeInitializer<ClusterTree> {
   template <typename Derived>
   static void init_ClusterTree_impl(ClusterTreeBase<Derived> &CT,
                                     Index min_csize, const Matrix &P) {
-    typename traits<Derived>::Splitter split;
-    const Index split_threshold = min_csize >= 1 ? (2 * min_csize - 1) : 1;
+    using SplitterType = typename traits<Derived>::Splitter;
+    using NodeType = typename traits<Derived>::Node;
+
+    SplitterType split;
+    const Index K = 1 << P.rows();
+    const Index split_threshold = min_csize >= 1 ? (K * min_csize - 1) : 1;
     if (CT.node().block_size_ > split_threshold) {
-      CT.appendSons(2);
+      CT.appendSons(K);
       // set up bounding boxes for sons
-      for (Index i = 0; i < 2; ++i) {
+      for (Index i = 0; i < K; ++i) {
         CT.sons(i).node().bb_ = CT.node().bb_;
         CT.sons(i).node().indices_ = CT.node().indices_;
         CT.sons(i).node().block_size_ = CT.node().block_size_;
         CT.sons(i).node().indices_begin_ = CT.node().indices_begin_;
       }
       // split index set and set sons bounding boxes
-      split(P, CT.sons(0).node(), CT.sons(1).node());
+      split(P, CT.sons_vector());
       // let recursion handle the rest
       for (Index i = 0; i < CT.nSons(); ++i)
         init_ClusterTree_impl<Derived>(CT.sons(i), min_csize, P);
     }
+
     return;
   }
+
+ private:
+  //////////////////////////////////////////////////////////////////////////////
+  /** \brief Handle vector-based splitters (like GeometricKDBisection) */
+  template <typename Derived, typename Splitter>
+  static void init_ClusterTree_vector_splitter(ClusterTreeBase<Derived> &CT,
+                                               Index min_csize, const Matrix &P,
+                                               Splitter &split) {
+    using NodeType = typename traits<Derived>::Node;
+
+    const Index d = P.rows();
+    const Index num_children = 1 << d;  // 2^d children
+
+    // Create vector of children nodes
+    std::vector<NodeType> children_nodes(num_children);
+
+    // Initialize all children with parent's data
+    for (Index i = 0; i < num_children; ++i) {
+      children_nodes[i].bb_ = CT.node().bb_;
+      children_nodes[i].indices_ = CT.node().indices_;
+      children_nodes[i].block_size_ = CT.node().block_size_;
+      children_nodes[i].indices_begin_ = CT.node().indices_begin_;
+    }
+
+    // Apply the splitter to create the children
+    split(P, children_nodes, CT.node());
+
+    // Append the actual sons to the tree
+    CT.appendSons(num_children);
+
+    // Copy the computed data back to the actual sons
+    for (Index i = 0; i < num_children; ++i) {
+      CT.sons(i).node() = children_nodes[i];
+    }
+
+    // Recursively process all sons
+    for (Index i = 0; i < CT.nSons(); ++i) {
+      init_ClusterTree_impl<Derived>(CT.sons(i), min_csize, P);
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  /** \brief Handle binary splitters (like GeometricBisection, RandomProjection)
+   */
+  template <typename Derived, typename Splitter>
+  static void init_ClusterTree_binary_splitter(ClusterTreeBase<Derived> &CT,
+                                               Index min_csize, const Matrix &P,
+                                               Splitter &split) {
+    CT.appendSons(2);
+    // set up bounding boxes for sons
+    for (Index i = 0; i < 2; ++i) {
+      CT.sons(i).node().bb_ = CT.node().bb_;
+      CT.sons(i).node().indices_ = CT.node().indices_;
+      CT.sons(i).node().block_size_ = CT.node().block_size_;
+      CT.sons(i).node().indices_begin_ = CT.node().indices_begin_;
+    }
+    // split index set and set sons bounding boxes
+    split(P, CT.sons(0).node(), CT.sons(1).node());
+    // let recursion handle the rest
+    for (Index i = 0; i < CT.nSons(); ++i)
+      init_ClusterTree_impl<Derived>(CT.sons(i), min_csize, P);
+  }
+
+ public:
   //////////////////////////////////////////////////////////////////////////////
   /** \ingroup internal
    *  \brief recursively shrink all bounding boxes to the minimal possible
