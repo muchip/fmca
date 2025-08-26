@@ -110,6 +110,8 @@ class TreeBase {
   const Derived &sons(typename std::vector<TreeBase>::size_type i) const {
     return sons_[i].derived();
   }
+
+  std::vector<TreeBase> &sons_vector() { return sons_; }
   //////////////////////////////////////////////////////////////////////////////
   Derived &dad() { return dad_->derived(); }
   const Derived &dad() const { return dad_->derived(); }

@@ -49,14 +49,12 @@ struct GeometricBisection {
   }
 };
 
-struct GeometricKDBisection {
-  static std::string splitterName() { return "GeometricKDBisection"; }
-  template <class CTNode>
-  void operator()(const Matrix &P, std::vector<CTNode> &children,
-                  CTNode &parent) const {
-    const Index d = P.rows();
-    Index num_children = 1 << d;
-    children.resize(num_children);
+struct GeometricKDSplitting {
+  static std::string splitterName() { return "GeometricKDSplitting"; }
+  template <class ChildVector>
+  void operator()(const Matrix &P, ChildVector &children) const {
+    const auto &parent = children[0].dad().node();
+    Index num_children = children.size();
 
     // compute the pivot in each dimension
     std::vector<Scalar> pivots(d);
@@ -64,17 +62,18 @@ struct GeometricKDBisection {
       pivots[i] = parent.bb_(i, 0) + parent.bb_(i, 2) * 0.5;
     }
 
-    // initialize the children bounding boxes and then modify them based on the
-    // binary representation
+    // initialize the children's bounding boxes and then modify them based on
+    // the binary representation
     for (Index child_idx = 0; child_idx < num_children; ++child_idx) {
       children[child_idx].bb_ = parent.bb_;
       for (Index dim = 0; dim < d; ++dim) {
         bool upper_half = (child_idx >> dim) & 1;
-        children[child_idx].bb_(dim, 2) *= 0.5;  // halve the bb dimension
+        children[child_idx].node().bb_(dim, 2) *=
+            0.5;  // halve the bb dimension
         if (upper_half) {
-          children[child_idx].bb_(dim, 0) = pivots[dim];
+          children[child_idx].node().bb_(dim, 0) = pivots[dim];
         } else {
-          children[child_idx].bb_(dim, 1) = pivots[dim];
+          children[child_idx].node().bb_(dim, 1) = pivots[dim];
         }
       }
     }
@@ -88,7 +87,7 @@ struct GeometricKDBisection {
       Index point_idx = parent_idcs[parent_starting_index + i];
       Index child_idx = 0;
       for (Index dim = 0; dim < d; ++dim) {
-        if (P(dim,point_idx) > pivots[dim]) {
+        if (P(dim, point_idx) > pivots[dim]) {
           child_idx |= (1 << dim);
         }
       }
@@ -97,14 +96,13 @@ struct GeometricKDBisection {
 
     Index current_starting_points = parent.indices_begin_;
     for (Index child_idx = 0; child_idx < num_children; ++child_idx) {
-      children[child_idx].block_size_ = child_indices[child_idx].size();
-      children[child_idx].indices_begin_ = current_starting_points;
+      children[child_idx].node().block_size_ = child_indices[child_idx].size();
+      children[child_idx].node().indices_begin_ = current_starting_points;
       // copy indices back to the shared array
-      for (Index i = 0; i < children[child_idx].block_size_; ++i) {
-        parent_idcs[current_starting_points + i] =
-            child_indices[child_idx][i];
+      for (Index i = 0; i < children[child_idx].node().block_size_; ++i) {
+        parent_idcs[current_starting_points + i] = child_indices[child_idx][i];
       }
-      current_starting_points += children[child_idx].block_size_;
+      current_starting_points += children[child_idx].node().block_size_;
     }
   }
 };
