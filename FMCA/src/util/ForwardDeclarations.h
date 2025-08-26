@@ -35,6 +35,8 @@ class ClusterTree;
 
 class MetisClusterTree;
 
+class SphereClusterTree;
+
 class MortonClusterTree;
 
 class RandomProjectionTree;
@@ -57,6 +59,8 @@ template <typename Derived, typename ClusterComparison>
 struct HMatrix;
 
 struct ClusterTreeNode;
+
+struct SphereClusterTreeNode;
 
 struct SampletTreeNode;
 
