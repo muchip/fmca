@@ -59,7 +59,7 @@ std::map<const TreeType*, FitResult<Scalar>> FitDtilde(
     }
 
     // Edge case 3: Smooth decay, last two coefficients are near zero
-    if (n >= 2 && std::abs(coefficients[n - 1] / norm) < smallThreshold) //&& std::abs(coefficients[n - 2] / norm) < smallThreshold
+    if (n >= 2 && std::abs(coefficients[n - 1] / norm) < smallThreshold && std::abs(coefficients[n - 2] / norm) < smallThreshold)
     {
       results[leaf] = FitResult<Scalar>(dtilde, 0);
       continue;

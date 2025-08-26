@@ -29,12 +29,26 @@ int main() {
   readTXT("local_tests/data/coordinates_bunny_inside.txt", P_bunny, DIM);
   std::cout << "Dimension P = " << P_bunny.rows() << " x " << P_bunny.cols() << std::endl;
 
-  Vector data;
-  readTXT("local_tests/data/values_2functions_bunny.txt", data);
+  Vector data = Vector::Zero(P.cols());
+
+  // coordinated of top left corner
+  Scalar x_min = P.row(0).minCoeff();
+  Scalar y_min = P.row(1).minCoeff();
+  Scalar z_min = P.row(2).minCoeff();
+
+  Vector gaussian;
+  readTXT("local_tests/data/values_gaussian_bunny.txt", gaussian);
+
+  // data = signed_dist if gausian == 0, otherwise data = gaussian
+  for (Index i = 0; i < P.cols(); ++i) {
+    if (gaussian(i) == 0) {
+      data(i) = std::sqrt((P(0,i) - x_min) * (P(0,i) - x_min) + (P(1,i) - y_min) * (P(1,i) - y_min) + (P(2,i) - z_min) * (P(2,i) - z_min));
+    } else {
+      data(i) = gaussian(i);
+    }
+  }
+
   std::cout << "Dimension f = " << data.rows() << " x " << data.cols() << std::endl;
-//   for (int i = 0; i < f.rows(); ++i){
-//     f(i) = std::abs(f(i));
-//   }
 
 /////////////////////////////////
   constexpr FMCA::Index dtilde = 3;

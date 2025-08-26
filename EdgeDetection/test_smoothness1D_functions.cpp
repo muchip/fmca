@@ -6,10 +6,10 @@
 #include <set>
 #include <sstream>
 // ########################
-#include "InputOutput.h"
-#include "SmoothnessDetection.h"
-#include "Regression.h"
 #include "FitDtilde.h"
+#include "InputOutput.h"
+#include "Regression.h"
+#include "SmoothnessDetection.h"
 
 #define DIM 1
 
@@ -53,21 +53,40 @@ Scalar f_elaborated(Scalar x) {
   return 0;
 }
 
-Scalar f_elaboratedC1(Scalar x) {
-  if (x < -0.6) {
-    return 5. * 0. + 2.;
-  } else if (x >= -0.6 && x < -0.2) {
-    return 5. * (- x - 6./10) + 2.;
-  } else if (x >= -0.2 && x < 0.2) {
-    return 5. * (10. * x * std::abs(x)) + 2.;
-  } else if (x >= 0.2 && x < 0.6) {
-    return 5. * (- x + 6./10) + 2.;
-  } else if (x >= 0.6) {
-    return 5. * 0. + 2.;
-  }
-  return 0;
-}
+// Scalar f_elaboratedC1(Scalar x) {
+//   if (x < -0.6) {
+//     return 5. * 0. + 2.;
+//   } else if (x >= -0.6 && x < -0.2) {
+//     return 5. * (-x - 6. / 10) + 2.;
+//   } else if (x >= -0.2 && x < 0.2) {
+//     return 5. * (10. * x * std::abs(x)) + 2.;
+//   } else if (x >= 0.2 && x < 0.6) {
+//     return 5. * (-x + 6. / 10) + 2.;
+//   } else if (x >= 0.6) {
+//     return 5. * 0. + 2.;
+//   }
+//   return 0;
+// }
 
+Scalar f_elaboratedC1(Scalar x) {
+  if (x < -0.4) {
+    return 6.0;
+  } else if (x < -0.35) {  // implies x >= -0.4
+    return 0.5 * std::abs(-20.0 * x - 9.0) + 6.0;
+  } else if (x < -0.15) {  // implies x >= -0.35
+    return 0.5 * std::abs(-20.0 * x - 5.0) + 6.0;
+  } else if (x < -0.05) {  // implies x >= -0.15
+    return 0.5 * std::abs(-20.0 * x - 1.0) + 6.0;
+  } else if (x < 0.55) {  // implies x >= -0.05
+    return 6.0 + std::sin(20.0 * FMCA_PI * x);
+  } else if (x < 0.7) {  // implies x >= 0.55
+    Scalar d = x - 0.7;
+    return 4.0 + 20.0 * d * d;
+  } else {  // x >= 0.7
+    Scalar d = x - 0.7;
+    return 4.0 - 20.0 * d * d;
+  }
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////
 Vector eval_f_smooth(Matrix Points) {
@@ -126,12 +145,12 @@ int main() {
   Scalar freq = 20;
   /////////////////////////////////
   Matrix P;
-  readTXT("data/1D_1M_shifted2.txt", P, DIM);
-  const std::string outputFile_step = "Plots/output_step2.txt";
+  readTXT("data/1D_4M.txt", P, DIM);
+  const std::string outputFile_step = "Plots/output_step1.txt";
   /////////////////////////////////
-  const std::string function_type = "f_elaborated";
+  const std::string function_type = "f_elaboratedC1";
   const Scalar eta = 1. / DIM;
-  const Index dtilde = 10;
+  const Index dtilde = 5;
   const Scalar mpole_deg = (dtilde != 1) ? 2 * (dtilde - 1) : 2;
   std::cout << "eta                 " << eta << std::endl;
   std::cout << "dtilde              " << dtilde << std::endl;
@@ -185,8 +204,7 @@ int main() {
   } else if (function_type == "f_elaborated") {
     f = f_elaborated;
     tdata = f_elaborated_Samplets;
-  }
-  else if (function_type == "f_elaboratedC1") {
+  } else if (function_type == "f_elaboratedC1") {
     f = f_elaboratedC1;
     tdata = f_elaboratedC1_Samplets;
   }
@@ -196,65 +214,92 @@ int main() {
   const Index nclusters = std::distance(hst.begin(), hst.end());
   std::cout << "Total number of clusters: " << nclusters << std::endl;
 
-  std::map<const ST*, std::pair<std::vector<Scalar>, std::vector<Scalar>>> leafData;
+  std::map<const ST*, std::pair<std::vector<Scalar>, std::vector<Scalar>>>
+      leafData;
   traverseAndStackCoefficientsAndDiameters(hst, tdata, leafData);
 
-  auto results = FitDtilde(leafData, dtilde, 1e-6);
-  std::cout << "--------------------------------------------------------" << std::endl;
-  std::cout << "--------------------------------------------------------" << std::endl;
+  auto results = FitDtilde(leafData, dtilde, 1e-16);
+  std::cout << "--------------------------------------------------------"
+            << std::endl;
+  std::cout << "--------------------------------------------------------"
+            << std::endl;
 
+  ////////////////////////////////////////////////////////////////////////////
+  std::vector<Scalar> x;       // Bounding box min x-coordinates
+  std::vector<Scalar> coeffs;  // Slopes duplicated for step function
 
-  for (const auto& [leaf, dataPair] : leafData) {
-    // if (count >= 20) break;
-    auto coefficients = dataPair.first;  // First vector = coefficients
-    const auto& diameters = dataPair.second;     // Second vector = diameters
-    if (leaf->bb()(0, 0) > 0.099 && leaf->bb()(0, 1) < 0.101) {
-        
-    std::cout << "Leaf bb: " << leaf->bb() << "\n";
-    std::cout << "-----------------------------------------" << std::endl;
-    size_t n = coefficients.size();
+  for (const auto& [leaf, res] : results) {
+    const auto& bbox = leaf->bb();  // Assuming bb() gives the bounding box
+    Scalar minX = bbox(0);          // Minimum x-coordinate
+    Scalar maxX = bbox(1);          // Maximum x-coordinate
 
-    Scalar accum = 0.;
-    for (int i = 0; i < n; ++i) {
-        accum += coefficients[i] * coefficients[i];
-    }
-    Scalar norm = sqrt(accum);
-    if (norm != 0) {
-      for (auto& coeff : coefficients) {
-          coeff /= norm;
-      }
-    }
+    // Append points for the step function
+    x.push_back(minX);
+    coeffs.push_back(res.get_dtilde());
+  }
 
-    std::cout << "  Coefficients: ";
-    int zero_count = 0;
-    for (const auto& coeff : coefficients) {
-        std::cout <<  coeff << " ";
-        if (coeff == 0) {
-            zero_count++;
-        }
-    }
-    // std::cout << "\n";
-    // std::cout << "number of 0 coeffs = " << zero_count << "\n";
-    std::cout << "\n";
-    std::cout << "-----------------------------------------" << std::endl;
-    
-    std::cout << "\n  Diameters: ";
-    for (const auto& diam : diameters) {
-        std::cout << diam << " ";
-    }
-    std::cout << "\n";
-    std::cout << "-------------------------" << std::endl;
-         }
-}
+  // Write the data to a file
+  std::ofstream file("/Users/saraavesani/Desktop/Archive/points_with_color.py");
+  file << std::fixed << std::setprecision(6);
+  file << "x = [";
+  for (size_t i = 0; i < x.size(); ++i) {
+    file << x[i];
+    if (i < x.size() - 1) file << ", ";
+  }
+  file << "]\n";
 
+  file << "coeffs = [";
+  for (size_t i = 0; i < coeffs.size(); ++i) {
+    file << coeffs[i];
+    if (i < coeffs.size() - 1) file << ", ";
+  }
+  file << "]\n";
 
-  // const std::string outputFile_slopes = "relativeSlopes.csv";
-  // auto slopes = computeRelativeSlopes1D<ST, Scalar>(leafCoefficients, dtilde, 1e-4,
-  //                                                   outputFile_slopes);
-  // auto slopes = computeLinearRegressionSlope(leafCoefficients, dtilde);
+  file.close();
+  std::cout << "Data written to " << "points_with_color.py" << std::endl;
 
+  //   for (const auto& [leaf, dataPair] : leafData) {
+  //     // if (count >= 20) break;
+  //     auto coefficients = dataPair.first;  // First vector = coefficients
+  //     const auto& diameters = dataPair.second;     // Second vector =
+  //     diameters if (leaf->bb()(0, 0) > 0.099 && leaf->bb()(0, 1) < 0.101) {
 
-  // generateStepFunctionData(slopes, outputFile_step);
+  //     std::cout << "Leaf bb: " << leaf->bb() << "\n";
+  //     std::cout << "-----------------------------------------" << std::endl;
+  //     size_t n = coefficients.size();
+
+  //     Scalar accum = 0.;
+  //     for (int i = 0; i < n; ++i) {
+  //         accum += coefficients[i] * coefficients[i];
+  //     }
+  //     Scalar norm = sqrt(accum);
+  //     if (norm != 0) {
+  //       for (auto& coeff : coefficients) {
+  //           coeff /= norm;
+  //       }
+  //     }
+
+  //     std::cout << "  Coefficients: ";
+  //     int zero_count = 0;
+  //     for (const auto& coeff : coefficients) {
+  //         std::cout <<  coeff << " ";
+  //         if (coeff == 0) {
+  //             zero_count++;
+  //         }
+  //     }
+  //     // std::cout << "\n";
+  //     // std::cout << "number of 0 coeffs = " << zero_count << "\n";
+  //     std::cout << "\n";
+  //     std::cout << "-----------------------------------------" << std::endl;
+
+  //     std::cout << "\n  Diameters: ";
+  //     for (const auto& diam : diameters) {
+  //         std::cout << diam << " ";
+  //     }
+  //     std::cout << "\n";
+  //     std::cout << "-------------------------" << std::endl;
+  //          }
+  // }
 
   // Coeff decay
   // printMaxCoefficientsPerLevel(hst, tdata);

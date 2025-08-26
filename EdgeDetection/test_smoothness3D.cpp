@@ -7,6 +7,7 @@
 #include <sstream>
 // ########################
 #include "SmoothnessDetection.h"
+#include "../FMCA/src/util/Tictoc.h"
 
 #define DIM 3
 
@@ -105,7 +106,7 @@ Matrix perturbCubeSurfacePointsTransversal(const Matrix& points, Scalar epsilon)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 int main() {
-  Tictoc T;
+  FMCA::Tictoc T;
   Scalar threshold_active_leaves = 0;
   Scalar epsilon = 1e-1;
   int num_points = 100000;

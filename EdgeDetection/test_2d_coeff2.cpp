@@ -51,9 +51,11 @@ int main() {
     pt.setOnes();
     pt /= std::sqrt(d);
     for (FMCA::Index i = 0; i < Nd; ++i) {
-      Scalar signed_dist = P.col(i).dot(pt) - 0.5 * sqrt(d);
-      data(i) = std::abs(signed_dist);
+      // Scalar signed_dist = P.col(i).dot(pt) - 0.5 * sqrt(d);
+      // data(i) = std::abs(signed_dist);
       // data(i) = P.col(i).dot(pt) > 0.5 * sqrt(d);
+      data(i) = ((P(1,i) - 0.252) / std::sqrt((P(0,i)-0.252) * (P(0,i)-0.252) + (P(1,i)-0.252) * (P(1,i)-0.252)) + 
+      ((P(0,i) - 0.748)*(P(0,i) - 0.748)*(P(1,i) - 0.748)) / ((P(0,i)-0.748) * (P(0,i)-0.748) + (P(1,i)-0.748) * (P(1,i)-0.748)))/2;
     }
   }
   T.toc("data generation: ");
