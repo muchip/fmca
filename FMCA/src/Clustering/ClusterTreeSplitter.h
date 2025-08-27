@@ -57,6 +57,7 @@ struct GeometricKDSplitting {
     Index num_children = children.size();
 
     // compute the pivot in each dimension
+    const Index d = P.rows();
     std::vector<Scalar> pivots(d);
     for (Index i = 0; i < d; ++i) {
       pivots[i] = parent.bb_(i, 0) + parent.bb_(i, 2) * 0.5;
@@ -65,7 +66,7 @@ struct GeometricKDSplitting {
     // initialize the children's bounding boxes and then modify them based on
     // the binary representation
     for (Index child_idx = 0; child_idx < num_children; ++child_idx) {
-      children[child_idx].bb_ = parent.bb_;
+      children[child_idx].node().bb_ = parent.bb_;
       for (Index dim = 0; dim < d; ++dim) {
         bool upper_half = (child_idx >> dim) & 1;
         children[child_idx].node().bb_(dim, 2) *=

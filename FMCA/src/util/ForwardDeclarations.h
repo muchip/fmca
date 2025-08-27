@@ -41,6 +41,8 @@ class MortonClusterTree;
 
 class RandomProjectionTree;
 
+class KDTree;
+
 template <typename ClusterTreeType>
 class SampletTree;
 
@@ -61,6 +63,8 @@ struct HMatrix;
 struct ClusterTreeNode;
 
 struct SphereClusterTreeNode;
+
+struct KDTreeNode;
 
 struct SampletTreeNode;
 
