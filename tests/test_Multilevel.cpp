@@ -31,18 +31,19 @@ int main(int argc, char *argv[]) {
   for (FMCA::Index i = 0; i < npts; ++i) {
     P.col(i) = nd.randN(3, 1);
     P.col(i).normalize();
-    signal(i) = (std::abs(P(0, i)));
+    signal(i) = P.col(i).norm();
+    signal(i) = std::sqrt(1 - P(0, i));
   }
   // FMCA::IO::plotPointsColor("signal.vtk", P, signal);
-  FMCA::ClusterTree ct(P, 10);
-  FMCA::internal::RandomTreeAccessor<FMCA::ClusterTree> rta;
+  FMCA::KDTree ct(P, 2);
+  FMCA::internal::RandomTreeAccessor<FMCA::KDTree> rta;
   T.tic();
   rta.init(ct);
   T.toc("tree mapped: ");
   std::vector<FMCA::Index> s_pattern(rta.nnodes());
   std::vector<FMCA::Scalar> s_values(rta.nnodes());
   for (auto it = rta.nodes().rbegin(); it != rta.nodes().rend(); ++it) {
-    const FMCA::ClusterTree &node = *(*it);
+    const FMCA::KDTree &node = *(*it);
     FMCA::Index sample_index = 0;
     if (node.nSons()) {
       sample_index = node.indices()[rand() % node.block_size()];
@@ -60,7 +61,6 @@ int main(int argc, char *argv[]) {
         max_value < std::abs(s_values[i]) ? std::abs(s_values[i]) : max_value;
   }
   std::cout << max_value << std::endl;
-  std::cout << std::endl;
   for (FMCA::Index l = 1; l <= rta.max_level(); ++l) {
     max_value = 0;
     for (FMCA::Index i = rta.levels()[l]; i < rta.levels()[l + 1]; ++i) {

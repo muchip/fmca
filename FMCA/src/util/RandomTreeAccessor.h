@@ -18,9 +18,10 @@
 
 namespace FMCA {
 namespace internal {
-template <typename Derived> class RandomTreeAccessor {
-public:
-  RandomTreeAccessor(){};
+template <typename Derived>
+class RandomTreeAccessor {
+ public:
+  RandomTreeAccessor() {};
   RandomTreeAccessor(const TreeBase<Derived> &T, const Index res_mem = 1000) {
     init(T, res_mem);
   };
@@ -46,13 +47,15 @@ public:
 
   Index max_level() const { return max_level_; }
   const std::vector<const Derived *> &nodes() const { return nodes_; }
+  Index nnodes() const { return nodes_.size(); }
+
   const std::vector<Index> &levels() const { return levels_; }
 
-private:
+ private:
   std::vector<const Derived *> nodes_;
   std::vector<Index> levels_;
   Index max_level_;
 };
-} // namespace internal
-} // namespace FMCA
+}  // namespace internal
+}  // namespace FMCA
 #endif
