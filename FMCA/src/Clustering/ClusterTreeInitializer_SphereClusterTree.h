@@ -63,18 +63,19 @@ struct ClusterTreeInitializer<SphereClusterTree> {
   static void init_ClusterTree_impl(ClusterTreeBase<Derived> &CT,
                                     Index min_csize, const Matrix &P) {
     typename traits<Derived>::Splitter split;
-    const Index split_threshold = min_csize >= 1 ? (2 * min_csize - 1) : 1;
+    const Index K = 1 << P.rows();
+    const Index split_threshold = min_csize >= 1 ? (K * min_csize - 1) : 1;
     if (CT.node().block_size_ > split_threshold) {
-      CT.appendSons(2);
+      CT.appendSons(K);
       // set up bounding boxes for sons
-      for (Index i = 0; i < 2; ++i) {
+      for (Index i = 0; i < K; ++i) {
         CT.sons(i).node().bb_ = CT.node().bb_;
         CT.sons(i).node().indices_ = CT.node().indices_;
         CT.sons(i).node().block_size_ = CT.node().block_size_;
         CT.sons(i).node().indices_begin_ = CT.node().indices_begin_;
       }
       // split index set and set sons bounding boxes
-      split(P, CT.sons(0).node(), CT.sons(1).node());
+      split(P, CT.sons_vector());
       // let recursion handle the rest
       for (Index i = 0; i < CT.nSons(); ++i)
         init_ClusterTree_impl<Derived>(CT.sons(i), min_csize, P);
