@@ -53,28 +53,44 @@ FMCA::Matrix FibonacciLattice(const FMCA::Index N) {
 int main() {
   FMCA::Tictoc T;
   //////////////////////////////////////////////////////////////////////////////
-  FMCA::CovarianceKernel function("Exponential", 1. / 10);
+  FMCA::CovarianceKernel function("MaternNu", 0.5, 1., 0.25);
   function.setDistanceType("GEODESIC");
   //////////////////////////////////////////////////////////////////////////////
-  const FMCA::Matrix P = FibonacciLattice(1000000);
-  const FMCA::Index npts = P.cols();
-  const FMCA::Scalar threshold = 1e-3;
-  const FMCA::Scalar eta = .3;
+  FMCA::Matrix P = FibonacciLattice(200000);
+  FMCA::Index npts = P.cols();
+  const FMCA::Scalar threshold = 5e-4;
+  const FMCA::Scalar eta = .1;
   const FMCA::Scalar dtilde = 3;
-  const FMCA::Index mpole_deg = 2 * (dtilde - 1);
+  const FMCA::Index mpole_deg = 4;
   const Moments mom(P, mpole_deg);
   const MatrixEvaluator mat_eval(mom, function);
   const SampletMoments samp_mom(P, dtilde - 1);
   FMCA::NormalDistribution nd(0, 1, 0);
+  FMCA::Matrix PP(3, npts);
+  FMCA::Matrix PN(3, npts);
   {
-    FMCA::Vector col0 = function.eval(P, P.col(0));
-    FMCA::IO::plotPointsColor("sig.vtk", P, col0);
+    FMCA::Index npos = 0;
+    FMCA::Index nneg = 0;
+    for (FMCA::Index i = 0; i < P.cols(); ++i)
+      if (P(2, i) > 0)
+        PP.col(npos++) = P.col(i);
+      else
+        PN.col(nneg++) = P.col(i);
+    PP.conservativeResize(3, npos);
+    PN.conservativeResize(3, nneg);
   }
+  // P = PP;
+  // npts = P.cols();
   //////////////////////////////////////////////////////////////////////////////
   std::cout << "dtilde:                       " << dtilde << std::endl;
   std::cout << "mpole_deg:                    " << mpole_deg << std::endl;
   std::cout << "eta:                          " << eta << std::endl;
   H2SampletTree hst(mom, samp_mom, 0, P);
+  {
+    FMCA::Vector data = function.eval(P, P.col(0));
+    FMCA::IO::plotPointsColor("data.vtk", P, data);
+  }
+#if 0
   std::vector<FMCA::Matrix> bbvec;
   for (auto &&it : hst) {
     if (!it.nSons() && it.block_size()) {
@@ -86,11 +102,12 @@ int main() {
   }
   FMCA::IO::plotBoxes("boxes.vtk", bbvec);
   FMCA::IO::plotPoints("points.vtk", P);
+#endif
   T.tic();
   FMCA::internal::SampletMatrixCompressor<H2SampletTree,
                                           FMCA::CompareSphericalCluster>
       Scomp;
-  Scomp.init(hst, eta, 1e-8);
+  Scomp.init(hst, eta, 1e-7);
   T.toc("planner:                     ");
   T.tic();
   Scomp.compress(mat_eval);
