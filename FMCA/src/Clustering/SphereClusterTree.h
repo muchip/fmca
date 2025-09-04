@@ -21,7 +21,7 @@ namespace internal {
 template <>
 struct traits<SphereClusterTree> {
   typedef SphereClusterTreeNode Node;
-  typedef ClusterSplitter::CardinalityBisection Splitter;
+  typedef ClusterSplitter::GeometricKDSplitting Splitter;
 };
 }  // namespace internal
 
