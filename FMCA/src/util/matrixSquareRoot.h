@@ -23,13 +23,13 @@ namespace FMCA {
 template <typename T>
 Vector matrixSquareRoot(const T& mat, const Vector& x,
                         const Index ksize = 100) {
-  Matrix Q(T.rows(), ksize);
+  Matrix Q(mat.rows(), ksize);
   Q.setZero();
   Q.col(0) = x;
   Q.col(0).normalize();
   // determine orthogonal basis of Krylov subspace using Gram Schmidt
   for (Index i = 1; i < ksize; ++i) {
-    Q.col(i) = T * Q.col(i - 1);
+    Q.col(i) = mat * Q.col(i - 1);
     for (Index j = 0; j < 2; ++j) {
       const Vector QTv = Q.leftCols(i).transpose() * Q.col(i);
       Q.col(i) = Q.col(i) - Q.leftCols(i) * QTv;
@@ -43,7 +43,7 @@ Vector matrixSquareRoot(const T& mat, const Vector& x,
       Q.col(i) *= scal;
     }
   }
-  Matrix QTTQ = Q.transpose() * (T * Q).eval();
+  Matrix QTTQ = Q.transpose() * (mat * Q).eval();
 
   Eigen::SelfAdjointEigenSolver<Matrix> es(QTTQ);
   Vector evals = es.eigenvalues().array().sqrt();

@@ -32,8 +32,8 @@ FMCA::Matrix FibonacciLattice(const FMCA::Index N) {
 
 int main() {
   FMCA::Tictoc T;
-  const FMCA::Index npts = 1000000;
-  const FMCA::Index nsamples = 100000;
+  const FMCA::Index npts = 100000;
+  const FMCA::Index nsamples = 10;
   const FMCA::Index deg = 100;
   const FMCA::Scalar alpha = .5;
   const FMCA::Matrix P = FibonacciLattice(npts);
