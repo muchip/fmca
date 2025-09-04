@@ -35,9 +35,41 @@ std::vector<Index> epsNN(const ClusterTreeBase<Derived> &ct, const Matrix &P,
           retval.push_back(nd.indices()[i]);
     } else {
       for (Index i = 0; i < nd.nSons(); ++i) {
-        const Vector bpt = (nd.sons(i).bb().col(0).cwiseMax(pt))
-                               .cwiseMin(nd.sons(i).bb().col(1));
-        if ((pt - bpt).norm() < eps)
+        if (nd.sons(i).block_size()) {
+          const Vector bpt = (nd.sons(i).bb().col(0).cwiseMax(pt))
+                                 .cwiseMin(nd.sons(i).bb().col(1));
+          if ((pt - bpt).norm() < eps)
+            queue.push_back(std::addressof(nd.sons(i)));
+        }
+      }
+    }
+  }
+  return retval;
+}
+
+/**
+ *  \ingroup Clustering
+ *  \brief uses the cluster tree ct to efficiently determined the indices
+ *         of all points in P that are less than eps away from pt.
+ **/
+template <>
+std::vector<Index> epsNN(const ClusterTreeBase<SphereClusterTree> &ct,
+                         const Matrix &P, const Vector &pt, const Scalar eps) {
+  std::vector<Index> retval;
+  std::vector<const SphereClusterTree *> queue;
+  queue.push_back(std::addressof(ct.derived()));
+  while (queue.size()) {
+    const SphereClusterTree &nd = *(queue.back());
+    queue.pop_back();
+    if (!nd.nSons()) {
+      // at all indices to the result
+      for (Index i = 0; i < nd.block_size(); ++i)
+        if (nd.geodesicDistance(pt, P.col(nd.indices()[i])) < eps)
+          retval.push_back(nd.indices()[i]);
+    } else {
+      for (Index i = 0; i < nd.nSons(); ++i) {
+        if (nd.geodesicDistance(pt, nd.sons(i).center()) - nd.sons(i).radius() <
+            eps)
           queue.push_back(std::addressof(nd.sons(i)));
       }
     }

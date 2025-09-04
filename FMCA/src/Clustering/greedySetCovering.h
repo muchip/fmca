@@ -27,7 +27,7 @@ std::vector<Index> greedySetCovering(const ClusterTreeBase<Derived> &ct,
   std::vector<Index> n_uncovered(P.cols());
   std::vector<std::vector<Index>> rballs(P.cols());
   std::vector<std::vector<Index>> index_covers(P.cols());
-  Inde num_covered = 0;
+  Index num_covered = 0;
 
 #pragma omp parallel for
   for (Index i = 0; i < rballs.size(); ++i) {
