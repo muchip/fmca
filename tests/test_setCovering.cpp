@@ -50,6 +50,7 @@ int main() {
     std::vector<bool> is_covered(nPts, false);
     std::vector<FMCA::Index> cover_index(nPts, -1);
     FMCA::Vector color(nPts);
+#pragma omp parallel for
     for (FMCA::Index i = 0; i < nPts; ++i) {
       FMCA::Scalar min_dist = FMCA_INF;
       for (FMCA::Index j = 0; j < idcs.size(); ++j) {
@@ -75,6 +76,7 @@ int main() {
     std::vector<bool> is_covered(nPts, false);
     std::vector<FMCA::Index> cover_index(nPts, -1);
     FMCA::Vector color(nPts);
+#pragma omp parallel for
     for (FMCA::Index i = 0; i < nPts; ++i) {
       FMCA::Scalar min_dist = FMCA_INF;
       for (FMCA::Index j = 0; j < sidcs.size(); ++j) {
