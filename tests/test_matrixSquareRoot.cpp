@@ -14,10 +14,6 @@
 #include <iostream>
 #include <random>
 //
-#include <Eigen/Dense>
-#include <Eigen/MetisSupport>
-#include <Eigen/Sparse>
-#include <Eigen/SparseCholesky>
 
 #include "../FMCA/CovarianceKernel"
 #include "../FMCA/Samplets"
@@ -51,12 +47,12 @@ FMCA::Matrix FibonacciLattice(const FMCA::Index N) {
 int main() {
   FMCA::Tictoc T;
   //////////////////////////////////////////////////////////////////////////////
-  FMCA::CovarianceKernel function("MaternNu", 0.5, 1., 0.25);
+  FMCA::CovarianceKernel function("MaternNu", .5, 1., 0.25);
   function.setDistanceType("GEODESIC");
   //////////////////////////////////////////////////////////////////////////////
-  FMCA::Matrix P = FibonacciLattice(50000);
+  FMCA::Matrix P = FibonacciLattice(400000);
   FMCA::Index npts = P.cols();
-  const FMCA::Scalar threshold = 5e-4;
+  const FMCA::Scalar threshold = 5e-5;
   const FMCA::Scalar eta = .1;
   const FMCA::Scalar dtilde = 3;
   const FMCA::Index mpole_deg = 4;
@@ -114,14 +110,16 @@ int main() {
   FMCA::Vector rdm = nd.randN(npts, 1);
   FMCA::Vector Srdm = S.selfadjointView<Eigen::Upper>() * rdm;
   FMCA::Vector y =
-      FMCA::matrixSquareRoot(S.selfadjointView<Eigen::Upper>(), rdm);
+      FMCA::matrixSquareRoot(S.selfadjointView<Eigen::Upper>(), rdm, 100);
   std::cout << "norm error root: "
             << std::abs(y.dot(y) - rdm.dot(Srdm)) / rdm.dot(Srdm) << std::endl;
-  y = FMCA::matrixSquareRoot(S.selfadjointView<Eigen::Upper>(), y);
+  FMCA::Vector Lrandn = hst.inverseSampletTransform(y);
+  FMCA::Vector sample = hst.toNaturalOrder(Lrandn);
+  y = FMCA::matrixSquareRoot(S.selfadjointView<Eigen::Upper>(), y, 100);
   std::cout << "twice applied: " << (Srdm - y).norm() / Srdm.norm()
             << std::endl;
 
-  // FMCA::IO::plotPointsColor("sample.vtk", P, sample);
+  FMCA::IO::plotPointsColor("sample.vtk", P, sample);
   std::cout << std::string(60, '-') << std::endl;
   return 0;
 }
