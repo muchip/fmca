@@ -47,12 +47,20 @@ FMCA::Matrix FibonacciLattice(const FMCA::Index N) {
 int main() {
   FMCA::Tictoc T;
   //////////////////////////////////////////////////////////////////////////////
-  FMCA::CovarianceKernel function("MaternNu", .5, 1., 0.25);
+  FMCA::CovarianceKernel function("Exponential", .25);
   function.setDistanceType("GEODESIC");
   //////////////////////////////////////////////////////////////////////////////
-  FMCA::Matrix P = FibonacciLattice(400000);
-  FMCA::Index npts = P.cols();
-  const FMCA::Scalar threshold = 5e-5;
+  const FMCA::Index npts = 100000;
+  FMCA::Matrix P(3, npts);  // = FibonacciLattice(50000);
+  {
+    std::normal_distribution<FMCA::Scalar> dist(0.0, 1.0);
+    std::mt19937 mt;
+    for (FMCA::Index i = 0; i < P.cols(); ++i) {
+      P.col(i) << dist(mt), dist(mt), dist(mt);
+      P.col(i) /= P.col(i).norm();
+    }
+  }
+  const FMCA::Scalar threshold = 1e-5;
   const FMCA::Scalar eta = .1;
   const FMCA::Scalar dtilde = 3;
   const FMCA::Index mpole_deg = 4;
