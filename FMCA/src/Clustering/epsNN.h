@@ -29,7 +29,7 @@ std::vector<Index> epsNN(const ClusterTreeBase<Derived> &ct, const Matrix &P,
     const Derived &nd = *(queue.back());
     queue.pop_back();
     if (!nd.nSons()) {
-      // at all indices to the result
+      // add all indices to the result
       for (Index i = 0; i < nd.block_size(); ++i)
         if ((pt - P.col(nd.indices()[i])).norm() < eps)
           retval.push_back(nd.indices()[i]);
@@ -62,7 +62,7 @@ std::vector<Index> epsNN(const ClusterTreeBase<SphereClusterTree> &ct,
     const SphereClusterTree &nd = *(queue.back());
     queue.pop_back();
     if (!nd.nSons()) {
-      // at all indices to the result
+      // add all indices to the result
       for (Index i = 0; i < nd.block_size(); ++i)
         if (nd.geodesicDistance(pt, P.col(nd.indices()[i])) < eps)
           retval.push_back(nd.indices()[i]);
@@ -98,7 +98,7 @@ std::vector<Eigen::Triplet<Scalar>> symEpsNN(const ClusterTreeBase<Derived> &ct,
       const Derived &nd = *(queue.back());
       queue.pop_back();
       if (!nd.nSons()) {
-        // at all indices to the result
+        // add all indices to the result
         for (Index i = 0; i < nd.block_size(); ++i) {
           const Scalar dist = (pt - P.col(nd.indices()[i])).norm();
           if (k < nd.indices()[i] && dist < eps) {

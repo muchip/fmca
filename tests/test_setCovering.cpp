@@ -14,7 +14,7 @@
 #include <random>
 
 #include "../FMCA/Clustering"
-#include "../FMCA/src/Clustering/greedySetCovering.h"
+#include "../FMCA/src/ModulusOfContinuity/greedySetCovering.h"
 #include "../FMCA/src/util/IO.h"
 #include "../FMCA/src/util/Tictoc.h"
 

@@ -120,7 +120,7 @@ int main() {
   FMCA::Vector Srdm = S.selfadjointView<Eigen::Upper>() * rdm;
 T.tic();
   FMCA::Vector y =
-      FMCA::matrixSquareRoot(S.selfadjointView<Eigen::Upper>(), rdm, 20);
+      FMCA::matrixSquareRoot(S.selfadjointView<Eigen::Upper>(), rdm, 10);
   std::cout << "norm error root: "
             << std::abs(y.dot(y) - rdm.dot(Srdm)) / rdm.dot(Srdm) << std::endl;
   FMCA::Vector Lrandn = hst.inverseSampletTransform(y);
