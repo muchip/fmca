@@ -50,9 +50,10 @@ int main() {
   FMCA::CovarianceKernel function("Exponential", .25);
   function.setDistanceType("GEODESIC");
   //////////////////////////////////////////////////////////////////////////////
-  const FMCA::Index npts = 100000;
-  FMCA::Matrix P(3, npts);  // = FibonacciLattice(50000);
-  {
+  const FMCA::Index npts = 1000000;
+  FMCA::Matrix P(3, npts);  
+  P = FibonacciLattice(npts);
+  if (false) {
     std::normal_distribution<FMCA::Scalar> dist(0.0, 1.0);
     std::mt19937 mt;
     for (FMCA::Index i = 0; i < P.cols(); ++i) {
@@ -60,7 +61,7 @@ int main() {
       P.col(i) /= P.col(i).norm();
     }
   }
-  const FMCA::Scalar threshold = 1e-5;
+  const FMCA::Scalar threshold = 1e-4;
   const FMCA::Scalar eta = .1;
   const FMCA::Scalar dtilde = 3;
   const FMCA::Index mpole_deg = 4;
@@ -77,7 +78,7 @@ int main() {
                                           FMCA::CompareSphericalCluster>
       Scomp;
   T.tic();
-  Scomp.init(hst, eta, 1e-7);
+  Scomp.init(hst, eta, 5e-6);
   T.toc("planner:                     ");
   T.tic();
   Scomp.compress(mat_eval);
@@ -117,16 +118,14 @@ int main() {
             << std::flush;
   FMCA::Vector rdm = nd.randN(npts, 1);
   FMCA::Vector Srdm = S.selfadjointView<Eigen::Upper>() * rdm;
+T.tic();
   FMCA::Vector y =
-      FMCA::matrixSquareRoot(S.selfadjointView<Eigen::Upper>(), rdm, 100);
+      FMCA::matrixSquareRoot(S.selfadjointView<Eigen::Upper>(), rdm, 20);
   std::cout << "norm error root: "
             << std::abs(y.dot(y) - rdm.dot(Srdm)) / rdm.dot(Srdm) << std::endl;
   FMCA::Vector Lrandn = hst.inverseSampletTransform(y);
   FMCA::Vector sample = hst.toNaturalOrder(Lrandn);
-  y = FMCA::matrixSquareRoot(S.selfadjointView<Eigen::Upper>(), y, 100);
-  std::cout << "twice applied: " << (Srdm - y).norm() / Srdm.norm()
-            << std::endl;
-
+T.toc("sample computed: ");
   FMCA::IO::plotPointsColor("sample.vtk", P, sample);
   std::cout << std::string(60, '-') << std::endl;
   return 0;
