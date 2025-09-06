@@ -22,17 +22,18 @@ class DiscreteModulusOfContinuity {
   void init(const Matrix &P, const Vector &f, const Scalar r, const Index R = 2,
             const Scalar TX = 1, const Index min_csize = 1,
             const std::string dist_type = "EUCLIDEAN") {
+    // set all parameters
     TX_ = TX;
     r_ = r;
     R_ = R;
     K_ = std::ceil(std::log(TX / r) / std::log(R));
-    std::cout << "number of intervals: " << K_ + 1 << std::endl;
     min_csize_ = min_csize;
     tgrid_.resize(K_ + 1);
     omegat_.resize(K_ + 1);
     omegaNk_.resize(K_ + 1);
     XNk_indices_.resize(K_ + 1);
     setDistanceType(dist_type);
+    std::cout << "number of intervals: " << K_ + 1 << std::endl;
     {
       Derived ct(P, min_csize_);
       // set up modulus of continuity for the full set X = P using the
@@ -59,24 +60,17 @@ class DiscreteModulusOfContinuity {
     std::cout << "#N0=" << XNk_indices_[0].size() << std::endl;
     // compute reduced index sets using greedy method annd compute corresponding
     // moduli of continuity
-    Scalar Rkm1r = r_;
-    Scalar Rkr = R_ * r_;
+    Scalar Rkr = r_;
     Matrix Pprev = P;
     for (Index k = 1; k <= K_; ++k) {
-      tgrid_[k] = Rkr;
       Derived ct(Pprev, min_csize_);
-      XNk_indices_[k] = greedySetCovering(ct, Pprev, Rkm1r);
+      XNk_indices_[k] = greedySetCovering(ct, Pprev, Rkr);
       // fix indices to become the global indices
       for (Index j = 0; j < XNk_indices_[k].size(); ++j)
         XNk_indices_[k][j] = XNk_indices_[k - 1][XNk_indices_[k][j]];
       std::sort(XNk_indices_[k].begin(), XNk_indices_[k].end());
-      assert(std::includes(XNk_indices_[k - 1].begin(),
-                           XNk_indices_[k - 1].end(), XNk_indices_[k].begin(),
-                           XNk_indices_[k].end()) &&
-             "indices not contained");
-
-      Rkm1r = Rkr;
       Rkr *= R;
+      tgrid_[k] = Rkr;
       Matrix Ploc(P.rows(), XNk_indices_[k].size());
       Vector floc(XNk_indices_[k].size());
       // set up local point set for constructing a cluster tree for epsNN
