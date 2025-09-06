@@ -48,7 +48,6 @@ class DiscreteModulusOfContinuity {
                 distance_(P.col(nn_idcs[j]), P.col(nn_idcs[k]));
             assert(xdist <= 2 * r_ && "error");
             const Scalar fdist = std::abs(f(nn_idcs[j]) - f(nn_idcs[k]));
-            const Scalar quotient = fdist / (xdist + FMCA_ZERO_TOLERANCE);
             if (xdist <= r_)
               max_quotient = max_quotient < fdist ? fdist : max_quotient;
           }
@@ -129,7 +128,6 @@ class DiscreteModulusOfContinuity {
           const Scalar xdist =
               distance_(Ploc.col(nn_idcs[j]), Ploc.col(nn_idcs[k]));
           const Scalar fdist = std::abs(floc(nn_idcs[j]) - floc(nn_idcs[k]));
-          const Scalar quotient = fdist / (xdist + FMCA_ZERO_TOLERANCE);
           if (xdist <= t)
             max_quotient = max_quotient < fdist ? fdist : max_quotient;
         }
