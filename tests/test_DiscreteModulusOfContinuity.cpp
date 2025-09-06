@@ -48,7 +48,7 @@ int main() {
     P(0, i) = (i + 0.5) * h;
     data(i) = std::sqrt(P(0, i));
   }
-  // data = FMCA::simulateWienerProcess(P.row(0));
+  data = FMCA::simulateWienerProcess(P.row(0));
 
   FMCA::Tictoc T;
 #if 0
@@ -69,8 +69,8 @@ int main() {
   T.tic();
   FMCA::DiscreteModulusOfContinuity dmoc;
   FMCA::Scalar r = 1e-5;
-  FMCA::Index R = 3;
-  dmoc.init<FMCA::ClusterTree>(P, data, r, R, 0.1, 1, "EUCLIDEAN");
+  FMCA::Index R = 2;
+  dmoc.init<FMCA::ClusterTree>(P, data, r, R, 1, 1, "EUCLIDEAN");
   T.toc("set up dmoc: ");
   const std::vector<std::vector<FMCA::Index>> &idcs = dmoc.XNk_indices();
   for (FMCA::Index i = 0; i < dmoc.omegaNk().size(); ++i) {
@@ -83,8 +83,8 @@ int main() {
                               Ploc.row(1).transpose());
   }
   std::printf("t            omega(t)\n");
-  for (int i = 6; i >= 0; --i) {
-    const FMCA::Scalar t = std::pow(10., -i);
+  for (int i = 20; i >= 0; --i) {
+    const FMCA::Scalar t = std::pow(2., -i);
     std::printf("%5.2e     %10.6f\n", t,
                 dmoc.omega<FMCA::ClusterTree>(t, P, data));
   }

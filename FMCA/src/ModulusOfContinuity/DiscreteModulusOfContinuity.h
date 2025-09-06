@@ -46,9 +46,11 @@ class DiscreteModulusOfContinuity {
           for (Index k = 0; k < j; ++k) {
             const Scalar xdist =
                 distance_(P.col(nn_idcs[j]), P.col(nn_idcs[k]));
+            assert(xdist <= 2 * r_ && "error");
             const Scalar fdist = std::abs(f(nn_idcs[j]) - f(nn_idcs[k]));
             const Scalar quotient = fdist / (xdist + FMCA_ZERO_TOLERANCE);
-            max_quotient = max_quotient < quotient ? quotient : max_quotient;
+            if (xdist <= r_)
+              max_quotient = max_quotient < fdist ? fdist : max_quotient;
           }
       }
       omegaNk_[0] = max_quotient;
@@ -88,9 +90,10 @@ class DiscreteModulusOfContinuity {
           for (Index k = 0; k < j; ++k) {
             const Scalar xdist =
                 distance_(Ploc.col(nn_idcs[j]), Ploc.col(nn_idcs[k]));
+            assert(xdist <= 2 * Rkr && "error");
             const Scalar fdist = std::abs(floc(nn_idcs[j]) - floc(nn_idcs[k]));
-            const Scalar quotient = fdist / (xdist + FMCA_ZERO_TOLERANCE);
-            max_quotient = max_quotient < quotient ? quotient : max_quotient;
+            if (xdist <= Rkr)
+              max_quotient = max_quotient < fdist ? fdist : max_quotient;
           }
       }
       omegaNk_[k] = max_quotient;
@@ -128,7 +131,7 @@ class DiscreteModulusOfContinuity {
           const Scalar fdist = std::abs(floc(nn_idcs[j]) - floc(nn_idcs[k]));
           const Scalar quotient = fdist / (xdist + FMCA_ZERO_TOLERANCE);
           if (xdist <= t)
-            max_quotient = max_quotient < quotient ? quotient : max_quotient;
+            max_quotient = max_quotient < fdist ? fdist : max_quotient;
         }
     }
     max_quotient = max_quotient >= 0 ? max_quotient : 0;
