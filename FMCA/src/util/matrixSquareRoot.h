@@ -43,20 +43,25 @@ Vector matrixSquareRoot(const T& mat, const Vector& x,
       Q.col(i) *= scal;
     }
   }
+#ifdef FMCA_VERBOSE
   Matrix QTQ = Q.transpose() * Q;
   std::cout << "orthogonality error: "
-            << (QTQ - Matrix::Identity(ksize, ksize)).norm() / std::sqrt(ksize)
+            << (QTQ - Matrix::Identity(Q.cols(), Q.cols())).norm() /
+                   std::sqrt(Q.cols())
             << std::endl;
+#endif
   Matrix QTTQ = Q.transpose() * (mat * Q).eval();
 
   Eigen::SelfAdjointEigenSolver<Matrix> es(QTTQ);
   Vector evals = es.eigenvalues();
   for (FMCA::Index i = 0; i < evals.size(); ++i)
     evals(i) = evals(i) > 0 ? std::sqrt(evals(i)) : 0;
+#ifdef FMCA_VERBOSE
   std::cout << "energy loss: "
             << (evals.array().square().matrix() - es.eigenvalues()).norm() /
                    es.eigenvalues().norm()
             << std::endl;
+#endif
   Vector y = Q.transpose() * x;
   y = es.eigenvectors().transpose() * y;
   y = evals.asDiagonal() * y;
