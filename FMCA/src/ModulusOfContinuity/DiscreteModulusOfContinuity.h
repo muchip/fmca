@@ -33,6 +33,13 @@ class DiscreteModulusOfContinuity {
     omegaNk_.resize(K_ + 1);
     XNk_indices_.resize(K_ + 1);
     setDistanceType(dist_type);
+    Vector min_dist;
+    {
+      Derived ct(P, min_csize_);
+      min_dist = minDistanceVector(ct, P);
+    }
+    std::cout << "fill distance: " << min_dist.maxCoeff() << std::endl;
+    std::cout << "separation distance: " << min_dist.minCoeff() << std::endl;
     std::cout << "number of intervals: " << K_ + 1 << std::endl;
     {
       Derived ct(P, min_csize_);
