@@ -21,7 +21,8 @@ class DiscreteModulusOfContinuity {
   template <typename Derived>
   void init(const Matrix &P, const Vector &f, const Scalar r, const Index R = 2,
             const Scalar TX = 1, const Index min_csize = 1,
-            const std::string dist_type = "EUCLIDEAN") {
+            const std::string dist_type = "EUCLIDEAN",
+            const bool add_maxpts = true) {
     // set all parameters
     TX_ = TX;
     r_ = r;
@@ -33,6 +34,7 @@ class DiscreteModulusOfContinuity {
     omegaNk_.resize(K_ + 1);
     XNk_indices_.resize(K_ + 1);
     setDistanceType(dist_type);
+    add_maxpts_ = add_maxpts_;
     Vector min_dist;
     {
       Derived ct(P, min_csize_);
@@ -70,12 +72,34 @@ class DiscreteModulusOfContinuity {
     // moduli of continuity
     Scalar Rkr = r_;
     Matrix Pprev = P;
+    X_min_max_.resize(2);
+    FMCA::Scalar max = -FMCA_INF;
+    FMCA::Scalar min = FMCA_INF;
+    for (FMCA::Index i = 0; i < f.size(); ++i) {
+      if (f(i) < min) {
+        min = f(i);
+        X_min_max_[0] = i;
+      }
+      if (f(i) > max) {
+        max = f(i);
+        X_min_max_[1] = i;
+      }
+    }
     for (Index k = 1; k <= K_; ++k) {
       Derived ct(Pprev, min_csize_);
       XNk_indices_[k] = greedySetCovering(ct, Pprev, Rkr);
       // fix indices to become the global indices
-      for (Index j = 0; j < XNk_indices_[k].size(); ++j)
+      bool hasmin = false;
+      bool hasmax = false;
+      for (Index j = 0; j < XNk_indices_[k].size(); ++j) {
         XNk_indices_[k][j] = XNk_indices_[k - 1][XNk_indices_[k][j]];
+        if (XNk_indices_[k][j] == X_min_max_[0]) hasmin = true;
+        if (XNk_indices_[k][j] == X_min_max_[1]) hasmax = true;
+      }
+      if (add_maxpts_) {
+        if (!hasmin) XNk_indices_[k].push_back(X_min_max_[0]);
+        if (!hasmax) XNk_indices_[k].push_back(X_min_max_[1]);
+      }
       std::sort(XNk_indices_[k].begin(), XNk_indices_[k].end());
       Rkr *= R;
       tgrid_[k] = Rkr;
@@ -171,6 +195,7 @@ class DiscreteModulusOfContinuity {
   }
 
   std::vector<std::vector<Index>> XNk_indices_;
+  std::vector<Index> X_min_max_;
   std::vector<Scalar> omegaNk_;
   std::vector<Scalar> tgrid_;
   std::vector<Scalar> omegat_;
@@ -180,6 +205,7 @@ class DiscreteModulusOfContinuity {
   Index R_;
   Index K_;
   Index min_csize_;
+  bool add_maxpts_;
 };
 }  // namespace FMCA
 #endif
