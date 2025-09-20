@@ -34,7 +34,7 @@ class DiscreteModulusOfContinuity {
     omegaNk_.resize(K_ + 1);
     XNk_indices_.resize(K_ + 1);
     setDistanceType(dist_type);
-    add_maxpts_ = add_maxpts_;
+    add_maxpts_ = add_maxpts;
     Vector min_dist;
     {
       Derived ct(P, min_csize_);
@@ -85,6 +85,11 @@ class DiscreteModulusOfContinuity {
         X_min_max_[1] = i;
       }
     }
+    std::cout << X_min_max_[0] << ": (" << P.col(X_min_max_[0]) << ","
+              << f(X_min_max_[0]) << "), " << X_min_max_[1] << ": ("
+              << P.col(X_min_max_[1]) << "," << f(X_min_max_[1]) << ") "
+              << std::endl;
+
     for (Index k = 1; k <= K_; ++k) {
       Derived ct(Pprev, min_csize_);
       XNk_indices_[k] = greedySetCovering(ct, Pprev, Rkr);
