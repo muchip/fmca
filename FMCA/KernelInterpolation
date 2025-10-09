@@ -46,5 +46,5 @@
 
 #include "src/KernelInterpolation/SampletKernelSolver.h"
 #include "src/KernelInterpolation/MultipoleFunctionEvaluator.h"
-#include "src/KernelInterpolation/MultilevelSampletKernelSolver.h"
+#include "src/KernelInterpolation/MultiscaleInterpolator.h"
 #endif

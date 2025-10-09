@@ -14,6 +14,22 @@
 #define FMCA_KERNELINTERPOLATION_SAMPLETKERNELSOLVER_H_
 
 namespace FMCA {
+
+//////////////////////////////////////////////////////////////////////////////
+struct CompressionStats {
+  Scalar time_compressor = 0.0;    // Total compression time
+  Scalar assembly_time = 0.0;      // Total assembly time
+  size_t anz = 0;                  // Number of a posteriori triplets per row
+  Scalar compression_error = 0.0;  // Relative compression error
+};
+
+//////////////////////////////////////////////////////////////////////////////
+struct SolverStats {
+  Scalar solver_time = 0.0;     // Total solver execution time
+  int iterations = 0;           // Number of iterations used
+  Scalar residual_error = 0.0;  // Final residual error
+};
+
 template <typename SparseMatrix = Eigen::SparseMatrix<FMCA::Scalar>>
 class SampletKernelSolver {
  public:
