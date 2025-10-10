@@ -30,6 +30,8 @@ struct SolverStats {
   Scalar residual_error = 0.0;  // Final residual error
 };
 
+//////////////////////////////////////////////////////////////////////////////
+
 template <typename SparseMatrix = Eigen::SparseMatrix<FMCA::Scalar>>
 class SampletKernelSolver {
  public:
@@ -115,7 +117,7 @@ class SampletKernelSolver {
   }
   //////////////////////////////////////////////////////////////////////////////
   Scalar compressionError(const Matrix& P,
-                          const CovarianceKernel& kernel) const {
+                          const CovarianceKernel& kernel) {
     kernel_ = kernel;
     Vector x(K_.cols()), y1(K_.rows()), y2(K_.rows());
     Scalar err = 0;
