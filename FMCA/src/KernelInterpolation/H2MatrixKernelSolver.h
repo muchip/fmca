@@ -13,25 +13,100 @@
 #ifndef FMCA_KERNELINTERPOLATION_H2MATRIXKERNELSOLVER_H_
 #define FMCA_KERNELINTERPOLATION_H2MATRIXKERNELSOLVER_H_
 
+template <typename H2Matrix>
+class MatrixReplacement;
+
+template <typename H2Matrix, typename Rhs>
+class MatrixReplacement_ProductReturnType;
+
+namespace Eigen {
+namespace internal {
+
+// Traits for the wrapper, inheriting from SparseMatrix traits for compatibility
+template <typename H2Matrix>
+struct traits<MatrixReplacement<H2Matrix>>
+    : Eigen::internal::traits<Eigen::SparseMatrix<double>> {};
+
+// Traits for the product return type, templated on H2Matrix and Rhs
+template <typename H2Matrix, typename Rhs>
+struct traits<MatrixReplacement_ProductReturnType<H2Matrix, Rhs>> {
+  typedef Eigen::Matrix<typename Rhs::Scalar, Eigen::Dynamic,
+                        Rhs::ColsAtCompileTime>
+      ReturnType;
+};
+
+}  // namespace internal
+}  // namespace Eigen
+
+template <typename H2Matrix>
+class MatrixReplacement : public Eigen::EigenBase<MatrixReplacement<H2Matrix>> {
+ public:
+  typedef double Scalar;
+  typedef double RealScalar;
+  typedef typename Eigen::Index Index;
+  typedef int StorageIndex;
+
+  enum {
+    ColsAtCompileTime = Eigen::Dynamic,
+    RowsAtCompileTime = Eigen::Dynamic,
+    MaxColsAtCompileTime = Eigen::Dynamic,
+    MaxRowsAtCompileTime = Eigen::Dynamic,
+    Flags = Eigen::ColMajor | Eigen::DirectAccessBit | Eigen::LvalueBit
+  };
+  static constexpr bool IsRowMajor = (Flags & Eigen::RowMajorBit) != 0;
+
+  explicit MatrixReplacement(const H2Matrix& h2mat) : h2mat_(h2mat) {}
+
+  const H2Matrix& matrix() const { return h2mat_; }
+  Index rows() const { return h2mat_.rows(); }
+  Index cols() const { return h2mat_.cols(); }
+
+  template <typename Rhs>
+  MatrixReplacement_ProductReturnType<H2Matrix, Rhs> operator*(
+      const Eigen::MatrixBase<Rhs>& x) const {
+    return MatrixReplacement_ProductReturnType<H2Matrix, Rhs>(*this,
+                                                              x.derived());
+  }
+
+ private:
+  const H2Matrix& h2mat_;
+};
+
+template <typename H2Matrix, typename Rhs>
+class MatrixReplacement_ProductReturnType
+    : public Eigen::ReturnByValue<
+          MatrixReplacement_ProductReturnType<H2Matrix, Rhs>> {
+ public:
+  typedef typename MatrixReplacement<H2Matrix>::Index Index;
+
+  MatrixReplacement_ProductReturnType(const MatrixReplacement<H2Matrix>& matrix,
+                                      const Rhs& rhs)
+      : m_matrix(matrix), m_rhs(rhs) {}
+
+  Index rows() const { return m_matrix.rows(); }
+  Index cols() const { return m_rhs.cols(); }
+
+  template <typename Dest>
+  void evalTo(Dest& y) const {
+    y = m_matrix.matrix() * m_rhs.eval();
+  }
+
+ protected:
+  const MatrixReplacement<H2Matrix>& m_matrix;
+  typename Rhs::Nested m_rhs;
+};
+
 namespace FMCA {
-template <typename SparseMatrix = Eigen::SparseMatrix<FMCA::Scalar>>
 class H2MatrixKernelSolver {
  public:
   using Interpolator = TotalDegreeInterpolator;
-  using SampletInterpolator = MonomialInterpolator;
   using Moments = NystromMoments<Interpolator>;
-  using SampletMoments = NystromSampletMoments<SampletInterpolator>;
-  using MatrixEvaluator = NystromEvaluator<Moments, FMCA::CovarianceKernel>;
-  using SampletTree = H2SampletTree<ClusterTree>;
-#ifdef CHOLMOD_SUPPORT
-  using Cholesky = Eigen::CholmodSupernodalLLT<SparseMatrix, Eigen::Upper>;
-#elif METIS_SUPPORT
-  using Cholesky = Eigen::SimplicialLDLT<SparseMatrix, Eigen::Upper,
-                                         Eigen::MetisOrdering<int>>;
-#else
-  using Cholesky = Eigen::SimplicialLDLT<SparseMatrix, Eigen::Upper>;
-#endif
-
+  using MatrixEvaluator = NystromEvaluator<Moments, CovarianceKernel>;
+  using H2ClusterTree = FMCA::H2ClusterTree<FMCA::ClusterTree>;
+  using H2Matrix = FMCA::H2Matrix<H2ClusterTree, CompareCluster>;
+  using CG = Eigen::ConjugateGradient<MatrixReplacement<H2Matrix>,
+                                      Eigen::Lower | Eigen::Upper,
+                                      Eigen::IdentityPreconditioner>;
   H2MatrixKernelSolver() noexcept {}
 
   H2MatrixKernelSolver(const H2MatrixKernelSolver& other) = delete;
@@ -42,44 +117,33 @@ class H2MatrixKernelSolver {
   }
 
   H2MatrixKernelSolver(const CovarianceKernel& kernel, const Matrix& P,
-                      Index dtilde, Scalar eta = 0., Scalar threshold = 0.,
-                      Scalar ridgep = 0.) noexcept {
+                       Index dtilde, Scalar eta = 0., Scalar threshold = 0.,
+                       Scalar ridgep = 0.) noexcept {
     init(kernel, P, dtilde, eta, threshold, ridgep);
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
-  void init(const CovarianceKernel& kernel, const Matrix& P, Index dtilde,
+  void init(const CovarianceKernel& kernel, const Matrix& P, Index mpole_deg,
             Scalar eta = 0., Scalar threshold = 0., Scalar ridgep = 0.) {
     // set parameters
     kernel_ = kernel;
-    dtilde_ = dtilde > 0 ? dtilde : 1;
-    mpole_deg_ = dtilde_ > 1 ? (2 * (dtilde_ - 1)) : 1;
+    mpole_deg_ = mpole_deg;
     eta_ = eta >= 0 ? eta : 0;
     threshold_ = threshold >= 0 ? threshold : 0;
     ridgep_ = ridgep >= 0 ? ridgep : 0;
     // init moments and samplet tree
     const Moments mom(P, mpole_deg_);
-    const SampletMoments smom(P, dtilde_ - 1);
-    hst_.init(mom, smom, 0, P);
-    const Vector minvec = minDistanceVector(hst_, P);
+    hct_.init(mom, 0, P);
+    const Vector minvec = minDistanceVector(hct_, P);
     fill_distance_ = minvec.maxCoeff();
     separation_radius_ = minvec.minCoeff();
-    // compress kernel
-
     return;
   }
 
   void compress(const Matrix& P) {
     const Moments mom(P, mpole_deg_);
-    compressor_.init(hst_, eta_, FMCA_ZERO_TOLERANCE);
     const MatrixEvaluator mat_eval(mom, kernel_);
-    compressor_.compress(mat_eval);
-    compressor_.triplets();
-    const auto& trips = compressor_.aposteriori_triplets_fast(threshold_);
-    K_.resize(hst_.block_size(), hst_.block_size());
-    K_.setFromTriplets(trips.begin(), trips.end());
-    if (ridgep_ > 0) K_.diagonal() = K_.diagonal().array() + ridgep_;
-    K_.makeCompressed();
+    K_.computeH2Matrix(hct_, hct_, mat_eval, eta_);
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
@@ -91,11 +155,9 @@ class H2MatrixKernelSolver {
       Index index = rand() % K_.cols();
       x.setZero();
       x(index) = 1;
-      Vector col = kernel_.eval(P, P.col(hst_.indices()[index]));
-      y1 = hst_.toClusterOrder(col);
-      x = hst_.sampletTransform(x);
-      y2 = K_.template selfadjointView<Eigen::Upper>() * x;
-      y2 = hst_.inverseSampletTransform(y2);
+      Vector col = kernel_.eval(P, P.col(hct_.indices()[index]));
+      y1 = hct_.toClusterOrder(col);
+      y2 = K_ * x;
       err += (y1 - y2).squaredNorm();
       nrm += y1.squaredNorm();
     }
@@ -103,30 +165,34 @@ class H2MatrixKernelSolver {
   }
 
   //////////////////////////////////////////////////////////////////////////////
-  void factorize() { llt_.compute(K_); }
-
-  //////////////////////////////////////////////////////////////////////////////
   // getter
-  const SparseMatrix& K() const { return K_; }
+  const H2Matrix& K() const { return K_; }
   const Scalar fill_distance() const { return fill_distance_; }
   const Scalar separation_radius() const { return separation_radius_; }
   //////////////////////////////////////////////////////////////////////////////
+  Vector solveIteratively(const Vector& rhs, Scalar threshold_CG = 1e-6) {
+    Vector rhs_copy = rhs;
+    rhs_copy = hct_.toClusterOrder(rhs_copy);
+    Vector sol;
+    CG solver;
+    solver.setTolerance(threshold_CG);
+    solver.compute(MatrixReplacement<H2Matrix>(K_));
+    sol = solver.solve(rhs_copy);
+    std::cout << "error: " << (K_ * sol - rhs).norm() / rhs.norm() << std::endl;
+    sol = hct_.toNaturalOrder(sol);
+    return sol;
+  }
+  //////////////////////////////////////////////////////////////////////////////
   Matrix solve(const Matrix& rhs) {
-    Matrix sol = hst_.toClusterOrder(rhs);
-    sol = hst_.sampletTransform(sol);
-    sol = llt_.solve(sol);
-    sol = hst_.inverseSampletTransform(sol);
-    sol = hst_.toNaturalOrder(sol);
+    Matrix sol = hct_.toClusterOrder(rhs);
+    sol = hct_.toNaturalOrder(sol);
     return sol;
   }
 
  private:
-  internal::SampletMatrixCompressor<SampletTree> compressor_;
-  SampletTree hst_;
+  H2Matrix K_;
+  H2ClusterTree hct_;
   CovarianceKernel kernel_;
-  Cholesky llt_;
-  SparseMatrix K_;
-  Scalar dtilde_;
   Scalar mpole_deg_;
   Scalar eta_;
   Scalar threshold_;
