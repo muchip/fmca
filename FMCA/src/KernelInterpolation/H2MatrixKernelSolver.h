@@ -14,22 +14,22 @@
 #define FMCA_KERNELINTERPOLATION_H2MATRIXKERNELSOLVER_H_
 
 template <typename H2Matrix>
-class MatrixReplacement;
+class EigenWrapper;
 
 template <typename H2Matrix, typename Rhs>
-class MatrixReplacement_ProductReturnType;
+class EigenWrapper_ProductReturnType;
 
 namespace Eigen {
 namespace internal {
 
 // Traits for the wrapper, inheriting from SparseMatrix traits for compatibility
 template <typename H2Matrix>
-struct traits<MatrixReplacement<H2Matrix>>
+struct traits<EigenWrapper<H2Matrix>>
     : Eigen::internal::traits<Eigen::SparseMatrix<double>> {};
 
 // Traits for the product return type, templated on H2Matrix and Rhs
 template <typename H2Matrix, typename Rhs>
-struct traits<MatrixReplacement_ProductReturnType<H2Matrix, Rhs>> {
+struct traits<EigenWrapper_ProductReturnType<H2Matrix, Rhs>> {
   typedef Eigen::Matrix<typename Rhs::Scalar, Eigen::Dynamic,
                         Rhs::ColsAtCompileTime>
       ReturnType;
@@ -39,7 +39,7 @@ struct traits<MatrixReplacement_ProductReturnType<H2Matrix, Rhs>> {
 }  // namespace Eigen
 
 template <typename H2Matrix>
-class MatrixReplacement : public Eigen::EigenBase<MatrixReplacement<H2Matrix>> {
+class EigenWrapper : public Eigen::EigenBase<EigenWrapper<H2Matrix>> {
  public:
   typedef double Scalar;
   typedef double RealScalar;
@@ -51,36 +51,37 @@ class MatrixReplacement : public Eigen::EigenBase<MatrixReplacement<H2Matrix>> {
     RowsAtCompileTime = Eigen::Dynamic,
     MaxColsAtCompileTime = Eigen::Dynamic,
     MaxRowsAtCompileTime = Eigen::Dynamic,
-    Flags = Eigen::ColMajor | Eigen::DirectAccessBit | Eigen::LvalueBit
   };
-  static constexpr bool IsRowMajor = (Flags & Eigen::RowMajorBit) != 0;
+  static constexpr bool IsRowMajor = false;
 
-  explicit MatrixReplacement(const H2Matrix& h2mat) : h2mat_(h2mat) {}
+  explicit EigenWrapper(const H2Matrix& h2mat, const FMCA::Scalar ridge = 0.)
+      : h2mat_(h2mat), ridge_(ridge >= 0. ? ridge : 0.) {}
 
   const H2Matrix& matrix() const { return h2mat_; }
+  const FMCA::Scalar& ridgep() const { return ridge_; }
   Index rows() const { return h2mat_.rows(); }
   Index cols() const { return h2mat_.cols(); }
 
   template <typename Rhs>
-  MatrixReplacement_ProductReturnType<H2Matrix, Rhs> operator*(
+  EigenWrapper_ProductReturnType<H2Matrix, Rhs> operator*(
       const Eigen::MatrixBase<Rhs>& x) const {
-    return MatrixReplacement_ProductReturnType<H2Matrix, Rhs>(*this,
-                                                              x.derived());
+    return EigenWrapper_ProductReturnType<H2Matrix, Rhs>(*this, x.derived());
   }
 
  private:
   const H2Matrix& h2mat_;
+  const FMCA::Scalar ridge_;
 };
 
 template <typename H2Matrix, typename Rhs>
-class MatrixReplacement_ProductReturnType
+class EigenWrapper_ProductReturnType
     : public Eigen::ReturnByValue<
-          MatrixReplacement_ProductReturnType<H2Matrix, Rhs>> {
+          EigenWrapper_ProductReturnType<H2Matrix, Rhs>> {
  public:
-  typedef typename MatrixReplacement<H2Matrix>::Index Index;
+  typedef typename EigenWrapper<H2Matrix>::Index Index;
 
-  MatrixReplacement_ProductReturnType(const MatrixReplacement<H2Matrix>& matrix,
-                                      const Rhs& rhs)
+  EigenWrapper_ProductReturnType(const EigenWrapper<H2Matrix>& matrix,
+                                 const Rhs& rhs)
       : m_matrix(matrix), m_rhs(rhs) {}
 
   Index rows() const { return m_matrix.rows(); }
@@ -89,10 +90,11 @@ class MatrixReplacement_ProductReturnType
   template <typename Dest>
   void evalTo(Dest& y) const {
     y = m_matrix.matrix() * m_rhs.eval();
+    if (m_matrix.ridgep() > 0) y += m_matrix.ridgep() * m_rhs;
   }
 
  protected:
-  const MatrixReplacement<H2Matrix>& m_matrix;
+  const EigenWrapper<H2Matrix>& m_matrix;
   typename Rhs::Nested m_rhs;
 };
 
@@ -104,7 +106,7 @@ class H2MatrixKernelSolver {
   using MatrixEvaluator = NystromEvaluator<Moments, CovarianceKernel>;
   using H2ClusterTree = FMCA::H2ClusterTree<FMCA::ClusterTree>;
   using H2Matrix = FMCA::H2Matrix<H2ClusterTree, CompareCluster>;
-  using CG = Eigen::ConjugateGradient<MatrixReplacement<H2Matrix>,
+  using CG = Eigen::ConjugateGradient<EigenWrapper<H2Matrix>,
                                       Eigen::Lower | Eigen::Upper,
                                       Eigen::IdentityPreconditioner>;
   H2MatrixKernelSolver() noexcept {}
@@ -175,10 +177,14 @@ class H2MatrixKernelSolver {
     rhs_copy = hct_.toClusterOrder(rhs_copy);
     Vector sol;
     CG solver;
+    EigenWrapper<H2Matrix> EigenH2(K_, ridgep_);
     solver.setTolerance(threshold_CG);
-    solver.compute(MatrixReplacement<H2Matrix>(K_));
+    solver.compute(EigenH2);
     sol = solver.solve(rhs_copy);
-    std::cout << "error: " << (K_ * sol - rhs).norm() / rhs.norm() << std::endl;
+    std::cout << "error: "
+              << (EigenH2 * sol - rhs_copy).norm() / rhs_copy.norm()
+              << std::endl
+              << "iterations: " << solver.iterations() << std::endl;
     sol = hct_.toNaturalOrder(sol);
     return sol;
   }

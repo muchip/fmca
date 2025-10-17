@@ -17,17 +17,19 @@
 #include "../FMCA/src/KernelInterpolation/H2MatrixKernelSolver.h"
 #include "../FMCA/src/util/Tictoc.h"
 
-#define NPTS 1000
-#define DIM 3
+#define NPTS 10000
+#define DIM 2
 #define MPOLE_DEG 3
 
 int main() {
   FMCA::Tictoc T;
-  const FMCA::CovarianceKernel function("EXPONENTIAL", 2.);
+  const FMCA::CovarianceKernel function("EXPONENTIAL", 1e-2);
   const FMCA::Matrix P = FMCA::Matrix::Random(DIM, NPTS);
-  FMCA::H2MatrixKernelSolver h2ks(function, P, 3, 0.5);
+  FMCA::H2MatrixKernelSolver h2ks(function, P, 4, 0.5);
   h2ks.compress(P);
   h2ks.K().statistics();
+  std::cout << h2ks.fill_distance() << " " << h2ks.separation_radius()
+            << std::endl;
   std::cout << "compression error: " << h2ks.compressionError(P) << std::endl;
   FMCA::Vector rhs(NPTS);
   rhs.setRandom();
