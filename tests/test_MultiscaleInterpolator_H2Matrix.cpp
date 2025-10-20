@@ -7,8 +7,8 @@
 #include <vector>
 
 #include "../FMCA/CovarianceKernel"
-#include "../FMCA/Samplets"
 #include "../FMCA/KernelInterpolation"
+#include "../FMCA/Samplets"
 #include "../FMCA/src/util/Tictoc.h"
 
 #define DIM 2
@@ -59,13 +59,10 @@ Matrix generateUniformGrid(int n) {
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-template<typename KernelSolver>
+template <typename KernelSolver>
 void runMultigridTest(Scalar nu) {
-  std::cout << "======== Running Multigrid Test with nu = " << nu
-            << " ========" << std::endl;
-
   ////////////////////////////// Points
-  std::vector<int> gridSizes = {9, 25, 81, 289, 1089, 4225, 16641, 66049};
+  std::vector<int> gridSizes = {9, 25, 81, 289, 1089, 4225, 16641, 66049, 262145};
   std::vector<Matrix> P_levels;
   for (int size : gridSizes) {
     P_levels.push_back(generateUniformGrid(size));
@@ -79,16 +76,8 @@ void runMultigridTest(Scalar nu) {
   const Scalar mpole_deg = 2 * (dtilde - 1);
   const std::string kernel_type = "matern52";
   const Scalar ridgep = 0;
-  const bool preconditioner = true;
+  const bool preconditioner = false;
   Scalar cg_threshold = 1e-6;
-
-  std::cout << "Parameters:" << std::endl;
-  std::cout << "- eta:              " << eta << std::endl;
-  std::cout << "- dtilde:           " << dtilde << std::endl;
-  std::cout << "- threshold a post: " << threshold << std::endl;
-  std::cout << "- mpole_deg:        " << mpole_deg << std::endl;
-  std::cout << "- kernel_type:      " << kernel_type << std::endl;
-  std::cout << "- nu:               " << nu << std::endl;
 
   ////////////////////////////// Multiscale Interpolator
   MultiscaleInterpolator<KernelSolver> MSI;
@@ -108,19 +97,14 @@ void runMultigridTest(Scalar nu) {
   ////////////////////////////// Summary results
   std::vector<int> levels;
   std::vector<int> N;
-  std::vector<Scalar> compression_time;  
-  std::vector<Scalar> cg_time;        
-  std::vector<int> iterationsCG;      
+  std::vector<Scalar> compression_time;
+  std::vector<Scalar> cg_time;
+  std::vector<int> iterationsCG;
   std::vector<size_t> anz;
 
   ////////////////////////////// Diagonal Loop
   Tictoc timer;
   for (int l = 0; l < num_levels; ++l) {
-    std::cout << std::endl;
-    std::cout << "-------- LEVEL " << (l + 1) << " --------" << std::endl;
-    std::cout << "Fill distance: " << MSI.fillDistance(l) << std::endl;
-    std::cout << "Number of points: " << MSI.points(l).cols() << std::endl;
-
     ////////////////////////////// Extra-Diagonal Loop
     for (int j = 0; j < l; ++j) {
       Scalar sigma_B = nu * MSI.fillDistance(j);
@@ -132,49 +116,31 @@ void runMultigridTest(Scalar nu) {
       correction *= std::pow(sigma_B, -DIM);
       residuals[l] -= correction;
     }
-
     ////////////////////////////// Compress the diagonal block
     Scalar sigma_l = nu * MSI.fillDistance(l);
     CovarianceKernel kernel_l(kernel_type, sigma_l);
-    
     timer.tic();
     MSI.solver(l).compress(MSI.points(l), kernel_l);
     Scalar compress_time = timer.toc();
-
-    ////////////////////////////// Statistics
-    std::cout << "\nCompression Stats:" << std::endl;
-    std::cout << "- Compression time: " << compress_time << " s" << std::endl;
-    std::cout << "- ANZ (non-zeros per row): " << MSI.solver(l).anz() << std::endl;
-    
-    // Calcola compression error se necessario
     Scalar comp_error = MSI.solver(l).compressionError(MSI.points(l), kernel_l);
-    std::cout << "- Compression error: " << comp_error << std::endl;
 
-    ////////////////////////////// Solver 
+    ////////////////////////////// Solver
     timer.tic();
-    Vector solution =
-        MSI.solver(l).solveIteratively(residuals[l], preconditioner, cg_threshold);
+    Vector solution = MSI.solver(l).solveIteratively(
+        residuals[l], preconditioner, cg_threshold);
     Scalar solver_time = timer.toc();
-    
+
     solution /= std::pow(sigma_l, -DIM);
     ALPHA[l] = solution;
-    
-    //// Stats
-    std::cout << "\nSolver Stats:" << std::endl;
-    std::cout << "- Iterations: " << MSI.solver(l).solver_iterations() << std::endl;
-    std::cout << "- Solver time: " << solver_time << " s" << std::endl;
-    
+
     levels.push_back(l + 1);
     N.push_back(MSI.points(l).cols());
     compression_time.push_back(compress_time);
     cg_time.push_back(solver_time);
     iterationsCG.push_back(MSI.solver(l).solver_iterations());
-    anz.push_back(MSI.solver(l).anz());
   }
 
   ////////////////////////////// Evaluation
-  std::cout << "\nEvaluating solution on " << Peval.cols() << " points..."
-            << std::endl;
   Vector exact_sol = evalFrankeFunction(Peval);
   Vector final_res = Vector::Zero(Peval.cols());
   std::vector<Scalar> l2_errors;
@@ -192,19 +158,15 @@ void runMultigridTest(Scalar nu) {
     Scalar linf_err = (final_res - exact_sol).cwiseAbs().maxCoeff();
     l2_errors.push_back(l2_err);
     linf_errors.push_back(linf_err);
-    std::cout << "======= Evaluation Level " << (l + 1)
-              << " =======" << std::endl;
-    std::cout << "- L2 error: " << l2_err << std::endl;
-    std::cout << "- Linf error: " << linf_err << std::endl;
-    std::cout << std::endl;
   }
 
   ////////////////////////////// Results Summary
   std::cout << "\n======== Results Summary ========" << std::endl;
   std::cout << std::left << std::setw(10) << "Level" << std::setw(10) << "N"
             << std::setw(15) << "CompressTime" << std::setw(15) << "CGTime"
-            << std::setw(10) << "IterCG" << std::setw(10) << "ANZ"
-            << std::setw(15) << "L2 Error" << std::setw(15) << "Linf Error"
+            << std::setw(10) << "IterCG" << std::setw(15)
+            << "L2 Error"                     
+            << std::setw(20) << "Linf Error"  
             << std::endl;
   for (size_t i = 0; i < levels.size(); ++i) {
     std::cout << std::left << std::setw(10) << levels[i] << std::setw(10)
@@ -212,22 +174,23 @@ void runMultigridTest(Scalar nu) {
               << compression_time[i] << std::setw(15) << std::fixed
               << std::setprecision(6) << cg_time[i] << std::setw(10)
               << iterationsCG[i]
-              << std::setw(10)
-              << static_cast<int>(anz[i])
-              << std::setw(15) << std::scientific << std::setprecision(6)
-              << l2_errors[i] << std::setw(15) << std::scientific
-              << std::setprecision(6) << linf_errors[i] << std::endl;
+              << std::setw(15)  
+              << std::scientific << std::setprecision(6) << l2_errors[i]
+              << std::setw(20)  
+              << std::scientific << std::setprecision(6) << linf_errors[i]
+              << std::endl;
   }
 }
 
 ////////////////////////////// MAIN
 int main() {
   // Test different nu values
-  std::vector<Scalar> nus = {1.0}; 
+  std::vector<Scalar> nus = {1.0};
 
   for (Scalar nu : nus) {
     runMultigridTest<SampletKernelSolver<>>(nu);
     std::cout << "\n\n";
+    runMultigridTest<H2MatrixKernelSolver>(nu);
   }
 
   return 0;

@@ -109,6 +109,10 @@ class H2MatrixKernelSolver {
   using CG = Eigen::ConjugateGradient<EigenWrapper<H2Matrix>,
                                       Eigen::Lower | Eigen::Upper,
                                       Eigen::IdentityPreconditioner>;
+  using PreconditionedCG = Eigen::ConjugateGradient<EigenWrapper<H2Matrix>,
+                                      Eigen::Lower | Eigen::Upper,
+                                      Eigen::IdentityPreconditioner>;
+
   H2MatrixKernelSolver() noexcept {}
 
   H2MatrixKernelSolver(const H2MatrixKernelSolver& other) = delete;
@@ -118,17 +122,16 @@ class H2MatrixKernelSolver {
     // std::vector
   }
 
-  H2MatrixKernelSolver(const CovarianceKernel& kernel, const Matrix& P,
+  H2MatrixKernelSolver(const Matrix& P,
                        Index dtilde, Scalar eta = 0., Scalar threshold = 0.,
                        Scalar ridgep = 0.) noexcept {
-    init(kernel, P, dtilde, eta, threshold, ridgep);
+    init(P, dtilde, eta, threshold, ridgep);
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
-  void init(const CovarianceKernel& kernel, const Matrix& P, Index mpole_deg,
+  void init(const Matrix& P, Index mpole_deg,
             Scalar eta = 0., Scalar threshold = 0., Scalar ridgep = 0.) {
     // set parameters
-    kernel_ = kernel;
     mpole_deg_ = mpole_deg;
     eta_ = eta >= 0 ? eta : 0;
     threshold_ = threshold >= 0 ? threshold : 0;
@@ -139,17 +142,20 @@ class H2MatrixKernelSolver {
     const Vector minvec = minDistanceVector(hct_, P);
     fill_distance_ = minvec.maxCoeff();
     separation_radius_ = minvec.minCoeff();
+    solver_iterations_ = 1;
     return;
   }
 
-  void compress(const Matrix& P) {
+  void compress(const Matrix& P, const CovarianceKernel& kernel) {
+    kernel_ = kernel;
     const Moments mom(P, mpole_deg_);
     const MatrixEvaluator mat_eval(mom, kernel_);
     K_.computeH2Matrix(hct_, hct_, mat_eval, eta_);
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
-  Scalar compressionError(const Matrix& P) const {
+  Scalar compressionError(const Matrix& P, 
+                          const CovarianceKernel& kernel) {
     Vector x(K_.cols()), y1(K_.rows()), y2(K_.rows());
     Scalar err = 0;
     Scalar nrm = 0;
@@ -171,25 +177,34 @@ class H2MatrixKernelSolver {
   const H2Matrix& K() const { return K_; }
   const Scalar fill_distance() const { return fill_distance_; }
   const Scalar separation_radius() const { return separation_radius_; }
+  const Index solver_iterations() const { return solver_iterations_; }
   //////////////////////////////////////////////////////////////////////////////
-  Vector solveIteratively(const Vector& rhs, Scalar threshold_CG = 1e-6) {
+  Vector solveIteratively(const Vector& rhs, bool CGwithPreconditioner = true,
+                        Scalar threshold_CG = 1e-6) {
     Vector rhs_copy = rhs;
     rhs_copy = hct_.toClusterOrder(rhs_copy);
     Vector sol;
-    CG solver;
-    EigenWrapper<H2Matrix> EigenH2(K_, ridgep_);
-    solver.setTolerance(threshold_CG);
-    solver.compute(EigenH2);
-    sol = solver.solve(rhs_copy);
-    std::cout << "error: "
-              << (EigenH2 * sol - rhs_copy).norm() / rhs_copy.norm()
-              << std::endl
-              << "iterations: " << solver.iterations() << std::endl;
+
+    if (!CGwithPreconditioner) {
+      CG solver;
+      EigenWrapper<H2Matrix> EigenH2(K_, ridgep_);
+      solver.setTolerance(threshold_CG);
+      solver.compute(EigenH2);
+      sol = solver.solve(rhs_copy);
+      solver_iterations_ = solver.iterations();
+    } else {
+      PreconditionedCG solver;
+      EigenWrapper<H2Matrix> EigenH2(K_, ridgep_);
+      solver.setTolerance(threshold_CG);
+      solver.compute(EigenH2);
+      sol = solver.solve(rhs_copy);
+      solver_iterations_ = solver.iterations();
+    }
     sol = hct_.toNaturalOrder(sol);
     return sol;
   }
   //////////////////////////////////////////////////////////////////////////////
-  Matrix solve(const Matrix& rhs) {
+  Matrix solveDirectly(const Matrix& rhs) {
     Matrix sol = hct_.toClusterOrder(rhs);
     sol = hct_.toNaturalOrder(sol);
     return sol;
@@ -205,6 +220,7 @@ class H2MatrixKernelSolver {
   Scalar ridgep_;
   Scalar fill_distance_;
   Scalar separation_radius_;
+  Index solver_iterations_;
 };
 }  // namespace FMCA
 

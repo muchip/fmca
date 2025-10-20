@@ -16,22 +16,6 @@
 namespace FMCA {
 
 //////////////////////////////////////////////////////////////////////////////
-struct CompressionStats {
-  Scalar time_compressor = 0.0;    // Total compression time
-  Scalar assembly_time = 0.0;      // Total assembly time
-  size_t anz = 0;                  // Number of a posteriori triplets per row
-  Scalar compression_error = 0.0;  // Relative compression error
-};
-
-//////////////////////////////////////////////////////////////////////////////
-struct SolverStats {
-  Scalar solver_time = 0.0;     // Total solver execution time
-  int iterations = 0;           // Number of iterations used
-  Scalar residual_error = 0.0;  // Final residual error
-};
-
-//////////////////////////////////////////////////////////////////////////////
-
 template <typename SparseMatrix = Eigen::SparseMatrix<FMCA::Scalar>>
 class SampletKernelSolver {
  public:
@@ -84,27 +68,22 @@ class SampletKernelSolver {
     const Vector minvec = minDistanceVector(hst_, P);
     fill_distance_ = minvec.maxCoeff();
     separation_radius_ = minvec.minCoeff();
-    // compress kernel
-
+    // reset iteration counter
+    solver_iterations_ = 1;
     return;
   }
 
   //////////////////////////////////////////////////////////////////////////////
   void compress(const Matrix& P, const CovarianceKernel& kernel) {
     kernel_ = kernel;
-    Tictoc timer;
     const Moments mom(P, mpole_deg_);
     compressor_.init(hst_, eta_, FMCA_ZERO_TOLERANCE);
     const MatrixEvaluator mat_eval(mom, kernel_);
-    timer.tic();
     compressor_.compress(mat_eval);
-    compression_stats_.time_compressor = timer.toc();
     compressor_.triplets();  // a priori compression
-    timer.tic();
     const auto& trips = compressor_.aposteriori_triplets_fast(
         threshold_);  // a posteriori compression
-    compression_stats_.assembly_time = timer.toc();
-    compression_stats_.anz = std::round(trips.size() / double(P.cols()));
+    anz_ = std::round(trips.size() / double(P.cols()));
     K_.resize(hst_.block_size(), hst_.block_size());
     K_.setFromTriplets(trips.begin(), trips.end());
     if (ridgep_ > 0) {
@@ -143,17 +122,13 @@ class SampletKernelSolver {
   void factorize() { llt_.compute(K_); }
 
   //////////////////////////////////////////////////////////////////////////////
-  Matrix solveCholesky(const Matrix& rhs) {
-    Tictoc timer;
+  Matrix solveDirectly(const Matrix& rhs) {
     Matrix sol = hst_.toClusterOrder(rhs);
     sol = hst_.sampletTransform(sol);
-    timer.tic();
     sol = llt_.solve(sol);
-    solver_stats_.solver_time = timer.toc();
     sol = hst_.inverseSampletTransform(sol);
     sol = hst_.toNaturalOrder(sol);
-    solver_stats_.iterations = 1;        // Direct solver
-    solver_stats_.residual_error = 0.0;  // Direct solver
+    solver_iterations_ = 1;  // Direct solver has no iterations
     return sol;
   }
 #endif
@@ -161,7 +136,6 @@ class SampletKernelSolver {
   //////////////////////////////////////////////////////////////////////////////
   Vector solveIteratively(const Vector& rhs, bool CGwithPreconditioner = true,
                           Scalar threshold_CG = 1e-6) {
-    Tictoc timer;
     Vector rhs_copy = rhs;
     rhs_copy = hst_.toClusterOrder(rhs_copy);
     rhs_copy = hst_.sampletTransform(rhs_copy);
@@ -171,21 +145,15 @@ class SampletKernelSolver {
     if (!CGwithPreconditioner) {
       CG solver;
       solver.setTolerance(threshold_CG);
-      timer.tic();
       solver.compute(K_sym);
       sol = solver.solve(rhs_copy);
-      solver_stats_.solver_time = timer.toc();
-      solver_stats_.iterations = solver.iterations();
-      solver_stats_.residual_error = (K_sym * sol - rhs_copy).norm();
+      solver_iterations_ = solver.iterations();
     } else {
       PreconditionedCG solver;
       solver.setTolerance(threshold_CG);
-      timer.tic();
       solver.compute(K_sym);
       sol = solver.solve(rhs_copy);
-      solver_stats_.solver_time = timer.toc();
-      solver_stats_.iterations = solver.iterations();
-      solver_stats_.residual_error = (K_sym * sol - rhs_copy).norm();
+      solver_iterations_ = solver.iterations();
     }
     sol = hst_.inverseSampletTransform(sol);
     sol = hst_.toNaturalOrder(sol);
@@ -198,10 +166,8 @@ class SampletKernelSolver {
   const SampletTree& getSampletTree() const { return hst_; }
   const Scalar fill_distance() const { return fill_distance_; }
   const Scalar separation_radius() const { return separation_radius_; }
-  const CompressionStats& getCompressionStats() const {
-    return compression_stats_;
-  }
-  const SolverStats& getSolverStats() const { return solver_stats_; }
+  const size_t anz() const { return anz_; }
+  const Index solver_iterations() const { return solver_iterations_; }
 
  private:
   internal::SampletMatrixCompressor<SampletTree> compressor_;
@@ -219,8 +185,8 @@ class SampletKernelSolver {
   Scalar ridgep_;
   Scalar fill_distance_;
   Scalar separation_radius_;
-  CompressionStats compression_stats_;
-  SolverStats solver_stats_;
+  size_t anz_;
+  Index solver_iterations_;
 };
 }  // namespace FMCA
 
