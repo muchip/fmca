@@ -9,18 +9,21 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 ///
-#ifndef FMCA_CLUSTERING_CLUSTERTREE_H_
-#define FMCA_CLUSTERING_CLUSTERTREE_H_
+#ifndef FMCA_CLUSTERING_METISCLUSTERTREE_H_
+#define FMCA_CLUSTERING_METISCLUSTERTREE_H_
+
+#ifdef _METIS_H_
 
 namespace FMCA {
 
-struct ClusterTreeNode : public ClusterTreeNodeBase<ClusterTreeNode> {};
+struct MetisClusterTreeNode : public ClusterTreeNodeBase<MetisClusterTreeNode> {
+};
 
 namespace internal {
 template <>
-struct traits<ClusterTree> {
-  typedef ClusterTreeNode Node;
-  typedef ClusterSplitter::CardinalityBisection Splitter;
+struct traits<MetisClusterTree> {
+  typedef MetisClusterTreeNode Node;
+  typedef ClusterSplitter::GeometricBisection Splitter;
 };
 }  // namespace internal
 
@@ -30,8 +33,8 @@ struct traits<ClusterTree> {
  *         arbitrary dimensions. We always use a binary tree which can
  *         afterwards always be recombined into an 2^n tree.
  */
-struct ClusterTree : public ClusterTreeBase<ClusterTree> {
-  typedef ClusterTreeBase<ClusterTree> Base;
+struct MetisClusterTree : public ClusterTreeBase<MetisClusterTree> {
+  typedef ClusterTreeBase<MetisClusterTree> Base;
   // make base class methods visible
   using Base::appendSons;
   using Base::bb;
@@ -44,19 +47,24 @@ struct ClusterTree : public ClusterTreeBase<ClusterTree> {
   using Base::node;
   using Base::nSons;
   using Base::sons;
-  using initializer = internal::ClusterTreeInitializer<ClusterTree>;
+  using initializer = internal::ClusterTreeInitializer<MetisClusterTree>;
   //////////////////////////////////////////////////////////////////////////////
   // constructors
   //////////////////////////////////////////////////////////////////////////////
-  ClusterTree() {}
-  ClusterTree(const Matrix &P, Index min_csize = 1) { init(P, min_csize); }
+  MetisClusterTree() {}
+  template <typename Graph>
+  MetisClusterTree(const Graph& G, Index min_csize = 1) {
+    init(G, min_csize);
+  }
   //////////////////////////////////////////////////////////////////////////////
   // implementation of init
   //////////////////////////////////////////////////////////////////////////////
-  void init(const Matrix &P, Index min_csize = 1) {
-    initializer::init(*this, min_csize, P);
+  template <typename Graph>
+  void init(const Graph& G, Index min_csize = 1) {
+    initializer::init(*this, min_csize, G);
   }
 };
 
 }  // namespace FMCA
+#endif
 #endif

@@ -49,10 +49,69 @@ struct GeometricBisection {
   }
 };
 
+struct GeometricKDSplitting {
+  static std::string splitterName() { return "GeometricKDSplitting"; }
+  template <class ChildVector>
+  void operator()(const Matrix &P, ChildVector &children) const {
+    const auto &parent = children[0].dad().node();
+    Index num_children = children.size();
+
+    // compute the pivot in each dimension
+    const Index d = P.rows();
+    std::vector<Scalar> pivots(d);
+    for (Index i = 0; i < d; ++i) {
+      pivots[i] = parent.bb_(i, 0) + parent.bb_(i, 2) * 0.5;
+    }
+
+    // initialize the children's bounding boxes and then modify them based on
+    // the binary representation
+    for (Index child_idx = 0; child_idx < num_children; ++child_idx) {
+      children[child_idx].node().bb_ = parent.bb_;
+      for (Index dim = 0; dim < d; ++dim) {
+        bool upper_half = (child_idx >> dim) & 1;
+        children[child_idx].node().bb_(dim, 2) *=
+            0.5;  // halve the bb dimension
+        if (upper_half) {
+          children[child_idx].node().bb_(dim, 0) = pivots[dim];
+        } else {
+          children[child_idx].node().bb_(dim, 1) = pivots[dim];
+        }
+      }
+    }
+
+    // points cluster assignment, create k temporary arrays
+    std::vector<std::vector<Index>> child_indices(num_children);
+    Index *parent_idcs = parent.indices_.get();
+    Index parent_starting_index = parent.indices_begin_;
+
+    for (Index i = 0; i < parent.block_size_; ++i) {
+      Index point_idx = parent_idcs[parent_starting_index + i];
+      Index child_idx = 0;
+      for (Index dim = 0; dim < d; ++dim) {
+        if (P(dim, point_idx) > pivots[dim]) {
+          child_idx |= (1 << dim);
+        }
+      }
+      child_indices[child_idx].push_back(point_idx);
+    }
+
+    Index current_starting_points = parent.indices_begin_;
+    for (Index child_idx = 0; child_idx < num_children; ++child_idx) {
+      children[child_idx].node().block_size_ = child_indices[child_idx].size();
+      children[child_idx].node().indices_begin_ = current_starting_points;
+      // copy indices back to the shared array
+      for (Index i = 0; i < children[child_idx].node().block_size_; ++i) {
+        parent_idcs[current_starting_points + i] = child_indices[child_idx][i];
+      }
+      current_starting_points += children[child_idx].node().block_size_;
+    }
+  }
+};
+
 struct CoordinateCompare {
   const Matrix &P_;
   Eigen::Index cmp_;
-  CoordinateCompare(const Matrix &P, Index cmp) : P_(P), cmp_(cmp){};
+  CoordinateCompare(const Matrix &P, Index cmp) : P_(P), cmp_(cmp) {};
 
   bool operator()(Index i, Index &j) { return P_(cmp_, i) < P_(cmp_, j); }
 };
@@ -82,7 +141,7 @@ struct CardinalityBisection {
 
 struct ArrayCompare {
   const Vector &v_;
-  ArrayCompare(const Vector &v) : v_(v){};
+  ArrayCompare(const Vector &v) : v_(v) {};
   bool operator()(Index i, Index &j) { return v_(i) < v_(j); }
 };
 
@@ -126,7 +185,7 @@ struct RandomProjection {
     const Scalar delta = 6. *
                          (2. * Scalar(std::rand()) / Scalar(RAND_MAX) - 1) *
                          max_dist / sqrtD;
-    const Scalar medpdelta = median + delta;
+    const Scalar medpdelta = median;  // + delta;
     // use that we already sorted the array, so we can determine the
     // splitting point using binary search
     Index split_bsize = 0;

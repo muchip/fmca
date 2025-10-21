@@ -18,24 +18,24 @@
 #include "../FMCA/src/Samplets/samplet_matrix_compressor.h"
 #include "../FMCA/src/util/Tictoc.h"
 
-#define NPTS 100000
-#define DIM 2
+#define NPTS 1000000
+#define DIM 10
 
 using Interpolator = FMCA::TotalDegreeInterpolator;
 using SampletInterpolator = FMCA::MonomialInterpolator;
 using Moments = FMCA::NystromMoments<Interpolator>;
-using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
+using SampletMoments = FMCA::MinNystromSampletMoments<SampletInterpolator>;
 using MatrixEvaluator = FMCA::NystromEvaluator<Moments, FMCA::CovarianceKernel>;
 using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
 int main() {
   FMCA::Tictoc T;
-  const FMCA::CovarianceKernel function("MaternNu", 1., 1., .5);
+  const FMCA::CovarianceKernel function("EXPONENTIAL", 1.);
   const FMCA::Matrix P = 0.5 * (FMCA::Matrix::Random(DIM, NPTS).array() + 1);
-  const FMCA::Scalar threshold = 1e-8;
+  const FMCA::Scalar threshold = 1e-3;
   const FMCA::Scalar eta = 0.5;
 
-  for (int dtilde = 2; dtilde <= 6; ++dtilde) {
+  for (int dtilde = 2; dtilde <= 5; ++dtilde) {
     const FMCA::Index mpole_deg = 2 * (dtilde - 1);
     const Moments mom(P, mpole_deg);
     const MatrixEvaluator mat_eval(mom, function);
@@ -44,8 +44,10 @@ int main() {
     std::cout << "eta:                          " << eta << std::endl;
     const SampletMoments samp_mom(P, dtilde - 1);
     H2SampletTree hst(mom, samp_mom, 0, P);
+    FMCA::clusterTreeStatistics(hst, P);
     T.tic();
-    FMCA::internal::SampletMatrixCompressor<H2SampletTree> Scomp;
+    FMCA::internal::SampletMatrixCompressor<H2SampletTree, FMCA::CompareClusterStrict>
+        Scomp;
     Scomp.init(hst, eta, 100 * FMCA_ZERO_TOLERANCE);
     T.toc("planner:                     ");
     T.tic();

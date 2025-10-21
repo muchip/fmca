@@ -20,6 +20,7 @@ class CovarianceKernel {
   CovarianceKernel(const CovarianceKernel &other) {
     kernel_ = other.kernel_;
     ktype_ = other.ktype_;
+    distance_ = other.distance_;
     l_ = other.l_;
     c_ = other.c_;
     nu_ = other.nu_;
@@ -28,6 +29,8 @@ class CovarianceKernel {
   CovarianceKernel(CovarianceKernel &&other) {
     kernel_ = other.kernel_;
     ktype_ = other.ktype_;
+    distance_ = other.distance_;
+
     l_ = other.l_;
     c_ = other.c_;
     nu_ = other.nu_;
@@ -36,6 +39,8 @@ class CovarianceKernel {
   CovarianceKernel &operator=(CovarianceKernel other) {
     std::swap(kernel_, other.kernel_);
     std::swap(ktype_, other.ktype_);
+    std::swap(distance_, other.distance_);
+
     std::swap(l_, other.l_);
     std::swap(c_, other.c_);
     std::swap(nu_, other.nu_);
@@ -122,12 +127,30 @@ class CovarianceKernel {
       };
     else
       assert(false && "desired kernel not implemented");
+    // use Euclidean distance by default
+    setDistanceType("EUCLIDEAN");
+  }
+
+  void setDistanceType(const std::string &dist_type) {
+    for (auto &chr : ktype_) chr = (char)toupper(chr);
+
+    if (dist_type == "EUCLIDEAN") {
+      distance_ = [](const Vector &x, const Vector &y) {
+        return (x - y).norm();
+      };
+    } else if (dist_type == "GEODESIC") {
+      distance_ = [](const Vector &x, const Vector &y) {
+        return SphereClusterTree::geodesicDistance(x, y);
+      };
+    } else
+      assert(false && "desired distance not implemented");
+    return;
   }
 
   template <typename derived, typename otherDerived>
   Scalar operator()(const Eigen::MatrixBase<derived> &x,
                     const Eigen::MatrixBase<otherDerived> &y) const {
-    return kernel_((x - y).norm());
+    return kernel_(distance_(x, y));
   }
 
   Matrix eval(const Matrix &PR, const Matrix &PC) const {
@@ -152,6 +175,7 @@ class CovarianceKernel {
  private:
   // member variables
   std::function<Scalar(Scalar)> kernel_;
+  std::function<Scalar(const Vector &, const Vector &)> distance_;
   std::string ktype_;
   Scalar l_;
   Scalar c_;

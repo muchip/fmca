@@ -13,18 +13,33 @@
 #include <iostream>
 
 #include "../FMCA/Clustering"
+//
 #include "../FMCA/src/util/IO.h"
 #include "../FMCA/src/util/Tictoc.h"
-
-#define DIM 3
-#define NPTS 10000000
+#include "../FMCA/src/util/uniformSphericalPoints.h"
 
 int main() {
+  constexpr FMCA::Index npts = 1000000;
   FMCA::Tictoc T;
-
-  FMCA::Scalar fill_distance = 0;
-  FMCA::Scalar separation_radius = FMCA_INF;
-  const FMCA::Matrix P = Eigen::MatrixXd::Random(DIM, NPTS);
+  const FMCA::Matrix P = FMCA::uniformSphericalPoints(npts, 0);
+  const FMCA::SphereClusterTree ct(P, 100);
+  FMCA::Matrix cs(3, npts);
+  FMCA::Vector colors(npts);
+  FMCA::Index k = 0;
+  for (const auto &it : ct) {
+    if (it.level() == 7) {
+      if (it.block_size())
+        cs.col(k++) = it.center();
+      else
+        std::cout << "empty cluster\n";
+      for (FMCA::Index i = 0; i < it.block_size(); ++i)
+        colors(it.indices()[i]) = it.radius();
+    }
+  }
+  FMCA::IO::plotPointsColor("pts.vtk", P, colors);
+  cs.conservativeResize(3, k);
+  FMCA::IO::plotPoints("centers.vtk", cs);
+#if 0
 #if 0
 #pragma omp parallel for
   for (auto j = 0; j < P.cols(); ++j) {
@@ -57,4 +72,5 @@ int main() {
   }
   T.toc("construction of 10 cluster trees: ");
   return 0;
+#endif
 }
