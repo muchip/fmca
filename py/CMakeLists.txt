@@ -39,6 +39,14 @@ add_custom_command(TARGET FMCA POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy
 ${CMAKE_SOURCE_DIR}/py/FMCA_SampletAdaptiveClustering.ipynb
 ${CMAKE_CURRENT_BINARY_DIR}/FMCA_SampletAdaptiveClustering.ipynb)
 
+add_custom_command(TARGET FMCA POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy
+${CMAKE_SOURCE_DIR}/py/FMCA_WedgeletCompression.ipynb
+${CMAKE_CURRENT_BINARY_DIR}/FMCA_WedgeletCompression.ipynb)
+
+add_custom_command(TARGET FMCA POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy
+${CMAKE_SOURCE_DIR}/py/LuganoMuensterSmall.png
+${CMAKE_CURRENT_BINARY_DIR}/LuganoMuensterSmall.png)
+
 target_link_libraries(FMCA PUBLIC pybind11::module)
 
 

@@ -27,6 +27,7 @@ struct WedgeletTreeNodeDataFields {
   Index dim_;
   Index deg_;
   Matrix C_;
+  Scalar err_;
 };
 
 template <typename Derived>

@@ -22,8 +22,10 @@
 int main() {
   FMCA::Tictoc T;
   const FMCA::Matrix P = Eigen::MatrixXd::Random(DIM, NPTS);
-  const FMCA::Matrix F = Eigen::MatrixXd::Random(NPTS, 1);
-  FMCA::WedgeletTree<double> wt(P, F);
+  FMCA::Matrix F = Eigen::MatrixXd::Random(NPTS, 3);
+  std::cout << F.topRows(10) << std::endl << "......." << std::endl;
+  FMCA::WedgeletTree<double> wt(P, F, 2, 4);
+  std::cout << F.topRows(10) << std::endl;
   std::cout << wt.bb() << std::endl;
   FMCA::Index i = 0;
   for (const auto &it : wt) std::cout << i++ << " " << it.level() << std::endl;

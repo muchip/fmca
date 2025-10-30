@@ -57,13 +57,16 @@ class WedgeletTree : public WedgeletTreeBase<WedgeletTree<WedgeSplitter>> {
   // constructors
   //////////////////////////////////////////////////////////////////////////////
   WedgeletTree() {}
-  WedgeletTree(const Matrix &P, const Matrix &F, const Index unif_splits = 4) {
+  WedgeletTree(const Matrix &P, const Matrix &F, const Index q = 0,
+               const Index unif_splits = 4) {
     init(P, F, unif_splits);
   }
   //////////////////////////////////////////////////////////////////////////////
-  void init(const Matrix &P, const Matrix &F, const Index unif_splits = 4) {
+  void init(const Matrix &P, const Matrix &F, const Index q = 0,
+            const Index unif_splits = 4) {
     // init cluster tree first
     using Initializer = internal::ClusterTreeInitializer<ClusterTree>;
+
     Splitter split;
     // set up root node
     Initializer::init_BoundingBox_impl(*this, 0, P);
@@ -74,6 +77,7 @@ class WedgeletTree : public WedgeletTreeBase<WedgeletTree<WedgeSplitter>> {
     Index *indices = (*this).node().indices_.get();
     for (Index i = 0; i < (*this).block_size(); ++i) indices[i] = i;
 
+    std::priority_queue<std::pair<Scalar, WedgeletTree *>> tree_leafs;
     // use a DFS to construct adaptive wedgelet tree
     std::vector<WedgeletTree *> queue;
     queue.push_back(this);
@@ -91,14 +95,41 @@ class WedgeletTree : public WedgeletTreeBase<WedgeletTree<WedgeSplitter>> {
         }
         // split index set and set sons bounding boxes
         split(P, wt.sons(0).node(), wt.sons(1).node());
-        if (wt.level() == unif_splits - 1) {
-          // compute representation
-        }
-      } else {
-        // compute representation
 
-        // should I split?
-        if (split) {
+      } else if (wt.block_size()) {
+        // determine maximum possible polynomial degree
+        wt.node().dim_ = P.rows();
+        wt.node().deg_ = q;
+        while (binomialCoefficient(wt.node().dim_ + wt.node().deg_,
+                                   wt.node().deg_) > wt.block_size())
+          wt.node().deg_ -= 1;
+        // compute least square approximation in the cluster
+        MultiIndexSet<TotalDegree> idcs(wt.node().dim_, wt.node().deg_);
+        Matrix VT(idcs.index_set().size(), wt.block_size());
+        Matrix rhs(wt.block_size(), F.cols());
+        for (Index i = 0; i < wt.block_size(); ++i) {
+          VT.col(i) = internal::evalPolynomials(idcs, P.col(wt.indices()[i]));
+          rhs.row(i) = F.row(wt.indices()[i]);
+        }
+        Eigen::ColPivHouseholderQR<Matrix> qr;
+        qr.compute(VT.transpose());
+        wt.node().C_ = qr.solve(rhs);
+        // store error and leaf in the heap
+        Scalar err =
+            (rhs - VT.transpose() * wt.node().C_).squaredNorm() / rhs.size();
+        tree_leafs.push(std::make_pair(err, std::addressof(wt)));
+        // generate fake landmark index
+        FMCA::Vector mean(P.rows());
+        for (Index i = 0; i < wt.block_size(); ++i)
+          mean += P.col(wt.indices()[i]);
+        mean *= 1. / wt.block_size();
+        Scalar min_dist = FMCA_INF;
+        for (Index i = 0; i < wt.block_size(); ++i) {
+          const Scalar dist = (mean - P.col(wt.indices()[i])).norm();
+          if (dist < min_dist) {
+            wt.node().landmark_ = wt.indices()[i];
+            min_dist = dist;
+          }
         }
       }
     }

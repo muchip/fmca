@@ -21,7 +21,10 @@
 
 #include "src/util/ForwardDeclarations.h"
 #include "src/util/Macros.h"
+#include "src/util/MultiIndexSet.h"
+#include "src/util/BinomialCoefficient.h"
 
+#include "src/Interpolator/evalPolynomials.h"
 #include "src/Wedgelets/WedgeletTreeBase.h"
 #include "src/Wedgelets/WedgeletTree.h"
 #endif

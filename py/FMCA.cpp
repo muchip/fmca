@@ -25,6 +25,7 @@
 #include <FMCA/H2Matrix>
 #include <FMCA/LowRankApproximation>
 #include <FMCA/Samplets>
+#include <FMCA/Wedgelets>
 ////////////////////////////////////////////////////////////////////////////////
 namespace py = pybind11;
 // Samplets
@@ -49,7 +50,7 @@ using usMatrixEvaluator =
  *
  **/
 struct pySampletTree {
-  pySampletTree(){};
+  pySampletTree() {};
   pySampletTree(const FMCA::Matrix &P, FMCA::Index dtilde) {
     dtilde_ = dtilde > 0 ? dtilde : 1;
     p_ = 2 * (dtilde_ - 1);
@@ -112,13 +113,52 @@ struct pySampletTree {
 };
 
 /**
+ *  \brief wrapper class for the wedgelet transform
+ *
+ **/
+struct pyWedgeletTree {
+  pyWedgeletTree() {};
+  pyWedgeletTree(const FMCA::Matrix &P, const FMCA::Matrix &F,
+                 const FMCA::Index q = 0, const FMCA::Index unif_splits = 4) {
+    init(P, F, q, unif_splits);
+  }
+  void init(const FMCA::Matrix &P, const FMCA::Matrix &F, const FMCA::Index q,
+            const FMCA::Index unif_splits = 4) {
+    q_ = q;
+    unif_splits_ = unif_splits_;
+    std::cout << "P: " << P.rows() << "x" << P.cols() << " F: " << F.rows()
+              << "x" << F.cols() << " q: " << q << " splits: " << unif_splits
+              << std::endl;
+    WT_.init(P, F, q, unif_splits);
+  }
+
+  FMCA::Matrix landmarks(const FMCA::Matrix &P) const {
+    FMCA::Matrix retval(P.rows(), P.cols());
+    FMCA::Index i = 0;
+    for (const auto &it : WT_) {
+      if (!it.nSons() && it.block_size()) {
+        retval.col(i) = P.col(it.node().landmark_);
+        ++i;
+      }
+    }
+    std::cout << "non-empty leaves: " << i << std::endl;
+    retval.conservativeResize(retval.rows(), i);
+    return retval;
+  }
+
+  FMCA::WedgeletTree<double> WT_;
+  FMCA::Index q_;
+  FMCA::Index unif_splits_;
+};
+
+/**
  *  \brief wrapper class for a samplet tree based on a random projection tree
  *  (for convenience, we only use H2
  *         trees)
  *
  **/
 struct pySampletTreeRP {
-  pySampletTreeRP(){};
+  pySampletTreeRP() {};
   pySampletTreeRP(const FMCA::Matrix &P, FMCA::Index dtilde,
                   FMCA::Index seed = 0.) {
     dtilde_ = dtilde > 0 ? dtilde : 1;
@@ -368,6 +408,14 @@ PYBIND11_MODULE(FMCA, m) {
   pySampletTree_.def("adpativeTreeLeafPartition",
                      &pySampletTree::adaptiveTreeLeafPartition);
   pySampletTree_.def("coeff2indices", &pySampletTree::coeff2indices);
+  //
+  py::class_<pyWedgeletTree> pyWedgeletTree_(m, "WedgeletTree");
+  pyWedgeletTree_.def(py::init<>());
+  pyWedgeletTree_.def(py::init<const FMCA::Matrix &, const FMCA::Matrix &,
+                               FMCA::Index, FMCA::Index>());
+  pyWedgeletTree_.def("init", &pyWedgeletTree::init);
+  pyWedgeletTree_.def("landmarks", &pyWedgeletTree::landmarks);
+  //
   py::class_<pySampletTreeRP> pySampletTreeRP_(m, "SampletTreeRP");
   pySampletTreeRP_.def(py::init<>());
   pySampletTreeRP_.def(
