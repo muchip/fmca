@@ -1,0 +1,27 @@
+// This file is part of FMCA, the Fast Multiresolution Covariance Analysis
+// package.
+//
+// Copyright (c) 2025, Michael Multerer
+//
+// All rights reserved.
+//
+// This source code is subject to the GNU Affero General Public License v3.0
+// license and without any warranty, see <https://github.com/muchip/FMCA>
+// for further information.
+//
+#ifndef FMCA_WEDGELETS_MODULE_
+#define FMCA_WEDGELETS_MODULE_
+
+
+#include <Eigen/Dense>
+#include <Eigen/QR>
+#include <Eigen/SVD>
+
+#include "Clustering"
+
+#include "src/util/ForwardDeclarations.h"
+#include "src/util/Macros.h"
+
+#include "src/Wedgelets/WedgeletTreeBase.h"
+#include "src/Wedgelets/WedgeletTree.h"
+#endif

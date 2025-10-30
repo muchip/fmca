@@ -52,6 +52,9 @@ class H2ClusterTree;
 template <typename ClusterTreeType>
 class H2SampletTree;
 
+template <typename ClusterTreeSplitter>
+class WedgeletTree;
+
 template <typename Derived, typename ClusterComparison>
 struct H2Matrix;
 
@@ -67,6 +70,8 @@ struct SampletTreeNode;
 struct H2ClusterTreeNode;
 
 struct H2SampletTreeNode;
+
+struct WedgeletTreeNode;
 
 template <typename ClusterTreeType>
 struct H2MatrixNode;
