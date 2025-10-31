@@ -31,7 +31,8 @@ struct WedgeletTreeHelper {
     qr.compute(VT.transpose());
     retval = qr.solve(rhs);
     if (err != nullptr)
-      *err = (rhs - VT.transpose() * retval).squaredNorm() / rhs.size();
+      *err = (rhs - VT.transpose() * retval).squaredNorm() /
+             (block_size * F.cols());
     return retval;
   }
 };

@@ -20,20 +20,14 @@ namespace internal {
 template <typename WedgeSplitter>
 struct traits<WedgeletTree<WedgeSplitter>> {
   typedef WedgeletTreeNode Node;
-  typedef ClusterSplitter::CardinalityBisection Splitter;
+  typedef ClusterSplitter::RandomProjection Splitter;
 };
 }  // namespace internal
 
 /**
- *  \ingroup H2Matrix
- *  \brief The WedgeletTree class manages the cluster bases for a given
- *         ClusterTree.
- *
- *         The tree structure from the ClusterTree is replicated here. This
- *         was a design decision as a cluster tree per se is not related to
- *         cluster bases. Also note that we just use pointers to clusters here.
- *         Thus, if the cluster tree is mutated or goes out of scope, we get
- *         dangeling pointers!
+ *  \ingroup Wedgelets
+ *  \brief The WedgeletTree class manages wedgelets for an adaptively
+ *         constructed ClusterTree.
  */
 template <typename WedgeSplitter>
 class WedgeletTree : public WedgeletTreeBase<WedgeletTree<WedgeSplitter>> {
@@ -57,13 +51,12 @@ class WedgeletTree : public WedgeletTreeBase<WedgeletTree<WedgeSplitter>> {
   // constructors
   //////////////////////////////////////////////////////////////////////////////
   WedgeletTree() {}
-  WedgeletTree(const Matrix &P, const Matrix &F, const Index q = 0,
+  WedgeletTree(const Matrix &P, const Index q = 0,
                const Index unif_splits = 4) {
-    init(P, F, unif_splits);
+    init(P, unif_splits);
   }
   //////////////////////////////////////////////////////////////////////////////
-  void init(const Matrix &P, const Matrix &F, const Index q = 0,
-            const Index unif_splits = 5, const Scalar tol = 1e-2) {
+  void init(const Matrix &P, const Index unif_splits = 4) {
     // init cluster tree first
     using Initializer = internal::ClusterTreeInitializer<ClusterTree>;
 
@@ -77,8 +70,6 @@ class WedgeletTree : public WedgeletTreeBase<WedgeletTree<WedgeSplitter>> {
     Index *indices = (*this).node().indices_.get();
     for (Index i = 0; i < (*this).block_size(); ++i) indices[i] = i;
 
-    std::priority_queue<std::pair<Scalar, WedgeletTree *>> tree_leafs;
-    // use a DFS to construct inital tree
     std::vector<WedgeletTree *> queue;
     queue.push_back(this);
     while (queue.size()) {
@@ -95,44 +86,67 @@ class WedgeletTree : public WedgeletTreeBase<WedgeletTree<WedgeSplitter>> {
         }
         // split index set and set sons bounding boxes
         split(P, wt.sons(0).node(), wt.sons(1).node());
+      }
+    }
+  }
 
-      } else if (wt.block_size()) {
-        // determine maximum possible polynomial degree
-        wt.node().dim_ = P.rows();
-        wt.node().deg_ = q;
-        while (binomialCoefficient(wt.node().dim_ + wt.node().deg_,
-                                   wt.node().deg_) > wt.block_size())
-          wt.node().deg_ -= 1;
-        // compute least square approximation in the cluster
-        MultiIndexSet<TotalDegree> idcs(wt.node().dim_, wt.node().deg_);
+  Matrix landmarks(const FMCA::Matrix &P) const {
+    Matrix retval(P.rows(), P.cols());
+    Index i = 0;
+    for (const auto &it : *this) {
+      if (!it.nSons() && it.block_size()) {
+        retval.col(i) = P.col(it.node().landmark_);
+        ++i;
+      }
+    }
+    std::cout << "non-empty leaves: " << i << std::endl;
+    retval.conservativeResize(retval.rows(), i);
+    return retval;
+  }
+
+  void computeWedges(const Matrix &P, const Matrix &F, const Index q = 0,
+                     const Scalar tol = 1e-2) {
+    const Index dim = P.rows();
+    std::priority_queue<std::pair<Scalar, WedgeletTree *>> tree_leafs;
+
+    // init heap using current tree leafs
+    for (auto &it : *this) {
+      if (!it.nSons() && it.block_size()) {
+        it.node().dim_ = dim;
+        it.node().deg_ = q;
+        while (binomialCoefficient(dim + it.node().deg_, it.node().deg_) >
+               it.block_size())
+          it.node().deg_ -= 1;
+        MultiIndexSet<TotalDegree> idcs(dim, it.node().deg_);
         Scalar err = 0;
-        wt.node().C_ = WedgeletTreeHelper::computeLeastSquaresFit(
-            wt.indices(), wt.block_size(), P, F, idcs, &err);
-        // store error and leaf in the heap
-        tree_leafs.push(std::make_pair(err, std::addressof(wt)));
-        // generate fake landmark index
-        FMCA::Vector mean(P.rows());
-        for (Index i = 0; i < wt.block_size(); ++i)
-          mean += P.col(wt.indices()[i]);
-        mean *= 1. / wt.block_size();
+        it.node().C_ = WedgeletTreeHelper::computeLeastSquaresFit(
+            it.indices(), it.block_size(), P, F, idcs, &err);
+        it.node().err_ = err;
+        Vector mean(dim);
+        for (Index i = 0; i < it.block_size(); ++i)
+          mean += P.col(it.indices()[i]);
+        mean *= 1. / it.block_size();
         Scalar min_dist = FMCA_INF;
-        for (Index i = 0; i < wt.block_size(); ++i) {
-          const Scalar dist = (mean - P.col(wt.indices()[i])).norm();
+        for (Index i = 0; i < it.block_size(); ++i) {
+          const Scalar dist = (mean - P.col(it.indices()[i])).norm();
           if (dist < min_dist) {
-            wt.node().landmark_ = wt.indices()[i];
+            it.node().landmark_ = it.indices()[i];
             min_dist = dist;
           }
         }
+        std::cout << "initial leaf error: " << err << std::endl;
+        tree_leafs.push(std::make_pair(err, std::addressof(it)));
       }
     }
-    std::cout << "uniform refinement computed" << std::endl;
+    std::cout << "heap set up" << std::endl;
     // now adaptively refine the leaf with the biggest error
     while (tree_leafs.size() && tree_leafs.top().first > tol * tol) {
       WedgeletTree &wt = *(tree_leafs.top().second);
       Scalar err = tree_leafs.top().first;
-      std::cout << "node: " << tree_leafs.top().second << "err: " << err
-                << std::endl;
       tree_leafs.pop();
+      std::cout << "node: " << std::addressof(wt) << " err: " << err
+                << std::endl;
+
       Scalar split_error = FMCA_INF;
       Matrix C1;
       Matrix C2;
@@ -144,10 +158,18 @@ class WedgeletTree : public WedgeletTreeBase<WedgeletTree<WedgeSplitter>> {
       std::vector<Index> c2;
       Index lm2;
       const Index lm1 = wt.node().landmark_;
+      std::vector<Index> s_indices(wt.block_size());
+      {
+        for (Index i = 0; i < wt.block_size(); ++i)
+          s_indices[i] = wt.indices()[i];
+        std::mt19937 g(0);
+        std::shuffle(s_indices.begin(), s_indices.end(), g);
+      }
+      Index max_ids = wt.block_size() < 11 ? wt.block_size() : 11;
 #pragma omp parallel for schedule(dynamic)
-      for (Index i = 0; i < wt.block_size(); ++i)
-        if (wt.indices()[i] != lm1) {
-          const Index cur_lm2 = wt.indices()[i];
+      for (Index i = 0; i < max_ids; ++i)
+        if (s_indices[i] != lm1) {
+          const Index cur_lm2 = s_indices[i];
           std::vector<Index> cur_c1;
           std::vector<Index> cur_c2;
           cur_c1.reserve(wt.block_size());
@@ -160,27 +182,23 @@ class WedgeletTree : public WedgeletTreeBase<WedgeletTree<WedgeSplitter>> {
           Index cur_q2 = wt.node().deg_;
 
           for (Index j = 0; j < wt.block_size(); ++j) {
-            const Scalar dist1 = (P.col(lm1) - P.col(wt.indices()[j])).norm();
-            const Scalar dist2 =
-                (P.col(cur_lm2) - P.col(wt.indices()[j])).norm();
+            const Index idx = wt.indices()[j];
+            const Scalar dist1 = (P.col(lm1) - P.col(idx)).norm();
+            const Scalar dist2 = (P.col(cur_lm2) - P.col(idx)).norm();
             if (dist1 < dist2)
-              cur_c1.push_back(wt.indices()[j]);
+              cur_c1.push_back(idx);
             else
-              cur_c2.push_back(wt.indices()[j]);
+              cur_c2.push_back(idx);
           }
-          if (cur_c1.size()) {
-            while (binomialCoefficient(wt.node().dim_ + cur_q1, cur_q1) >
-                   cur_c1.size())
+          if (cur_c1.size() && cur_c2.size()) {
+            while (binomialCoefficient(dim + cur_q1, cur_q1) > cur_c1.size())
               cur_q1 -= 1;
-            MultiIndexSet<TotalDegree> idcs(wt.node().dim_, cur_q1);
+            MultiIndexSet<TotalDegree> idcs(dim, cur_q1);
             cur_C1 = WedgeletTreeHelper::computeLeastSquaresFit(
                 cur_c1.data(), cur_c1.size(), P, F, idcs, &cur_err1);
-          }
-          if (cur_c2.size()) {
-            while (binomialCoefficient(wt.node().dim_ + cur_q2, cur_q2) >
-                   cur_c2.size())
+            while (binomialCoefficient(dim + cur_q2, cur_q2) > cur_c2.size())
               cur_q2 -= 1;
-            MultiIndexSet<TotalDegree> idcs(wt.node().dim_, cur_q2);
+            idcs.init(dim, cur_q2);
             cur_C2 = WedgeletTreeHelper::computeLeastSquaresFit(
                 cur_c2.data(), cur_c2.size(), P, F, idcs, &cur_err2);
           }
@@ -200,8 +218,8 @@ class WedgeletTree : public WedgeletTreeBase<WedgeletTree<WedgeSplitter>> {
             }
           }
         }
-      // we have now determined the best possible split, split the leave if it
-      // reduces the error
+      // we have now determined the best possible split, split the leave if
+      // it reduces the error
       std::cout << err1 << " " << err2 << " " << wt.block_size() << " "
                 << c1.size() << " " << c2.size() << " " << wt.level()
                 << std::endl;
@@ -221,6 +239,8 @@ class WedgeletTree : public WedgeletTreeBase<WedgeletTree<WedgeSplitter>> {
         wt.sons(1).node().C_ = C2;
         wt.sons(0).node().landmark_ = lm1;
         wt.sons(1).node().landmark_ = lm2;
+        wt.sons(0).node().err_ = err1;
+        wt.sons(1).node().err_ = err2;
         wt.sons(0).node().block_size_ = c1.size();
         wt.sons(1).node().block_size_ = c2.size();
         wt.sons(1).node().indices_begin_ = wt.node().indices_begin_ + c1.size();

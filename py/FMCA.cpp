@@ -118,18 +118,21 @@ struct pySampletTree {
  **/
 struct pyWedgeletTree {
   pyWedgeletTree() {};
-  pyWedgeletTree(const FMCA::Matrix &P, const FMCA::Matrix &F,
-                 const FMCA::Index q = 0, const FMCA::Index unif_splits = 4) {
-    init(P, F, q, unif_splits);
+  pyWedgeletTree(const FMCA::Matrix &P, const FMCA::Index unif_splits = 4) {
+    init(P, unif_splits);
   }
-  void init(const FMCA::Matrix &P, const FMCA::Matrix &F, const FMCA::Index q,
-            const FMCA::Index unif_splits = 4) {
+  void init(const FMCA::Matrix &P, const FMCA::Index unif_splits = 4) {
+    unif_splits_ = unif_splits;
+    std::cout << "P: " << P.rows() << "x" << P.cols()
+              << " splits: " << unif_splits << std::endl;
+    WT_.init(P, unif_splits);
+  }
+
+  void computeWedges(const FMCA::Matrix &P, const FMCA::Matrix &F,
+                     const FMCA::Index q = 0, const FMCA::Scalar tol = 1e-2) {
     q_ = q;
-    unif_splits_ = unif_splits_;
-    std::cout << "P: " << P.rows() << "x" << P.cols() << " F: " << F.rows()
-              << "x" << F.cols() << " q: " << q << " splits: " << unif_splits
-              << std::endl;
-    WT_.init(P, F, q, unif_splits);
+    tol_ = tol;
+    WT_.computeWedges(P, F, q, tol);
   }
 
   FMCA::Matrix compress(const FMCA::Matrix &P, const FMCA::Matrix &F) const {
@@ -152,11 +155,18 @@ struct pyWedgeletTree {
 
   FMCA::Matrix landmarks(const FMCA::Matrix &P) const {
     FMCA::Matrix retval(P.rows(), P.cols());
+    FMCA::Vector hits(P.cols());
+    hits.setZero();
     FMCA::Index i = 0;
     for (const auto &it : WT_) {
       if (!it.nSons() && it.block_size()) {
         retval.col(i) = P.col(it.node().landmark_);
         ++i;
+        for (FMCA::Index j = 0; j < it.block_size(); ++j) {
+          assert(hits(it.indices()[j]) == 0 && "duplicate index");
+          hits(it.indices()[j]) = 1;
+        }
+        assert(hits.sum() == hits.size() && "missing index");
       }
     }
     std::cout << "non-empty leaves: " << i << std::endl;
@@ -165,6 +175,7 @@ struct pyWedgeletTree {
   }
 
   FMCA::WedgeletTree<double> WT_;
+  FMCA::Scalar tol_;
   FMCA::Index q_;
   FMCA::Index unif_splits_;
 };
@@ -429,11 +440,11 @@ PYBIND11_MODULE(FMCA, m) {
   //
   py::class_<pyWedgeletTree> pyWedgeletTree_(m, "WedgeletTree");
   pyWedgeletTree_.def(py::init<>());
-  pyWedgeletTree_.def(py::init<const FMCA::Matrix &, const FMCA::Matrix &,
-                               FMCA::Index, FMCA::Index>());
+  pyWedgeletTree_.def(py::init<const FMCA::Matrix &, FMCA::Index>());
   pyWedgeletTree_.def("init", &pyWedgeletTree::init);
   pyWedgeletTree_.def("landmarks", &pyWedgeletTree::landmarks);
   pyWedgeletTree_.def("compress", &pyWedgeletTree::compress);
+  pyWedgeletTree_.def("computeWedges", &pyWedgeletTree::computeWedges);
 
   //
   py::class_<pySampletTreeRP> pySampletTreeRP_(m, "SampletTreeRP");

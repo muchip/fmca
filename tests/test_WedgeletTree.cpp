@@ -21,13 +21,20 @@
 
 int main() {
   FMCA::Tictoc T;
-  const FMCA::Matrix P = Eigen::MatrixXd::Random(DIM, NPTS);
-  FMCA::Matrix F = Eigen::MatrixXd::Random(NPTS, 3);
-  std::cout << F.topRows(10) << std::endl << "......." << std::endl;
-  FMCA::WedgeletTree<double> wt(P, F, 2, 4);
-  std::cout << F.topRows(10) << std::endl;
-  std::cout << wt.bb() << std::endl;
-  FMCA::Index i = 0;
-  for (const auto &it : wt) std::cout << i++ << " " << it.level() << std::endl;
+  const FMCA::Matrix P = FMCA::IO::ascii2Matrix("P.dat");
+  const FMCA::Matrix rgb = FMCA::IO::ascii2Matrix("rgb.dat");
+  std::cout << rgb.topRows(10) << std::endl << "......." << std::endl;
+  FMCA::WedgeletTree<double> wt(P, 5);
+  wt.computeWedges(P, rgb, 3, 1e-1);
+  FMCA::Vector hits(P.cols());
+  hits.setZero();
+  for (const auto &it : wt)
+    if (!it.nSons() && it.block_size()) {
+      for (FMCA::Index j = 0; j < it.block_size(); ++j) {
+        assert(hits(it.indices()[j]) == 0 && "duplicate index");
+        hits(it.indices()[j]) = 1;
+      }
+    }
+  assert(hits.sum() == hits.size() && "missing index");
   return 0;
 }
