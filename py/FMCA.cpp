@@ -132,6 +132,24 @@ struct pyWedgeletTree {
     WT_.init(P, F, q, unif_splits);
   }
 
+  FMCA::Matrix compress(const FMCA::Matrix &P, const FMCA::Matrix &F) const {
+    FMCA::Matrix retval = F;
+    FMCA::Index i = 0;
+    for (const auto &it : WT_) {
+      if (!it.nSons() && it.block_size()) {
+        FMCA::MultiIndexSet<FMCA::TotalDegree> idcs(P.rows(), it.node().deg_);
+        FMCA::Matrix VT(idcs.index_set().size(), it.block_size());
+        for (FMCA::Index i = 0; i < it.block_size(); ++i)
+          VT.col(i) =
+              FMCA::internal::evalPolynomials(idcs, P.col(it.indices()[i]));
+        const FMCA::Matrix eval = VT.transpose() * it.node().C_;
+        for (FMCA::Index i = 0; i < it.block_size(); ++i)
+          retval.row(it.indices()[i]) = eval.row(i);
+      }
+    }
+    return retval;
+  }
+
   FMCA::Matrix landmarks(const FMCA::Matrix &P) const {
     FMCA::Matrix retval(P.rows(), P.cols());
     FMCA::Index i = 0;
@@ -415,6 +433,8 @@ PYBIND11_MODULE(FMCA, m) {
                                FMCA::Index, FMCA::Index>());
   pyWedgeletTree_.def("init", &pyWedgeletTree::init);
   pyWedgeletTree_.def("landmarks", &pyWedgeletTree::landmarks);
+  pyWedgeletTree_.def("compress", &pyWedgeletTree::compress);
+
   //
   py::class_<pySampletTreeRP> pySampletTreeRP_(m, "SampletTreeRP");
   pySampletTreeRP_.def(py::init<>());
