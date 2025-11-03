@@ -25,7 +25,7 @@ int main() {
   const FMCA::Matrix rgb = FMCA::IO::ascii2Matrix("rgb.dat");
   std::cout << rgb.topRows(10) << std::endl << "......." << std::endl;
   FMCA::WedgeletTree<double> wt(P, 6);
-  wt.computeWedges(P, rgb, 4, 10);
+  wt.computeWedges(P, rgb, 4, 1);
   FMCA::Vector hits(P.cols());
   hits.setZero();
   for (const auto &it : wt)

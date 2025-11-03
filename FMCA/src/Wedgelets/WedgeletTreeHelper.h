@@ -30,9 +30,7 @@ struct WedgeletTreeHelper {
     Eigen::ColPivHouseholderQR<Matrix> qr;
     qr.compute(VT.transpose());
     retval = qr.solve(rhs);
-    if (err != nullptr)
-      *err = (rhs - VT.transpose() * retval).squaredNorm() /
-             (block_size * F.cols());
+    if (err != nullptr) *err = (rhs - VT.transpose() * retval).squaredNorm();
     return retval;
   }
 };
