@@ -25,7 +25,7 @@ int main() {
   const FMCA::Matrix rgb = FMCA::IO::ascii2Matrix("rgb.dat");
   std::cout << rgb.topRows(10) << std::endl << "......." << std::endl;
   FMCA::WedgeletTree<double> wt(P, 6);
-  wt.computeWedges(P, rgb, 4, 1);
+  wt.computeWedges(P, rgb, 0, 100);
   FMCA::Vector hits(P.cols());
   hits.setZero();
   for (const auto &it : wt)
@@ -48,8 +48,9 @@ int main() {
         retval.row(it.indices()[i]) = eval.row(i);
     }
   }
-
+  FMCA::IO::print2ascii("rgb_comp.dat", retval);
   FMCA::Matrix lms = wt.landmarks(P);
+  FMCA::IO::print2ascii("lms.dat", lms);
   FMCA::Matrix lm3(3, lms.cols());
   lm3.setZero();
   lm3.topRows(2) = lms;
@@ -59,7 +60,7 @@ int main() {
   P3.topRows(2) = P;
   FMCA::IO::plotPointsColor("im.vtk", P3, rgb.col(0));
   FMCA::IO::plotPointsColor("cmp.vtk", P3, retval.col(0));
-  FMCA::IO::plotPointsColor("cmp.vtk", P3,
+  FMCA::IO::plotPointsColor("cmp_err.vtk", P3,
                             (retval.col(0) - rgb.col(0)).cwiseAbs());
 
   assert(hits.sum() == hits.size() && "missing index");

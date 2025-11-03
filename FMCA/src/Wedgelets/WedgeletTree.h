@@ -120,7 +120,7 @@ class WedgeletTree : public WedgeletTreeBase<WedgeletTree<WedgeSplitter>> {
         Scalar err = 0;
         it.node().C_ = WedgeletTreeHelper::computeLeastSquaresFit(
             it.indices(), it.block_size(), P, F, idcs, &err);
-        it.node().err_ = err / it.block_size();
+        it.node().err_ = err;
         Vector mean(dim);
         for (Index i = 0; i < it.block_size(); ++i)
           mean += P.col(it.indices()[i]);
@@ -204,11 +204,9 @@ class WedgeletTree : public WedgeletTreeBase<WedgeletTree<WedgeSplitter>> {
           }
 #pragma omp critical
           {
-            const Scalar w1 = 1. / (wt.block_size() * c1.size());
-            const Scalar w2 = 1. / (wt.block_size() * c2.size());
-            if (cur_err1 * w1 + cur_err2 * w2 < split_error) {
-              err1 = w1 * cur_err1;
-              err2 = w2 * cur_err2;
+            if (cur_err1 + cur_err2 < split_error) {
+              err1 = cur_err1;
+              err2 = cur_err2;
               split_error = err1 + err2;
               C1 = cur_C1;
               C2 = cur_C2;
