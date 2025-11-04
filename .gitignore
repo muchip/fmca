@@ -23,3 +23,5 @@ FMCA/src/Clustering/ClusterTreeInitializer_KDTree.h
 FMCA/src/Clustering/KDTree.h
 SemiLagrangian/
 tests/UtilsGP.h
+tests/read_files_txt.h
+tests/test_MultiscaleInterpolator_H2Matrix_Lucy.cpp
