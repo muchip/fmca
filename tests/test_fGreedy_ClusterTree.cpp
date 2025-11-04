@@ -130,7 +130,9 @@ Index selectRepresentativeCenterRandom(const Matrix& points_cluster,
   Index idx_min = -1;
 
   // Instead of testing all points, test a random sample
-  int sample_size = std::min(100, m);
+  // int sample_size = std::min(100, m);
+  // sample size = log(m) if m > 100, else sample_size = m
+  int sample_size = log10(m);
   std::vector<Index> candidate_indices(m);
   std::iota(candidate_indices.begin(), candidate_indices.end(), 0);
   std::random_device rd;
@@ -170,8 +172,8 @@ Index selectRepresentativeCenterRandom(const Matrix& points_cluster,
 
 template<typename KernelSolver>
 void runMultigridTest(Scalar nu) {
-  Matrix P_finest = generateUniformGrid(66049);
-  Matrix Peval = generateUniformGrid(262145);
+  Matrix P_finest = generateUniformGrid(262145);
+  Matrix Peval = generateUniformGrid(1000000);
   Vector data = evalFunction(P_finest);
   Scalar computational_time_points_selection = 0;
   std::string boxes_name = "boxes_level_random_";
@@ -198,10 +200,10 @@ void runMultigridTest(Scalar nu) {
   }
 
   // is the kernel always the same?
-  // Scalar sigma = nu * pow(P_finest.cols(), -1. / DIM);
+  Scalar sigma = nu * pow(P_finest.cols(), -1. / DIM);
 
   for (Index l = 0; l <= max_level; ++l) {
-    Scalar sigma = nu * pow(P_finest.cols(), -1. / DIM) * pow(2, -l);
+    // Scalar sigma = nu * pow(P_finest.cols(), -1. / DIM) * pow(2, -l);
     CovarianceKernel kernel("matern32", sigma);
     
     std::cout << "\n=== Processing Level " << l << " ===" << std::endl;
