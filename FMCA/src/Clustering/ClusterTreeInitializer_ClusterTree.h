@@ -32,7 +32,7 @@ struct ClusterTreeInitializer<ClusterTree> {
     Index *indices = CT.node().indices_.get();
     for (Index i = 0; i < CT.block_size(); ++i) indices[i] = i;
     init_ClusterTree_impl(CT, min_csize, P);
-    shrinkToFit_impl(CT, P);
+    // shrinkToFit_impl(CT, P);
     Index i = 0;
     for (auto &it : CT) {
       it.node().block_id_ = i;
