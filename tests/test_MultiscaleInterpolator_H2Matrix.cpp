@@ -62,7 +62,8 @@ Matrix generateUniformGrid(int n) {
 template <typename KernelSolver>
 void runMultigridTest(Scalar nu) {
   ////////////////////////////// Points
-  std::vector<int> gridSizes = {9, 25, 81, 289, 1089, 4225, 16641, 66049, 262145};
+  std::vector<int> gridSizes = {9,    25,    81,    289,    1089,
+                                4225, 16641, 66049, 262145};
   std::vector<Matrix> P_levels;
   for (int size : gridSizes) {
     P_levels.push_back(generateUniformGrid(size));
@@ -72,11 +73,11 @@ void runMultigridTest(Scalar nu) {
   ////////////////////////////// Parameters
   const Scalar eta = 1. / DIM;
   const Index dtilde = 5;
-  const Scalar threshold = 1e-8;
+  const Scalar threshold = 1e-6;
   const Scalar mpole_deg = 2 * (dtilde - 1);
-  const std::string kernel_type = "matern52";
+  const std::string kernel_type = "matern32";
   const Scalar ridgep = 0;
-  const bool preconditioner = false;
+  const bool preconditioner = true;
   Scalar cg_threshold = 1e-6;
 
   ////////////////////////////// Multiscale Interpolator
@@ -105,33 +106,46 @@ void runMultigridTest(Scalar nu) {
   ////////////////////////////// Diagonal Loop
   Tictoc timer;
   for (int l = 0; l < num_levels; ++l) {
+    std::cout << "Level " << l << std::endl;
+
     ////////////////////////////// Extra-Diagonal Loop
     for (int j = 0; j < l; ++j) {
-      Scalar sigma_B = nu * MSI.fillDistance(j);
-      CovarianceKernel kernel_B(kernel_type, sigma_B);
-      MultipoleFunctionEvaluator evaluator;
-      evaluator.init(kernel_B, MSI.points(j), MSI.points(l));
-      Matrix correction =
-          evaluator.evaluate(MSI.points(j), MSI.points(l), ALPHA[j]);
-      correction *= std::pow(sigma_B, -DIM);
-      residuals[l] -= correction;
+      {  // SCOPE BLOCK 
+        Scalar sigma_B = nu * MSI.fillDistance(j);
+        CovarianceKernel kernel_B(kernel_type, sigma_B);
+        MultipoleFunctionEvaluator evaluator;
+        evaluator.init(kernel_B, MSI.points(j), MSI.points(l));
+        Matrix correction =
+            evaluator.evaluate(MSI.points(j), MSI.points(l), ALPHA[j]);
+        correction *= std::pow(sigma_B, -DIM);
+        residuals[l] -= correction;
+      }  // sigma_B, kernel_B, evaluator, correction all destroyed HERE
     }
+
     ////////////////////////////// Compress the diagonal block
-    Scalar sigma_l = nu * MSI.fillDistance(l);
-    CovarianceKernel kernel_l(kernel_type, sigma_l);
-    timer.tic();
-    MSI.solver(l).compress(MSI.points(l), kernel_l);
-    Scalar compress_time = timer.toc();
-    Scalar comp_error = MSI.solver(l).compressionError(MSI.points(l), kernel_l);
+    Scalar compress_time;
+    {  // SCOPE BLOCK 
+      Scalar sigma_l = nu * MSI.fillDistance(l);
+      CovarianceKernel kernel_l(kernel_type, sigma_l);
+      timer.tic();
+      MSI.solver(l).compress(MSI.points(l), kernel_l);
+      compress_time = timer.toc();
+      // Scalar comp_error = MSI.solver(l).compressionError(MSI.points(l),
+      // kernel_l);
+    }  // sigma_l, kernel_l destroyed HERE
 
     ////////////////////////////// Solver
-    timer.tic();
-    Vector solution = MSI.solver(l).solveIteratively(
-        residuals[l], preconditioner, cg_threshold);
-    Scalar solver_time = timer.toc();
+    Scalar solver_time;
+    {  // SCOPE BLOCK 
+      Scalar sigma_l = nu * MSI.fillDistance(l);
+      timer.tic();
+      Vector solution = MSI.solver(l).solveIteratively(
+          residuals[l], preconditioner, cg_threshold);
+      solver_time = timer.toc();
 
-    solution /= std::pow(sigma_l, -DIM);
-    ALPHA[l] = solution;
+      solution /= std::pow(sigma_l, -DIM);
+      ALPHA[l] = solution;
+    }  // solution, sigma_l destroyed HERE
 
     levels.push_back(l + 1);
     N.push_back(MSI.points(l).cols());
@@ -141,6 +155,7 @@ void runMultigridTest(Scalar nu) {
   }
 
   ////////////////////////////// Evaluation
+  std::cout << "Evaluation... "<< std::endl;
   Vector exact_sol = evalFrankeFunction(Peval);
   Vector final_res = Vector::Zero(Peval.cols());
   std::vector<Scalar> l2_errors;
@@ -164,19 +179,15 @@ void runMultigridTest(Scalar nu) {
   std::cout << "\n======== Results Summary ========" << std::endl;
   std::cout << std::left << std::setw(10) << "Level" << std::setw(10) << "N"
             << std::setw(15) << "CompressTime" << std::setw(15) << "CGTime"
-            << std::setw(10) << "IterCG" << std::setw(15)
-            << "L2 Error"                     
-            << std::setw(20) << "Linf Error"  
-            << std::endl;
+            << std::setw(10) << "IterCG" << std::setw(15) << "L2 Error"
+            << std::setw(20) << "Linf Error" << std::endl;
   for (size_t i = 0; i < levels.size(); ++i) {
     std::cout << std::left << std::setw(10) << levels[i] << std::setw(10)
               << N[i] << std::setw(15) << std::fixed << std::setprecision(6)
               << compression_time[i] << std::setw(15) << std::fixed
               << std::setprecision(6) << cg_time[i] << std::setw(10)
-              << iterationsCG[i]
-              << std::setw(15)  
-              << std::scientific << std::setprecision(6) << l2_errors[i]
-              << std::setw(20)  
+              << iterationsCG[i] << std::setw(15) << std::scientific
+              << std::setprecision(6) << l2_errors[i] << std::setw(20)
               << std::scientific << std::setprecision(6) << linf_errors[i]
               << std::endl;
   }
