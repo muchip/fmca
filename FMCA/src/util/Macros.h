@@ -32,18 +32,21 @@ namespace FMCA {
 #define FMCA_MAXINDEX UINT_MAX
 
 #define FMCA_UNSAFE 0
-  
+
 typedef FMCA_INDEX Index;
 
 typedef FMCA_SCALAR Scalar;
 
-typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
+template <typename Derived>
+using MatrixBase = Eigen::MatrixBase<Derived>;
 
-typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1u> Vector;
+using Matrix = Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>;
 
-typedef Eigen::Matrix<Index, Eigen::Dynamic, Eigen::Dynamic> iMatrix;
+using Vector = Eigen::Matrix<Scalar, Eigen::Dynamic, 1u>;
 
-typedef Eigen::Matrix<Index, Eigen::Dynamic, 1u> iVector;
+using iMatrix = Eigen::Matrix<Index, Eigen::Dynamic, Eigen::Dynamic>;
+
+using iVector = Eigen::Matrix<Index, Eigen::Dynamic, 1u>;
 
 template <typename T>
 using Triplet = Eigen::Triplet<T>;
