@@ -22,10 +22,7 @@ namespace FMCA {
  **/
 template <typename Moments>
 struct CollocationMatrixEvaluatorSL {
-  typedef typename Moments::eigenVector eigenVector;
-  typedef typename Moments::eigenMatrix eigenMatrix;
-  typedef typename eigenMatrix::Scalar value_type;
-  const value_type cnst = 0.25 / FMCA_PI;
+  const Scalar cnst = 0.25 / FMCA_PI;
   CollocationMatrixEvaluatorSL(const Moments &mom) : mom_(mom) {}
   /**
    *  \brief provides the kernel evaluation for the H2-matrix, in principle
@@ -36,17 +33,17 @@ struct CollocationMatrixEvaluatorSL {
   template <typename Derived>
   void interpolate_kernel(const ClusterTreeBase<Derived> &TR,
                           const ClusterTreeBase<Derived> &TC,
-                          eigenMatrix *mat) const {
-    eigenMatrix XiX = mom_.interp().Xi().cwiseProduct(TR.bb().col(2).replicate(
-                          1, mom_.interp().Xi().cols())) +
-                      TR.bb().col(0).replicate(1, mom_.interp().Xi().cols());
-    eigenMatrix XiY = mom_.interp().Xi().cwiseProduct(TC.bb().col(2).replicate(
-                          1, mom_.interp().Xi().cols())) +
-                      TC.bb().col(0).replicate(1, mom_.interp().Xi().cols());
+                          Matrix *mat) const {
+    Matrix XiX = mom_.interp().Xi().cwiseProduct(
+                     TR.bb().col(2).replicate(1, mom_.interp().Xi().cols())) +
+                 TR.bb().col(0).replicate(1, mom_.interp().Xi().cols());
+    Matrix XiY = mom_.interp().Xi().cwiseProduct(
+                     TC.bb().col(2).replicate(1, mom_.interp().Xi().cols())) +
+                 TC.bb().col(0).replicate(1, mom_.interp().Xi().cols());
     mat->resize(XiX.cols(), XiX.cols());
     for (auto j = 0; j < mat->cols(); ++j)
       for (auto i = 0; i < mat->rows(); ++i) {
-        value_type r = (XiX.col(i) - XiY.col(j)).norm();
+        Scalar r = (XiX.col(i) - XiY.col(j)).norm();
         (*mat)(i, j) = cnst / r;
       }
     *mat = mom_.interp().invV() * (*mat) * mom_.interp().invV().transpose();
@@ -59,19 +56,19 @@ struct CollocationMatrixEvaluatorSL {
   template <typename Derived>
   void compute_dense_block(const ClusterTreeBase<Derived> &TR,
                            const ClusterTreeBase<Derived> &TC,
-                           eigenMatrix *retval) const {
-    retval->resize(TR.indices().size(), TC.indices().size());
-    for (auto j = 0; j < TC.indices().size(); ++j) {
+                           Matrix *retval) const {
+    retval->resize(TR.block_size(), TC.block_size());
+    for (auto j = 0; j < TC.block_size(); ++j) {
       // set up first element
       const TriangularPanel &el1 = mom_.elements()[TC.indices()[j]];
-      for (auto i = 0; i < TR.indices().size(); ++i) {
+      for (auto i = 0; i < TR.block_size(); ++i) {
         // set up second element
         const TriangularPanel &el2 = mom_.elements()[TR.indices()[i]];
         // if two elements are not identical, we use a midpoint rule for
         // integration (we use an L2 normalization by the sqrt of the
         // volume element)
         if (TC.indices()[j] != TR.indices()[i]) {
-          const value_type r = (el1.mp_ - el2.mp_).norm();
+          const Scalar r = (el1.mp_ - el2.mp_).norm();
           (*retval)(i, j) = 0.5 * cnst / r * sqrt(el1.volel_ * el2.volel_);
         } else {
           // if the elements are identical, we use the semi-analytic rule

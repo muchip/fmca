@@ -1,0 +1,125 @@
+// This file is part of FMCA, the Fast Multiresolution Covariance Analysis
+// package.
+//
+// Copyright (c) 2021, Michael Multerer
+//
+// All rights reserved.
+//
+// This source code is subject to the BSD 3-clause license and without
+// any warranty, see <https://github.com/muchip/FMCA> for further
+// information.
+#define FMCA_CLUSTERSET_
+#include <iostream>
+#include <string>
+////////////////////////////////////////////////////////////////////////////////
+#include <igl/readOBJ.h>
+////////////////////////////////////////////////////////////////////////////////
+#include <Eigen/Dense>
+#include <Eigen/MetisSupport>
+#include <Eigen/Sparse>
+#include <Eigen/SparseCholesky>
+using EigenCholesky =
+    Eigen::SimplicialLLT<Eigen::SparseMatrix<double>, Eigen::Upper,
+                         Eigen::MetisOrdering<int>>;
+#include <FMCA/Clustering>
+#include <FMCA/H2Matrix>
+#include <FMCA/MatrixEvaluator>
+#include <algorithm>
+#include <iostream>
+#include <random>
+////////////////////////////////////////////////////////////////////////////////
+#include <FMCA/src/util/Errors.h>
+#include <FMCA/src/util/IO.h>
+#include <FMCA/src/util/Tictoc.h>
+
+#include <FMCA/BEM>
+#include <FMCA/Moments>
+#include <FMCA/Samplets>
+
+struct harmonicfun {
+  template <typename Derived>
+  double operator()(const Eigen::MatrixBase<Derived> &x) const {
+    return exp(FMCA_PI * x(0)) * sin(FMCA_PI * x(1));
+  }
+};
+////////////////////////////////////////////////////////////////////////////////
+using Interpolator = FMCA::TotalDegreeInterpolator;
+using SampletInterpolator = FMCA::MonomialInterpolator;
+using Moments = FMCA::CollocationMoments<Interpolator>;
+using SampletMoments = FMCA::CollocationSampletMoments<SampletInterpolator>;
+using MatrixEvaluator = FMCA::CollocationMatrixEvaluatorSL<Moments>;
+using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTreeMesh>;
+////////////////////////////////////////////////////////////////////////////////
+int main(int argc, char *argv[]) {
+  const std::string fname = "../data/sphere.obj";
+  // const std::string fname = "bunny.obj";
+  const auto fun = harmonicfun();
+  const unsigned int dtilde = 3;
+  const double eta = 0.8;
+  const unsigned int mp_deg = 4;
+  const double threshold = 1e-3;
+  FMCA::Tictoc T;
+  FMCA::Matrix V;
+  FMCA::iMatrix F;
+  std::cout << std::string(60, '-') << std::endl;
+  std::cout << "mesh file: " << fname << std::endl;
+  igl::readOBJ(fname, V, F);
+  // igl::readOBJ("bunny.obj", V, F);
+  std::cout << "number of elements: " << F.rows() << std::endl;
+  const Moments mom(V, F, mp_deg);
+  const MatrixEvaluator mat_eval(mom);
+  const SampletMoments samp_mom(V, F, dtilde - 1);
+  T.tic();
+  const H2SampletTree hst(mom, samp_mom, 0, V, F);
+  T.toc("tree setup: ");
+  std::cout << std::flush;
+  FMCA::internal::SampletMatrixCompressor<H2SampletTree> symComp;
+  symComp.init(hst, eta, 100 * FMCA_ZERO_TOLERANCE);
+  T.toc("planner:                     ");
+  T.tic();
+  symComp.compress(mat_eval);
+  T.toc("compressor:                  ");
+  T.tic();
+  const auto &ap_trips = symComp.triplets();
+  std::cout << "anz (a-priori):               "
+            << std::round(ap_trips.size() / FMCA::Scalar(F.rows()))
+            << std::endl;
+  const auto &trips = symComp.aposteriori_triplets_fast(threshold);
+  std::cout << "anz (a-posteriori):           "
+            << std::round(trips.size() / FMCA::Scalar(F.rows())) << std::endl;
+  T.toc("triplets:                    ");
+  FMCA::CollocationRHSEvaluator<Moments> rhs_eval(mom);
+  FMCA::SLCollocationPotentialEvaluator<Moments> pot_eval(mom);
+  rhs_eval.compute_rhs(hst, fun);
+  Eigen::VectorXd srhs = hst.sampletTransform(rhs_eval.rhs_);
+
+  Eigen::SparseMatrix<double> S(F.rows(), F.rows());
+  S.setFromTriplets(trips.begin(), trips.end());
+  EigenCholesky solver;
+  T.tic();
+  solver.compute(S);
+  T.toc("time factorization: ");
+  std::cout << "sinfo: " << solver.info() << std::endl;
+  Eigen::VectorXd srho = solver.solve(srhs);
+  Eigen::VectorXd rho = hst.inverseSampletTransform(srho);
+
+  std::cout << "norm rho: " << rho.norm() << " " << rho.sum() << std::endl;
+  Eigen::MatrixXd pot_pts = Eigen::MatrixXd::Random(V.cols(), 100) * 0.25;
+  Eigen::VectorXd pot = pot_eval.compute(hst, rho, pot_pts);
+  Eigen::VectorXd exact_vals = pot;
+  for (auto i = 0; i < exact_vals.size(); ++i)
+    exact_vals(i) = fun(pot_pts.col(i));
+  std::cout << "error: " << (pot - exact_vals).cwiseAbs().maxCoeff()
+            << std::endl;
+
+  Eigen::VectorXd colrs(V.rows());
+  for (auto i = 0; i < V.rows(); ++i) colrs(i) = fun(V.row(i));
+  Eigen::VectorXd srho2(rho.size());
+  for (auto i = 0; i < srho2.size(); ++i)
+    srho2(hst.indices()[i]) =
+        rho(i) / sqrt(0.5 * mom.elements()[hst.indices()[i]].volel_);
+  FMCA::IO::plotTriMeshColor("rhs.vtk", V.transpose(), F, colrs);
+  // FMCA::IO::plotTriMeshColor2("result.vtk", V.transpose(), F, srho2);
+  std::cout << std::string(60, '-') << std::endl;
+  return 0;
+}

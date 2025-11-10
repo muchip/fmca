@@ -21,8 +21,6 @@ namespace FMCA {
 template <typename Interpolator>
 class CollocationMoments {
  public:
-  typedef typename Interpolator::eigenVector eigenVector;
-  typedef typename Interpolator::eigenMatrix eigenMatrix;
   CollocationMoments(const Matrix &V, const iMatrix &F,
                      Index polynomial_degree = 3)
       : V_(V), F_(F), polynomial_degree_(polynomial_degree) {
@@ -35,10 +33,10 @@ class CollocationMoments {
   }
   //////////////////////////////////////////////////////////////////////////////
   template <typename otherDerived>
-  eigenMatrix moment_matrix(const ClusterTreeBase<otherDerived> &CT) const {
+  Matrix moment_matrix(const ClusterTreeBase<otherDerived> &CT) const {
     const otherDerived &H2T = CT.derived();
-    eigenMatrix retval(interp_.Xi().cols(), H2T.indices().size());
-    for (auto i = 0; i < H2T.indices().size(); ++i) {
+    Matrix retval(interp_.Xi().cols(), H2T.block_size());
+    for (auto i = 0; i < H2T.block_size(); ++i) {
       const TriangularPanel &el = elements_[H2T.indices()[i]];
       retval.col(i) =
           0.5 *

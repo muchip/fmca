@@ -28,8 +28,9 @@ class CollocationSampletMoments : public CollocationMoments<Interpolator> {
                             Index polynomial_degree = 3)
       : Base(V, F, SampletHelper::internal_q(polynomial_degree, V.cols())),
         polynomial_degree_(polynomial_degree) {
-    multinomial_coeffs_ = SampletHelper::multinomialCoefficientMatrix<
-        Matrix, MultiIndexSet<TotalDegree>>(Base::interp().idcs());
+    multinomial_coeffs_ =
+        SampletHelper::multinomialCoefficientMatrix<MultiIndexSet<TotalDegree>>(
+            Base::interp().idcs());
     mq_ = binomialCoefficient(V.cols() + polynomial_degree_, V.cols());
     mq2_ = binomialCoefficient(V.cols() + Base::polynomial_degree(), V.cols());
   }
@@ -47,8 +48,8 @@ class CollocationSampletMoments : public CollocationMoments<Interpolator> {
   template <typename otherDerived>
   Matrix moment_matrix(const ClusterTreeBase<otherDerived> &CT) const {
     Matrix mp = 0.5 * (CT.bb().col(0) + CT.bb().col(1));
-    Matrix retval(interp().Xi().cols(), CT.indices().size());
-    for (auto i = 0; i < CT.indices().size(); ++i) {
+    Matrix retval(interp().Xi().cols(), CT.block_size());
+    for (auto i = 0; i < CT.block_size(); ++i) {
       const TriangularPanel &el = elements()[CT.indices()[i]];
       retval.col(i) =
           0.5 * interp().evalPolynomials(el.mp_ - mp) * sqrt(2 * el.volel_);

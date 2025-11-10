@@ -16,19 +16,17 @@ namespace FMCA {
 
 template <typename Moments>
 struct SLCollocationPotentialEvaluator {
-  typedef typename Moments::eigenVector eigenVector;
-  typedef typename Moments::eigenMatrix eigenMatrix;
   const double cnst = 0.25 / FMCA_PI;
   SLCollocationPotentialEvaluator(const Moments &mom) : mom_(mom) {}
 
   template <typename Derived1, typename Derived2, typename Derived3>
-  eigenVector compute(const ClusterTreeBase<Derived1> &TR,
-                      const Eigen::MatrixBase<Derived2> &rho,
-                      const Eigen::MatrixBase<Derived3> &P) {
-    eigenVector pot(P.cols());
+  Vector compute(const ClusterTreeBase<Derived1> &TR,
+                 const MatrixBase<Derived2> &rho,
+                 const MatrixBase<Derived3> &P) {
+    Vector pot(P.cols());
     pot.setZero();
     for (auto i = 0; i < P.cols(); ++i)
-      for (auto j = 0; j < TR.indices().size(); ++j) {
+      for (auto j = 0; j < TR.block_size(); ++j) {
         // set up element
         const TriangularPanel &el = mom_.elements()[TR.indices()[j]];
         double r = (P.col(i) - el.mp_).norm();

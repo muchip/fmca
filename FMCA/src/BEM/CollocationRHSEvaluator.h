@@ -16,17 +16,14 @@ namespace FMCA {
 
 template <typename Moments>
 struct CollocationRHSEvaluator {
-  typedef typename Moments::eigenVector eigenVector;
-  typedef typename Moments::eigenMatrix eigenMatrix;
-  typedef typename eigenMatrix::Scalar value_type;
 
   CollocationRHSEvaluator(const Moments &mom) : mom_(mom) {}
 
   template <typename Derived, typename Functor>
   void compute_rhs(const ClusterTreeBase<Derived> &TR, const Functor &fun) {
-    rhs_.resize(TR.indices().size());
+    rhs_.resize(TR.block_size());
     rhs_.setZero();
-    for (auto i = 0; i < TR.indices().size(); ++i) {
+    for (auto i = 0; i < TR.block_size(); ++i) {
       // set up element
       const TriangularPanel &el = mom_.elements()[TR.indices()[i]];
       rhs_(i) = 0.5 * fun(el.mp_) * sqrt(2 * el.volel_);
@@ -35,7 +32,7 @@ struct CollocationRHSEvaluator {
   }
   //////////////////////////////////////////////////////////////////////////////
   const Moments &mom_;
-  eigenVector rhs_;
+  Vector rhs_;
 };
 
 }  // namespace FMCA

@@ -22,12 +22,11 @@ struct ClusterTreeInitializer<ClusterTreeMesh> {
   ClusterTreeInitializer() = delete;
   //////////////////////////////////////////////////////////////////////////////
   template <typename Derived, typename Derived2, typename Derived3>
-  static void init(ClusterTreeBase<Derived> &CT, IndexType min_cluster_size,
-                   const Eigen::MatrixBase<Derived2> &V,
-                   const Eigen::MatrixBase<Derived3> &F) {
-    typedef typename ClusterTreeBase<Derived>::eigenMatrix eigenMatrix;
+  static void init(ClusterTreeBase<Derived> &CT, Index min_cluster_size,
+                   const MatrixBase<Derived2> &V,
+                   const MatrixBase<Derived3> &F) {
     // we split according to midpoints and fix everything later
-    eigenMatrix P(V.cols(), F.rows());
+    Matrix P(V.cols(), F.rows());
     P.setZero();
     for (auto i = 0; i < P.cols(); ++i)
       for (auto j = 0; j < F.cols(); ++j)
@@ -35,12 +34,15 @@ struct ClusterTreeInitializer<ClusterTreeMesh> {
     ClusterTreeInitializer<ClusterTree>::init_BoundingBox_impl(
         CT, min_cluster_size, P);
     CT.node().indices_begin_ = 0;
-    CT.node().indices_.resize(P.cols());
-    std::iota(CT.node().indices_.begin(), CT.node().indices_.end(), 0u);
+    CT.node().indices_ = std::shared_ptr<Index>(new Index[P.cols()],
+                                                std::default_delete<Index[]>());
+    CT.node().block_size_ = P.cols();
+    Index *indices = CT.node().indices_.get();
+    for (Index i = 0; i < CT.block_size(); ++i) indices[i] = i;
     ClusterTreeInitializer<ClusterTree>::init_ClusterTree_impl(
         CT, min_cluster_size, P);
     shrinkToFit_impl(CT, V, F);
-    IndexType i = 0;
+    Index i = 0;
     for (auto &it : CT) {
       it.node().block_id_ = i;
       ++i;
@@ -54,22 +56,21 @@ struct ClusterTreeInitializer<ClusterTreeMesh> {
    **/
   template <typename Derived, typename Derived2, typename Derived3>
   static void shrinkToFit_impl(ClusterTreeBase<Derived> &CT,
-                               const Eigen::MatrixBase<Derived2> &V,
-                               const Eigen::MatrixBase<Derived3> &F) {
-    typedef typename ClusterTreeBase<Derived>::eigenMatrix eigenMatrix;
-    eigenMatrix bbmat(V.cols(), 3);
+                               const MatrixBase<Derived2> &V,
+                               const MatrixBase<Derived3> &F) {
+    Matrix bbmat(V.cols(), 3);
     if (CT.nSons()) {
       // assert that all sons have fitted bb's
       for (auto i = 0; i < CT.nSons(); ++i) shrinkToFit_impl(CT.sons(i), V, F);
       // now update own bb (we need a son with indices to get a first bb)
       for (auto i = 0; i < CT.nSons(); ++i)
-        if (CT.sons(i).node().indices_.size()) {
+        if (CT.sons(i).block_size()) {
           bbmat.col(0).array() = CT.sons(i).node().bb_.col(0);
           bbmat.col(1).array() = CT.sons(i).node().bb_.col(1);
           break;
         }
       for (auto i = 0; i < CT.nSons(); ++i)
-        if (CT.sons(i).node().indices_.size()) {
+        if (CT.sons(i).block_size()) {
           bbmat.col(0).array() =
               bbmat.col(0).array().min(CT.sons(i).node().bb_.col(0).array());
           bbmat.col(1).array() =
@@ -79,16 +80,16 @@ struct ClusterTreeInitializer<ClusterTreeMesh> {
       // this is the major change compared to the other boxes.
       // Here, we need to make sure that all vertices of an element are
       // contained in the box
-      if (CT.node().indices_.size()) {
-        bbmat.col(0) = V.row(F(CT.node().indices_[0], 0)).transpose();
+      if (CT.block_size()) {
+        bbmat.col(0) = V.row(F(CT.indices()[0], 0)).transpose();
         bbmat.col(1) = bbmat.col(0);
 
-        for (auto i = 0; i < CT.node().indices_.size(); ++i)
+        for (auto i = 0; i < CT.block_size(); ++i)
           for (auto k = 0; k < F.cols(); ++k) {
             bbmat.col(0).array() = bbmat.col(0).array().min(
-                V.row(F(CT.node().indices_[i], k)).transpose().array());
+                V.row(F(CT.indices()[i], k)).transpose().array());
             bbmat.col(1).array() = bbmat.col(1).array().max(
-                V.row(F(CT.node().indices_[i], k)).transpose().array());
+                V.row(F(CT.indices()[i], k)).transpose().array());
           }
         bbmat.col(0).array() -= 10 * FMCA_ZERO_TOLERANCE;
         bbmat.col(1).array() += 10 * FMCA_ZERO_TOLERANCE;
