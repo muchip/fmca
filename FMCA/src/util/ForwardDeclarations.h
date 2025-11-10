@@ -33,6 +33,8 @@ struct ClusterTreeInitializer;
 
 class ClusterTree;
 
+class ClusterTreeMesh;
+
 class MetisClusterTree;
 
 class SphereClusterTree;

@@ -17,4 +17,8 @@
 #include "src/MatrixEvaluator/NystromEvaluator.h"
 #include "src/MatrixEvaluator/unsymmetricNystromEvaluator.h"
 
+#include "src/MatrixEvaluator/GalerkinHelper.h"
+#include "src/MatrixEvaluator/CollocationMatrixEvaluatorSL.h"
+#include "src/MatrixEvaluator/GalerkinMatrixEvaluatorSL.h"
+#include "src/MatrixEvaluator/GalerkinMatrixEvaluatorDL.h"
 #endif
