@@ -112,6 +112,8 @@ class CovarianceKernel {
       kernel_ = [this](Scalar r) {
         return std::sqrt((r / l_) * (r / l_) + c_ * c_);
       };
+    else if (ktype_ == "TPS2D")
+      kernel_ = [this](Scalar r) { return r > 0 ? r * r * std::log(r) : 0; };
     else
       assert(false && "desired kernel not implemented");
     // use Euclidean distance by default
