@@ -16,10 +16,11 @@
 #include "../FMCA/CovarianceKernel"
 #include "../FMCA/Samplets"
 #include "../FMCA/src/Samplets/samplet_matrix_compressor.h"
+#include "../FMCA/src/util/IO.h"
 #include "../FMCA/src/util/SSN.h"
 #include "../FMCA/src/util/Tictoc.h"
 
-#define NPTS 10000
+#define NPTS 100000
 #define DIM 2
 
 using Interpolator = FMCA::TotalDegreeInterpolator;
@@ -91,6 +92,7 @@ int main() {
   FMCA::Vector data(NPTS);
   for (FMCA::Index i = 0; i < P.cols(); ++i)
     data(i) = std::exp(-4 * P(0, i)) * std::sin(10 * FMCA_PI * P(1, i));
+  FMCA::Matrix Tdata = hst.sampletTransform(hst.toClusterOrder(data));
   Eigen::SparseMatrix<FMCA::Scalar> S(NPTS, NPTS);
   S.setFromTriplets(trips.begin(), trips.end());
   Eigen::SparseMatrix<FMCA::Scalar> Ssym = S.selfadjointView<Eigen::Upper>();
@@ -98,10 +100,20 @@ int main() {
   FMCA::Vector x0(NPTS);
   x0.setZero();
   w.setOnes();
+  FMCA::ActiveSetManager asmgr;
   for (FMCA::Index i = 0; i < 10; ++i) {
-    const FMCA::Vector x = FMCA::SSN(Ssym, data, w, x0);
+    const FMCA::Vector x = FMCA::SSN(Ssym, Tdata, w, x0, asmgr);
     x0 = x;
-    w *= 0.5;
+    w *= 0.7;
   }
+  Tdata = hst.inverseSampletTransform(x0);
+  Tdata = hst.toNaturalOrder(Tdata);
+  FMCA::Matrix P3(3, P.cols());
+  P3.topRows(2) = P;
+  P3.bottomRows(1) = data.transpose();
+  FMCA::IO::plotPointsColor("data.vtk", P3, data);
+  P3.bottomRows(1) = Tdata.transpose();
+  FMCA::IO::plotPointsColor("rec.vtk", P3, Tdata);
+
   return 0;
 }
