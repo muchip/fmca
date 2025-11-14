@@ -37,6 +37,7 @@ class ActiveSetManager {
     Eigen::JacobiSVD<Matrix> svd(R_, Eigen::ComputeThinU | Eigen::ComputeThinV);
     U_ = svd.matrixU();
     S_ = svd.singularValues().asDiagonal();
+    sactive_ = svd.singularValues();
     V_ = svd.matrixV();
     return;
   }
@@ -95,6 +96,7 @@ class ActiveSetManager {
   const Matrix& matrixU() const { return U_; }
   const Matrix& matrixS() const { return S_; }
   const Matrix& matrixV() const { return V_; }
+  const Vector& sactive() const { return sactive_; }
 
   Vector activeS(std::vector<Index>& aidcs) const {
     Vector retval(aidcs.size());
@@ -110,16 +112,16 @@ class ActiveSetManager {
     return retval;
   }
 
-  Matrix activeVSinv(std::vector<Index>& aidcs) const {
+  Matrix activeVSinv(std::vector<Index>& aidcs) {
     Matrix retval(aidcs.size(), V_.rows());
     for (Index i = 0; i < aidcs.size(); ++i)
       retval.row(i) = V_.row(idcs_[aidcs[i]]);
     Eigen::JacobiSVD<Matrix> svd(retval * S_,
                                  Eigen::ComputeThinU | Eigen::ComputeThinV);
 
-    const Vector s = svd.singularValues();
-    const Vector s_inv = (s.array() > 100 * FMCA_ZERO_TOLERANCE)
-                             .select(s.array().inverse(), 0.0);
+    sactive_ = svd.singularValues();
+    const Vector s_inv = (sactive_.array() > 100 * FMCA_ZERO_TOLERANCE)
+                             .select(sactive_.array().inverse(), 0.0);
     // satisfies VA * S^2 * VA^T * VSinv * VSinv^T = I
     return svd.matrixU() * s_inv.asDiagonal();
   }
@@ -131,6 +133,7 @@ class ActiveSetManager {
   Matrix R_;
   Matrix U_;
   Matrix S_;
+  Vector sactive_;
   Matrix V_;
   std::vector<std::ptrdiff_t> idcs_;
 };
