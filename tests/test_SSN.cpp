@@ -20,7 +20,7 @@
 #include "../FMCA/src/util/SSN.h"
 #include "../FMCA/src/util/Tictoc.h"
 
-#define NPTS 100000
+#define NPTS 10000
 #define DIM 2
 
 using Interpolator = FMCA::TotalDegreeInterpolator;
@@ -100,11 +100,11 @@ int main() {
   FMCA::Vector x0(NPTS);
   x0.setZero();
   w.setOnes();
-  FMCA::ActiveSetManager asmgr;
-  for (FMCA::Index i = 0; i < 10; ++i) {
-    const FMCA::Vector x = FMCA::SSN(Ssym, Tdata, w, x0, asmgr);
+  w *= 1;
+  for (FMCA::Index i = 0; i < 9; ++i) {
+    const FMCA::Vector x = FMCA::SSN(Ssym, Tdata, w, x0, 1000, 1e-8);
     x0 = x;
-    w *= 0.7;
+    w *= 0.25;
   }
   Tdata = hst.inverseSampletTransform(x0);
   Tdata = hst.toNaturalOrder(Tdata);

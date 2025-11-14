@@ -10,6 +10,7 @@
 // for further information.
 //
 #include <Eigen/Dense>
+#include <iostream>
 //
 #include "../FMCA/src/util/ActiveSetManager.h"
 #include "../FMCA/src/util/Macros.h"
@@ -39,29 +40,21 @@ int main() {
   aidcs2.push_back(333);
   aidcs2.push_back(222);
   astm.update(A, aidcs2);
-  std::cout << "Q: " << astm.matrixQ().rows() << "x" << astm.matrixQ().cols()
-            << std::endl;
-  std::cout << "orthogonality error: "
-            << (astm.matrixQ().transpose() * astm.matrixQ() -
-                FMCA::Matrix::Identity(astm.matrixQ().cols(),
-                                       astm.matrixQ().cols()))
-                       .norm() /
-                   std::sqrt(astm.matrixQ().cols())
-            << std::endl;
-  std::cout << "R: " << astm.matrixR().rows() << "x" << astm.matrixR().cols()
-            << std::endl;
+  FMCA::Matrix Aactive(A.rows(), aidcs2.size());
+  for (FMCA::Index i = 0; i < aidcs2.size(); ++i)
+    Aactive.col(i) = A.col(aidcs2[i]);
   std::cout << "SVD error: "
-            << (astm.matrixR() -
-                astm.matrixU() * astm.matrixS() * astm.matrixV().transpose())
+            << (Aactive - astm.matrixU() * astm.sigma().asDiagonal() *
+                              astm.matrixV().transpose())
                        .norm() /
-                   astm.matrixR().norm()
+                   Aactive.norm()
             << std::endl;
   FMCA::Matrix Aselect(A.rows(), aidcs.size());
   for (FMCA::Index i = 0; i < aidcs.size(); ++i)
     Aselect.col(i) = A.col(aidcs[i]);
   FMCA::Matrix ATA = Aselect.transpose() * Aselect;
   FMCA::Matrix V = astm.activeV(aidcs);
-  FMCA::Matrix S = astm.matrixS();
+  FMCA::Matrix S = astm.sigma().asDiagonal();
   std::cout << "active err: "
             << (ATA - V * S * S * V.transpose()).norm() / ATA.norm()
             << std::endl;

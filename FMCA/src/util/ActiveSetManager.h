@@ -26,18 +26,15 @@ class ActiveSetManager {
   template <typename T>
   void init(const T& A, const std::vector<Index>& aidcs) {
     idcs_ = std::vector<std::ptrdiff_t>(A.cols(), -1);
-    Q_.conservativeResize(A.rows(), aidcs.size());
+    U_.conservativeResize(A.rows(), aidcs.size());
     for (Index i = 0; i < aidcs.size(); ++i) {
-      Q_.col(i) = A.col(aidcs[i]);
+      U_.col(i) = A.col(aidcs[i]);
       idcs_[aidcs[i]] = i;
     }
-    Eigen::HouseholderQR<Eigen::MatrixXd> qr(Q_);
-    Q_ = qr.householderQ() * Matrix::Identity(Q_.rows(), Q_.cols());
-    R_ = qr.matrixQR().topRows(Q_.cols()).triangularView<Eigen::Upper>();
-    Eigen::JacobiSVD<Matrix> svd(R_, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    Eigen::JacobiSVD<Matrix> svd(U_, Eigen::ComputeThinU | Eigen::ComputeThinV);
     U_ = svd.matrixU();
-    S_ = svd.singularValues().asDiagonal();
-    sactive_ = svd.singularValues();
+    sigma_ = svd.singularValues();
+    sactive_ = sigma_;
     V_ = svd.matrixV();
     return;
   }
@@ -46,7 +43,7 @@ class ActiveSetManager {
     Vector q = vec;
     Vector r(Q->cols());
     r.setZero();
-    for (Index i = 0; i < 2; ++i) {
+    for (Index i = 0; i < 1; ++i) {
       const Vector c = Q->transpose() * q;
       q = q - (*Q) * c;
       r += c;
@@ -68,40 +65,37 @@ class ActiveSetManager {
 
   template <typename T>
   void update(const T& A, const std::vector<Index>& aidcs) {
+    FMCA::Index nnew = 0;
     for (const auto& it : aidcs) {
       if (idcs_[it] == -1) {
-        // update QR
-        QRupdate(&Q_, &R_, A.col(it));
-        idcs_[it] = R_.cols() - 1;
-        // update SVD
-        if (R_.rows() > U_.rows()) {
-          U_.conservativeResize(U_.rows() + 1, U_.cols());
-          U_.bottomRows(1).setZero();
-        }
-        QRupdate(&U_, &S_, R_.rightCols(1));
+        Matrix S = sigma_.asDiagonal();
+        QRupdate(&U_, &S, A.col(it));
         V_.conservativeResize(V_.rows() + 1, V_.cols() + 1);
         V_.rightCols(1).setZero();
         V_.bottomRows(1).setZero();
         V_(V_.rows() - 1, V_.cols() - 1) = 1;
-        Eigen::JacobiSVD<Matrix> svd(S_,
+        idcs_[it] = V_.cols() - 1;
+        Eigen::JacobiSVD<Matrix> svd(S,
                                      Eigen::ComputeThinU | Eigen::ComputeThinV);
         U_ = U_ * svd.matrixU();
         V_ = V_ * svd.matrixV();
-        S_ = svd.singularValues().asDiagonal();
+        sigma_ = svd.singularValues();
+        ++nnew;
       }
     }
+    std::cout << "new indices: " << nnew << "/" << U_.cols() << "/" << V_.cols()
+              << std::endl;
+    return;
   }
-  const Matrix& matrixQ() const { return Q_; }
-  const Matrix& matrixR() const { return R_; }
   const Matrix& matrixU() const { return U_; }
-  const Matrix& matrixS() const { return S_; }
+  const Vector& sigma() const { return sigma_; }
   const Matrix& matrixV() const { return V_; }
   const Vector& sactive() const { return sactive_; }
 
   Vector activeS(std::vector<Index>& aidcs) const {
     Vector retval(aidcs.size());
     for (Index i = 0; i < aidcs.size(); ++i)
-      retval(i) = S_(idcs_[aidcs[i]], idcs_[aidcs[i]]);
+      retval(i) = sigma_(idcs_[aidcs[i]]);
     return retval;
   }
 
@@ -116,7 +110,7 @@ class ActiveSetManager {
     Matrix retval(aidcs.size(), V_.rows());
     for (Index i = 0; i < aidcs.size(); ++i)
       retval.row(i) = V_.row(idcs_[aidcs[i]]);
-    Eigen::JacobiSVD<Matrix> svd(retval * S_,
+    Eigen::JacobiSVD<Matrix> svd(retval * sigma_.asDiagonal(),
                                  Eigen::ComputeThinU | Eigen::ComputeThinV);
 
     sactive_ = svd.singularValues();
@@ -129,10 +123,8 @@ class ActiveSetManager {
   const std::vector<std::ptrdiff_t>& indices() const { return idcs_; }
 
  private:
-  Matrix Q_;
-  Matrix R_;
   Matrix U_;
-  Matrix S_;
+  Vector sigma_;
   Vector sactive_;
   Matrix V_;
   std::vector<std::ptrdiff_t> idcs_;

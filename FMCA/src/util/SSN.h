@@ -56,13 +56,13 @@ Scalar powerIteration(const SparseMatrix &A, Index steps = 20) {
 
 template <typename SparseMatrix>
 Vector SSN(const SparseMatrix &A, const Vector &b, const Vector &w,
-           const Vector &x0, ActiveSetManager &asmgr, Index steps = 1000,
-           Scalar tol = 1e-6) {
+           const Vector &x0, Index steps = 1000, Scalar tol = 1e-6) {
   const Index npts = A.rows();
   std::vector<Index> aidcs, iidcs;
   Vector x = x0, g = x0, u = x0, r = x0, active, inactive;
   Scalar cond = 0, gamma = 1., phi = 0, phimin = Phi(A, b, w, x);
   Index n_active = 0, iter = 0, n_gamma = 0;
+  ActiveSetManager asmgr;
   //////////////////////////////////////////////////////////////////////////
   for (; iter < steps; ++iter) {
     g = A * (A * x - b);
