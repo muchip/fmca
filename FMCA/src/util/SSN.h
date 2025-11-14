@@ -71,7 +71,6 @@ Vector SSN(const SparseMatrix &A, const Vector &b, const Vector &w,
     active = activeSet(u, gamma * w);
     inactive = Vector::Ones(npts) - active;
     n_active = active.sum();
-    std::cout << "res: " << r.cwiseAbs().maxCoeff();
     if (r.cwiseAbs().maxCoeff() < tol) break;
     Vector rhs = gamma * A * (A * (inactive.asDiagonal() * r).eval()).eval();
     rhs = active.asDiagonal() * (rhs - r);
@@ -82,7 +81,6 @@ Vector SSN(const SparseMatrix &A, const Vector &b, const Vector &w,
         aidcs.push_back(i);
       else
         iidcs.push_back(i);
-    std::cout << " active size: " << aidcs.size() << " " << std::flush;
     if (!asmgr.indices().size())
       asmgr.init(A, aidcs);
     else
@@ -93,16 +91,16 @@ Vector SSN(const SparseMatrix &A, const Vector &b, const Vector &w,
     const Matrix VSinv = asmgr.activeVSinv(aidcs);
     cond = asmgr.sactive()(0) / asmgr.sactive()(asmgr.sactive().size() - 1);
     cond *= cond;
-    if (cond > 1e12) std::cout << "ill conditioned" << std::endl;
+    if (cond > 1e15) std::cout << "ill conditioned" << std::endl;
     const Vector ax = VSinv * (VSinv.transpose() * arhs).eval() / gamma;
     gamma = 1. / asmgr.sactive()(asmgr.sactive().size() - 1);
     gamma *= gamma;
     for (Index i = 0; i < aidcs.size(); ++i) x(aidcs[i]) += ax(i);
     for (Index i = 0; i < iidcs.size(); ++i) x(iidcs[i]) = 0;
     phi = Phi(A, b, w, x);
-    std::cout << " gamma: " << gamma << " Functional: " << phi << std::endl;
   }
-  std::cout << std::endl;
+  std::cout << " active size: " << aidcs.size() << " iterations: " << iter
+            << std::endl;
   return x;
 }
 

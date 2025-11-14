@@ -83,8 +83,6 @@ class ActiveSetManager {
         ++nnew;
       }
     }
-    std::cout << "new indices: " << nnew << "/" << U_.cols() << "/" << V_.cols()
-              << std::endl;
     return;
   }
   const Matrix& matrixU() const { return U_; }
