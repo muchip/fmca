@@ -12,10 +12,23 @@
 #ifndef FMCA_UTIL_MACROS_H_
 #define FMCA_UTIL_MACROS_H_
 
+#include <limits>
+//
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
-#include <limits>
+//
+#include <Eigen/Eigenvalues>
+#include <Eigen/QR>
+#include <Eigen/SVD>
+//
+#ifdef CHOLMOD_SUPPORT
+#include <Eigen/CholmodSupport>
+#endif
 
+#ifdef METIS_SUPPORT
+#include <Eigen/MetisSupport>
+#endif
+//
 namespace FMCA {
 #ifndef M_PI
 #define FMCA_PI 3.14159265358979323846264338327950288
@@ -37,8 +50,12 @@ typedef FMCA_INDEX Index;
 
 typedef FMCA_SCALAR Scalar;
 
+// matrix types
 template <typename Derived>
 using MatrixBase = Eigen::MatrixBase<Derived>;
+
+template <typename Derived>
+using Map = Eigen::Map<Derived>;
 
 using Matrix = Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>;
 
@@ -48,11 +65,33 @@ using iMatrix = Eigen::Matrix<Index, Eigen::Dynamic, Eigen::Dynamic>;
 
 using iVector = Eigen::Matrix<Index, Eigen::Dynamic, 1u>;
 
-template <typename T>
-using Triplet = Eigen::Triplet<T>;
+using Triplet = Eigen::Triplet<Scalar>;
 
-typedef Eigen::SparseMatrix<Scalar, Eigen::RowMajor, std::ptrdiff_t>
-    SparseMatrix;
+using SparseMatrix = Eigen::SparseMatrix<Scalar>;
+
+// matrix algorithms
+using Cholesky = Eigen::LLT<Matrix>;
+
+using HouseholderQR = Eigen::HouseholderQR<Matrix>;
+
+using ColPivHouseholderQR = Eigen::ColPivHouseholderQR<Matrix>;
+
+const unsigned int ComputeThinUV = Eigen::ComputeThinU | Eigen::ComputeThinV;
+const unsigned int ComputeFullUV = Eigen::ComputeFullU | Eigen::ComputeFullV;
+
+using JacobiSVD = Eigen::JacobiSVD<Matrix>;
+
+using SelfAdjointEigenSolver = Eigen::SelfAdjointEigenSolver<Matrix>;
+
+#ifdef CHOLMOD_SUPPORT
+using Cholesky = Eigen::CholmodSupernodalLLT<SparseMatrix, Eigen::Upper>;
+#elif METIS_SUPPORT
+using SparseCholesky = Eigen::SimplicialLDLT<SparseMatrix, Eigen::Upper,
+                                             Eigen::MetisOrdering<int> >;
+#else
+using SparseCholesky = Eigen::SimplicialLDLT<SparseMatrix, Eigen::Upper>;
+#endif
+
 }  // namespace FMCA
 
 #endif
