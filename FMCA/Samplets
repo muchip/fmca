@@ -12,10 +12,8 @@
 #ifndef FMCA_SAMPLETS_MODULE_
 #define FMCA_SAMPLETS_MODULE_
 
-#include <Eigen/Dense>
-#include <Eigen/QR>
-#include <Eigen/SVD>
-#include <Eigen/Sparse>
+#include "src/util/Macros.h"
+//
 
 #include "Clustering"
 #include "Moments"

@@ -12,7 +12,15 @@
 #ifndef FMCA_UTIL_MACROS_H_
 #define FMCA_UTIL_MACROS_H_
 
+#include <algorithm>
+#include <iomanip>
+#include <iostream>
 #include <limits>
+#include <memory>
+#include <numeric>
+#include <random>
+#include <string>
+#include <vector>
 //
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
@@ -91,6 +99,11 @@ using SparseCholesky = Eigen::SimplicialLDLT<SparseMatrix, Eigen::Upper,
 #else
 using SparseCholesky = Eigen::SimplicialLDLT<SparseMatrix, Eigen::Upper>;
 #endif
+
+using SparseCG = Eigen::ConjugateGradient<SparseMatrix, Eigen::Upper,
+                                          Eigen::IdentityPreconditioner>;
+
+using SparsePCG = Eigen::ConjugateGradient<SparseMatrix, Eigen::Upper>;
 
 }  // namespace FMCA
 
