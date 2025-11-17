@@ -32,9 +32,9 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
 int main() {
   FMCA::Tictoc T;
-  const FMCA::CovarianceKernel function("Matern32", .5);
+  const FMCA::CovarianceKernel function("Matern32", .1);
   const FMCA::Matrix P = FMCA::Matrix::Random(DIM, NPTS).array();
-  const FMCA::Scalar threshold = 1e-5;
+  const FMCA::Scalar threshold = 1e-4;
   const FMCA::Scalar eta = 0.5;
   const FMCA::Index dtilde = 4;
   const FMCA::Index mpole_deg = 2 * (dtilde - 1);
@@ -92,7 +92,7 @@ int main() {
   FMCA::Vector data(NPTS);
   for (FMCA::Index i = 0; i < P.cols(); ++i)
     data(i) = std::exp(-4 * P.col(i).norm()) *
-              std::sin(4 * FMCA_PI * P.col(i).norm());
+              std::cos(4 * FMCA_PI * P.col(i).norm());
   FMCA::Matrix Tdata = hst.sampletTransform(hst.toClusterOrder(data));
   Eigen::SparseMatrix<FMCA::Scalar> S(NPTS, NPTS);
   S.setFromTriplets(trips.begin(), trips.end());
@@ -101,12 +101,13 @@ int main() {
   FMCA::Vector x0(NPTS);
   x0.setZero();
   w.setOnes();
-  w *= 1;
-  for (FMCA::Index i = 0; i < 20; ++i) {
-    const FMCA::Vector x = FMCA::SSN(Ssym, Tdata, w, x0, 100, 1e-8);
+  w *= 4;
+  for (FMCA::Index i = 0; i < 40; ++i) {
+    const FMCA::Vector x = FMCA::SSN(Ssym, Tdata, w, x0, 100, 1e-6);
     x0 = x;
-    w *= 0.8;
+    w *= 0.75;
   }
+
   Tdata = hst.inverseSampletTransform(x0);
   Tdata = hst.toNaturalOrder(Tdata);
   FMCA::Matrix P3(3, P.cols());

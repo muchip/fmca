@@ -71,6 +71,8 @@ Vector SSN(const SparseMatrix &A, const Vector &b, const Vector &w,
     active = activeSet(u, gamma * w);
     inactive = Vector::Ones(npts) - active;
     n_active = active.sum();
+    std::cout << "res: " << r.cwiseAbs().maxCoeff() << " active: " << n_active
+              << std::endl;
     if (r.cwiseAbs().maxCoeff() < tol) break;
     Vector rhs = gamma * A * (A * (inactive.asDiagonal() * r).eval()).eval();
     rhs = active.asDiagonal() * (rhs - r);

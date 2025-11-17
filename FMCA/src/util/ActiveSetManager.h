@@ -36,6 +36,7 @@ class ActiveSetManager {
     sigma_ = svd.singularValues();
     sactive_ = sigma_;
     V_ = svd.matrixV();
+    std::cout << "init done." << std::endl;
     return;
   }
 
@@ -66,23 +67,33 @@ class ActiveSetManager {
   template <typename T>
   void update(const T& A, const std::vector<Index>& aidcs) {
     FMCA::Index nnew = 0;
-    for (const auto& it : aidcs) {
-      if (idcs_[it] == -1) {
-        Matrix S = sigma_.asDiagonal();
-        QRupdate(&U_, &S, A.col(it));
-        V_.conservativeResize(V_.rows() + 1, V_.cols() + 1);
-        V_.rightCols(1).setZero();
-        V_.bottomRows(1).setZero();
-        V_(V_.rows() - 1, V_.cols() - 1) = 1;
-        idcs_[it] = V_.cols() - 1;
-        Eigen::JacobiSVD<Matrix> svd(S,
-                                     Eigen::ComputeThinU | Eigen::ComputeThinV);
-        U_ = U_ * svd.matrixU();
-        V_ = V_ * svd.matrixV();
-        sigma_ = svd.singularValues();
+    FMCA::Index nold = 0;
+    for (const auto& it : aidcs)
+      if (idcs_[it] == -1)
         ++nnew;
+      else
+        ++nold;
+    std::cout << "size: " << aidcs.size() << " new indices: " << nnew
+              << " old indices: " << nold << std::endl;
+    if (nnew > 10)
+      init(A, aidcs);
+    else
+      for (const auto& it : aidcs) {
+        if (idcs_[it] == -1) {
+          Matrix S = sigma_.asDiagonal();
+          QRupdate(&U_, &S, A.col(it));
+          V_.conservativeResize(V_.rows() + 1, V_.cols() + 1);
+          V_.rightCols(1).setZero();
+          V_.bottomRows(1).setZero();
+          V_(V_.rows() - 1, V_.cols() - 1) = 1;
+          idcs_[it] = V_.cols() - 1;
+          Eigen::JacobiSVD<Matrix> svd(
+              S, Eigen::ComputeThinU | Eigen::ComputeThinV);
+          U_ = U_ * svd.matrixU();
+          V_ = V_ * svd.matrixV();
+          sigma_ = svd.singularValues();
+        }
       }
-    }
     return;
   }
   const Matrix& matrixU() const { return U_; }
