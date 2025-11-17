@@ -16,11 +16,11 @@
 
 namespace FMCA {
 
-std::vector<Eigen::Triplet<Scalar>> approximateSymKNN(
-    const Matrix &P, const Index k = 1, const Index leaf_size = 100,
-    const Index n_trees = 10) {
+std::vector<Triplet> approximateSymKNN(const Matrix &P, const Index k = 1,
+                                       const Index leaf_size = 100,
+                                       const Index n_trees = 10) {
   assert(k < P.cols() && "too few data points for kmin");
-  std::vector<Eigen::Triplet<Scalar>> retval;
+  std::vector<Triplet> retval;
   std::vector<KMinList> qvec(P.cols());
 #pragma omp parallel for
   for (Index i = 0; i < qvec.size(); ++i) qvec[i] = KMinList(k);
@@ -65,8 +65,8 @@ std::vector<Eigen::Triplet<Scalar>> approximateSymKNN(
   for (Index i = 0; i < qvec.size(); ++i)
     for (const auto &it : qvec[i].list())
       if (i > it.first) {
-        retval.push_back(Eigen::Triplet<Scalar>(i, it.first, it.second));
-        retval.push_back(Eigen::Triplet<Scalar>(it.first, i, it.second));
+        retval.push_back(Triplet(i, it.first, it.second));
+        retval.push_back(Triplet(it.first, i, it.second));
       }
   retval.shrink_to_fit();
   return retval;

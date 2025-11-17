@@ -51,15 +51,14 @@ std::vector<Index> epsNN(const ClusterTreeBase<Derived> &ct, const Matrix &P,
  *         of all points in P that are less than eps away from pt.
  **/
 template <typename Derived>
-std::vector<Eigen::Triplet<Scalar>> symEpsNN(const ClusterTreeBase<Derived> &ct,
-                                             const Matrix &P,
-                                             const Scalar eps) {
-  std::vector<Eigen::Triplet<Scalar>> retval;
+std::vector<Triplet> symEpsNN(const ClusterTreeBase<Derived> &ct,
+                              const Matrix &P, const Scalar eps) {
+  std::vector<Triplet> retval;
 #pragma omp parallel for schedule(dynamic)
   for (FMCA::Index k = 0; k < P.cols(); ++k) {
     std::vector<const Derived *> queue;
     const Vector pt = P.col(k);
-    std::vector<Eigen::Triplet<Scalar>> loc_list;
+    std::vector<Triplet> loc_list;
     loc_list.reserve(1000);
     queue.push_back(std::addressof(ct.derived()));
     while (queue.size()) {
@@ -70,10 +69,8 @@ std::vector<Eigen::Triplet<Scalar>> symEpsNN(const ClusterTreeBase<Derived> &ct,
         for (Index i = 0; i < nd.block_size(); ++i) {
           const Scalar dist = (pt - P.col(nd.indices()[i])).norm();
           if (k < nd.indices()[i] && dist < eps) {
-            loc_list.push_back(
-                Eigen::Triplet<Scalar>(k, nd.indices()[i], dist));
-            loc_list.push_back(
-                Eigen::Triplet<Scalar>(nd.indices()[i], k, dist));
+            loc_list.push_back(Triplet(k, nd.indices()[i], dist));
+            loc_list.push_back(Triplet(nd.indices()[i], k, dist));
           }
         }
       } else {

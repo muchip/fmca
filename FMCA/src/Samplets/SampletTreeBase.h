@@ -19,7 +19,8 @@ namespace FMCA {
  *  \brief SampletTreeNodeBase defines the basic fields required for an
  *         abstract SampletTree, i.e. the transformation matrices
  **/
-template <typename Derived> struct SampletTreeNodeDataFields {
+template <typename Derived>
+struct SampletTreeNodeDataFields {
   Matrix Q_;
   Matrix mom_buffer_;
   Index nscalfs_;
@@ -42,17 +43,17 @@ struct SampletTreeBase : public ClusterTreeBase<Derived> {
   using Base::appendSons;
   using Base::bb;
   using Base::block_id;
+  using Base::block_size;
+  using Base::dad;
   using Base::derived;
   using Base::indices;
   using Base::indices_begin;
-  using Base::block_size;
   using Base::init;
   using Base::is_root;
   using Base::level;
   using Base::node;
   using Base::nSons;
   using Base::sons;
-  using Base::dad;
   //////////////////////////////////////////////////////////////////////////////
   void sampletTransformMatrix(Matrix &M) {
     M = sampletTransform(M);
@@ -82,11 +83,11 @@ struct SampletTreeBase : public ClusterTreeBase<Derived> {
     return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
-  std::vector<Eigen::Triplet<Scalar>> transformationMatrixTriplets() const {
+  std::vector<Triplet> transformationMatrixTriplets() const {
     const Index n = block_size();
     Matrix buffer(n, 1);
     Matrix unit(n, 1);
-    std::vector<Eigen::Triplet<Scalar>> triplet_list;
+    std::vector<Triplet> triplet_list;
     for (auto j = 0; j < n; ++j) {
       buffer.setZero();
       unit.setZero();
@@ -94,7 +95,7 @@ struct SampletTreeBase : public ClusterTreeBase<Derived> {
       buffer = sampletTransform(unit);
       for (auto i = 0; i < buffer.size(); ++i)
         if (abs(buffer(i)) > 1e-14)
-          triplet_list.emplace_back(Eigen::Triplet<Scalar>(i, j, buffer(i)));
+          triplet_list.emplace_back(Triplet(i, j, buffer(i)));
     }
     return triplet_list;
   }
@@ -106,15 +107,14 @@ struct SampletTreeBase : public ClusterTreeBase<Derived> {
   //////////////////////////////////////////////////////////////////////////////
   const Matrix &Q() const { return node().Q_; }
 
-private:
+ private:
   //////////////////////////////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////////
   Matrix sampletTransformRecursion(const Matrix &data, Matrix *svec) const {
     Matrix retval(0, 0);
     Index scalf_shift = 0;
-    if (is_root())
-      scalf_shift = nscalfs();
+    if (is_root()) scalf_shift = nscalfs();
     if (nSons()) {
       for (auto i = 0; i < nSons(); ++i) {
         Matrix scalf = sons(i).sampletTransformRecursion(data, svec);
@@ -129,8 +129,7 @@ private:
           Q().rightCols(nsamplets()).transpose() * retval;
       retval = Q().leftCols(nscalfs()).transpose() * retval;
     }
-    if (is_root())
-      svec->middleRows(start_index(), nscalfs()) = retval;
+    if (is_root()) svec->middleRows(start_index(), nscalfs()) = retval;
     return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
@@ -163,5 +162,5 @@ private:
     return;
   }
 };
-} // namespace FMCA
+}  // namespace FMCA
 #endif

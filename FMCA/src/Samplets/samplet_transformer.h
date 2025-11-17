@@ -53,7 +53,7 @@ class SampletTransformer {
     return;
   }
   template <typename otherDerived>
-  Matrix transform(const Eigen::MatrixBase<otherDerived> &data) {
+  Matrix transform(const MatrixBase<otherDerived> &data) {
     // to parallelize, we need to avoid that a core accesses data that
     // has not been created yet to prevent this, we do a level wise blocking
     Matrix retval(data.rows(), data.cols());
@@ -94,7 +94,7 @@ class SampletTransformer {
   }
 
   template <typename otherDerived>
-  Matrix inverseTransform(const Eigen::MatrixBase<otherDerived> &data) {
+  Matrix inverseTransform(const MatrixBase<otherDerived> &data) {
     // to parallelize, we need to avoid that a core accesses data that
     // has not been created yet to prevent this, we do a level wise blocking
     Matrix retval(data.rows(), data.cols());

@@ -150,7 +150,7 @@ class SampletMatrixCompressorUnsymmetric {
    *  \brief creates a posteriori thresholded triplets and stores them to in
    *the triplet list
    **/
-  const std::vector<Eigen::Triplet<Scalar>> &triplets() {
+  const std::vector<Triplet> &triplets() {
     if (pattern_.size()) {
       triplet_list_.clear();
       for (Index i = 0; i < pattern_.size(); ++i) {
@@ -179,8 +179,8 @@ class SampletMatrixCompressorUnsymmetric {
     return triplet_list_;
   }
 
-  std::vector<Eigen::Triplet<Scalar>> release_triplets() {
-    std::vector<Eigen::Triplet<Scalar>> retval;
+  std::vector<Triplet> release_triplets() {
+    std::vector<Triplet> retval;
     std::swap(triplet_list_, retval);
     return retval;
   }
@@ -252,12 +252,11 @@ class SampletMatrixCompressorUnsymmetric {
    **/
   template <typename otherDerived>
   void storeBlock(Index srow, Index scol, Index nrows, Index ncols,
-                  const Eigen::MatrixBase<otherDerived> &block) {
+                  const MatrixBase<otherDerived> &block) {
     for (auto k = 0; k < ncols; ++k)
       for (auto j = 0; j < nrows; ++j)
         if ((std::abs(block(j, k)) > threshold_) || (srow == scol && j == k))
-          triplet_list_.push_back(
-              Eigen::Triplet<Scalar>(srow + j, scol + k, block(j, k)));
+          triplet_list_.push_back(Triplet(srow + j, scol + k, block(j, k)));
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -265,11 +264,11 @@ class SampletMatrixCompressorUnsymmetric {
     Index i;
     Index j;
     Matrix *p;
-    ijp(Index ii, Index jj, Matrix *pp) : i(ii), j(jj), p(pp){};
+    ijp(Index ii, Index jj, Matrix *pp) : i(ii), j(jj), p(pp) {};
   };
   std::vector<std::vector<ijp>> queue_;
 
-  std::vector<Eigen::Triplet<Scalar>> triplet_list_;
+  std::vector<Triplet> triplet_list_;
   std::vector<std::map<Index, Matrix, std::greater<Index>>> pattern_;
   RandomTreeAccessor<Derived> r_rta_;
   RandomTreeAccessor<Derived> c_rta_;

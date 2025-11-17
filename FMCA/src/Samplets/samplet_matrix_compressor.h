@@ -189,11 +189,11 @@ class SampletMatrixCompressor {
    *  \brief creates a posteriori thresholded triplets and stores them to in
    *the triplet list
    **/
-  std::vector<Eigen::Triplet<Scalar>> a_priori_pattern_triplets() {
-    std::vector<Eigen::Triplet<Scalar>> retval;
+  std::vector<Triplet> a_priori_pattern_triplets() {
+    std::vector<Triplet> retval;
 #pragma omp parallel for schedule(dynamic)
     for (Index i = 0; i < pattern_.size(); ++i) {
-      std::vector<Triplet<Scalar>> list;
+      std::vector<Triplet> list;
       for (auto &&it : pattern_[i]) {
         const Derived *pr = rta_.nodes()[it.first % rta_.nodes().size()];
         const Derived *pc = rta_.nodes()[it.first / rta_.nodes().size()];
@@ -217,12 +217,12 @@ class SampletMatrixCompressor {
    *  \brief creates a posteriori thresholded triplets and stores them to in
    *the triplet list
    **/
-  const std::vector<Triplet<Scalar>> &triplets() {
+  const std::vector<Triplet> &triplets() {
     if (pattern_.size()) {
       triplet_list_.clear();
 #pragma omp parallel for schedule(dynamic)
       for (Index i = 0; i < pattern_.size(); ++i) {
-        std::vector<Triplet<Scalar>> list;
+        std::vector<Triplet> list;
         for (auto &&it : pattern_[i]) {
           const Derived *pr = rta_.nodes()[it.first % rta_.nodes().size()];
           const Derived *pc = rta_.nodes()[it.first / rta_.nodes().size()];
@@ -248,8 +248,8 @@ class SampletMatrixCompressor {
     return triplet_list_;
   }
 
-  std::vector<Triplet<Scalar>> aposteriori_triplets_fast(const Scalar thres) {
-    std::vector<Triplet<Scalar>> retval;
+  std::vector<Triplet> aposteriori_triplets_fast(const Scalar thres) {
+    std::vector<Triplet> retval;
     std::vector<std::vector<Index>> buckets(17);
     std::vector<Scalar> norms2(17);
     const Scalar invlog10 = 1. / std::log(10.);
@@ -283,8 +283,8 @@ class SampletMatrixCompressor {
     return retval;
   }
 
-  std::vector<Triplet<Scalar>> aposteriori_triplets(const Scalar thres) {
-    std::vector<Triplet<Scalar>> triplets = triplet_list_;
+  std::vector<Triplet> aposteriori_triplets(const Scalar thres) {
+    std::vector<Triplet> triplets = triplet_list_;
     if (std::abs(thres) < FMCA_ZERO_TOLERANCE) return triplets;
 
     // sort the triplets by magnitude, putting diagonal entries first
@@ -295,7 +295,7 @@ class SampletMatrixCompressor {
     std::iota(idcs.begin(), idcs.end(), 0);
     {
       struct comp {
-        comp(const std::vector<Triplet<Scalar>> &triplets) : ts_(triplets) {}
+        comp(const std::vector<Triplet> &triplets) : ts_(triplets) {}
         bool operator()(const Index &a, const Index &b) const {
           const Scalar val1 = (ts_[a].row() == ts_[a].col())
                                   ? FMCA_INF
@@ -305,7 +305,7 @@ class SampletMatrixCompressor {
                                   : std::abs(ts_[b].value());
           return val1 > val2;
         }
-        const std::vector<Triplet<Scalar>> &ts_;
+        const std::vector<Triplet> &ts_;
       };
       std::sort(idcs.begin(), idcs.end(), comp(triplet_list_));
     }
@@ -329,8 +329,8 @@ class SampletMatrixCompressor {
     return triplets;
   }
 
-  std::vector<Eigen::Triplet<Scalar>> release_triplets() {
-    std::vector<Eigen::Triplet<Scalar>> retval;
+  std::vector<Triplet> release_triplets() {
+    std::vector<Triplet> retval;
     std::swap(triplet_list_, retval);
     return retval;
   }
@@ -400,27 +400,24 @@ class SampletMatrixCompressor {
    *  \brief writes a given matrix block into a-posteriori thresholded
    *         triplet format
    **/
-  void storeBlock(std::vector<Eigen::Triplet<Scalar>> &triplet_buffer,
-                  Index srow, Index scol, Index nrows, Index ncols,
-                  const Matrix &block) {
+  void storeBlock(std::vector<Triplet> &triplet_buffer, Index srow, Index scol,
+                  Index nrows, Index ncols, const Matrix &block) {
     for (auto k = 0; k < ncols; ++k)
       for (auto j = 0; j < nrows; ++j)
         if ((srow + j <= scol + k && std::abs(block(j, k)) > threshold_) ||
             (srow == scol && j == k))
-          triplet_buffer.push_back(
-              Eigen::Triplet<Scalar>(srow + j, scol + k, block(j, k)));
+          triplet_buffer.push_back(Triplet(srow + j, scol + k, block(j, k)));
   }
 
-  void storeEmptyBlock(std::vector<Eigen::Triplet<Scalar>> &triplet_buffer,
-                       Index srow, Index scol, Index nrows, Index ncols) {
+  void storeEmptyBlock(std::vector<Triplet> &triplet_buffer, Index srow,
+                       Index scol, Index nrows, Index ncols) {
     for (auto k = 0; k < ncols; ++k)
       for (auto j = 0; j < nrows; ++j)
         if (srow + j <= scol + k)
-          triplet_buffer.push_back(
-              Eigen::Triplet<Scalar>(srow + j, scol + k, 0));
+          triplet_buffer.push_back(Triplet(srow + j, scol + k, 0));
   }
   //////////////////////////////////////////////////////////////////////////////
-  std::vector<Triplet<Scalar>> triplet_list_;
+  std::vector<Triplet> triplet_list_;
   std::vector<LevelBuffer> pattern_;
   RandomTreeAccessor<Derived> rta_;
   Scalar eta_;

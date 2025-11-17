@@ -24,8 +24,8 @@ class SpaceTimePerKernel {
   }
 
   template <typename derived, typename otherDerived>
-  FMCA::Scalar operator()(const Eigen::MatrixBase<derived> &x,
-                          const Eigen::MatrixBase<otherDerived> &y) const {
+  FMCA::Scalar operator()(const MatrixBase<derived> &x,
+                          const MatrixBase<otherDerived> &y) const {
     FMCA::Scalar sr = (x - y).head(2).norm();
     FMCA::Scalar st = std::sin(FMCA_PI * (x - y).tail(1).norm());
     return (1. + sqrt(3) / l_ * sr) * exp(-sqrt(3) * sr / l_) *

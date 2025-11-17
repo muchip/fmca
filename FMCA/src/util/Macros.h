@@ -18,6 +18,7 @@
 #include <limits>
 #include <memory>
 #include <numeric>
+#include <queue>
 #include <random>
 #include <string>
 #include <vector>
@@ -77,6 +78,8 @@ using Triplet = Eigen::Triplet<Scalar>;
 
 using SparseMatrix = Eigen::SparseMatrix<Scalar>;
 
+constexpr auto Upper = Eigen::Upper;
+
 // matrix algorithms
 using Cholesky = Eigen::LLT<Matrix>;
 
@@ -84,12 +87,17 @@ using HouseholderQR = Eigen::HouseholderQR<Matrix>;
 
 using ColPivHouseholderQR = Eigen::ColPivHouseholderQR<Matrix>;
 
-const unsigned int ComputeThinUV = Eigen::ComputeThinU | Eigen::ComputeThinV;
-const unsigned int ComputeFullUV = Eigen::ComputeFullU | Eigen::ComputeFullV;
+using FullPivHouseholderQR = Eigen::FullPivHouseholderQR<Matrix>;
+
+constexpr auto ComputeThinUV = Eigen::ComputeThinU | Eigen::ComputeThinV;
+constexpr auto ComputeFullUV = Eigen::ComputeFullU | Eigen::ComputeFullV;
 
 using JacobiSVD = Eigen::JacobiSVD<Matrix>;
-
+using BDCSVD = Eigen::BDCSVD<Matrix>;
 using SelfAdjointEigenSolver = Eigen::SelfAdjointEigenSolver<Matrix>;
+
+constexpr auto Success = Eigen::Success;
+constexpr auto ComputeEigenvectors = Eigen::ComputeEigenvectors;
 
 #ifdef CHOLMOD_SUPPORT
 using SparseCholesky = Eigen::CholmodSupernodalLLT<SparseMatrix, Eigen::Upper>;

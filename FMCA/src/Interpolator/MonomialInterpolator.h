@@ -38,7 +38,7 @@ class MonomialInterpolator {
 
   //////////////////////////////////////////////////////////////////////////////
   template <typename Derived>
-  Matrix evalPolynomials(const Eigen::MatrixBase<Derived> &pt) const {
+  Matrix evalPolynomials(const MatrixBase<Derived> &pt) const {
     Vector retval(idcs_.index_set().size());
     retval.setOnes();
     Index k = 0;

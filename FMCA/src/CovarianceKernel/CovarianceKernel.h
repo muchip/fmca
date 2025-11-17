@@ -137,8 +137,8 @@ class CovarianceKernel {
   }
 
   template <typename derived, typename otherDerived>
-  Scalar operator()(const Eigen::MatrixBase<derived> &x,
-                    const Eigen::MatrixBase<otherDerived> &y) const {
+  Scalar operator()(const MatrixBase<derived> &x,
+                    const MatrixBase<otherDerived> &y) const {
     return kernel_(distance_(x, y));
   }
 
