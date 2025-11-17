@@ -84,7 +84,7 @@ using JacobiSVD = Eigen::JacobiSVD<Matrix>;
 using SelfAdjointEigenSolver = Eigen::SelfAdjointEigenSolver<Matrix>;
 
 #ifdef CHOLMOD_SUPPORT
-using Cholesky = Eigen::CholmodSupernodalLLT<SparseMatrix, Eigen::Upper>;
+using SparseCholesky = Eigen::CholmodSupernodalLLT<SparseMatrix, Eigen::Upper>;
 #elif METIS_SUPPORT
 using SparseCholesky = Eigen::SimplicialLDLT<SparseMatrix, Eigen::Upper,
                                              Eigen::MetisOrdering<int> >;
