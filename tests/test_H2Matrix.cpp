@@ -9,9 +9,7 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#include <Eigen/Dense>
-#include <iostream>
-
+//
 #include "../FMCA/CovarianceKernel"
 #include "../FMCA/H2Matrix"
 #include "../FMCA/src/util/Tictoc.h"

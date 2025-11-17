@@ -27,6 +27,7 @@
 #include <Eigen/Sparse>
 //
 #include <Eigen/Eigenvalues>
+#include <Eigen/IterativeLinearSolvers>
 #include <Eigen/QR>
 #include <Eigen/SVD>
 //
