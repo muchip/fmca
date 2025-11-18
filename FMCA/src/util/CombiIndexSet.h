@@ -12,10 +12,6 @@
 #ifndef FMCA_UTIL_COMBIINDEXSET_H_
 #define FMCA_UTIL_COMBIINDEXSET_H_
 
-#include <algorithm>
-#include <set>
-#include <vector>
-
 #include "Macros.h"
 #include "MultiIndexSet.h"
 namespace FMCA {

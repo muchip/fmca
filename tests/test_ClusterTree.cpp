@@ -24,7 +24,7 @@ int main() {
 
   FMCA::Scalar fill_distance = 0;
   FMCA::Scalar separation_radius = FMCA_INF;
-  const FMCA::Matrix P = Eigen::MatrixXd::Random(DIM, NPTS);
+  const FMCA::Matrix P = FMCA::Matrix::Random(DIM, NPTS);
 #if 0
 #pragma omp parallel for
   for (auto j = 0; j < P.cols(); ++j) {

@@ -20,6 +20,7 @@
  **/
 
 #include "src/util/Macros.h"
+
 #include "CovarianceKernel"
 #include "src/LowRankApproximation/FALKON.h"
 #include "src/LowRankApproximation/NystromApproximation.h"

@@ -4,8 +4,24 @@ link_directories(${CMAKE_SOURCE_DIR}/FMCA)
 
 include_directories(${CMAKE_SOURCE_DIR}/FMCA)
 
+add_executable(test_AdaptiveTreeSearch.out test_AdaptiveTreeSearch.cpp)
+add_test(AdaptiveTreeSearch test_AdaptiveTreeSearch.out)
+
+add_executable(test_Alpha.out test_Alpha.cpp)
+add_test(Alpha test_Alpha.out)
+
+add_executable(test_ClusterTree.out test_ClusterTree.cpp)
+add_test(ClusterTree test_ClusterTree.out)
+
 add_executable(test_ClusterTreeMetrics.out test_ClusterTreeMetrics.cpp)
 add_test(ClusterTreeMetrics test_ClusterTreeMetrics.out)
+
+add_executable(test_Droplet.out test_Droplet.cpp)
+add_test(Droplet test_Droplet.out)
+
+add_executable(test_FALKON.out test_FALKON.cpp)
+add_test(FALKON test_FALKON.out)
+
 
 add_executable(test_H2DualClusterBases.out test_H2DualClusterBases.cpp)
 add_test(H2DualClusterBases test_H2DualClusterBases.out)
@@ -43,9 +59,6 @@ add_test(SampletTransformer test_SampletTransformer.out)
 
 add_executable(test_TreeIterator.out test_TreeIterator.cpp)
 add_test(TreeIterator test_TreeIterator.out)
-
-add_executable(test_AdaptiveTreeSearch.out test_AdaptiveTreeSearch.cpp)
-add_test(AdaptiveTreeSearch test_AdaptiveTreeSearch.out)
 
 add_executable(test_kNN.out test_kNN.cpp)
 add_test(kNN test_kNN.out)
