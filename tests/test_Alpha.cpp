@@ -9,12 +9,8 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#include <Eigen/Dense>
-#include <iostream>
-
 #include "../FMCA/src/util/Alpha.h"
 #include "../FMCA/src/util/Tictoc.h"
-
 
 int main() {
   FMCA::Tictoc T;

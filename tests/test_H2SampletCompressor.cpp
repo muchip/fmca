@@ -18,8 +18,8 @@
 #include "../FMCA/src/Samplets/samplet_matrix_compressor.h"
 #include "../FMCA/src/util/Tictoc.h"
 
-#define NPTS 1000000
-#define DIM 10
+#define NPTS 100000
+#define DIM 2
 
 using Interpolator = FMCA::TotalDegreeInterpolator;
 using SampletInterpolator = FMCA::MonomialInterpolator;

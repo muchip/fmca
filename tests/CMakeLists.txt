@@ -22,12 +22,14 @@ add_test(Droplet test_Droplet.out)
 add_executable(test_FALKON.out test_FALKON.cpp)
 add_test(FALKON test_FALKON.out)
 
-
 add_executable(test_H2DualClusterBases.out test_H2DualClusterBases.cpp)
 add_test(H2DualClusterBases test_H2DualClusterBases.out)
 
 add_executable(test_H2Matrix.out test_H2Matrix.cpp)
 add_test(H2Matrix test_H2Matrix.out)
+
+add_executable(test_H2MatrixProjector.out test_H2MatrixProjector.cpp)
+add_test(H2MatrixProjector test_H2MatrixProjector.out)
 
 add_executable(test_H2SampletCompressor.out test_H2SampletCompressor.cpp)
 add_test(H2SampletCompressor test_H2SampletCompressor.out)
@@ -36,11 +38,21 @@ add_executable(test_H2SampletCompressorUnsymmetric.out
   test_H2SampletCompressorUnsymmetric.cpp)
 add_test(H2SampletCompressorUnsymmetric test_H2SampletCompressorUnsymmetric.out)
 
+add_executable(test_H2SampletCondition.out test_H2SampletCondition.cpp)
+add_test(H2SampletCompressor test_H2SampletCompressor.out)
+
 add_executable(test_H2kernelActor.out test_H2kernelActor.cpp)
 add_test(H2kernelActor test_H2kernelActor.out)
 
+add_executable(test_HMatrix.out test_HMatrix.cpp)
+add_test(H2Matrix test_HMatrix.out)
+
 add_executable(test_KMinList.out test_KMinList.cpp)
 add_test(KMinList test_KMinList.out)
+
+add_executable(test_KernelInterpolation.out test_KernelInterpolation.cpp)
+add_test(KernelInterpolation test_KernelInterpolation.out)
+
 
 add_executable(test_MortonClusterTree.out test_MortonClusterTree.cpp)
 add_test(MortonClusterTree test_MortonClusterTree.out)

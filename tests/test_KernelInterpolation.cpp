@@ -11,7 +11,7 @@
 //
 // #define EIGEN_DONT_PARALLELIZE
 ////////////////////////////////////////////////////////////////////////////////
-#define CHOLMOD_SUPPORT
+//#define CHOLMOD_SUPPORT
 #include <iostream>
 
 #include "../FMCA/KernelInterpolation"
