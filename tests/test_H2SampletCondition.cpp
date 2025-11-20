@@ -10,12 +10,8 @@
 // for further information.
 //
 // #define EIGEN_DONT_PARALLELIZE
-#include <Eigen/Dense>
-#include <iostream>
-
 #include "../FMCA/CovarianceKernel"
 #include "../FMCA/Samplets"
-#include "../FMCA/src/Samplets/samplet_matrix_compressor.h"
 #include "../FMCA/src/util/Tictoc.h"
 
 #define NPTS (1 << 10)
@@ -64,7 +60,7 @@ int main() {
     x.setZero();
     x(index) = 1;
     FMCA::Vector col = function.eval(P, P.col(hst.indices()[index]));
-    y1 = col(Eigen::Map<const FMCA::iVector>(hst.indices(), hst.block_size()));
+    y1 = col(FMCA::Map<const FMCA::iVector>(hst.indices(), hst.block_size()));
     x = hst.sampletTransform(x);
     y2.setZero();
     for (const auto &i : trips) {
@@ -132,13 +128,13 @@ int main() {
     P.setZero();
     P.diagonal().array() = 1. / D.diagonal().array().sqrt();
     // D.diagonal().array() += 1e-14 * NPTS;
-    Eigen::JacobiSVD<FMCA::Matrix> svd(D);
+    FMCA::JacobiSVD svd(D);
     std::cout << "cond: "
               << svd.singularValues()(0) /
                      svd.singularValues()(svd.singularValues().size() - 1)
               << std::endl;
   }
-  Eigen::SparseMatrix<FMCA::Scalar> K(NPTS, NPTS);
+  FMCA::SparseMatrix K(NPTS, NPTS);
   K.setFromTriplets(trips.begin(), trips.end());
   FMCA::Matrix Kfull =
       K.selfadjointView<Eigen::Upper>() * FMCA::Matrix::Identity(NPTS, NPTS);
@@ -147,7 +143,7 @@ int main() {
   // Pr.setZero();
   // Pr.diagonal().array() = 1. / Kfull.diagonal().array().sqrt();
 
-  Eigen::JacobiSVD<FMCA::Matrix> svd(Kfull);
+  FMCA::JacobiSVD svd(Kfull);
   std::cout << "cond full matrix: "
             << svd.singularValues()(0) /
                    svd.singularValues()(svd.singularValues().size() - 1)

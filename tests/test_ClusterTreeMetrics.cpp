@@ -9,9 +9,6 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#include <Eigen/Dense>
-#include <iostream>
-
 #include "../FMCA/Clustering"
 #include "../FMCA/src/util/IO.h"
 #include "../FMCA/src/util/Tictoc.h"
@@ -23,7 +20,7 @@ int main() {
   FMCA::Tictoc T;
   FMCA::Scalar fill_distance = 0;
   FMCA::Scalar separation_radius = 1. / 0.;
-  const FMCA::Matrix P = Eigen::MatrixXd::Random(DIM, NPTS);
+  const FMCA::Matrix P = FMCA::Matrix::Random(DIM, NPTS);
   for (auto j = 0; j < P.cols(); ++j) {
     FMCA::Scalar dist = FMCA::Scalar(1. / 0.);
     for (auto i = 0; i < P.cols(); ++i) {

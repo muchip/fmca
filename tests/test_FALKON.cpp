@@ -9,11 +9,7 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#include <Eigen/Dense>
-#include <iostream>
-
-#include "../FMCA/CovarianceKernel"
-#include "../FMCA/src/LowRankApproximation/FALKON.h"
+#include "../FMCA/LowRankApproximation"
 #include "../FMCA/src/util/Tictoc.h"
 
 #define NPTS 1000000

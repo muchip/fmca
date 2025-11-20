@@ -12,9 +12,6 @@
 #ifndef FMCA_UTIL_LISOMAP_H_
 #define FMCA_UTIL_LISOMAP_H_
 
-#include <iostream>
-//
-#include <Eigen/Eigenvalues>
 //
 #include "Macros.h"
 
@@ -48,7 +45,7 @@ Matrix LIsomap(const Graph &G, const Index M, const Index emb_dim,
   const auto H = Matrix::Identity(Dlm.rows(), Dlm.rows()) -
                  (1. / Dlm.rows()) * (ones * ones.transpose());
   const Matrix B = -0.5 * H * (Dlm.array().square().matrix()) * H;
-  Eigen::SelfAdjointEigenSolver<FMCA::Matrix> es(B);
+  SelfAdjointEigenSolver es(B);
   const Index nneg = (es.eigenvalues().array() < 0).count();
   const Index npos = Dlm.rows() - nneg;
   const Index cutr = npos >= dim ? dim : npos;

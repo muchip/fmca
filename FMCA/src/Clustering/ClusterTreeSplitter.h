@@ -51,7 +51,7 @@ struct GeometricBisection {
 
 struct CoordinateCompare {
   const Matrix &P_;
-  Eigen::Index cmp_;
+  Index cmp_;
   CoordinateCompare(const Matrix &P, Index cmp) : P_(P), cmp_(cmp) {};
 
   bool operator()(Index i, Index &j) { return P_(cmp_, i) < P_(cmp_, j); }
