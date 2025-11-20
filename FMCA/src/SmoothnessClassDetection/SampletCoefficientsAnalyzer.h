@@ -14,6 +14,17 @@
 
 namespace FMCA {
 
+/**
+ * @brief Analyzes samplet coefficients across tree levels.
+ *
+ * @tparam TreeType Type of the tree structure being analyzed.
+ *
+ * This class traverses a tree structure and analyzes samplet coefficients,
+ * computing sum of squared coefficients per level and per node. It supports
+ * depth-first traversal with coefficient and diameter tracking for each path
+ * from root to leaf.
+ */
+
 template <typename TreeType>
 class SampletCoefficientsAnalyzer {
  public:
@@ -78,6 +89,21 @@ class SampletCoefficientsAnalyzer {
   }
 
   //////////////////////////////////////////////////////////////////////////////
+  /**
+ * @brief Traverses tree and collects coefficient and diameter paths to leaves.
+ *
+ * Performs depth-first traversal of the tree, maintaining stacks of
+ * normalized coefficients and diameters along each path from root to leaf.
+ * For each leaf node, stores the complete path in the output map.
+ *
+ * Normalization: Coefficients are normalized by taking the square root of
+ * the sum of squared coefficients. 
+ *
+ * @param tree The tree structure to traverse.
+ * @param tdata Vector of samplet coefficient data.
+ * @param leaf_data Output map storing (coefficients, diameters) paths for
+ *                  each leaf node.
+ */
   void traverseAndStackCoefficientsAndDiametersL2Norm(const TreeType& tree,
                                                       const Vector& tdata,
                                                       LeafDataMap& leafData) {

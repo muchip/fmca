@@ -20,7 +20,7 @@ namespace internal {
 template <>
 struct traits<ClusterTree> {
   typedef ClusterTreeNode Node;
-  typedef ClusterSplitter::GeometricKDBisection Splitter;
+  typedef ClusterSplitter::GeometricBisection Splitter;
 };
 }  // namespace internal
 
