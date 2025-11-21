@@ -15,11 +15,11 @@
 
 #include "../FMCA/CovarianceKernel"
 #include "../FMCA/Samplets"
-#include "../FMCA/src/Samplets/samplet_matrix_compressor_DAG.h"
+#include "../FMCA/src/Samplets/samplet_matrix_compressor.h"
 #include "../FMCA/src/util/Tictoc.h"
 
-#define NPTS 2000000
-#define DIM 6
+#define NPTS 1000000
+#define DIM 3
 
 using Interpolator = FMCA::TotalDegreeInterpolator;
 using SampletInterpolator = FMCA::MonomialInterpolator;
