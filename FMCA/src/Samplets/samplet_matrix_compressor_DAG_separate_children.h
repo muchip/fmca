@@ -13,8 +13,11 @@
 #define FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_H_
 
 #include <condition_variable>
+#include <memory>
+#include <mutex>
 #include <queue>
-#include <unordered_set>
+#include <unordered_map>
+#include <vector>
 
 #include "../util/RandomTreeAccessor.h"
 
@@ -27,39 +30,46 @@ class SampletMatrixCompressor {
   //////////////////////////////////////////////////////////////////////////////
   // TASK DEFINITION
   //////////////////////////////////////////////////////////////////////////////
-  
+
   struct MatrixBlockTask {
-    // Identificazione
-    const Derived* row_cluster;
-    const Derived* col_cluster;
-    size_t block_key;  // row_id + nclusters * col_id
+    // Identification
+    const Derived* row_cluster;  // τ
+    const Derived* col_cluster;  // τ'
+    size_t block_key;
     Index level;
 
-    // Dipendenze
-    std::vector<MatrixBlockTask*> row_children;  // stessa colonna, righe figlie
-    std::vector<MatrixBlockTask*> col_children;  // stessa riga, colonne figlie
-    MatrixBlockTask* parent1 = nullptr;
-    MatrixBlockTask* parent2 = nullptr;
+    // Data
+    Matrix block;
 
-    // Contatori
-    int total_row_children = 0;
-    int total_col_children = 0;
-    int total_parents = 0;
+    // Dependencies
+    std::vector<MatrixBlockTask*> row_children;  // (τ_child, τ')
+    std::vector<MatrixBlockTask*> col_children;  // (τ, τ'_child)
+    MatrixBlockTask* row_parent = nullptr;       // (parent(τ), τ')
+    MatrixBlockTask* col_parent = nullptr;       // (τ, parent(τ'))
+
+    // Atomic counters for synchronization
     std::atomic<int> row_children_completed{0};
     std::atomic<int> col_children_completed{0};
-    std::atomic<int> parents_notified{0};
 
-    // Dati e stato
-    Matrix block;
+    // State flags
     std::atomic<bool> is_computed{false};
-    std::atomic<bool> is_ready_notified{false};
     std::atomic<bool> is_queued{false};
+
+    MatrixBlockTask(const Derived* pr, const Derived* pc, size_t key)
+        : row_cluster(pr),
+          col_cluster(pc),
+          block_key(key),
+          level(pr->level() + pc->level()),
+          block(0, 0) {}
+
+    int total_row_children() const { return row_children.size(); }
+    int total_col_children() const { return col_children.size(); }
   };
 
   //////////////////////////////////////////////////////////////////////////////
   // TASK QUEUE
   //////////////////////////////////////////////////////////////////////////////
-  
+
   class TaskQueue {
    private:
     std::queue<MatrixBlockTask*> queue_;
@@ -67,6 +77,7 @@ class SampletMatrixCompressor {
     std::condition_variable cv_;
     std::atomic<int> completed_tasks_{0};
     int total_tasks_;
+    std::atomic<bool> done_{false};
 
    public:
     void set_total_tasks(int n) { total_tasks_ = n; }
@@ -81,9 +92,7 @@ class SampletMatrixCompressor {
 
     MatrixBlockTask* dequeue() {
       std::unique_lock<std::mutex> lock(mutex_);
-      cv_.wait(lock, [this] {
-        return !queue_.empty() || completed_tasks_ == total_tasks_;
-      });
+      cv_.wait(lock, [this] { return !queue_.empty() || done_.load(); });
 
       if (queue_.empty()) return nullptr;
 
@@ -95,9 +104,12 @@ class SampletMatrixCompressor {
     void mark_completed() {
       int done = ++completed_tasks_;
       if (done == total_tasks_) {
+        done_.store(true);
         cv_.notify_all();
       }
     }
+
+    bool is_done() const { return done_.load(); }
   };
 
   //////////////////////////////////////////////////////////////////////////////
@@ -105,7 +117,7 @@ class SampletMatrixCompressor {
   //////////////////////////////////////////////////////////////////////////////
 
   SampletMatrixCompressor() {}
-  
+
   SampletMatrixCompressor(const SampletTreeBase<Derived>& ST, Scalar eta,
                           Scalar threshold = 0) {
     init(ST, eta, threshold);
@@ -113,10 +125,18 @@ class SampletMatrixCompressor {
 
   const RandomTreeAccessor<Derived>& rta() const { return rta_; }
 
+  const std::unordered_map<size_t, std::unique_ptr<MatrixBlockTask>>&
+  task_graph() const {
+    return task_graph_;
+  }
+
   //////////////////////////////////////////////////////////////////////////////
   // INITIALIZATION
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * \brief Creates the task graph with admissible blocks and dependencies
+   */
   void init(const SampletTreeBase<Derived>& ST, Scalar eta,
             Scalar threshold = 0) {
     eta_ = eta;
@@ -124,202 +144,130 @@ class SampletMatrixCompressor {
     npts_ = ST.block_size();
     rta_.init(ST, ST.block_size());
 
-    const size_t nclusters = rta_.nodes().size();
-    const int maxlevel = 2 * rta_.max_level() + 1;
+    const size_t n_nodes = rta_.nodes().size();
 
-    // FASE 1: BLOCK DISCOVERY
-    // Per ogni coppia (row_cluster, col_cluster) ammissibile, trova il blocco
-    
-    std::vector<std::vector<std::unordered_set<size_t>>> thread_local_patterns;
-
-#pragma omp parallel
-    {
-      const int num_threads = omp_get_num_threads();
-      const int thread_id = omp_get_thread_num();
-
-#pragma omp single
-      {
-        thread_local_patterns.resize(num_threads);
-        for (auto& patterns : thread_local_patterns) {
-          patterns.resize(maxlevel);
-        }
-      }
-
-#pragma omp for schedule(dynamic)
-      for (Index j = 0; j < nclusters; ++j) {
-        const Derived* pc = rta_.nodes()[j];
-        std::vector<const Derived*> row_stack{std::addressof(ST.derived())};
-
-        while (!row_stack.empty()) {
-          const Derived* pr = row_stack.back();
-          row_stack.pop_back();
-
-          for (auto i = 0; i < pr->nSons(); ++i) {
-            if (ClusterComparison::compare(pr->sons(i), *pc, eta_) != LowRank) {
-              row_stack.push_back(std::addressof(pr->sons(i)));
-            }
-          }
-
-          if (pc->block_id() >= pr->block_id()) {
-            const size_t block_key = pr->block_id() + nclusters * pc->block_id();
-            const int level = pc->level() + pr->level();
-            thread_local_patterns[thread_id][level].insert(block_key);
-          }
-        }
-      }
-    }
-
-    // Merge
-    std::vector<std::unordered_set<size_t>> level_patterns(maxlevel);
-    for (const auto& thread_patterns : thread_local_patterns) {
-      for (int level = 0; level < maxlevel; ++level) {
-        level_patterns[level].insert(thread_patterns[level].begin(),
-                                      thread_patterns[level].end());
-      }
-    }
-
-    // FASE 2: TASK CREATION
-    
-    size_t total_tasks = 0;
-    for (const auto& level_set : level_patterns) {
-      total_tasks += level_set.size();
-    }
-    task_graph_.reserve(total_tasks);
-
-    std::vector<std::vector<std::pair<size_t, std::unique_ptr<MatrixBlockTask>>>> 
-        thread_local_tasks;
-
-#pragma omp parallel
-    {
-      const int num_threads = omp_get_num_threads();
-      const int thread_id = omp_get_thread_num();
-
-#pragma omp single
-      {
-        thread_local_tasks.resize(num_threads);
-      }
-
-#pragma omp for schedule(dynamic)
-      for (int level = 0; level < maxlevel; ++level) {
-        for (size_t block_key : level_patterns[level]) {
-          auto task = std::make_unique<MatrixBlockTask>();
-          
-          task->row_cluster = rta_.nodes()[block_key % nclusters];
-          task->col_cluster = rta_.nodes()[block_key / nclusters];
-          task->block_key = block_key;
-          task->level = level;
-          task->block = Matrix(0, 0);
-
-          thread_local_tasks[thread_id].emplace_back(block_key, std::move(task));
-        }
-      }
-    }
-
-    for (auto& local_tasks : thread_local_tasks) {
-      for (auto& [key, task] : local_tasks) {
-        task_graph_[key] = std::move(task);
-      }
-    }
-
-    // FASE 3: DEPENDENCY WIRING
-    
-    std::vector<std::pair<size_t, MatrixBlockTask*>> task_vec;
-    task_vec.reserve(task_graph_.size());
-    for (auto& [key, task] : task_graph_) {
-      task_vec.emplace_back(key, task.get());
-    }
+    // Phase 1: Build task graph with admissible blocks
+    std::mutex graph_mutex;
 
 #pragma omp parallel for schedule(dynamic)
-    for (size_t idx = 0; idx < task_vec.size(); ++idx) {
-      auto* task = task_vec[idx].second;
+    for (Index j = 0; j < n_nodes; ++j) {
+      const Derived* pc = rta_.nodes()[j];
+
+      // DFS on rows for this column
+      std::vector<const Derived*> row_stack;
+      row_stack.push_back(std::addressof(ST.derived()));
+
+      // Local buffer for blocks found by this thread
+      std::vector<std::tuple<size_t, const Derived*, const Derived*>>
+          local_blocks;
+
+      while (!row_stack.empty()) {
+        const Derived* pr = row_stack.back();
+        row_stack.pop_back();
+
+        // Add admissible children to stack
+        for (auto i = 0; i < pr->nSons(); ++i) {
+          if (ClusterComparison::compare(pr->sons(i), *pc, eta) != LowRank) {
+            row_stack.push_back(std::addressof(pr->sons(i)));
+          }
+        }
+
+        // Store block if in upper half (symmetry)
+        if (pc->block_id() >= pr->block_id()) {
+          const size_t block_key = pr->block_id() + n_nodes * pc->block_id();
+          local_blocks.emplace_back(block_key, pr, pc);
+        }
+      }
+
+      // Batch insert with single lock per column
+      if (!local_blocks.empty()) {
+        std::lock_guard<std::mutex> lock(graph_mutex);
+        for (const auto& [key, pr, pc] : local_blocks) {
+          task_graph_.emplace(key,
+                              std::make_unique<MatrixBlockTask>(pr, pc, key));
+        }
+      }
+    }
+
+    // Phase 2: Build dependencies (children + parents)
+    for (auto& [key, task] : task_graph_) {
       const Derived* pr = task->row_cluster;
       const Derived* pc = task->col_cluster;
 
-      // Row children
-      for (auto i = 0; i < pr->nSons(); ++i) {
-        size_t child_key = pr->sons(i).block_id() + nclusters * pc->block_id();
+      // Row children: (τ_child, τ') - same column, finer rows
+      if (pr->nSons() > 0) {
+        for (int i = 0; i < pr->nSons(); ++i) {
+          const size_t child_key =
+              pr->sons(i).block_id() + n_nodes * pc->block_id();
 
-        if (auto it = task_graph_.find(child_key); it != task_graph_.end()) {
-          MatrixBlockTask* child = it->second.get();
-          task->row_children.push_back(child);
-
-#pragma omp critical
-          {
-            if (!child->parent1) {
-              child->parent1 = task;
-            } else if (!child->parent2) {
-              child->parent2 = task;
-            }
-            child->total_parents++;
+          auto it = task_graph_.find(child_key);
+          if (it != task_graph_.end()) {
+            task->row_children.push_back(it->second.get());
+            it->second->row_parent = task.get();
           }
         }
       }
 
-      // Column children
-      for (auto j = 0; j < pc->nSons(); ++j) {
-        size_t child_key = pr->block_id() + nclusters * pc->sons(j).block_id();
+      // Column children: (τ, τ'_child) - same row, finer columns
+      if (pc->nSons() > 0) {
+        for (int i = 0; i < pc->nSons(); ++i) {
+          const size_t child_key =
+              pr->block_id() + n_nodes * pc->sons(i).block_id();
 
-        if (auto it = task_graph_.find(child_key); it != task_graph_.end()) {
-          MatrixBlockTask* child = it->second.get();
-          task->col_children.push_back(child);
-
-#pragma omp critical
-          {
-            if (!child->parent1) {
-              child->parent1 = task;
-            } else if (!child->parent2) {
-              child->parent2 = task;
-            }
-            child->total_parents++;
+          auto it = task_graph_.find(child_key);
+          if (it != task_graph_.end()) {
+            task->col_children.push_back(it->second.get());
+            it->second->col_parent = task.get();
           }
         }
       }
-
-      task->total_row_children = task->row_children.size();
-      task->total_col_children = task->col_children.size();
     }
 
-    // FASE 4: IDENTIFY LEAF TASKS
-    
-    leaf_tasks_.clear();
-    leaf_tasks_.reserve(task_graph_.size() / 4);
-    
-    for (auto& [key, task] : task_graph_) {
-      if (task->total_row_children == 0 && task->total_col_children == 0) {
-        leaf_tasks_.push_back(task.get());
-      }
-    }
-
-    task_queue_.set_total_tasks(task_graph_.size());
-
-    std::cout << "Task graph initialized: " << task_graph_.size()
-              << " total tasks, " << leaf_tasks_.size() << " leaf tasks"
-              << std::endl;
+    return;
   }
 
   //////////////////////////////////////////////////////////////////////////////
   // COMPRESSION
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * \brief Compresses the matrix using DAG-based parallel execution
+   */
   template <typename EntGenerator>
   void compress(const EntGenerator& e_gen) {
-    const auto nclusters = rta_.nodes().size();
+    const size_t nclusters = rta_.nodes().size();
 
-    for (auto* leaf : leaf_tasks_) {
-      task_queue_.enqueue(leaf);
+    // Identify leaf tasks (no children, ready immediately)
+    std::vector<MatrixBlockTask*> leaf_tasks;
+    for (auto& [key, task] : task_graph_) {
+      if (task->total_row_children() == 0 && task->total_col_children() == 0) {
+        leaf_tasks.push_back(task.get());
+      }
     }
 
+    // Initialize task queue
+    TaskQueue task_queue;
+    task_queue.set_total_tasks(task_graph_.size());
+
+    for (auto* leaf : leaf_tasks) {
+      task_queue.enqueue(leaf);
+    }
+
+    // Parallel execution
 #pragma omp parallel
     {
       while (true) {
-        MatrixBlockTask* task = task_queue_.dequeue();
+        MatrixBlockTask* task = task_queue.dequeue();
         if (!task) break;
 
-        computeBlock(task, e_gen, nclusters);
-        notifyParents(task);
-        task_queue_.mark_completed();
+        compute_block(task, e_gen, nclusters);
+        task->is_computed.store(true);
+        task_queue.mark_completed();
+        notify_parents(task, task_queue);
       }
     }
+
+    return;
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -505,198 +453,153 @@ class SampletMatrixCompressor {
   // BLOCK COMPUTATION
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * \brief Computes a single matrix block based on cluster tree structure
+   *
+   * Three cases:
+   * 1. (LEAF, LEAF): Compute from scratch
+   * 2. (NON-LEAF, LEAF): Recycle from row children
+   * 3. (*, NON-LEAF): Recycle from column children
+   */
   template <typename EntGenerator>
-  void computeBlock(MatrixBlockTask* task, const EntGenerator& e_gen,
-                    size_t nclusters) {
+  void compute_block(MatrixBlockTask* task, const EntGenerator& e_gen,
+                     size_t nclusters) {
     const Derived* pr = task->row_cluster;
     const Derived* pc = task->col_cluster;
 
-    const char the_case = 2 * (!pr->nSons()) + (!pc->nSons());
+    const bool row_is_leaf = (pr->nSons() == 0);
+    const bool col_is_leaf = (pc->nSons() == 0);
 
-    switch (the_case) {
-      case 3: {  // (leaf, leaf)
-        task->block = recursivelyComputeBlock(*pr, *pc, e_gen);
-        break;
-      }
-
-      case 1: {  // (non-leaf, leaf)
-        task->block.resize(pr->Q().rows(), pc->Q().cols());
-        Index offset = 0;
-
-        for (int k = 0; k < pr->nSons(); ++k) {
-          const Index nscalfs = pr->sons(k).nscalfs();
-          const size_t child_key =
-              pr->sons(k).block_id() + nclusters * pc->block_id();
-
-          if (auto it = task_graph_.find(child_key); it != task_graph_.end()) {
-            task->block.middleRows(offset, nscalfs) =
-                it->second->block.topRows(nscalfs);
-          } else {
-            const Matrix ret = recursivelyComputeBlock(pr->sons(k), *pc, e_gen);
-            task->block.middleRows(offset, nscalfs) = ret.topRows(nscalfs);
-          }
-          offset += nscalfs;
-        }
-
-        task->block = pr->Q().transpose() * task->block;
-        break;
-      }
-
-      case 2:
-      case 0: {  // (leaf, non-leaf) o (non-leaf, non-leaf)
-        const bool row_ready =
-            (task->row_children_completed.load() == task->total_row_children);
-        const bool col_ready =
-            (task->col_children_completed.load() == task->total_col_children);
-
-        bool use_row_children = false;
-
-        if (row_ready && col_ready) {
-          use_row_children =
-              (task->total_row_children <= task->total_col_children);
-        } else if (row_ready) {
-          use_row_children = true;
-        } else if (col_ready) {
-          use_row_children = false;
-        }
-
-        if (use_row_children && row_ready) {
-          task->block.resize(pr->Q().rows(), pc->Q().cols());
-          Index offset = 0;
-
-          for (int k = 0; k < pr->nSons(); ++k) {
-            const Index nscalfs = pr->sons(k).nscalfs();
-            const size_t child_key =
-                pr->sons(k).block_id() + nclusters * pc->block_id();
-
-            if (auto it = task_graph_.find(child_key);
-                it != task_graph_.end()) {
-              task->block.middleRows(offset, nscalfs) =
-                  it->second->block.topRows(nscalfs);
-            } else {
-              const Matrix ret =
-                  recursivelyComputeBlock(pr->sons(k), *pc, e_gen);
-              task->block.middleRows(offset, nscalfs) = ret.topRows(nscalfs);
-            }
-            offset += nscalfs;
-          }
-
-          task->block = pr->Q().transpose() * task->block;
-
-        } else if (!use_row_children && col_ready) {
-          task->block.resize(pr->Q().cols(), pc->Q().rows());
-          Index offset = 0;
-
-          for (int k = 0; k < pc->nSons(); ++k) {
-            const Index nscalfs = pc->sons(k).nscalfs();
-            const size_t child_key =
-                pc->sons(k).block_id() * nclusters + pr->block_id();
-
-            if (auto it = task_graph_.find(child_key);
-                it != task_graph_.end()) {
-              task->block.middleCols(offset, nscalfs) =
-                  it->second->block.leftCols(nscalfs);
-            } else {
-              const Matrix ret =
-                  recursivelyComputeBlock(*pr, pc->sons(k), e_gen);
-              task->block.middleCols(offset, nscalfs) = ret.leftCols(nscalfs);
-            }
-            offset += nscalfs;
-          }
-
-          task->block = task->block * pc->Q();
-        } else {
-          task->block = recursivelyComputeBlock(*pr, *pc, e_gen);
-        }
-
-        break;
-      }
+    // Case 1: (LEAF, LEAF)
+    if (row_is_leaf && col_is_leaf) {
+      task->block = recursivelyComputeBlock(*pr, *pc, e_gen);
+      return;
     }
 
-    task->is_computed.store(true);
+    // Case 2: (NON-LEAF, LEAF) - recycle from row children
+    if (!row_is_leaf && col_is_leaf) {
+      task->block.resize(pr->Q().rows(), pc->Q().cols());
+
+      Index offset = 0;
+      for (int k = 0; k < pr->nSons(); ++k) {
+        const Derived* pr_child = &pr->sons(k);
+        const Index nscalfs = pr_child->nscalfs();
+
+        const size_t child_key =
+            pr_child->block_id() + nclusters * pc->block_id();
+        auto it = task_graph_.find(child_key);
+
+        if (it != task_graph_.end()) {
+          // Reuse existing block
+          task->block.middleRows(offset, nscalfs) =
+              it->second->block.topRows(nscalfs);
+        } else {
+          // Compute on-the-fly (child not in task_graph due to symmetry)
+          Matrix ret = recursivelyComputeBlock(*pr_child, *pc, e_gen);
+          task->block.middleRows(offset, nscalfs) = ret.topRows(nscalfs);
+        }
+
+        offset += nscalfs;
+      }
+
+      task->block = pr->Q().transpose() * task->block;
+      return;
+    }
+
+    // Case 3: (*, NON-LEAF) - recycle from column children
+    if (!col_is_leaf) {
+      task->block.resize(pr->Q().cols(), pc->Q().rows());
+
+      Index offset = 0;
+      for (int k = 0; k < pc->nSons(); ++k) {
+        const Derived* pc_child = &pc->sons(k);
+        const Index nscalfs = pc_child->nscalfs();
+
+        const size_t child_key =
+            pr->block_id() + nclusters * pc_child->block_id();
+        auto it = task_graph_.find(child_key);
+
+        if (it != task_graph_.end()) {
+          // Reuse existing block
+          task->block.middleCols(offset, nscalfs) =
+              it->second->block.leftCols(nscalfs);
+        } else {
+          // Compute on-the-fly (child not in task_graph due to symmetry)
+          Matrix ret = recursivelyComputeBlock(*pr, *pc_child, e_gen);
+          task->block.middleCols(offset, nscalfs) = ret.leftCols(nscalfs);
+        }
+
+        offset += nscalfs;
+      }
+
+      task->block = task->block * pc->Q();
+      return;
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
   // PARENT NOTIFICATION
   //////////////////////////////////////////////////////////////////////////////
 
-  void notifyParents(MatrixBlockTask* task) {
-    if (task->parent1) {
-      updateParent(task, task->parent1);
+  /**
+   * \brief Notifies parents that a child has been computed
+   */
+  void notify_parents(MatrixBlockTask* completed_child,
+                      TaskQueue& task_queue) {
+    if (completed_child->row_parent) {
+      notify_single_parent(completed_child, completed_child->row_parent, true,
+                           task_queue);
     }
-    if (task->parent2) {
-      updateParent(task, task->parent2);
+
+    if (completed_child->col_parent) {
+      notify_single_parent(completed_child, completed_child->col_parent, false,
+                           task_queue);
     }
   }
 
-  void updateParent(MatrixBlockTask* child, MatrixBlockTask* parent) {
-    // Calcola al volo se child è row o col child del parent
-    bool is_row_child = false;
-    bool is_col_child = false;
+  /**
+   * \brief Notifies a single parent and enqueues it if ready
+   */
+  void notify_single_parent(MatrixBlockTask* child, MatrixBlockTask* parent,
+                            bool is_row_child, TaskQueue& task_queue) {
+    // Update completion counters
+    int row_done, col_done;
 
-    for (auto* rc : parent->row_children) {
-      if (rc == child) {
-        is_row_child = true;
-        break;
-      }
-    }
-
-    for (auto* cc : parent->col_children) {
-      if (cc == child) {
-        is_col_child = true;
-        break;
-      }
-    }
-
-    // Aggiorna contatori
     if (is_row_child) {
-      parent->row_children_completed.fetch_add(1);
-    }
-    if (is_col_child) {
-      parent->col_children_completed.fetch_add(1);
-    }
-
-    // Controlla se parent è pronto
-    if (!parent->is_ready_notified.exchange(true)) {
-      const int row_completed = parent->row_children_completed.load();
-      const int col_completed = parent->col_children_completed.load();
-
-      const Derived* pr = parent->row_cluster;
-      const Derived* pc = parent->col_cluster;
-      const char the_case = 2 * (!pr->nSons()) + (!pc->nSons());
-
-      bool parent_ready = false;
-
-      switch (the_case) {
-        case 3:
-          parent_ready = true;
-          break;
-        case 1:
-          parent_ready = (row_completed == parent->total_row_children);
-          break;
-        case 2:
-          parent_ready = (col_completed == parent->total_col_children);
-          break;
-        case 0:
-          parent_ready = (row_completed == parent->total_row_children) ||
-                         (col_completed == parent->total_col_children);
-          break;
-      }
-
-      if (parent_ready) {
-        task_queue_.enqueue(parent);
-      } else {
-        parent->is_ready_notified.store(false);
-      }
+      row_done = ++parent->row_children_completed;
+      col_done = parent->col_children_completed.load();
+    } else {
+      col_done = ++parent->col_children_completed;
+      row_done = parent->row_children_completed.load();
     }
 
-    child->parents_notified.fetch_add(1);
+    // Check if parent is ready to be computed
+    const bool row_is_leaf = (parent->row_cluster->nSons() == 0);
+    const bool col_is_leaf = (parent->col_cluster->nSons() == 0);
+
+    bool is_ready = false;
+
+    if (!row_is_leaf && col_is_leaf) {
+      // Case 2: needs all row children
+      is_ready = (row_done == parent->total_row_children());
+    } else if (!col_is_leaf) {
+      // Case 3: needs all column children (ignores row children if present)
+      is_ready = (col_done == parent->total_col_children());
+    }
+
+    if (is_ready) {
+      task_queue.enqueue(parent);
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
   // RECURSIVE COMPUTATION
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * \brief Recursively computes a matrix block with interpolation and
+   *        transformation
+   */
   template <typename EntryGenerator>
   Matrix recursivelyComputeBlock(const Derived& TR, const Derived& TC,
                                  const EntryGenerator& e_gen) {
@@ -787,8 +690,6 @@ class SampletMatrixCompressor {
   Index npts_;
 
   std::unordered_map<size_t, std::unique_ptr<MatrixBlockTask>> task_graph_;
-  std::vector<MatrixBlockTask*> leaf_tasks_;
-  TaskQueue task_queue_;
 };
 
 }  // namespace internal

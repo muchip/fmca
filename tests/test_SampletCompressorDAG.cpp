@@ -15,7 +15,8 @@
 
 #include "../FMCA/CovarianceKernel"
 #include "../FMCA/Samplets"
-#include "../FMCA/src/Samplets/samplet_matrix_compressor_DAG_separate_children.h"
+#include "../FMCA/src/Samplets/samplet_matrix_compressor.h"
+// #include "../FMCA/src/Samplets/samplet_matrix_compressor_DAG_separate_children.h"
 #include "../FMCA/src/util/Tictoc.h"
 
 #define NPTS 1000000

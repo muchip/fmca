@@ -21,21 +21,21 @@ class SampletMatrixCompressor {
  public:
   typedef std::map<size_t, Matrix, std::greater<size_t>> LevelBuffer;
   SampletMatrixCompressor() {}
-  SampletMatrixCompressor(const SampletTreeBase<Derived> &ST, Scalar eta,
+  SampletMatrixCompressor(const SampletTreeBase<Derived>& ST, Scalar eta,
                           Scalar threshold = 0) {
     init(ST, eta, threshold);
   }
 
-  const std::vector<LevelBuffer> &pattern() { return pattern_; };
+  const std::vector<LevelBuffer>& pattern() { return pattern_; };
 
-  const RandomTreeAccessor<Derived> &rta() { return rta_; };
+  const RandomTreeAccessor<Derived>& rta() { return rta_; };
 
   /**
    *  \brief creates the matrix pattern based on the cluster tree and the
    *         admissibility condition
    *
    **/
-  void init(const SampletTreeBase<Derived> &ST, Scalar eta,
+  void init(const SampletTreeBase<Derived>& ST, Scalar eta,
             Scalar threshold = 0) {
     eta_ = eta;
     threshold_ = threshold;
@@ -45,17 +45,17 @@ class SampletMatrixCompressor {
 
 #pragma omp parallel for schedule(dynamic)
     for (Index j = 0; j < rta_.nodes().size(); ++j) {
-      const Derived *pc = rta_.nodes()[j];
+      const Derived* pc = rta_.nodes()[j];
       /*
        *  For the moment, the compression does not exploit inheritance
        *  relations in the column clusters. Thus, to obtain an NlogN
        *  algorithm, we have to exploit this at least in the row clusters.
        *  This is facilitated by starting a DFS for each column cluster.
        */
-      std::vector<const Derived *> row_stack;
+      std::vector<const Derived*> row_stack;
       row_stack.push_back(std::addressof(ST.derived()));
       while (row_stack.size()) {
-        const Derived *pr = row_stack.back();
+        const Derived* pr = row_stack.back();
         row_stack.pop_back();
         // fill the stack with possible children
         for (auto i = 0; i < pr->nSons(); ++i)
@@ -73,10 +73,10 @@ class SampletMatrixCompressor {
   }
 
   template <typename EntGenerator>
-  void compress(const EntGenerator &e_gen) {
+  void compress(const EntGenerator& e_gen) {
     // the column cluster tree is traversed bottom up
-    const auto &rclusters = rta_.nodes();
-    const auto &cclusters = rta_.nodes();
+    const auto& rclusters = rta_.nodes();
+    const auto& cclusters = rta_.nodes();
     const auto nclusters = rta_.nodes().size();
     for (int ll = pattern_.size() - 1; ll >= 0; --ll) {
       Index pos = 0;
@@ -90,15 +90,15 @@ class SampletMatrixCompressor {
         i = pos++;
         while (i < map_size) {
           std::advance(it2, i - prev_i);
-          const Derived *pr = rclusters[it2->first % nclusters];
-          const Derived *pc = cclusters[it2->first / nclusters];
+          const Derived* pr = rclusters[it2->first % nclusters];
+          const Derived* pc = cclusters[it2->first / nclusters];
           const Index col_id = pc->block_id();
           const Index row_id = pr->block_id();
           Index nscalfs = 0;
           Index son_lvl = 0;
           Index offset = 0;
           size_t son_id = 0;
-          Matrix &block = it2->second;
+          Matrix& block = it2->second;
           const char the_case = 2 * (!pr->nSons()) + (!pc->nSons());
           switch (the_case) {
             // (leaf,leaf), compute the block
@@ -115,7 +115,7 @@ class SampletMatrixCompressor {
                 const auto it3 = pattern_[son_lvl].find(son_id);
                 // if so, reuse the matrix block, otherwise recompute it
                 if (it3 != pattern_[son_lvl].end()) {
-                  const Matrix &ret = it3->second;
+                  const Matrix& ret = it3->second;
                   block.middleRows(offset, nscalfs) = ret.topRows(nscalfs);
                 } else {
                   const Matrix ret =
@@ -138,7 +138,7 @@ class SampletMatrixCompressor {
                 // if so, reuse the matrix block, otherwise recompute it
                 const auto it3 = pattern_[son_lvl].find(son_id);
                 if (it3 != pattern_[son_lvl].end()) {
-                  const Matrix &ret = it3->second;
+                  const Matrix& ret = it3->second;
                   block.middleCols(offset, nscalfs) = ret.leftCols(nscalfs);
                 } else {
                   const Matrix ret =
@@ -169,9 +169,9 @@ class SampletMatrixCompressor {
           i = pos++;
           while (i < map_size) {
             std::advance(it2, i - prev_i);
-            const Derived *pr = rclusters[it2->first % nclusters];
-            const Derived *pc = cclusters[it2->first / nclusters];
-            Matrix &block = it2->second;
+            const Derived* pr = rclusters[it2->first % nclusters];
+            const Derived* pc = cclusters[it2->first / nclusters];
+            Matrix& block = it2->second;
             if (!pr->is_root() && !pc->is_root())
               block = block.bottomRightCorner(pr->nsamplets(), pc->nsamplets())
                           .eval();
@@ -194,9 +194,9 @@ class SampletMatrixCompressor {
 #pragma omp parallel for schedule(dynamic)
     for (Index i = 0; i < pattern_.size(); ++i) {
       std::vector<Triplet<Scalar>> list;
-      for (auto &&it : pattern_[i]) {
-        const Derived *pr = rta_.nodes()[it.first % rta_.nodes().size()];
-        const Derived *pc = rta_.nodes()[it.first / rta_.nodes().size()];
+      for (auto&& it : pattern_[i]) {
+        const Derived* pr = rta_.nodes()[it.first % rta_.nodes().size()];
+        const Derived* pc = rta_.nodes()[it.first / rta_.nodes().size()];
         if (!pr->is_root() && !pc->is_root())
           storeEmptyBlock(list, pr->start_index(), pc->start_index(),
                           pr->nsamplets(), pc->nsamplets());
@@ -217,15 +217,15 @@ class SampletMatrixCompressor {
    *  \brief creates a posteriori thresholded triplets and stores them to in
    *the triplet list
    **/
-  const std::vector<Triplet<Scalar>> &triplets() {
+  const std::vector<Triplet<Scalar>>& triplets() {
     if (pattern_.size()) {
       triplet_list_.clear();
 #pragma omp parallel for schedule(dynamic)
       for (Index i = 0; i < pattern_.size(); ++i) {
         std::vector<Triplet<Scalar>> list;
-        for (auto &&it : pattern_[i]) {
-          const Derived *pr = rta_.nodes()[it.first % rta_.nodes().size()];
-          const Derived *pc = rta_.nodes()[it.first / rta_.nodes().size()];
+        for (auto&& it : pattern_[i]) {
+          const Derived* pr = rta_.nodes()[it.first % rta_.nodes().size()];
+          const Derived* pc = rta_.nodes()[it.first / rta_.nodes().size()];
           if (!pr->is_root() && !pc->is_root())
             storeBlock(
                 list, pr->start_index(), pc->start_index(), pr->nsamplets(),
@@ -273,10 +273,10 @@ class SampletMatrixCompressor {
     for (Index i = 0; i < cut_off; ++i) ntriplets += buckets[i].size();
     retval.reserve(ntriplets + npts_);
     for (Index i = 0; i < cut_off; ++i)
-      for (const auto &it : buckets[i]) retval.push_back(triplet_list_[it]);
+      for (const auto& it : buckets[i]) retval.push_back(triplet_list_[it]);
     // make sure the matrix contains the diagonal
     for (Index i = cut_off; i < 17; ++i)
-      for (const auto &it : buckets[i])
+      for (const auto& it : buckets[i])
         if (triplet_list_[it].row() == triplet_list_[it].col())
           retval.push_back(triplet_list_[it]);
     retval.shrink_to_fit();
@@ -295,8 +295,8 @@ class SampletMatrixCompressor {
     std::iota(idcs.begin(), idcs.end(), 0);
     {
       struct comp {
-        comp(const std::vector<Triplet<Scalar>> &triplets) : ts_(triplets) {}
-        bool operator()(const Index &a, const Index &b) const {
+        comp(const std::vector<Triplet<Scalar>>& triplets) : ts_(triplets) {}
+        bool operator()(const Index& a, const Index& b) const {
           const Scalar val1 = (ts_[a].row() == ts_[a].col())
                                   ? FMCA_INF
                                   : std::abs(ts_[a].value());
@@ -305,7 +305,7 @@ class SampletMatrixCompressor {
                                   : std::abs(ts_[b].value());
           return val1 > val2;
         }
-        const std::vector<Triplet<Scalar>> &ts_;
+        const std::vector<Triplet<Scalar>>& ts_;
       };
       std::sort(idcs.begin(), idcs.end(), comp(triplet_list_));
     }
@@ -342,8 +342,8 @@ class SampletMatrixCompressor {
    *A^SigmaSigma]
    **/
   template <typename EntryGenerator>
-  Matrix recursivelyComputeBlock(const Derived &TR, const Derived &TC,
-                                 const EntryGenerator &e_gen) {
+  Matrix recursivelyComputeBlock(const Derived& TR, const Derived& TC,
+                                 const EntryGenerator& e_gen) {
     Matrix buf(0, 0);
     // check for admissibility
     if (ClusterComparison::compare(TR, TC, eta_) == LowRank) {
@@ -400,9 +400,9 @@ class SampletMatrixCompressor {
    *  \brief writes a given matrix block into a-posteriori thresholded
    *         triplet format
    **/
-  void storeBlock(std::vector<Eigen::Triplet<Scalar>> &triplet_buffer,
+  void storeBlock(std::vector<Eigen::Triplet<Scalar>>& triplet_buffer,
                   Index srow, Index scol, Index nrows, Index ncols,
-                  const Matrix &block) {
+                  const Matrix& block) {
     for (auto k = 0; k < ncols; ++k)
       for (auto j = 0; j < nrows; ++j)
         if ((srow + j <= scol + k && std::abs(block(j, k)) > threshold_) ||
@@ -411,7 +411,7 @@ class SampletMatrixCompressor {
               Eigen::Triplet<Scalar>(srow + j, scol + k, block(j, k)));
   }
 
-  void storeEmptyBlock(std::vector<Eigen::Triplet<Scalar>> &triplet_buffer,
+  void storeEmptyBlock(std::vector<Eigen::Triplet<Scalar>>& triplet_buffer,
                        Index srow, Index scol, Index nrows, Index ncols) {
     for (auto k = 0; k < ncols; ++k)
       for (auto j = 0; j < nrows; ++j)
