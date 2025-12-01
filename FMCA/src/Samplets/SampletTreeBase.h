@@ -12,6 +12,8 @@
 #ifndef FMCA_SAMPLETS_SAMPLETTREEBASE_H_
 #define FMCA_SAMPLETS_SAMPLETTREEBASE_H_
 
+#include "../util/RandomTreeAccessor.h"
+
 namespace FMCA {
 
 /**
@@ -99,6 +101,53 @@ struct SampletTreeBase : public ClusterTreeBase<Derived> {
     }
     return triplet_list;
   }
+
+  std::vector<Triplet> transformationMatrixTriplets2() const {
+    std::vector<Triplet> triplet_list;
+    const internal::RandomTreeAccessor<Derived> rta(
+        this->derived(), (this->derived()).block_size());
+    const Index max_l = rta.max_level();
+#pragma omp parallel for
+    for (Index i = rta.levels()[max_l - 1]; i < rta.levels()[max_l]; ++i) {
+            const Derived &cluster = *(rta.nodes()[i]);
+      std::vector<Matrix> tvec(rta.nodes().size());
+      std::vector<iVector> ivec(rta.nodes().size());
+      std::vector<Triplet> local_trips;
+
+      Matrix &block = tvec[cluster.block_id()];
+      iVector &indices = ivec[cluster.block_id()];
+      if (!cluster.nSons()) {
+        block = Matrix::Identity(cluster.block_size(), cluster.block_size());
+        indices.resize(cluster.block_size());
+        for (Index i = 0; i < cluster.block_size(); ++i)
+          indices(i) = cluster.indices()[i];
+      } else
+        for (auto i = 0; i < cluster.nSons(); ++i) {
+          block.conservativeResize(block.rows() + cluster.sons(i).nscalfs(),
+                                   indices.size());
+          block.bottomRows(cluster.sons(i).nscalfs()) =
+              tvec[cluster.sons(i).block_id()].topRows(
+                  cluster.sons(i).nscalfs());
+        }
+      block = cluster.Q().transpose() * block;
+      // write data to output
+      if (cluster.is_root())
+        for (Index j = 0; j < indices.size(); ++j)
+          for (Index i = 0; i < cluster.Q().cols(); ++i)
+            local_trips.push_back(
+                Triplet(cluster.start_index() + i, indices(j), block(i, j)));
+      else if (cluster.nsamplets())
+        for (Index j = 0; j < indices.size(); ++j)
+          for (Index i = 0; i < cluster.nsamplets(); ++i)
+            local_trips.push_back(Triplet(cluster.start_index() + i, indices(j),
+                                          block(i + cluster.nscalfs(), j)));
+#pragma omp critical
+      triplet_list.insert(triplet_list.end(), local_trips.begin(),
+                          local_trips.end());
+    }
+    return triplet_list;
+  }
+
   //////////////////////////////////////////////////////////////////////////////
   Index nscalfs() const { return node().nscalfs_; }
   Index nsamplets() const { return node().nsamplets_; }
