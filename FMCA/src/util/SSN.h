@@ -60,7 +60,7 @@ Vector SSN(const SparseMatrix &A, const Vector &b, const Vector &w,
   const Index npts = A.rows();
   std::vector<Index> aidcs, iidcs;
   Vector x = x0, g = x0, u = x0, r = x0, active, inactive;
-  Scalar cond = 0, gamma = 1., phi = 0, phimin = Phi(A, b, w, x);
+  Scalar cond = 0, gamma = 1., phi = Phi(A, b, w, x);
   Index n_active = 0, iter = 0, n_gamma = 0;
   ActiveSetManager asmgr;
   //////////////////////////////////////////////////////////////////////////
@@ -71,8 +71,8 @@ Vector SSN(const SparseMatrix &A, const Vector &b, const Vector &w,
     active = activeSet(u, gamma * w);
     inactive = Vector::Ones(npts) - active;
     n_active = active.sum();
-    std::cout << "res: " << r.cwiseAbs().maxCoeff() << " active: " << n_active
-              << std::endl;
+    std::cout << "phi: " << phi << " res: " << r.cwiseAbs().maxCoeff()
+              << " active: " << n_active << std::endl;
     if (r.cwiseAbs().maxCoeff() < tol) break;
     Vector rhs = gamma * A * (A * (inactive.asDiagonal() * r).eval()).eval();
     rhs = active.asDiagonal() * (rhs - r);

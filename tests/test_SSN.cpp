@@ -15,12 +15,11 @@
 
 #include "../FMCA/CovarianceKernel"
 #include "../FMCA/Samplets"
-#include "../FMCA/src/Samplets/samplet_matrix_compressor.h"
 #include "../FMCA/src/util/IO.h"
 #include "../FMCA/src/util/SSN.h"
 #include "../FMCA/src/util/Tictoc.h"
 
-#define NPTS 10000
+#define NPTS 100000
 #define DIM 2
 
 using Interpolator = FMCA::TotalDegreeInterpolator;
@@ -32,7 +31,7 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
 int main() {
   FMCA::Tictoc T;
-  const FMCA::CovarianceKernel function("Matern32", .1);
+  const FMCA::CovarianceKernel function("Matern32", .5);
   const FMCA::Matrix P = FMCA::Matrix::Random(DIM, NPTS).array();
   const FMCA::Scalar threshold = 1e-4;
   const FMCA::Scalar eta = 0.5;
@@ -97,18 +96,19 @@ int main() {
   Eigen::SparseMatrix<FMCA::Scalar> S(NPTS, NPTS);
   S.setFromTriplets(trips.begin(), trips.end());
   Eigen::SparseMatrix<FMCA::Scalar> Ssym = S.selfadjointView<Eigen::Upper>();
+  Ssym *= 1. / NPTS;
   FMCA::Vector w(NPTS);
   FMCA::Vector x0(NPTS);
   x0.setZero();
   w.setOnes();
-  w *= 4;
+  w *= 0.1;
   for (FMCA::Index i = 0; i < 40; ++i) {
-    const FMCA::Vector x = FMCA::SSN(Ssym, Tdata, w, x0, 100, 1e-6);
+    const FMCA::Vector x = FMCA::SSN(Ssym, Tdata, w, x0, 100, 1e-8);
     x0 = x;
     w *= 0.75;
   }
 
-  Tdata = hst.inverseSampletTransform(x0);
+  Tdata = hst.inverseSampletTransform(Ssym * x0);
   Tdata = hst.toNaturalOrder(Tdata);
   FMCA::Matrix P3(3, P.cols());
   P3.topRows(2) = P;
