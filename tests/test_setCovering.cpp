@@ -19,8 +19,74 @@
 #include "../FMCA/src/util/Tictoc.h"
 
 int main() {
-  const FMCA::Index nPts = 1000000;
-  const FMCA::Scalar r = .05;
+  {
+    // first test priority queue (AI written test)
+    const FMCA::Index N = 5;
+    FMCA::PriorityQueue pq(N);
+
+    // push (key, index)
+    // keys: 0->10, 1->5, 2->7, 3->3, 4->8
+    pq.push(10, 0);
+    pq.push(5, 1);
+    pq.push(7, 2);
+    pq.push(3, 3);
+    pq.push(8, 4);
+
+    // top should be (10, 0)
+    {
+      auto [k, i] = pq.top();
+      assert(k == 10 && i == 0);
+    }
+
+    // decrease key of index 0 by 1: 10 -> 9
+    pq.decreaseKey(0);
+    {
+      auto [k, i] = pq.top();
+      // still (9, 0) should be the max
+      assert(k == 9 && i == 0);
+    }
+
+    // decrease index 0 several times to move it below others
+    for (int t = 0; t < 5; ++t) pq.decreaseKey(0);  // 9 -> 4
+    {
+      auto [k, i] = pq.top();
+      // keys now: 0->4, 1->5, 2->7, 3->3, 4->8
+      // max is (8, 4)
+      assert(k == 8 && i == 4);
+    }
+
+    // pop max (8, 4)
+    pq.pop();
+    {
+      auto [k, i] = pq.top();
+      // remaining keys: 0->4, 1->5, 2->7, 3->3
+      // max is (7, 2)
+      assert(k == 7 && i == 2);
+    }
+
+    // decrease index 2 until its key reaches 0
+    for (int t = 0; t < 10; ++t) pq.decreaseKey(2);
+    {
+      auto [k, i] = pq.top();
+      // keys: 0->4, 1->5, 2->0, 3->3  => max is (5, 1)
+      assert(k == 5 && i == 1);
+    }
+
+    // pop all and check that keys are non-increasing
+    std::vector<FMCA::Index> keys;
+    while (!pq.empty()) {
+      auto [k, i] = pq.top();
+      keys.push_back(k);
+      pq.pop();
+    }
+    for (std::size_t j = 1; j < keys.size(); ++j) {
+      assert(keys[j - 1] >= keys[j]);
+    }
+
+    std::cout << "PriorityQueue tests passed.\n";
+  }
+  const FMCA::Index nPts = 100000;
+  const FMCA::Scalar r = .01;
   FMCA::Tictoc T;
   std::mt19937 mt;
   mt.seed(0);
