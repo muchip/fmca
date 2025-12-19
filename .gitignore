@@ -21,3 +21,12 @@ tests/test_smoothness2D_picture.cpp
 tests/*.vtk
 tests/*.txt
 tests/data
+tests/test_SmoothnessClassDetection_1D.cpp
+tests/test_SmoothnessClassDetection_slopes_2points.cpp
+tests/test_SmoothnessClassDetection_slopes_Bunny.cpp
+tests/test_SmoothnessClassDetection_slopes_Lucy.cpp
+tests/test_SmoothnessClassDetection_validation_1D.cpp
+tests/test_SmoothnessClassDetection_validation_2d.cpp
+tests/test_SmoothnessClassDetection_validation_Bunny.cpp
+tests/test_SmoothnessClassDetection_validation_Lucy.cpp
+tests/test_SmoothnessClassDetection_slopes_1D.cpp
