@@ -101,9 +101,10 @@ int main() {
   FMCA::Vector x0(NPTS);
   x0.setZero();
   w.setOnes();
+  FMCA::ActiveSetManager asmgr;
   w *= 4;
   for (FMCA::Index i = 0; i < 40; ++i) {
-    const FMCA::Vector x = FMCA::SSN(Ssym, Tdata, w, x0, 100, 1e-6);
+    const FMCA::Vector x = FMCA::SSN(Ssym, Tdata, w, x0, asmgr, 100, 1e-6);
     x0 = x;
     w *= 0.75;
   }

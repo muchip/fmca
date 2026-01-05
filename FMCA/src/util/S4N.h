@@ -56,14 +56,13 @@ Scalar powerIteration(const SparseMatrix &A, Index steps = 20) {
 
 template <typename SparseMatrix>
 Vector SSN(const SparseMatrix &A, const Vector &b, const Vector &w,
-           const Vector &x0, ActiveSetManager &asmgr, Index steps = 1000,
-           Scalar tol = 1e-6) {
+           const Vector &x0, Index steps = 1000, Scalar tol = 1e-6) {
   const Index npts = A.rows();
   std::vector<Index> aidcs, iidcs;
   Vector x = x0, g = x0, u = x0, r = x0, active, inactive;
   Scalar cond = 0, gamma = 1., phi = 0, phimin = Phi(A, b, w, x);
   Index n_active = 0, iter = 0, n_gamma = 0;
-  ;
+  ActiveSetManager asmgr;
   //////////////////////////////////////////////////////////////////////////
   for (; iter < steps; ++iter) {
     g = A * (A * x - b);
@@ -72,8 +71,8 @@ Vector SSN(const SparseMatrix &A, const Vector &b, const Vector &w,
     active = activeSet(u, gamma * w);
     inactive = Vector::Ones(npts) - active;
     n_active = active.sum();
-    std::cout << "\rres: " << r.cwiseAbs().maxCoeff() << " active: " << n_active
-              << std::flush;
+    std::cout << "res: " << r.cwiseAbs().maxCoeff() << " active: " << n_active
+              << std::endl;
     if (r.cwiseAbs().maxCoeff() < tol) break;
     Vector rhs = gamma * A * (A * (inactive.asDiagonal() * r).eval()).eval();
     rhs = active.asDiagonal() * (rhs - r);
@@ -102,9 +101,7 @@ Vector SSN(const SparseMatrix &A, const Vector &b, const Vector &w,
     for (Index i = 0; i < iidcs.size(); ++i) x(iidcs[i]) = 0;
     phi = Phi(A, b, w, x);
   }
-  std::cout << std::endl
-            << "dict size: " << asmgr.matrixU().cols()
-            << " active size: " << aidcs.size() << " iterations: " << iter
+  std::cout << " active size: " << aidcs.size() << " iterations: " << iter
             << std::endl;
   return x;
 }

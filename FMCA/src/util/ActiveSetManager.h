@@ -31,35 +31,40 @@ class ActiveSetManager {
       U_.col(i) = A.col(aidcs[i]);
       idcs_[aidcs[i]] = i;
     }
-    Eigen::JacobiSVD<Matrix> svd(U_, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    JacobiSVD svd(U_, ComputeThinUV);
     U_ = svd.matrixU();
     sigma_ = svd.singularValues();
     sactive_ = sigma_;
     V_ = svd.matrixV();
-    std::cout << "init done." << std::endl;
     return;
   }
 
-  static void QRupdate(Matrix* Q, Matrix* R, const Vector& vec) {
-    Vector q = vec;
-    Vector r(Q->cols());
-    r.setZero();
-    for (Index i = 0; i < 1; ++i) {
-      const Vector c = Q->transpose() * q;
-      q = q - (*Q) * c;
-      r += c;
+  static void QRupdate(Matrix* Q, Matrix* R, const Matrix& C) {
+    Matrix QC = C;
+    Matrix RC(Q->cols(), C.cols());
+    RC.setZero();
+    // orthogonalize C wrt Q
+    for (Index i = 0; i < 2; ++i) {
+      const Matrix CC = Q->transpose() * QC;
+      QC = QC - (*Q) * CC;
+      RC += CC;
     }
-    const Scalar rho = q.norm();
+    HouseholderQR qr(QC);
+    QC = qr.householderQ() * Matrix::Identity(QC.rows(), QC.cols());
+    const Matrix Rrem =
+        qr.matrixQR().topRows(QC.cols()).triangularView<Upper>();
+
+    const Scalar rho = Rrem.norm();
     if (rho > 100 * FMCA_ZERO_TOLERANCE) {
-      Q->conservativeResize(Q->rows(), Q->cols() + 1);
-      Q->rightCols(1) = (1. / rho) * q;
-      R->conservativeResize(R->rows() + 1, R->cols() + 1);
-      R->bottomRows(1).setZero();
-      R->rightCols(1).topRows(r.size()) = r;
-      (*R)(R->rows() - 1, R->cols() - 1) = rho;
+      Q->conservativeResize(Q->rows(), Q->cols() + QC.cols());
+      Q->rightCols(QC.cols()) = QC;
+      R->conservativeResize(R->rows() + Rrem.rows(), R->cols() + RC.cols());
+      R->bottomRows(Rrem.rows()).setZero();
+      R->rightCols(RC.cols()).topRows(RC.rows()) = RC;
+      R->rightCols(RC.cols()).bottomRows(Rrem.rows()) = Rrem;
     } else {
-      R->conservativeResize(R->rows(), R->cols() + 1);
-      R->rightCols(1) = r;
+      R->conservativeResize(R->rows(), R->cols() + RC.cols());
+      R->rightCols(RC.cols()) = RC;
     }
     return;
   }
@@ -73,29 +78,30 @@ class ActiveSetManager {
         ++nnew;
       else
         ++nold;
-    std::cout << "size: " << aidcs.size() << " new indices: " << nnew
-              << " old indices: " << nold << std::endl;
-    if (nnew > 10)
-      init(A, aidcs);
-    else
-      for (const auto& it : aidcs) {
+    Matrix C(A.rows(), nnew);
+    if (nnew) {
+      // fill C
+      Index i = 0;
+      for (const auto& it : aidcs)
         if (idcs_[it] == -1) {
-          Matrix S = sigma_.asDiagonal();
-          QRupdate(&U_, &S, A.col(it));
-          V_.conservativeResize(V_.rows() + 1, V_.cols() + 1);
-          V_.rightCols(1).setZero();
-          V_.bottomRows(1).setZero();
-          V_(V_.rows() - 1, V_.cols() - 1) = 1;
-          idcs_[it] = V_.cols() - 1;
-          Eigen::JacobiSVD<Matrix> svd(
-              S, Eigen::ComputeThinU | Eigen::ComputeThinV);
-          U_ = U_ * svd.matrixU();
-          V_ = V_ * svd.matrixV();
-          sigma_ = svd.singularValues();
+          C.col(i) = A.col(it);
+          idcs_[it] = V_.cols() + i;
+          ++i;
         }
-      }
+      Matrix S = sigma_.asDiagonal();
+      QRupdate(&U_, &S, C);
+      V_.conservativeResize(V_.rows() + nnew, V_.cols() + nnew);
+      V_.rightCols(nnew).setZero();
+      V_.bottomRows(nnew).setZero();
+      V_.bottomRows(nnew).rightCols(nnew).setIdentity();
+      JacobiSVD svd(S, ComputeThinUV);
+      U_ = U_ * svd.matrixU();
+      V_ = V_ * svd.matrixV();
+      sigma_ = svd.singularValues();
+    }
     return;
   }
+
   const Matrix& matrixU() const { return U_; }
   const Vector& sigma() const { return sigma_; }
   const Matrix& matrixV() const { return V_; }
@@ -119,8 +125,7 @@ class ActiveSetManager {
     Matrix retval(aidcs.size(), V_.rows());
     for (Index i = 0; i < aidcs.size(); ++i)
       retval.row(i) = V_.row(idcs_[aidcs[i]]);
-    Eigen::JacobiSVD<Matrix> svd(retval * sigma_.asDiagonal(),
-                                 Eigen::ComputeThinU | Eigen::ComputeThinV);
+    JacobiSVD svd(retval * sigma_.asDiagonal(), ComputeThinUV);
 
     sactive_ = svd.singularValues();
     const Vector s_inv = (sactive_.array() > 100 * FMCA_ZERO_TOLERANCE)
