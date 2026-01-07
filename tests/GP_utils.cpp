@@ -228,3 +228,70 @@ void exportResults1DToPython(
 
   std::cout << "Results exported to " << filename << std::endl;
 }
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Points generators
+Matrix generateUniformPoints1D(int n, int DIM = 1) {
+  Matrix P(DIM, n);
+  for (int i = 0; i < n; ++i) {
+    P(0, i) = static_cast<Scalar>(i) / (n - 1);
+  }
+  return P;
+}
+/////////////////////////////////////////////////////////////////////////
+Matrix generateRandomPoints1D(int n, unsigned seed = 42, int DIM = 1) {
+  std::mt19937 gen(seed);
+  std::uniform_real_distribution<Scalar> dist(0.0, 1.0);
+  Matrix P(DIM, n);
+  for (int i = 0; i < n; ++i) {
+    P(0, i) = dist(gen);
+  }
+  // Sort the points
+  std::vector<Scalar> points;
+  for (int i = 0; i < n; ++i) {
+    points.push_back(P(0, i));
+  }
+  std::sort(points.begin(), points.end());
+  for (int i = 0; i < n; ++i) {
+    P(0, i) = points[i];
+  }
+  return P;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Points sets generators
+std::vector<Matrix> generateHierarchicalPoints1D(
+    const std::vector<int>& sizes, const std::string& distribution,
+    unsigned seed = 42, int DIM = 1) {
+  std::vector<Matrix> P_Matrices;
+
+  if (distribution == "uniform") {
+    for (int size : sizes) {
+      P_Matrices.push_back(generateUniformPoints1D(size));
+    }
+  } else {
+    // For random points, ensure nested structure
+    std::mt19937 gen(seed);
+    std::uniform_real_distribution<Scalar> dist(0.0, 1.0);
+    std::vector<Scalar> all_points;
+    // Generate points for the finest level
+    int max_size = *std::max_element(sizes.begin(), sizes.end());
+    for (int i = 0; i < max_size; ++i) {
+      all_points.push_back(dist(gen));
+    }
+    std::sort(all_points.begin(), all_points.end());
+    // Create nested subsets
+    for (int size : sizes) {
+      Matrix P(DIM, size);
+      int step = max_size / size;
+      for (int i = 0; i < size; ++i) {
+        int idx = std::min(i * step, max_size - 1);
+        P(0, i) = all_points[idx];
+      }
+      P_Matrices.push_back(P);
+    }
+  }
+  return P_Matrices;
+}
