@@ -31,11 +31,13 @@ class ActiveSetManager {
       U_.col(i) = A.col(aidcs[i]);
       idcs_[aidcs[i]] = i;
     }
-    JacobiSVD svd(U_, ComputeThinUV);
-    U_ = svd.matrixU();
-    sigma_ = svd.singularValues();
-    sactive_ = sigma_;
-    V_ = svd.matrixV();
+    if (U_.cols()) {
+      JacobiSVD svd(U_, ComputeThinUV);
+      U_ = svd.matrixU();
+      sigma_ = svd.singularValues();
+      sactive_ = sigma_;
+      V_ = svd.matrixV();
+    }
     return;
   }
 

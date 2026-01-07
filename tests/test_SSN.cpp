@@ -32,7 +32,7 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
 int main() {
   FMCA::Tictoc T;
-  const FMCA::CovarianceKernel function("Matern92", .1);
+  const FMCA::CovarianceKernel function("Matern32", .1);
   const FMCA::Matrix P = FMCA::Matrix::Random(DIM, NPTS).array();
   const FMCA::Scalar threshold = 1e-4;
   const FMCA::Scalar eta = 0.5;
@@ -102,9 +102,14 @@ int main() {
   x0.setZero();
   w.setOnes();
   FMCA::ActiveSetManager asmgr;
-
-  FMCA::Vector x = FMCA::SSN(Ssym, Tdata, 4 * w, x0, asmgr, 100, 1e-6);
-  x = TRSSN(Ssym, Tdata, 0.01 * w, x, asmgr, 0.01, 0.1, 0.01, 1000, 1e-6);
+  x0(0) = 10;
+  // x0 = FMCA::SSN(Ssym, Tdata, 4 * w, x0, asmgr, 100, 1e-6);
+  FMCA::Scalar fac = 1.;
+  for (FMCA::Index i = 0; i < 20; ++i) {
+    x0 = TRSSN(Ssym, Tdata, w, x0, asmgr, 1e-1 * fac, 0.05, .01, 1000, 1e-8);
+    w *= 0.5;
+    fac *= 0.5;
+  }
 
   Tdata = hst.inverseSampletTransform(x0);
   Tdata = hst.toNaturalOrder(Tdata);
