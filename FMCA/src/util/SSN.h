@@ -20,15 +20,15 @@ namespace FMCA {
  *
  **/
 template <typename MatrixReplacement>
-inline Scalar Phi(const MatrixReplacement &A, const Vector &b, const Vector &w,
-                  const Vector &x) {
+inline Scalar Phi(const MatrixReplacement& A, const Vector& b, const Vector& w,
+                  const Vector& x) {
   return 0.5 * (b - A * x).squaredNorm() + x.cwiseAbs().dot(w);
 }
 
 /**
  *  \brief Soft-Shrinkage operator
  **/
-inline Vector SS(const Vector &x, const Vector &w) {
+inline Vector SS(const Vector& x, const Vector& w) {
   return (x.array().abs() - w.array()).max(0.0) * x.array().sign();
 }
 
@@ -36,15 +36,15 @@ inline Vector SS(const Vector &x, const Vector &w) {
  *  \brief normal map
  **/
 template <typename MatrixReplacement>
-inline Vector Fnormal(const MatrixReplacement &A, const Vector &b,
-                      const Vector &w, const Vector &x, const Scalar lambda) {
+inline Vector Fnormal(const MatrixReplacement& A, const Vector& b,
+                      const Vector& w, const Vector& x, const Scalar lambda) {
   const Vector SSx = SS(x, lambda * w);
   return A.transpose() * (A * SSx - b).eval() + (1. / lambda) * (x - SSx);
 }
 
 template <typename MatrixReplacement>
-inline Scalar Htau(const MatrixReplacement &A, const Vector &b, const Vector &w,
-                   const Vector &x, const Scalar lambda, const Scalar tau) {
+inline Scalar Htau(const MatrixReplacement& A, const Vector& b, const Vector& w,
+                   const Vector& x, const Scalar lambda, const Scalar tau) {
   const Vector SSx = SS(x, lambda * w);
   const Vector aux = (A * SSx - b).eval();
   const Scalar psi = 0.5 * aux.squaredNorm() + SSx.cwiseAbs().dot(w);
@@ -55,13 +55,13 @@ inline Scalar Htau(const MatrixReplacement &A, const Vector &b, const Vector &w,
 /**
  *  \brief active set
  **/
-inline Vector activeSet(const Vector &x, const Vector &w) {
+inline Vector activeSet(const Vector& x, const Vector& w) {
   return (x.array().abs() > w.array()).cast<Scalar>();
 }
 
 template <typename SparseMatrix>
-Vector SSN(const SparseMatrix &A, const Vector &b, const Vector &w,
-           const Vector &x0, ActiveSetManager &asmgr, Index steps = 1000,
+Vector SSN(const SparseMatrix& A, const Vector& b, const Vector& w,
+           const Vector& x0, ActiveSetManager& asmgr, Index steps = 1000,
            Scalar tol = 1e-6) {
   const Index npts = A.rows();
   std::vector<Index> aidcs, iidcs;
@@ -115,15 +115,15 @@ Vector SSN(const SparseMatrix &A, const Vector &b, const Vector &w,
 }
 
 template <typename SparseMatrix>
-Vector TRSSN(const SparseMatrix &A, const Vector &b, const Vector &w,
-             const Vector &x0, ActiveSetManager &asmgr,
+Vector TRSSN(const SparseMatrix& A, const Vector& b, const Vector& w,
+             const Vector& x0, ActiveSetManager& asmgr,
              const Scalar lambda = 0.1, const Scalar eta = 0.5,
-             const Scalar tau = 0.2, const Index steps = 1000,
+             const Scalar tau = 0.5, const Index steps = 1000,
              const Scalar tol = 1e-6) {
   const Scalar npts = A.rows();
-  const Scalar nu = 0.5 * tau;
+  const Scalar nu = 0.5 * tau; // * tau 
   const Scalar delta_min = 1e-6;
-  const Scalar delta_max = 10.;
+  const Scalar delta_max = 1000.;
   std::vector<Index> aidcs, iidcs;
   Vector x = x0, s = x0, fnor, active, inactive;
   Scalar delta = 1, ared = 0, pred = 0, rho = 0, cond = 0;
@@ -167,8 +167,9 @@ Vector TRSSN(const SparseMatrix &A, const Vector &b, const Vector &w,
     }
     ared = Htau(A, b, w, x, lambda, tau) - Htau(A, b, w, x + s, lambda, tau);
     const Scalar scal = std::min({lambda, delta, lambda * norm_fnor});
+    const Scalar scal2 = std::min({delta, lambda * norm_fnor});
     pred = 0.5 * tau * norm_fnor * scal +
-           nu * norm_fnor / scal *
+           nu * norm_fnor / scal2 *
                (SS(x + s, lambda * w) - SS(x, lambda * w)).squaredNorm();
     if (pred <= 0) {
       rho = 0;

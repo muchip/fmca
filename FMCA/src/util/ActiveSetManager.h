@@ -96,7 +96,11 @@ class ActiveSetManager {
       V_.rightCols(nnew).setZero();
       V_.bottomRows(nnew).setZero();
       V_.bottomRows(nnew).rightCols(nnew).setIdentity();
+
       JacobiSVD svd(S, ComputeThinUV);
+      std::cout << "[ActiveSetManager] SVD recomputed, added "
+          << nnew << " columns" << std::endl;
+
       U_ = U_ * svd.matrixU();
       V_ = V_ * svd.matrixV();
       sigma_ = svd.singularValues();

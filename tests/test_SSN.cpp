@@ -32,7 +32,7 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
 int main() {
   FMCA::Tictoc T;
-  const FMCA::CovarianceKernel function("Matern32", .1);
+  const FMCA::CovarianceKernel function("exponential", .1);
   const FMCA::Matrix P = FMCA::Matrix::Random(DIM, NPTS).array();
   const FMCA::Scalar threshold = 1e-4;
   const FMCA::Scalar eta = 0.5;
@@ -103,13 +103,14 @@ int main() {
   w.setOnes();
   FMCA::ActiveSetManager asmgr;
   x0(0) = 10;
-  // x0 = FMCA::SSN(Ssym, Tdata, 4 * w, x0, asmgr, 100, 1e-6);
-  FMCA::Scalar fac = 1.;
-  for (FMCA::Index i = 0; i < 20; ++i) {
-    x0 = TRSSN(Ssym, Tdata, w, x0, asmgr, 1e-1 * fac, 0.05, .01, 1000, 1e-8);
-    w *= 0.5;
-    fac *= 0.5;
-  }
+  x0 = TRSSN(Ssym, Tdata, 1 * w, x0, asmgr, 1e-1, 0.05, .01, 1000, 1e-8);
+  // x0 = FMCA::SSN(Ssym, Tdata, w, x0, asmgr, 100, 1e-6);
+  // FMCA::Scalar fac = 1.;
+  // for (FMCA::Index i = 0; i < 20; ++i) {
+  //   x0 = TRSSN(Ssym, Tdata, w, x0, asmgr, 1e-1 * fac, 0.05, .01, 1000, 1e-8);
+  //   w *= 0.5;
+  //   fac *= 0.5;
+  // }
 
   Tdata = hst.inverseSampletTransform(x0);
   Tdata = hst.toNaturalOrder(Tdata);
@@ -119,6 +120,11 @@ int main() {
   FMCA::IO::plotPointsColor("data.vtk", P3, data);
   P3.bottomRows(1) = Tdata.transpose();
   FMCA::IO::plotPointsColor("rec.vtk", P3, Tdata);
+  FMCA::Vector err = data - Tdata;
+  std::cout << "error: " << err.norm()/data.norm() << std::endl;
+  P3.bottomRows(1) = err.transpose();
+  FMCA::IO::plotPointsColor("err.vtk", P3, err);
+
 
   return 0;
 }
