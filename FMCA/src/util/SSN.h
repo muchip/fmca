@@ -121,13 +121,13 @@ Vector TRSSN(const SparseMatrix& A, const Vector& b, const Vector& w,
              const Scalar tau = 0.5, const Index steps = 1000,
              const Scalar tol = 1e-6) {
   const Scalar npts = A.rows();
-  const Scalar nu = 0.5 * tau; // * tau 
-  const Scalar delta_min = 1e-6;
+  const Scalar nu = 0.05 * tau;  // * tau
+  const Scalar delta_min = 1e-5;
   const Scalar delta_max = 1000.;
   std::vector<Index> aidcs, iidcs;
   Vector x = x0, s = x0, fnor, active, inactive;
   Scalar delta = 1, ared = 0, pred = 0, rho = 0, cond = 0;
-  const Scalar eta2 = eta + 0.05 * (1 - eta);
+  const Scalar eta2 = eta + 0.01 * (1 - eta);
   Index iter = 0, n_active = 0;
   fnor = Fnormal(A, b, w, x, lambda);
   Scalar norm_fnor = fnor.norm();
@@ -185,14 +185,15 @@ Vector TRSSN(const SparseMatrix& A, const Vector& b, const Vector& w,
     ++iter;
     fnor = Fnormal(A, b, w, x, lambda);
     norm_fnor = fnor.norm();
+    std::cout << "\r                                                    \r";
     std::cout << "delta: " << delta << " nactive: " << n_active
-              << " res: " << norm_fnor << std::endl;
+              << " res: " << norm_fnor << std::flush;
   } while (iter < steps && norm_fnor > tol);
   std::cout << std::endl
             << "dict size: " << asmgr.matrixU().cols()
             << " active size: " << aidcs.size() << " iterations: " << iter
             << std::endl;
-  return x;
+  return SS(x, lambda * w);
 }
 
 }  // namespace FMCA
