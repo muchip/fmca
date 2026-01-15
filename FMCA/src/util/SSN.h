@@ -215,7 +215,7 @@ Vector TRSSN(const SparseMatrix& A, const Vector& b, const Vector& w,
     else
       asmgr.update(A, aidcs);
     // compute Newton correction
-    {
+    if (n_active) {
       Vector arhs(n_active);
       for (Index i = 0; i < aidcs.size(); ++i) arhs(i) = -fnor(aidcs[i]);
       const Matrix VSinv = asmgr.activeVSinv(aidcs);
@@ -224,9 +224,9 @@ Vector TRSSN(const SparseMatrix& A, const Vector& b, const Vector& w,
       if (cond > 1e15) std::cout << "ill conditioned" << std::endl;
       const Vector ax = VSinv * (VSinv.transpose() * arhs).eval();
       // lambda = 1/L, where L is ||K^T K||_2 = sigma_max(K)^2
-      Scalar sigma_max = asmgr.sactive()(0);
-      Scalar L = sigma_max * sigma_max;
-      lambda = 1.0 / L;
+      Scalar sigma_min = asmgr.sactive()(asmgr.sactive().size() - 1);
+      Scalar L = sigma_min * sigma_min;
+      lambda = 1.0;// / L;
       std::cout << "lambda: " << lambda << std::endl;
       // set active components to compute inactive part
       s.setZero();
@@ -235,6 +235,9 @@ Vector TRSSN(const SparseMatrix& A, const Vector& b, const Vector& w,
       // reset active part
       for (Index i = 0; i < aidcs.size(); ++i) s(aidcs[i]) = ax(i);
       // scale s by step size
+      s *= std::min({1., Scalar(delta / s.norm())});
+    } else {
+      s = -lambda * fnor;
       s *= std::min({1., Scalar(delta / s.norm())});
     }
     ared = Htau(A, b, w, x, lambda, tau) - Htau(A, b, w, x + s, lambda, tau);

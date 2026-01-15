@@ -23,6 +23,22 @@
 #define NPTS 100000
 #define DIM 2
 
+namespace FMCA {
+/*
+ *  \brief symmetric power iteration for the largest eigenvalue
+ *
+ **/
+Scalar powerIteration(const SparseMatrix& A, Index steps = 20) {
+  Scalar norm = 0;
+  Vector x = Vector::Random(A.rows());
+  for (auto i = 0; i < steps; ++i) {
+    x = A * x;
+    x /= x.norm();
+  }
+  return x.dot(A * x);
+}
+}  // namespace FMCA
+
 using Interpolator = FMCA::TotalDegreeInterpolator;
 using SampletInterpolator = FMCA::MonomialInterpolator;
 using Moments = FMCA::NystromMoments<Interpolator>;
@@ -112,7 +128,7 @@ int main() {
   S.setFromTriplets(trips.begin(), trips.end());
   Eigen::SparseMatrix<FMCA::Scalar> Ssym = S.selfadjointView<Eigen::Upper>();
   Ssym *= 1. / FMCA::Scalar(NPTS);
-
+  std::cout << "max eval: " << FMCA::powerIteration(Ssym) << std::endl;
   FMCA::Matrix data = rhs(hst, Ssym);
   //   FMCA::Vector data(NPTS);
   //   for (FMCA::Index i = 0; i < NPTS; ++i)
@@ -132,10 +148,10 @@ int main() {
   w.setOnes();
   w *= 1. / std::sqrt(FMCA::Scalar(NPTS));
   FMCA::ActiveSetManager asmgr;
-  x0(0) = 1e4;
+  // x0(0) = 1e4;
   FMCA::Scalar ramp = 1 << 15;
-  FMCA::Scalar eta1 = 1e-6;
-  FMCA::Scalar eta2 = 0.75;
+  FMCA::Scalar eta1 = 1e-2;
+  FMCA::Scalar eta2 = 2e-2;
   FMCA::Scalar tau = 2 * 0.05 / 3;
   FMCA::Scalar nu = 0.5 * std::min(tau, 0.05 * (1 - tau * 0.75));
   std::cout << "tau:                         " << tau << std::endl;
@@ -143,7 +159,7 @@ int main() {
   FMCA::Index max_it = 100;
   FMCA::Scalar tol = 1e-8;
 
-  FMCA::Vector x = x0;  
+  FMCA::Vector x = x0;
   while (ramp > 1) {
     std::cout << "------------------------------" << std::endl;
     std::cout << "ramp:                         " << ramp << std::endl;
