@@ -183,10 +183,11 @@ Vector SSN(const SparseMatrix& A, const Vector& b, const Vector& w,
 template <typename SparseMatrix>
 Vector TRSSN(const SparseMatrix& A, const Vector& b, const Vector& w,
              const Vector& x0, ActiveSetManager& asmgr,
-             const Scalar eta1 = 1e-6, const Scalar eta2 = 0.75,
-             const Scalar tau = 0.5, const Scalar nu = 0.5,
-             const Index steps = 1000, const Scalar tol = 1e-6) {
-  Scalar lambda = 1.;
+             const Scalar lambda = 1., const Scalar eta1 = 1e-6,
+             const Scalar eta2 = 0.75, const Scalar tau = 0.5,
+             const Scalar nu = 0.5, const Index steps = 1000,
+             const Scalar tol = 1e-6) {
+  // Scalar lambda = 1.;
   const Scalar npts = A.rows();
   const Scalar delta_min = 1e-5;
   const Scalar delta_max = 1000.;
@@ -224,10 +225,10 @@ Vector TRSSN(const SparseMatrix& A, const Vector& b, const Vector& w,
       if (cond > 1e15) std::cout << "ill conditioned" << std::endl;
       const Vector ax = VSinv * (VSinv.transpose() * arhs).eval();
       // lambda = 1/L, where L is ||K^T K||_2 = sigma_max(K)^2
-      Scalar sigma_min = asmgr.sactive()(asmgr.sactive().size() - 1);
-      Scalar L = sigma_min * sigma_min;
-      lambda = 1.0;// / L;
-      std::cout << "lambda: " << lambda << std::endl;
+      // Scalar sigma_min = asmgr.sactive()(asmgr.sactive().size() - 1);
+      // Scalar L = sigma_min * sigma_min;
+      // lambda = 1.0;// / L;
+      // std::cout << "lambda: " << lambda << std::endl;
       // set active components to compute inactive part
       s.setZero();
       for (Index i = 0; i < aidcs.size(); ++i) s(aidcs[i]) = ax(i);
@@ -261,10 +262,12 @@ Vector TRSSN(const SparseMatrix& A, const Vector& b, const Vector& w,
       success_iter++;
     }
     if (rho < eta1) {
-      delta *= 0.25;
+      delta *= 0.5;
     } else if (rho >= eta2) {
       delta *= 2;
     }
+    // clamp delta to [1e-6, 1000]
+    delta = std::max(Scalar(1e-4), std::min(delta, Scalar(1000.0)));
     ++iter;
     fnor = Fnormal(A, b, w, x, lambda);
     norm_fnor = fnor.norm();

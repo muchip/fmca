@@ -148,22 +148,24 @@ int main() {
   w.setOnes();
   w *= 1. / std::sqrt(FMCA::Scalar(NPTS));
   FMCA::ActiveSetManager asmgr;
-  // x0(0) = 1e4;
-  FMCA::Scalar ramp = 1 << 15;
+  x0(0) = 1.;
+  FMCA::Scalar ramp = 1 << 12;
+  FMCA::Scalar lambda = 1. / FMCA::powerIteration(Ssym);
+  std::cout << "lambda:                      " << lambda << std::endl;
   FMCA::Scalar eta1 = 1e-2;
-  FMCA::Scalar eta2 = 2e-2;
+  FMCA::Scalar eta2 = 1e-1;
   FMCA::Scalar tau = 2 * 0.05 / 3;
   FMCA::Scalar nu = 0.5 * std::min(tau, 0.05 * (1 - tau * 0.75));
   std::cout << "tau:                         " << tau << std::endl;
   std::cout << "nu:                          " << nu << std::endl;
-  FMCA::Index max_it = 100;
+  FMCA::Index max_it = 50;
   FMCA::Scalar tol = 1e-8;
 
   FMCA::Vector x = x0;
   while (ramp > 1) {
     std::cout << "------------------------------" << std::endl;
     std::cout << "ramp:                         " << ramp << std::endl;
-    x = TRSSN(Ssym, Tdata, 2 * ramp * 1e-10 * w, x, asmgr, eta1, eta2, tau, nu,
+    x = TRSSN(Ssym, Tdata, 2 * ramp * 1e-8 * w, x, asmgr, lambda, eta1, eta2, tau, nu,
               max_it, tol);
     ramp *= 0.5;
   }
