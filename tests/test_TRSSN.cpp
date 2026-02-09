@@ -24,10 +24,7 @@
 #define DIM 2
 
 namespace FMCA {
-/*
- *  \brief symmetric power iteration for the largest eigenvalue
- *
- **/
+////////////////////////////////////////////////////////////////////////////////
 Scalar powerIteration(const SparseMatrix& A, Index steps = 20) {
   Scalar norm = 0;
   Vector x = Vector::Random(A.rows());
@@ -37,7 +34,94 @@ Scalar powerIteration(const SparseMatrix& A, Index steps = 20) {
   }
   return x.dot(A * x);
 }
+////////////////////////////////////////////////////////////////////////////////
+Vector conjugateGradient(const SparseMatrix& A, const Vector& b,
+                         Index max_iter = 100, Scalar tol = 1e-10) {
+  Vector x = Vector::Zero(A.rows());
+  Vector r = b;
+  Vector p = r;
+  Scalar rs_old = r.squaredNorm();
+  for (Index i = 0; i < max_iter; ++i) {
+    Vector Ap = A * p;
+    Scalar alpha = rs_old / p.dot(Ap);
+    x += alpha * p;
+    r -= alpha * Ap;
+    Scalar rs_new = r.squaredNorm();
+    if (std::sqrt(rs_new) < tol * b.norm()) break;
+    p = r + (rs_new / rs_old) * p;
+    rs_old = rs_new;
+  }
+  return x;
+}
+// Inverse Power Iteration con shift e CG
+Scalar minEigenvalueCG(const SparseMatrix& A, Scalar shift = 1e-12,
+                       Index steps = 30, Index cg_iter = 50) {
+  const Index n = A.rows();
+  Vector x = Vector::Random(n);
+  x /= x.norm();
+  // =A_shifted = A + shift*I
+  std::vector<Eigen::Triplet<Scalar>> triplets;
+  for (int k = 0; k < A.outerSize(); ++k) {
+    for (SparseMatrix::InnerIterator it(A, k); it; ++it) {
+      triplets.push_back(
+          Eigen::Triplet<Scalar>(it.row(), it.col(), it.value()));
+    }
+  }
+  for (Index i = 0; i < n; ++i) {
+    triplets.push_back(Eigen::Triplet<Scalar>(i, i, shift));
+  }
+  SparseMatrix A_shifted(n, n);
+  A_shifted.setFromTriplets(triplets.begin(), triplets.end());
+  for (auto i = 0; i < steps; ++i) {
+    x = conjugateGradient(A_shifted, x, cg_iter);
+    Scalar norm = x.norm();
+    if (norm < 1e-15) break;
+    x /= norm;
+  }
+  Scalar lambda = x.dot(A * x) / x.dot(x);
+  return lambda;
+}
+////////////////////////////////////////////////////////////////////////////////
+// Lanczos tridiagonalization
+Scalar minEigenvalueLanczos(const SparseMatrix& A, Index k = 20) {
+  const Index n = A.rows();
+  Vector q = Vector::Random(n);
+  q /= q.norm();
+  Vector alpha(k);
+  Vector beta(k);
+  beta(0) = 0;
+  Vector q_old = Vector::Zero(n);
+  Vector q_cur = q;
+  for (Index j = 0; j < k; ++j) {
+    Vector v = A * q_cur;
+    alpha(j) = q_cur.dot(v);
+    if (j < k - 1) {
+      v = v - alpha(j) * q_cur - beta(j) * q_old;
+      beta(j + 1) = v.norm();
+      if (beta(j + 1) < 1e-14) {
+        alpha.conservativeResize(j + 1);
+        beta.conservativeResize(j + 1);
+        break;
+      }
+      q_old = q_cur;
+      q_cur = v / beta(j + 1);
+    }
+  }
+  Index m = alpha.size();
+  Eigen::MatrixXd T = Eigen::MatrixXd::Zero(m, m);
+  for (Index i = 0; i < m; ++i) {
+    T(i, i) = alpha(i);
+    if (i < m - 1) {
+      T(i, i + 1) = beta(i + 1);
+      T(i + 1, i) = beta(i + 1);
+    }
+  }
+  Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> es(T);
+  return es.eigenvalues()(0);
+}
+
 }  // namespace FMCA
+////////////////////////////////////////////////////////////////////////////////
 
 using Interpolator = FMCA::TotalDegreeInterpolator;
 using SampletInterpolator = FMCA::MonomialInterpolator;
@@ -61,7 +145,7 @@ FMCA::Matrix rhs(const H2SampletTree& hst, const FMCA::SparseMatrix& K) {
   }
   data = npts * hst.inverseSampletTransform(K.selfadjointView<Eigen::Upper>() *
                                             hst.sampletTransform(x));
-  data /= 2 * data.cwiseAbs().maxCoeff();
+  data /= 1 * data.cwiseAbs().maxCoeff();
   return data;
 }
 
@@ -129,6 +213,7 @@ int main() {
   Eigen::SparseMatrix<FMCA::Scalar> Ssym = S.selfadjointView<Eigen::Upper>();
   Ssym *= 1. / FMCA::Scalar(NPTS);
   std::cout << "max eval: " << FMCA::powerIteration(Ssym) << std::endl;
+
   FMCA::Matrix data = rhs(hst, Ssym);
   //   FMCA::Vector data(NPTS);
   //   for (FMCA::Index i = 0; i < NPTS; ++i)
@@ -149,43 +234,56 @@ int main() {
   w *= 1. / std::sqrt(FMCA::Scalar(NPTS));
   FMCA::ActiveSetManager asmgr;
   x0(0) = 1.;
-  FMCA::Scalar ramp = 1 << 12;
-  FMCA::Scalar lambda = 1. / FMCA::powerIteration(Ssym);
+  FMCA::Scalar ramp = 1;  // << 12;
+
+  FMCA::Scalar L = FMCA::powerIteration(Ssym);
+  FMCA::Scalar lambda = 2. / L;
   std::cout << "lambda:                      " << lambda << std::endl;
-  FMCA::Scalar eta1 = 1e-2;
+
+  FMCA::Scalar eta1 = 1e-4;
   FMCA::Scalar eta2 = 1e-1;
-  FMCA::Scalar tau = 2 * 0.05 / 3;
-  FMCA::Scalar nu = 0.5 * std::min(tau, 0.05 * (1 - tau * 0.75));
+  FMCA::Scalar tau = 2 * 0.05 / (L * L * lambda * lambda + 2);
+  FMCA::Scalar nu =
+      0.5 *
+      std::min(tau, 0.05 * (1 - tau / 2 * (L * L * lambda * lambda * 0.5 + 1)));
   std::cout << "tau:                         " << tau << std::endl;
   std::cout << "nu:                          " << nu << std::endl;
   FMCA::Index max_it = 50;
   FMCA::Scalar tol = 1e-8;
 
   FMCA::Vector x = x0;
-  while (ramp > 1) {
+  while (ramp > 1e-4) {
     std::cout << "------------------------------" << std::endl;
     std::cout << "ramp:                         " << ramp << std::endl;
-    x = TRSSN(Ssym, Tdata, 2 * ramp * 1e-8 * w, x, asmgr, lambda, eta1, eta2, tau, nu,
-              max_it, tol);
-    ramp *= 0.5;
+    // x = FMCA::SSN(Ssym, Tdata, ramp * 1e0 * w, x, asmgr, max_it, tol);
+    x = TRSSN(Ssym, Tdata, ramp * 1e0 * w, x, asmgr, lambda,
+              FMCA::LambdaUpdate::Fixed, eta1, eta2, tau, nu, max_it, tol);
+    ramp *= 0.1;
   }
   x *= 1. / std::sqrt(FMCA::Scalar(NPTS));
 
+  //////////////////// reconstruction
   FMCA::Vector Trec = hst.inverseSampletTransform(NPTS * Ssym * x);
   Trec = hst.toNaturalOrder(Trec);
 
   FMCA::Vector err = hst.toNaturalOrder(data) - Trec;
   FMCA::Scalar rel_err = err.norm() / data.norm();
+  FMCA::Scalar rel_err_2 = err.squaredNorm() / data.squaredNorm();
 
   std::cout << " relative inf error = " << rel_err << std::endl;
+  std::cout << " relative 2 error =   " << rel_err_2 << std::endl;
 
   std::cout << "------------------------" << std::endl;
 
   P3.bottomRows(1) = Trec.transpose();
   FMCA::IO::plotPointsColor("rec.vtk", P3, Trec);
 
-  P3.bottomRows(1) = err.transpose();
-  FMCA::IO::plotPointsColor("err.vtk", P3, err);
+  FMCA::Vector err_abs = err;
+  for (FMCA::Index i = 0; i < err.size(); ++i) {
+    err_abs(i) = std::abs(err(i));
+  }
+  P3.bottomRows(1) = err_abs.transpose();
+  FMCA::IO::plotPointsColor("err.vtk", P3, err_abs);
   //   }
 
   return 0;

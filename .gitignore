@@ -6,3 +6,13 @@ html/
 build/
 *.vtk
 *.h5
+tests/test_TRSNN_multipleKernels.cpp
+tests/test_TRSSN_LS.cpp
+tests/test_TRSSN_bunny.cpp
+tests/test_TRSSN_multipleKernels_analytic.cpp
+tests/*.o
+tests/*.out
+tests/*.vtk
+tests/read_files_txt.h
+tests/compile_and_run.sh
+tests/debug.sh

@@ -15,6 +15,13 @@
 #include "ActiveSetManager.h"
 
 namespace FMCA {
+
+enum class LambdaUpdate {
+  Fixed,     // lambda does not change
+  BB,        // lamda updated with BarzilaiBorwein method
+  Iterative  // lambda updated with DavidsYin method
+};
+
 /*
  *  \brief goal function ||b-Ax||_2^2+ w^T|x|
  *
@@ -158,52 +165,71 @@ Vector SSN(const SparseMatrix& A, const Vector& b, const Vector& w,
 }
 
 /**
- *  TRSSN (Trust Region based Sparse Semi-smooth Newton) algorithm
+ *  \brief Trust Region SemiSmooth Newton (TRSSN) algorithm
  *
- *  This algorithm is used to solve a non-linear least squares problem
- *  with a sparse Jacobian matrix. It uses a Trust Region approach to
- *  compute the Newton correction at each iteration.
+ *  This function implements the TRSSN algorithm for solving the following
+ *  problem:
  *
- *  Parameters:
- *  A - sparse matrix
- *  b - vector
- *  w - vector
- *  x0 - initial guess
- *  asmgr - ActiveSetManager object
- *  eta1 - scalar
- *  eta2 - scalar
- *  tau - scalar
- *  nu - scalar
- *  steps - integer
- *  tol - scalar
+ *  min ||b-Ax||_2^2+ w^T|x|
  *
- *  Returns:
- *  x - solution
+ *  where A is a sparse matrix, b and w are vectors, and x is the
+ *  variable to be optimized.
+ *
+ *  The algorithm is an iterative method that starts from an initial
+ *  guess and converges to the optimal solution. At each iteration,
+ *  the algorithm updates the active set of variables, computes the
+ *  Newton correction, and then updates the variables.
+ *
+ *  \param A The sparse matrix A in the problem
+ *  \param b The vector b in the problem
+ *  \param w The vector w in the problem
+ *  \param x0 The initial guess for the variable x
+ *  \param asmgr The ActiveSetManager that is used to store the active
+ *  set of variables
+ *  \param lambda The step size parameter
+ *  \param lambda_method The method by which to update lambda
+ *  \param eta1 The minimum value of rho for acceptance
+ *  \param eta2 The maximum value of rho for acceptance
+ *  \param tau The penalty parameter
+ *  \param nu The reduction parameter
+ *  \param steps The maximum number of iterations
+ *  \param tol The tolerance for convergence
+ *
+ *  \return The optimal solution x
  */
 template <typename SparseMatrix>
 Vector TRSSN(const SparseMatrix& A, const Vector& b, const Vector& w,
-             const Vector& x0, ActiveSetManager& asmgr,
-             const Scalar lambda = 1., const Scalar eta1 = 1e-6,
-             const Scalar eta2 = 0.75, const Scalar tau = 0.5,
-             const Scalar nu = 0.5, const Index steps = 1000,
-             const Scalar tol = 1e-6) {
-  // Scalar lambda = 1.;
-  const Scalar npts = A.rows();
+             const Vector& x0, ActiveSetManager& asmgr, Scalar lambda = 1.,
+             LambdaUpdate lambda_method = LambdaUpdate::Fixed,
+             const Scalar eta1 = 1e-6, const Scalar eta2 = 0.75,
+             const Scalar tau = 0.5, const Scalar nu = 0.5,
+             const Index steps = 1000, const Scalar tol = 1e-6,
+             const std::string& matrix_filename = "lastM.txt") {
+  const Index ndata = A.rows();  // data dimension (e.g. number of points)
+  const Index npar = A.cols();   // parameter dimension (coefficients)
   const Scalar delta_min = 1e-5;
   const Scalar delta_max = 1000.;
-  Scalar success_iter = 0;
+  Scalar success_iter = 0.0;
 
   std::vector<Index> aidcs, iidcs;
-  Vector x = x0, s = x0, fnor, active, inactive;
-  Scalar delta = 1, ared = 0, pred = 0, rho = 0, cond = 0;
+  Vector x = x0;      // size npar
+  Vector s = x0;      // size npar
+  Vector fnor(npar);  // Fnormal is in parameter space
+  Vector active(npar), inactive(npar);
+  Scalar delta = 1.0, ared = 0.0, pred = 0.0, rho = 0.0, cond = 0.0;
   Index iter = 0, n_active = 0;
-  fnor = Fnormal(A, b, w, x, lambda);
+
+  fnor = Fnormal(A, b, w, x, lambda);  // size npar
   Scalar norm_fnor = fnor.norm();
-  //////////////////////////////////////////////////////////////////////////
+
+  Matrix finalM;
+
   do {
-    active = activeSet(x, lambda * w);
-    inactive = Vector::Ones(npts) - active;
+    // active set of coefficients
+    active = activeSet(x, lambda * w);  // size npar
+    inactive = Vector::Ones(npar) - active;
     n_active = active.sum();
+
     aidcs.clear();
     iidcs.clear();
     for (Index i = 0; i < active.size(); ++i)
@@ -211,52 +237,87 @@ Vector TRSSN(const SparseMatrix& A, const Vector& b, const Vector& w,
         aidcs.push_back(i);
       else
         iidcs.push_back(i);
+
     if (!asmgr.indices().size())
       asmgr.init(A, aidcs);
     else
       asmgr.update(A, aidcs);
-    // compute Newton correction
+
+    // Newton correction
     if (n_active) {
       Vector arhs(n_active);
-      for (Index i = 0; i < aidcs.size(); ++i) arhs(i) = -fnor(aidcs[i]);
+      for (Index i = 0; i < aidcs.size(); ++i)
+        arhs(i) = -fnor(aidcs[i]);  // fnor in param space
+
       const Matrix VSinv = asmgr.activeVSinv(aidcs);
       cond = asmgr.sactive()(0) / asmgr.sactive()(asmgr.sactive().size() - 1);
       cond *= cond;
       if (cond > 1e15) std::cout << "ill conditioned" << std::endl;
+      if (matrix_filename != "" && iter == steps - 1) {
+        finalM = VSinv * VSinv.transpose();
+        IO::print2ascii(matrix_filename, finalM);
+        std::cout << "finalM saved to " << matrix_filename << std::endl;
+      }
+
       const Vector ax = VSinv * (VSinv.transpose() * arhs).eval();
-      // lambda = 1/L, where L is ||K^T K||_2 = sigma_max(K)^2
-      // Scalar sigma_min = asmgr.sactive()(asmgr.sactive().size() - 1);
-      // Scalar L = sigma_min * sigma_min;
-      // lambda = 1.0;// / L;
-      // std::cout << "lambda: " << lambda << std::endl;
-      // set active components to compute inactive part
+
       s.setZero();
       for (Index i = 0; i < aidcs.size(); ++i) s(aidcs[i]) = ax(i);
-      s = -lambda * (fnor + A.transpose() * (A * s).eval());
-      // reset active part
+
+      const Vector AAs = A.transpose() * (A * s).eval();  // size npar
+      s = -lambda * (fnor + AAs);
+
       for (Index i = 0; i < aidcs.size(); ++i) s(aidcs[i]) = ax(i);
-      // scale s by step size
-      s *= std::min({1., Scalar(delta / s.norm())});
+
+      s *= std::min(Scalar(1.), Scalar(delta / s.norm()));
     } else {
       s = -lambda * fnor;
-      s *= std::min({1., Scalar(delta / s.norm())});
+      s *= std::min(Scalar(1.), Scalar(delta / s.norm()));
     }
+
+    // Reduction
     ared = Htau(A, b, w, x, lambda, tau) - Htau(A, b, w, x + s, lambda, tau);
     const Scalar scal = std::min({lambda, delta, lambda * norm_fnor});
     const Scalar scal2 = std::min({delta, lambda * norm_fnor});
-    // iterative nu
+
     Scalar nu_k = std::min(
-        nu,
-        1e-3 * std::pow((success_iter * pow(std::log(success_iter), 2)), 0.2) *
-            std::pow((SS(x + s, lambda * w) - SS(x, lambda * w)).norm(), 0.2));
+        nu, Scalar(1e-3) *
+                std::pow((success_iter * std::pow(std::log(success_iter), 2)),
+                         Scalar(0.2)) *
+                std::pow((SS(x + s, lambda * w) - SS(x, lambda * w)).norm(),
+                         Scalar(0.2)));
+
     pred = 0.5 * tau * norm_fnor * scal +
            nu_k * norm_fnor / scal2 *
                (SS(x + s, lambda * w) - SS(x, lambda * w)).squaredNorm();
-    if (pred <= 0) {
-      rho = 0;
-    } else {
-      rho = ared / pred;
+
+    // lambda update
+    switch (lambda_method) {
+      case LambdaUpdate::BB: {
+        const Vector y = A.transpose() * (A * s);  // size npar
+        const Scalar sy = s.dot(y);
+        const Scalar yy = y.squaredNorm();
+        if (sy > 0 && yy > 0) lambda = sy / yy;
+        break;
+      }
+
+      case LambdaUpdate::Iterative: {
+        const Scalar eig_min = 1e-12;
+        Scalar l2 = lambda * lambda;
+        Scalar e2 = eig_min * eig_min;
+        lambda =
+            Scalar(0.5) * l2 * (-e2 + std::sqrt(e2 * e2 + Scalar(4.0) / l2));
+        lambda = std::clamp(lambda, Scalar(1e-6), Scalar(1e3));
+        break;
+      }
+
+      case LambdaUpdate::Fixed:
+      default:
+        break;
     }
+
+    // Trust-region acceptance
+    rho = (pred <= 0) ? 0.0 : ared / pred;
     if (rho >= eta1) {
       x += s;
       success_iter++;
@@ -264,20 +325,25 @@ Vector TRSSN(const SparseMatrix& A, const Vector& b, const Vector& w,
     if (rho < eta1) {
       delta *= 0.5;
     } else if (rho >= eta2) {
-      delta *= 2;
+      delta *= 2.0;
     }
-    // clamp delta to [1e-6, 1000]
-    delta = std::max(Scalar(1e-4), std::min(delta, Scalar(1000.0)));
+
+    delta = std::clamp(delta, delta_min, delta_max);
     ++iter;
+
     fnor = Fnormal(A, b, w, x, lambda);
     norm_fnor = fnor.norm();
-    std::cout << "iter: " << iter << " delta: " << delta
-              << " nactive: " << n_active << " res: " << norm_fnor << std::endl;
+
+    std::cout << "iter: " << iter << " lambda: " << lambda << " w: " << w[0]
+              << " delta: " << delta << " nactive: " << n_active
+              << " cond: " << cond << " res: " << norm_fnor << std::endl;
   } while (iter < steps && norm_fnor > tol);
-  std::cout << std::endl
+
+  std::cout << "\n"
             << "dict size: " << asmgr.matrixU().cols()
             << " active size: " << aidcs.size() << " iterations: " << iter
             << std::endl;
+
   return SS(x, lambda * w);
 }
 
