@@ -32,7 +32,7 @@ int main() {
   FMCA::Vector tdata = st.sampletTransform(sdata);
   FMCA::Scalar norm2 = tdata.squaredNorm();
   std::vector<const SampletTree *> adaptive_tree =
-      adaptiveTreeSearch(st, tdata, 1e-6 * norm2);
+      FMCA::adaptiveTreeSearch(st, tdata, 1e-6 * norm2);
   const FMCA::Index nclusters = std::distance(st.begin(), st.end());
 
   FMCA::Vector thres_tdata = tdata;
