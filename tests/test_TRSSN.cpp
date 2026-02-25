@@ -256,8 +256,7 @@ int main() {
     std::cout << "------------------------------" << std::endl;
     std::cout << "ramp:                         " << ramp << std::endl;
     // x = FMCA::SSN(Ssym, Tdata, ramp * 1e0 * w, x, asmgr, max_it, tol);
-    x = TRSSN(Ssym, Tdata, ramp * 1e0 * w, x, asmgr, lambda,
-              FMCA::LambdaUpdate::Fixed, eta1, eta2, tau, nu, max_it, tol);
+    x = TRSSN(Ssym, Tdata, ramp * 1e0 * w, x, asmgr, lambda, eta1, eta2, tau, nu, max_it, tol);
     ramp *= 0.1;
   }
   x *= 1. / std::sqrt(FMCA::Scalar(NPTS));
