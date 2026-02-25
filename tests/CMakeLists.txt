@@ -75,4 +75,7 @@ add_test(TreeIterator test_TreeIterator.out)
 add_executable(test_kNN.out test_kNN.cpp)
 add_test(kNN test_kNN.out)
 
+add_executable(test_MultilevelFrankeFunction.out test_MultilevelFrankeFunction.cpp)
+add_test(test_MultilevelFrankeFunction test_MultilevelFrankeFunction.out)
+
 enable_testing()

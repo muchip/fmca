@@ -51,6 +51,8 @@ struct H2Matrix : public H2MatrixBase<H2Matrix<Derived, ClusterComparison>> {
   // constructors
   //////////////////////////////////////////////////////////////////////////////
   H2Matrix() {}
+  H2Matrix(const H2Matrix&) = delete;      
+  H2Matrix(H2Matrix&&) = delete;      
   template <typename EntryGenerator>
   H2Matrix(const H2ClusterTreeBase<Derived> &CT, const EntryGenerator &e_gen,
            Scalar eta = 0.8) {

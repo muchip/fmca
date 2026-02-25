@@ -18,14 +18,34 @@
  *  \brief High level module to handle kernel interpolation tasks,
  *         such as matrix compression and solution
  **/
+ 
+#include<Eigen/Sparse>
+#include <Eigen/IterativeLinearSolvers>
+#include <random>
+#include <stdexcept>
+#include <string>
+#include <cmath>
+#include <iomanip>
+#include <iostream>
+#include <vector>
 
-#include "src/util/Macros.h"
-//
+
+#include "src/util/Tictoc.h"
 
 #include "CovarianceKernel"
 #include "Samplets"
 #include "H2Matrix"
 
+#ifdef CHOLMOD_SUPPORT
+  #include <Eigen/CholmodSupport>
+#endif
+
+#ifdef METIS_SUPPORT
+  #include <Eigen/MetisSupport>
+#endif
+
 #include "src/KernelInterpolation/SampletKernelSolver.h"
+#include "src/KernelInterpolation/H2MatrixKernelSolver.h"
 #include "src/KernelInterpolation/MultipoleFunctionEvaluator.h"
+#include "src/KernelInterpolation/MultiscaleInterpolator.h"
 #endif

@@ -20,7 +20,6 @@ class CovarianceKernel {
   CovarianceKernel(const CovarianceKernel &other) {
     kernel_ = other.kernel_;
     ktype_ = other.ktype_;
-    distance_ = other.distance_;
     l_ = other.l_;
     c_ = other.c_;
     nu_ = other.nu_;
@@ -29,8 +28,6 @@ class CovarianceKernel {
   CovarianceKernel(CovarianceKernel &&other) {
     kernel_ = other.kernel_;
     ktype_ = other.ktype_;
-    distance_ = other.distance_;
-
     l_ = other.l_;
     c_ = other.c_;
     nu_ = other.nu_;
@@ -39,8 +36,6 @@ class CovarianceKernel {
   CovarianceKernel &operator=(CovarianceKernel other) {
     std::swap(kernel_, other.kernel_);
     std::swap(ktype_, other.ktype_);
-    std::swap(distance_, other.distance_);
-
     std::swap(l_, other.l_);
     std::swap(c_, other.c_);
     std::swap(nu_, other.nu_);
@@ -93,16 +88,29 @@ class CovarianceKernel {
     else if (ktype_ == "GAUSSIAN")
       kernel_ = [this](Scalar r) { return std::exp(-0.5 * r * r / (l_ * l_)); };
     ////////////////////////////////////////////////////////////////////////////
-#ifdef FMCA_MATERNNU
-    else if (ktype_ == "MATERNNU")
+
+    // else if (ktype_ == "MATERNNU")
+    //   kernel_ = [this](Scalar r) {
+    //     const Scalar arg = std::sqrt(2 * nu_) * r / l_;
+    //     return arg > FMCA_ZERO_TOLERANCE
+    //                ? 2. * std::pow(0.5 * arg, nu_) / std::tgamma(nu_) *
+    //                      std::cyl_bessel_k(nu_, arg)
+    //                : 1.;
+    //   };
+
+    /////////////////// compact support
+    else if (ktype_ == "WENDLAND20")
       kernel_ = [this](Scalar r) {
-        const Scalar arg = std::sqrt(2 * nu_) * r / l_;
-        return arg > FMCA_ZERO_TOLERANCE
-                   ? 2. * std::pow(0.5 * arg, nu_) / std::tgamma(nu_) *
-                         std::cyl_bessel_k(nu_, arg)
-                   : 1.;
+        return (r / l_) >= 1. ? 0. : std::pow(1. - (r / l_), 2);
       };
-#endif
+    else if (ktype_ == "WENDLAND21")
+      kernel_ = [this](Scalar r) {
+        return (r / l_) >= 1.
+                   ? 0.
+                   : std::pow(1. - (r / l_), 4) * (1. + 4. * (r / l_)) / 20;
+      };
+    ////////////////////
+
     ////////////////////////////////////////////////////////////////////////////
     else if (ktype_ == "INVMULTIQUADRIC")
       kernel_ = [this](Scalar r) {
@@ -112,34 +120,14 @@ class CovarianceKernel {
       kernel_ = [this](Scalar r) {
         return std::sqrt((r / l_) * (r / l_) + c_ * c_);
       };
-    else if (ktype_ == "TPS2D")
-      kernel_ = [this](Scalar r) { return r > 0 ? r * r * std::log(r) : 0; };
     else
       assert(false && "desired kernel not implemented");
-    // use Euclidean distance by default
-    setDistanceType("EUCLIDEAN");
-  }
-
-  void setDistanceType(const std::string &dist_type) {
-    for (auto &chr : ktype_) chr = (char)toupper(chr);
-
-    if (dist_type == "EUCLIDEAN") {
-      distance_ = [](const Vector &x, const Vector &y) {
-        return (x - y).norm();
-      };
-    } else if (dist_type == "GEODESIC") {
-      distance_ = [](const Vector &x, const Vector &y) {
-        return SphereClusterTree::geodesicDistance(x, y);
-      };
-    } else
-      assert(false && "desired distance not implemented");
-    return;
   }
 
   template <typename derived, typename otherDerived>
-  Scalar operator()(const MatrixBase<derived> &x,
-                    const MatrixBase<otherDerived> &y) const {
-    return kernel_(distance_(x, y));
+  Scalar operator()(const Eigen::MatrixBase<derived> &x,
+                    const Eigen::MatrixBase<otherDerived> &y) const {
+    return kernel_((x - y).norm());
   }
 
   Matrix eval(const Matrix &PR, const Matrix &PC) const {
@@ -164,7 +152,6 @@ class CovarianceKernel {
  private:
   // member variables
   std::function<Scalar(Scalar)> kernel_;
-  std::function<Scalar(const Vector &, const Vector &)> distance_;
   std::string ktype_;
   Scalar l_;
   Scalar c_;

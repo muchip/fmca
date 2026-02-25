@@ -33,6 +33,7 @@ message("${CMAKE_MODULE_PATH}")
 message("${EIGEN3_INCLUDE_DIR}")
 
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set (FMCA_PATH ${PROJECT_SOURCE_DIR})
 message("${PROJECT_SOURCE_DIR}")
 
@@ -50,3 +51,4 @@ include_directories("${PROJECT_SOURCE_DIR}")
 add_subdirectory(tests)
 add_subdirectory(py)
 enable_testing()
+
