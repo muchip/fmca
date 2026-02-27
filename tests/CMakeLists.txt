@@ -75,4 +75,7 @@ add_test(TreeIterator test_TreeIterator.out)
 add_executable(test_kNN.out test_kNN.cpp)
 add_test(kNN test_kNN.out)
 
+add_executable(test_ExactDiscreteModulusOfContinuity.out test_ExactDiscreteModulusOfContinuity.cpp)
+add_test(ExactDiscreteModulusOfContinuityN test_ExactDiscreteModulusOfContinuity.out)
+
 enable_testing()

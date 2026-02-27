@@ -6,3 +6,5 @@ html/
 build/
 *.vtk
 *.h5
+
+.vscode/

@@ -29,8 +29,16 @@ find_package(pybind11 CONFIG)
 find_package(OpenMP)
 
 include_directories(${EIGEN3_INCLUDE_DIR})
+# If Eigen3 is not providing a CMake target, manually add the include path
+if(NOT DEFINED EIGEN3_INCLUDE_DIR OR EIGEN3_INCLUDE_DIR STREQUAL "")
+    message(STATUS "Eigen3 include path not found by CMake, adding Homebrew path manually")
+    include_directories(/opt/homebrew/include/eigen3)
+else()
+    include_directories(${EIGEN3_INCLUDE_DIR})
+endif()
 message("${CMAKE_MODULE_PATH}")
 message("${EIGEN3_INCLUDE_DIR}")
+
 
 set(CMAKE_CXX_STANDARD 17)
 set (FMCA_PATH ${PROJECT_SOURCE_DIR})

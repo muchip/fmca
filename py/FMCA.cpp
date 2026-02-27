@@ -49,7 +49,7 @@ using usMatrixEvaluator =
  *
  **/
 struct pySampletTree {
-  pySampletTree(){};
+  pySampletTree() {};
   pySampletTree(const FMCA::Matrix &P, FMCA::Index dtilde) {
     dtilde_ = dtilde > 0 ? dtilde : 1;
     p_ = 2 * (dtilde_ - 1);
@@ -118,7 +118,7 @@ struct pySampletTree {
  *
  **/
 struct pySampletTreeRP {
-  pySampletTreeRP(){};
+  pySampletTreeRP() {};
   pySampletTreeRP(const FMCA::Matrix &P, FMCA::Index dtilde,
                   FMCA::Index seed = 0.) {
     dtilde_ = dtilde > 0 ? dtilde : 1;
@@ -307,7 +307,8 @@ struct pySampletKernelCompressor {
       y2.setZero();
       for (const auto &i : trips_) {
         y2(i.row()) += i.value() * x(i.col());
-        if (i.row() != i.col()) y2(i.col()) += i.value() * x(i.row());
+        if (i.row() != i.col())
+          y2(i.col()) += i.value() * x(i.row());
       }
       y2 = hst.ST_.inverseSampletTransform(y2);
       err += (y1 - y2).squaredNorm();
@@ -336,7 +337,7 @@ struct pySampletKernelCompressor {
  **/
 ////////////////////////////////////////////////////////////////////////////////
 PYBIND11_MODULE(FMCA, m) {
-  m.doc() = "pybind11 FMCA plugin";  // optional module docstring
+  m.doc() = "pybind11 FMCA plugin"; // optional module docstring
   //////////////////////////////////////////////////////////////////////////////
   // ClusterTree
   //////////////////////////////////////////////////////////////////////////////
@@ -526,4 +527,8 @@ PYBIND11_MODULE(FMCA, m) {
   pyFALKON_.def("indices", &FMCA::FALKON::indices);
   pyFALKON_.def("matrixC", &FMCA::FALKON::matrixC);
   pyFALKON_.def("matrixKPC", &FMCA::FALKON::matrixKPC);
+
+  //////////////////////////////////////////////////////////////////////////////
+  // MODULUS OF CONTINUITY
+  //////////////////////////////////////////////////////////////////////////////
 }
