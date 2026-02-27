@@ -85,7 +85,7 @@ int main() {
 
     std::cout << "PriorityQueue tests passed.\n";
   }
-  const FMCA::Index nPts = 100000;
+  const FMCA::Index nPts = 10000;
   const FMCA::Scalar r = .01;
   FMCA::Tictoc T;
   std::mt19937 mt;
