@@ -152,20 +152,6 @@ private:
     }
     return max_d;
   }
-
-  // define the module for python import (exactdmoc)
-  // PYBIND11_MODULE(moc, m) {
-  //   py::class_<ExactDiscreteModulusOfContinuity>(
-  //       m, "ExactDiscreteModulusOfContinuity")
-  //       .def(py::init<>())
-  //       .def("init", &ExactDiscreteModulusOfContinuity::init, py::arg("P"),
-  //            py::arg("f"), py::arg("dx_type") = "EUCLIDEAN",
-  //            py::arg("dy_type") = "EUCLIDEAN")
-  //       .def("computeMoc", &ExactDiscreteModulusOfContinuity::computeMoc)
-  //       .def("computeMocPlot",
-  //       &ExactDiscreteModulusOfContinuity::computeMocPlot,
-  //            py::arg("P"), py::arg("f"), py::arg("d"));
-  // }
 };
 
 } // namespace FMCA

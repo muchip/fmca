@@ -531,4 +531,14 @@ PYBIND11_MODULE(FMCA, m) {
   //////////////////////////////////////////////////////////////////////////////
   // MODULUS OF CONTINUITY
   //////////////////////////////////////////////////////////////////////////////
+  py::class_<FMCA::ExactDiscreteModulusOfContinuity> pyMOC(
+      m, "ExactDiscreteModulusOfContinuity");
+  pyMOC.def(py::init<>());
+  pyMOC.def("init", &FMCA::ExactDiscreteModulusOfContinuity::init, py::arg("P"),
+            py::arg("f"), py::arg("dx_type") = "EUCLIDEAN",
+            py::arg("dy_type") = "EUCLIDEAN");
+  pyMOC.def("computeMoc", &FMCA::ExactDiscreteModulusOfContinuity::computeMoc);
+  pyMOC.def("computeMocPlot",
+            &FMCA::ExactDiscreteModulusOfContinuity::computeMocPlot,
+            py::arg("P"), py::arg("f"), py::arg("d"));
 }
