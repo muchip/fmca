@@ -8,3 +8,4 @@ build/
 *.h5
 
 .vscode/
+.venv/

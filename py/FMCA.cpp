@@ -25,6 +25,8 @@
 #include <FMCA/H2Matrix>
 #include <FMCA/LowRankApproximation>
 #include <FMCA/Samplets>
+#include <FMCA/src/ModulusOfContinuity/ExactDiscreteModulusOfContinuity.h>
+
 ////////////////////////////////////////////////////////////////////////////////
 namespace py = pybind11;
 // Samplets
