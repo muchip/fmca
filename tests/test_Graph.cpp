@@ -13,11 +13,6 @@ extern "C" {
 #include <metis.h>
 }
 
-#include <Eigen/Dense>
-#include <Eigen/Sparse>
-#include <fstream>
-#include <iostream>
-#include <random>
 //
 #include "../FMCA/Clustering"
 #include "../FMCA/src/util/Graph.h"

@@ -20,7 +20,7 @@
 
 int main() {
   FMCA::Tictoc T;
-  const FMCA::Matrix P = Eigen::MatrixXd::Random(DIM, NPTS);
+  const FMCA::Matrix P = FMCA::Matrix::Random(DIM, NPTS);
   std::cout
       << "Cluster splitter:             "
       << FMCA::internal::traits<FMCA::ClusterTree>::Splitter::splitterName()

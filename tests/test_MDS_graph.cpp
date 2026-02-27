@@ -30,7 +30,7 @@ int main() {
   T.toc("cluster tree: ");
   for (FMCA::Index knn : {10, 50, 100, 500, 600, 700, 800, 900, 999}) {
     T.tic();
-    std::vector<Eigen::Triplet<FMCA::Scalar>> A = FMCA::symKNN(CT, P, knn);
+    std::vector<FMCA::Triplet> A = FMCA::symKNN(CT, P, knn);
     T.toc("kNN:");
     T.tic();
     FMCA::Graph<idx_t, FMCA::Scalar> G;

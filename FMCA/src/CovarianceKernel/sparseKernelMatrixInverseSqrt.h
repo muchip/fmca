@@ -15,7 +15,7 @@
 namespace FMCA {
 
 template <typename Derived>
-Eigen::SparseMatrix<Scalar> sparseKernelMatrixInverseSqrt(
+SparseMatrix sparseKernelMatrixInverseSqrt(
     const CovarianceKernel &K, const ClusterTreeBase<Derived> &CT,
     const Matrix &P, const Scalar fps = 1., const Scalar ridge_parameter = 0,
     const Scalar zeroTol = FMCA_ZERO_TOLERANCE) {
@@ -48,53 +48,51 @@ Eigen::SparseMatrix<Scalar> sparseKernelMatrixInverseSqrt(
   std::cout << "average footprint:            " << mean_fp / epsnn.size()
             << std::endl;
   // evaluate localized inverse
-  std::vector<Eigen::Triplet<Scalar>> triplets;
+  std::vector<Triplet> triplets;
   // compute permutation from original order to cluster order
   std::vector<Index> inv_idcs(P.cols());
-  for (FMCA::Index i = 0; i < inv_idcs.size(); ++i)
-    inv_idcs[CT.indices()[i]] = i;
-    // actually compute the localized inverse
+  for (Index i = 0; i < inv_idcs.size(); ++i) inv_idcs[CT.indices()[i]] = i;
+  // actually compute the localized inverse
 #pragma omp parallel for
-  for (FMCA::Index i = 0; i < epsnn.size(); ++i) {
-    const FMCA::Index locN = epsnn[i].size();
-    FMCA::Matrix Ploc(P.rows(), locN);
-    FMCA::Index pos = 0;
-    for (FMCA::Index j = 0; j < locN; ++j) {
+  for (Index i = 0; i < epsnn.size(); ++i) {
+    const Index locN = epsnn[i].size();
+    Matrix Ploc(P.rows(), locN);
+    Index pos = 0;
+    for (Index j = 0; j < locN; ++j) {
       Ploc.col(j) = P.col(epsnn[i][j]);
       pos = epsnn[i][j] == i ? j : pos;
     }
-    FMCA::Matrix Kloc = K.eval(Ploc, Ploc);
+    Matrix Kloc = K.eval(Ploc, Ploc);
     Kloc.diagonal().array() += ridge_parameter;
 #if 1
-    Eigen::SelfAdjointEigenSolver<FMCA::Matrix> es;
-    es.compute(Kloc, Eigen::ComputeEigenvectors);
-    FMCA::Vector diag(locN);
-    for (FMCA::Index i = 0; i < locN; ++i)
+    SelfAdjointEigenSolver es;
+    es.compute(Kloc, ComputeEigenvectors);
+    Vector diag(locN);
+    for (Index i = 0; i < locN; ++i)
       diag(i) = es.eigenvalues()(i) > zeroTol
                     ? 1. / std::sqrt(es.eigenvalues()(i))
                     : 0;
-    FMCA::Matrix invSqrt =
+    Matrix invSqrt =
         es.eigenvectors() * diag.asDiagonal() * es.eigenvectors().transpose();
-    FMCA::Vector col = invSqrt.col(pos);
+    Vector col = invSqrt.col(pos);
 
 #else
-    Eigen::LLT<Matrix> llt;
+    Cholesky llt;
     llt.compute(Kloc);
-    FMCA::Vector rhs(Kloc.rows());
+    Vector rhs(Kloc.rows());
     rhs.setZero();
     rhs(pos) = 1;
-    FMCA::Vector col = llt.matrixL().transpose().solve(rhs);
+    Vector col = llt.matrixL().transpose().solve(rhs);
 #endif
-    std::vector<Eigen::Triplet<FMCA::Scalar>> local_triplets;
-    for (FMCA::Index j = 0; j < locN; ++j)
+    std::vector<Triplet> local_triplets;
+    for (Index j = 0; j < locN; ++j)
       if (std::abs(col(j)) > FMCA_ZERO_TOLERANCE)
-        local_triplets.push_back(
-            Eigen::Triplet<FMCA::Scalar>(i, inv_idcs[epsnn[i][j]], col(j)));
+        local_triplets.push_back(Triplet(i, inv_idcs[epsnn[i][j]], col(j)));
 #pragma omp critical
     triplets.insert(triplets.end(), local_triplets.begin(),
                     local_triplets.end());
   }
-  Eigen::SparseMatrix<FMCA::Scalar> invsqrtK(P.cols(), P.cols());
+  SparseMatrix invsqrtK(P.cols(), P.cols());
   invsqrtK.setFromTriplets(triplets.begin(), triplets.end());
   return invsqrtK;
 }

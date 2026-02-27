@@ -221,8 +221,7 @@ void plotBoxes(const std::string &fileName, const std::vector<Matrix> &bb,
  *  \brief exports a list of points in vtk
  **/
 template <typename Derived>
-void plotPoints(const std::string &fileName,
-                const Eigen::MatrixBase<Derived> &P) {
+void plotPoints(const std::string &fileName, const MatrixBase<Derived> &P) {
   std::ofstream myfile;
   myfile.open(fileName);
   myfile << "# vtk DataFile Version 3.1\n";
@@ -257,8 +256,8 @@ void plotPoints(const std::string &fileName,
  **/
 template <typename ClusterTree, typename Derived, typename otherDerived>
 void plotPoints(const std::string &fileName, const ClusterTree &CT,
-                const Eigen::MatrixBase<Derived> &P,
-                const Eigen::MatrixBase<otherDerived> &fdat) {
+                const MatrixBase<Derived> &P,
+                const MatrixBase<otherDerived> &fdat) {
   std::ofstream myfile;
   myfile.open(fileName);
   myfile << "# vtk DataFile Version 3.1\n";
@@ -301,9 +300,8 @@ void plotPoints(const std::string &fileName, const ClusterTree &CT,
  *  \brief exports a list of points in vtk
  **/
 template <typename Derived, typename otherDerived>
-void plotPointsColor(const std::string &fileName,
-                     const Eigen::MatrixBase<Derived> &P,
-                     const Eigen::MatrixBase<otherDerived> &fdat) {
+void plotPointsColor(const std::string &fileName, const MatrixBase<Derived> &P,
+                     const MatrixBase<otherDerived> &fdat) {
   std::ofstream myfile;
   myfile.open(fileName);
   myfile << "# vtk DataFile Version 3.1\n";
@@ -346,9 +344,9 @@ void plotPointsColor(const std::string &fileName,
  **/
 template <typename Derived1, typename Derived2, typename Derived3>
 void plotTriMeshColor(const std::string &fileName,
-                      const Eigen::MatrixBase<Derived1> &P,
-                      const Eigen::MatrixBase<Derived2> &F,
-                      const Eigen::MatrixBase<Derived3> &fdat) {
+                      const MatrixBase<Derived1> &P,
+                      const MatrixBase<Derived2> &F,
+                      const MatrixBase<Derived3> &fdat) {
   std::ofstream myfile;
   myfile.open(fileName);
   myfile << "# vtk DataFile Version 3.1\n";
@@ -391,9 +389,9 @@ void plotTriMeshColor(const std::string &fileName,
  **/
 template <typename Derived1, typename Derived2, typename Derived3>
 void plotTriMeshColor2(const std::string &fileName,
-                       const Eigen::MatrixBase<Derived1> &P,
-                       const Eigen::MatrixBase<Derived2> &F,
-                       const Eigen::MatrixBase<Derived3> &fdat) {
+                       const MatrixBase<Derived1> &P,
+                       const MatrixBase<Derived2> &F,
+                       const MatrixBase<Derived3> &fdat) {
   std::ofstream myfile;
   myfile.open(fileName);
   myfile << "# vtk DataFile Version 3.1\n";
@@ -432,15 +430,9 @@ void plotTriMeshColor2(const std::string &fileName,
 }
 
 /**
- *  \brief write Eigen::Matrix into an ascii txt file.
+ *  \brief write Matrix into an ascii txt file.
  **/
-template <typename Derived>
-int print2ascii(const std::string &fileName,
-                const Eigen::MatrixBase<Derived> &var) {
-  // evaluate Eigen expression into a matrix
-  Eigen::Matrix<typename Derived::Scalar, Eigen::Dynamic, Eigen::Dynamic> tmp =
-      var;
-
+int print2ascii(const std::string &fileName, const Matrix &tmp) {
   std::ofstream myfile;
 
   myfile.open(fileName);
@@ -455,7 +447,6 @@ int print2ascii(const std::string &fileName,
   return 0;
 }
 
-template <typename SparseMatrix>
 int print2spascii(const std::string &fileName, const SparseMatrix &var,
                   const std::string &writeMode) {
   std::ofstream myfile;
@@ -475,19 +466,15 @@ int print2spascii(const std::string &fileName, const SparseMatrix &var,
 }
 
 /**
- *  \brief write Eigen::Matrix into a Matlab .m file.
+ *  \brief write Matrix into a Matlab .m file.
  **/
 template <typename Derived>
 int print2m(const std::string &fileName, const std::string &varName,
-            const Eigen::MatrixBase<Derived> &var,
-            const std::string &writeMode) {
-  // evaluate Eigen expression into a matrix
-  Eigen::Matrix<typename Derived::Scalar, Eigen::Dynamic, Eigen::Dynamic> tmp =
-      var;
-
+            const MatrixBase<Derived> &var, const std::string &writeMode) {
   std::ofstream myfile;
   // if flag is set to w, a new file is created, otherwise the new matrix
   // is just appended
+  const auto tmp = var.eval();
   if (writeMode == "w")
     myfile.open(fileName);
   else if (writeMode == "a")
@@ -509,17 +496,14 @@ int print2m(const std::string &fileName, const std::string &varName,
   return 0;
 }
 
-template <typename Scalar>
 int print2m(const std::string &fileName, const std::string &varName,
-            const Eigen::SparseMatrix<Scalar> &var,
-            const std::string &writeMode) {
-  Eigen::VectorXd rowInd(var.nonZeros());
-  Eigen::VectorXd colInd(var.nonZeros());
-  Eigen::VectorXd value(var.nonZeros());
+            const SparseMatrix &var, const std::string &writeMode) {
+  Vector rowInd(var.nonZeros());
+  Vector colInd(var.nonZeros());
+  Vector value(var.nonZeros());
   unsigned int j = 0;
   for (auto i = 0; i < var.outerSize(); i++)
-    for (typename Eigen::SparseMatrix<Scalar>::InnerIterator it(var, i); it;
-         ++it) {
+    for (SparseMatrix::InnerIterator it(var, i); it; ++it) {
       rowInd(j) = it.row() + 1;
       colInd(j) = it.col() + 1;
       value(j) = it.value();
@@ -543,8 +527,7 @@ int print2m(const std::string &fileName, const std::string &varName,
 }
 
 template <typename Derived>
-int print2bin(const std::string &fileName,
-              const Eigen::MatrixBase<Derived> &var) {
+int print2bin(const std::string &fileName, const MatrixBase<Derived> &var) {
   typedef typename Derived::Scalar DataType;
   std::ofstream myfile;
   size_t rows = 0;
@@ -565,7 +548,7 @@ int print2bin(const std::string &fileName,
   // write rows and cols of the matrix
   myfile.write((const char *)&(rows), sizeof(size_t));
   myfile.write((const char *)&(cols), sizeof(size_t));
-  std::cout << "Eigen to binary file writer" << std::endl;
+  std::cout << "Matrix to binary file writer" << std::endl;
   std::cout << "rows: " << rows << " cols: " << cols
             << " dataSize: " << dataSize << " IsRowMajor: " << IsRowMajor
             << std::endl;
@@ -596,8 +579,7 @@ int print2bin(const std::string &fileName,
 }
 
 template <typename Derived>
-int bin2Mat(const std::string &fileName,
-            Eigen::MatrixBase<Derived> *targetMat) {
+int bin2Mat(const std::string &fileName, MatrixBase<Derived> *targetMat) {
   typedef typename Derived::Scalar DataType;
   std::ifstream myfile;
   size_t rows = 0;
@@ -612,7 +594,7 @@ int bin2Mat(const std::string &fileName,
   myfile.read(reinterpret_cast<char *>(&IsRowMajor), sizeof(size_t));
   myfile.read(reinterpret_cast<char *>(&rows), sizeof(size_t));
   myfile.read(reinterpret_cast<char *>(&cols), sizeof(size_t));
-  std::cout << "Binary file to Eigen reader" << std::endl;
+  std::cout << "Binary file to Matrix reader" << std::endl;
   std::cout << "rows: " << rows << " cols: " << cols
             << " dataSize: " << dataSize << " IsRowMajor: " << IsRowMajor
             << std::endl;
@@ -625,23 +607,12 @@ int bin2Mat(const std::string &fileName,
   Derived &ret_val = targetMat->derived();
   ret_val.resize(rows, cols);
   std::cout << "reading..." << std::flush;
-  if (IsRowMajor) {
-    data = new (std::nothrow) DataType[cols];
-    assert(data != nullptr && "allocation failed");
-    for (auto i = 0; i < rows; ++i) {
-      myfile.read((char *)data, cols * sizeof(DataType));
-      ret_val.row(i) =
-          Eigen::Map<Eigen::Matrix<DataType, Eigen::Dynamic, Eigen::Dynamic,
-                                   Eigen::RowMajor>>(data, 1, cols);
-    }
-  } else {
+  {
     data = new (std::nothrow) DataType[rows];
     assert(data != nullptr && "allocation failed");
     for (auto i = 0; i < cols; ++i) {
       myfile.read((char *)data, rows * sizeof(DataType));
-      ret_val.col(i) =
-          Eigen::Map<Eigen::Matrix<DataType, Eigen::Dynamic, Eigen::Dynamic,
-                                   Eigen::ColMajor>>(data, rows, 1);
+      ret_val.col(i) = Map<Matrix>(data, rows, 1);
     }
   }
   std::cout << " done." << std::endl;
@@ -661,7 +632,7 @@ Matrix ascii2Matrix(const std::string &filename) {
   // Read numbers from file into buffer.
   std::ifstream infile;
   infile.open(filename);
-    assert(infile.is_open());
+  assert(infile.is_open());
   while (!infile.eof()) {
     std::string line;
     std::getline(infile, line);

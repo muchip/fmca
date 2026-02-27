@@ -14,7 +14,6 @@
 #define FMCA_KERNELINTERPOLATION_SAMPLETKERNELSOLVER_H_
 
 namespace FMCA {
-template <typename SparseMatrix = Eigen::SparseMatrix<FMCA::Scalar>>
 class SampletKernelSolver {
  public:
   using Interpolator = TotalDegreeInterpolator;
@@ -23,14 +22,6 @@ class SampletKernelSolver {
   using SampletMoments = NystromSampletMoments<SampletInterpolator>;
   using MatrixEvaluator = NystromEvaluator<Moments, FMCA::CovarianceKernel>;
   using SampletTree = H2SampletTree<ClusterTree>;
-#ifdef CHOLMOD_SUPPORT
-  using Cholesky = Eigen::CholmodSupernodalLLT<SparseMatrix, Eigen::Upper>;
-#elif METIS_SUPPORT
-  using Cholesky = Eigen::SimplicialLDLT<SparseMatrix, Eigen::Upper,
-                                         Eigen::MetisOrdering<int>>;
-#else
-  using Cholesky = Eigen::SimplicialLDLT<SparseMatrix, Eigen::Upper>;
-#endif
 
   SampletKernelSolver() noexcept {}
 
@@ -94,7 +85,7 @@ class SampletKernelSolver {
       Vector col = kernel_.eval(P, P.col(hst_.indices()[index]));
       y1 = hst_.toClusterOrder(col);
       x = hst_.sampletTransform(x);
-      y2 = K_.template selfadjointView<Eigen::Upper>() * x;
+      y2 = K_.selfadjointView<Upper>() * x;
       y2 = hst_.inverseSampletTransform(y2);
       err += (y1 - y2).squaredNorm();
       nrm += y1.squaredNorm();
@@ -103,7 +94,13 @@ class SampletKernelSolver {
   }
 
   //////////////////////////////////////////////////////////////////////////////
-  void factorize() { llt_.compute(K_); }
+  void factorize() {
+    llt_.compute(K_);
+    if (llt_.info() != Success) {
+      std::cout << "factorization failed" << std::endl;
+      return;
+    }
+  }
 
   //////////////////////////////////////////////////////////////////////////////
   // getter
@@ -113,8 +110,8 @@ class SampletKernelSolver {
   //////////////////////////////////////////////////////////////////////////////
   Matrix solve(const Matrix& rhs) {
     Matrix sol = hst_.toClusterOrder(rhs);
-    sol = hst_.sampletTransform(sol);
-    sol = llt_.solve(sol);
+    const Matrix trhs = hst_.sampletTransform(sol);
+    sol = llt_.solve(trhs);
     sol = hst_.inverseSampletTransform(sol);
     sol = hst_.toNaturalOrder(sol);
     return sol;
@@ -124,7 +121,7 @@ class SampletKernelSolver {
   internal::SampletMatrixCompressor<SampletTree> compressor_;
   SampletTree hst_;
   CovarianceKernel kernel_;
-  Cholesky llt_;
+  SparseCholesky llt_;
   SparseMatrix K_;
   Scalar dtilde_;
   Scalar mpole_deg_;

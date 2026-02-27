@@ -106,14 +106,14 @@ struct SampletTree : public SampletTreeBase<SampletTree<ClusterTreeType>> {
       node().mom_buffer_ = mom.moment_matrix(*this);
     // are there samplets?
     if (mom.mdtilde() < node().mom_buffer_.cols()) {
-      Eigen::HouseholderQR<Matrix> qr(node().mom_buffer_.transpose());
+      HouseholderQR qr(node().mom_buffer_.transpose());
       node().Q_ = qr.householderQ();
       node().nscalfs_ = mom.mdtilde();
       node().nsamplets_ = node().Q_.cols() - node().nscalfs_;
       // this is the moment for the dad cluster
       node().mom_buffer_ = qr.matrixQR()
                                .block(0, 0, mom.mdtilde(), mom.mdtilde2())
-                               .template triangularView<Eigen::Upper>()
+                               .template triangularView<Upper>()
                                .transpose();
     } else {
       node().Q_ = Matrix::Identity(node().mom_buffer_.cols(),
@@ -129,10 +129,10 @@ struct SampletTree : public SampletTreeBase<SampletTree<ClusterTreeType>> {
 
 #if 0
   //////////////////////////////////////////////////////////////////////////////
-  void visualizeCoefficients(const eigenVector &coeffs,
+  void visualizeCoefficients(const Vector &coeffs,
                              const std::string &filename,
                              value_type thresh = 1e-6) {
-    std::vector<Eigen::Matrix3d> bbvec;
+    std::vector<Matrix> bbvec;
     std::vector<value_type> cell_values;
     visualizeCoefficientsRecursion(coeffs, bbvec, cell_values, thresh);
     IO::plotBoxes(filename, bbvec, cell_values);
@@ -140,8 +140,8 @@ struct SampletTree : public SampletTreeBase<SampletTree<ClusterTreeType>> {
   }
 
   //////////////////////////////////////////////////////////////////////////////
-  void visualizeCoefficientsRecursion(const eigenVector &coeffs,
-                                      std::vector<Eigen::Matrix3d> &bbvec,
+  void visualizeCoefficientsRecursion(const Vector &coeffs,
+                                      std::vector<Matrix> &bbvec,
                                       std::vector<value_type> &cval,
                                       value_type thresh) {
     double color = 0;
@@ -154,7 +154,7 @@ struct SampletTree : public SampletTreeBase<SampletTree<ClusterTreeType>> {
         color = coeffs.segment(start_index_, nsamplets_).cwiseAbs().maxCoeff();
     }
     if (color > thresh) {
-      Eigen::Matrix3d bla;
+      Matrix bla;
       bla.setZero();
       if (dimension == 2) {
         bla.topRows(2) = cluster_->get_bb();

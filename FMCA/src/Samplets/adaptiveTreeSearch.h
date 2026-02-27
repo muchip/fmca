@@ -35,14 +35,15 @@ struct CompIndexSort {
 
 template <typename Derived>
 std::vector<const Derived *> adaptiveTreeSearch(
-    const SampletTreeBase<Derived> &st, const Vector tdata,
-    const Scalar thres) {
+    const SampletTreeBase<Derived> &st, const Vector &tdata, const Scalar thres,
+    const Vector *w = nullptr) {
   const Index nclusters = std::distance(st.begin(), st.end());
   std::vector<const Derived *> retval(nclusters);
   std::vector<const Derived *> cluster_map(nclusters);
   Vector e(nclusters);
   Vector q(nclusters);
   Vector etilde(nclusters);
+  const Vector D = (w == nullptr) ? Vector::Ones(tdata.size()) : *w;
   e.setZero();
   q.setZero();
   etilde.setZero();
@@ -53,7 +54,10 @@ std::vector<const Derived *> adaptiveTreeSearch(
   for (auto it = cluster_map.rbegin(); it != cluster_map.rend(); ++it) {
     const Derived &node = **it;
     const Index ndist = node.is_root() ? node.Q().cols() : node.nsamplets();
-    e(node.block_id()) = tdata.segment(node.start_index(), ndist).squaredNorm();
+    e(node.block_id()) =
+        (tdata.segment(node.start_index(), ndist).array().square() *
+         D.segment(node.start_index(), ndist).array())
+            .sum();
     if (node.nSons()) {
       // set up q as the sum of the children's energies. proper scaling is
       // performed in the next traversal

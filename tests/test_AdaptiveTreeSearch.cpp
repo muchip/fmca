@@ -9,11 +9,7 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#include <Eigen/Dense>
-#include <iostream>
-
 #include "../FMCA/Samplets"
-#include "../FMCA/src/Samplets/adaptiveTreeSearch.h"
 
 #define DIM 2
 #define NPTS 1000000
@@ -24,7 +20,7 @@ using SampletTree = FMCA::SampletTree<FMCA::ClusterTree>;
 
 int main() {
   const FMCA::Index dtilde = 4;
-  const FMCA::Matrix P = Eigen::MatrixXd::Random(DIM, NPTS);
+  const FMCA::Matrix P = FMCA::Matrix::Random(DIM, NPTS);
   FMCA::Vector data(P.cols());
   for (FMCA::Index i = 0; i < P.cols(); ++i)
     data(i) = std::exp(-P.col(i).norm());
@@ -36,7 +32,7 @@ int main() {
   FMCA::Vector tdata = st.sampletTransform(sdata);
   FMCA::Scalar norm2 = tdata.squaredNorm();
   std::vector<const SampletTree *> adaptive_tree =
-      adaptiveTreeSearch(st, tdata, 1e-6 * norm2);
+      FMCA::adaptiveTreeSearch(st, tdata, 1e-6 * norm2);
   const FMCA::Index nclusters = std::distance(st.begin(), st.end());
 
   FMCA::Vector thres_tdata = tdata;

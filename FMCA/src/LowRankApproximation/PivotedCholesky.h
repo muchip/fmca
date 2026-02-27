@@ -161,12 +161,12 @@ class PivotedCholesky {
       info_ = 3;
       return;
     }
-    Eigen::SelfAdjointEigenSolver<Matrix> es;
+    SelfAdjointEigenSolver es;
     {
       Matrix K = ker.eval(P, P);
       es.compute(K);
       info_ = es.info();
-      if (es.info() != Eigen::Success) return;
+      if (es.info() != Success) return;
     }
     Vector ev = es.eigenvalues().reverse();
     std::cout << "lambda min: " << ev.minCoeff() << " "
@@ -209,7 +209,7 @@ class PivotedCholesky {
   Matrix spectralBasisWeights() {
     // compute spectral decomposition of L^TL
     Matrix C = matrixL().transpose() * matrixL();
-    Eigen::SelfAdjointEigenSolver<Matrix> es(C);
+    SelfAdjointEigenSolver es(C);
     Matrix matrixQ = es.eigenvectors();
     eigenvalues_ = es.eigenvalues();
     // sort the eigen basis such that the eigenvalues are decreasing

@@ -17,12 +17,12 @@ namespace FMCA {
 template <typename MatrixEvaluator, typename RowCType, typename ColCType>
 void SVD(const MatrixEvaluator &mat_eval, const RowCType &rc,
          const ColCType &cc, Matrix *L, Matrix *R, const Scalar tol) {
-  Eigen::BDCSVD<Matrix> svd;
+  BDCSVD svd;
   Matrix A(rc.block_size(), cc.block_size());
   for (Index j = 0; j < A.cols(); ++j)
     for (Index i = 0; i < A.rows(); ++i)
       A(i, j) = mat_eval(rc.indices()[i], cc.indices()[j]);
-  svd.compute(A, Eigen::ComputeThinU | Eigen::ComputeThinV);
+  svd.compute(A, ComputeThinUV);
   const Scalar fnorm2 = svd.singularValues().squaredNorm();
   Index rank = 0;
   Scalar cur_fnorm2;

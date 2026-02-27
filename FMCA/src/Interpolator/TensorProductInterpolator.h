@@ -62,7 +62,7 @@ class TensorProductInterpolator {
 
   //////////////////////////////////////////////////////////////////////////////
   template <typename Derived>
-  Vector evalPolynomials(const Eigen::MatrixBase<Derived> &pt) const {
+  Vector evalPolynomials(const MatrixBase<Derived> &pt) const {
     Vector retval(idcs_.index_set().size());
     Vector weight(dim_);
     Vector my_pt = pt.col(0);

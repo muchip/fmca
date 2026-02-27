@@ -19,18 +19,10 @@
  *         cluster tree associated to an input data set
  *
  **/
-#include <algorithm>
-#include <iomanip>
-#include <iostream>
-#include <limits>
-#include <memory>
-#include <numeric>
-#include <random>
-#include <string>
-#include <vector>
+
+#include "src/util/Macros.h"
 //
 #include "src/util/ForwardDeclarations.h"
-#include "src/util/Macros.h"
 #include "src/util/Graph.h"
 #include "src/util/TreeBase.h"
 #include "src/util/KMinList.h"

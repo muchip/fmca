@@ -9,10 +9,6 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#include <Eigen/Dense>
-#include <iostream>
-#include <set>
-
 #include "../FMCA/src/util/CombiIndexSet.h"
 #include "../FMCA/src/util/Droplet.h"
 #include "../FMCA/src/util/MultiIndexSet.h"

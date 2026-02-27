@@ -12,10 +12,6 @@
 #ifndef FMCA_UTIL_MDS_H_
 #define FMCA_UTIL_MDS_H_
 
-#include <iostream>
-//
-#include <Eigen/Eigenvalues>
-//
 #include "Macros.h"
 
 namespace FMCA {
@@ -35,7 +31,7 @@ Matrix MDS(const Matrix& D, const Index emb_dim, Scalar* nrg = nullptr) {
   const auto H = Matrix::Identity(D.rows(), D.rows()) -
                  (1. / D.rows()) * (ones * ones.transpose());
   const Matrix B = -0.5 * H * (D_clean.array().square().matrix()) * H;
-  Eigen::SelfAdjointEigenSolver<FMCA::Matrix> es(B);
+  SelfAdjointEigenSolver es(B);
   const Index nneg = (es.eigenvalues().array() < 0).count();
   const Index npos = D.rows() - nneg;
   const Index cutr = npos >= dim ? dim : npos;

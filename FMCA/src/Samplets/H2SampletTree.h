@@ -115,14 +115,14 @@ class H2SampletTree : public H2SampletTreeBase<H2SampletTree<ClusterTreeType>> {
       node().mom_buffer_ = mom.moment_matrix(*this);
     // are there samplets?
     if (mom.mdtilde() < node().mom_buffer_.cols()) {
-      Eigen::HouseholderQR<Matrix> qr(node().mom_buffer_.transpose());
+      HouseholderQR qr(node().mom_buffer_.transpose());
       node().Q_ = qr.householderQ();
       node().nscalfs_ = mom.mdtilde();
       node().nsamplets_ = node().Q_.cols() - node().nscalfs_;
       // this is the moment for the dad cluster
       node().mom_buffer_ = qr.matrixQR()
                                .block(0, 0, mom.mdtilde(), mom.mdtilde2())
-                               .template triangularView<Eigen::Upper>()
+                               .template triangularView<Upper>()
                                .transpose();
     } else {
       node().Q_ = Matrix::Identity(node().mom_buffer_.cols(),

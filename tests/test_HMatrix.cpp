@@ -9,9 +9,6 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#include <Eigen/Dense>
-#include <iostream>
-
 #include "../FMCA/CovarianceKernel"
 #include "../FMCA/HMatrix"
 #include "../FMCA/src/util/Tictoc.h"
@@ -51,7 +48,7 @@ int main() {
         FMCA::Index index = rand() % P.cols();
         FMCA::Vector col = function.eval(P, P.col(ct.indices()[index]));
         Y1.col(i) =
-            col(Eigen::Map<const FMCA::iVector>(ct.indices(), ct.block_size()));
+            col(FMCA::Map<const FMCA::iVector>(ct.indices(), ct.block_size()));
         X(index, i) = 1;
       }
       std::cout << "set test data" << std::endl;

@@ -11,7 +11,6 @@
 //
 #ifndef FMCA_LOWRANKAPPROXIMATION_FALKON_H_
 #define FMCA_LOWRANKAPPROXIMATION_FALKON_H_
-#include <random>
 
 namespace FMCA {
 class FALKON {

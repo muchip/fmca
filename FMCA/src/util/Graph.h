@@ -11,9 +11,6 @@
 //
 #ifndef FMCA_UTIL_GRAPH_H_
 #define FMCA_UTIL_GRAPH_H_
-#include <queue>
-//
-#include <Eigen/Sparse>
 //
 #include "Macros.h"
 #include "graphIO.h"
@@ -92,7 +89,7 @@ class Graph {
   }
 
   template <typename Derived>
-  void print(const std::string &fileName, const Eigen::MatrixBase<Derived> &P,
+  void print(const std::string &fileName, const MatrixBase<Derived> &P,
              const bool use_labels = true) const {
     Derived Ploc(P.rows(), labels_.size());
     if (use_labels)
@@ -106,8 +103,7 @@ class Graph {
   }
 
   template <typename Derived>
-  void printSignal(const std::string &fileName,
-                   const Eigen::MatrixBase<Derived> &P,
+  void printSignal(const std::string &fileName, const MatrixBase<Derived> &P,
                    const Vector &sig) const {
     IO::plotGraphSignal(fileName, P, A_, sig);
     return;

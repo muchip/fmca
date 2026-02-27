@@ -13,15 +13,15 @@
 #define FMCA_HMATRIX_MODULE_
 
 
-#include <Eigen/Dense>
-#include <Eigen/SVD>
+#include "src/util/Macros.h"
+//
 
 #include "Clustering"
 #include "MatrixEvaluator"
 #include "H2Matrix"
 
 #include "src/util/ForwardDeclarations.h"
-#include "src/util/Macros.h"
+
 
 #include "src/HMatrix/ACA.h"
 #include "src/HMatrix/SVD.h"

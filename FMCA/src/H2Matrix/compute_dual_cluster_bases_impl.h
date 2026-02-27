@@ -27,8 +27,8 @@ struct compute_dual_cluster_bases_impl {
 
   template <typename Derived>
   static void compute(const TreeBase<Derived> &CT, std::vector<Matrix> *VTVs) {
-    Eigen::FullPivHouseholderQR<Matrix> qr;
-    Eigen::JacobiSVD<Matrix> svd;
+    FullPivHouseholderQR qr;
+    JacobiSVD svd;
     const Derived &H2T = CT.derived();
     Matrix V;
     if (H2T.is_root()) VTVs->resize(std::distance(H2T.begin(), H2T.end()));
@@ -48,10 +48,10 @@ struct compute_dual_cluster_bases_impl {
       const Index rows = V.rows() < V.cols() ? V.rows() : V.cols();
       qr.compute(V.transpose());
       const Matrix R =
-          qr.matrixQR().topRows(rows).template triangularView<Eigen::Upper>();
+          qr.matrixQR().topRows(rows).template triangularView<Upper>();
       const Matrix RT = qr.colsPermutation() * R.transpose();
       // compute the Moore-Penrose inverse of RT using SVD
-      svd.compute(RT, Eigen::ComputeThinU | Eigen::ComputeThinV);
+      svd.compute(RT, ComputeThinUV);
       const Matrix invRT = svd.matrixV() *
                            svd.singularValues().cwiseInverse().asDiagonal() *
                            svd.matrixU().transpose();

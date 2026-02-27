@@ -18,6 +18,9 @@
  *  \brief The LowRankApproximation module collects different algorithms for
            performing low-rank approximations of covariance matrices
  **/
+
+#include "src/util/Macros.h"
+
 #include "CovarianceKernel"
 #include "src/LowRankApproximation/FALKON.h"
 #include "src/LowRankApproximation/NystromApproximation.h"

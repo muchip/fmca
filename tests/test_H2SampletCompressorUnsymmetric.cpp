@@ -17,7 +17,7 @@
 #include "../FMCA/Samplets"
 #include "../FMCA/src/util/Tictoc.h"
 
-#define NPTS 10000
+#define NPTS 100000
 #define DIM 2
 #define MPOLE_DEG 6
 
@@ -36,7 +36,8 @@ int main() {
   const FMCA::Matrix P = 0.5 * (FMCA::Matrix::Random(DIM, NPTS).array() + 1);
   const FMCA::Scalar threshold = 1e-10;
   const FMCA::Index dtilde = 4;
-  const Moments mom(P, MPOLE_DEG);
+  const FMCA::Index mpole_deg = 2 * (dtilde - 1);
+  const Moments mom(P, mpole_deg);
   const usMatrixEvaluator mat_eval(mom, mom, function);
   const MatrixEvaluator smat_eval(mom, function);
   for (double eta = 1.2; eta >= 0.0; eta -= 0.2) {
@@ -77,8 +78,7 @@ int main() {
       x.setZero();
       x(index) = 1;
       FMCA::Vector col = function.eval(P, P.col(hst.indices()[index]));
-      y1 =
-          col(Eigen::Map<const FMCA::iVector>(hst.indices(), hst.block_size()));
+      y1 = col(FMCA::Map<const FMCA::iVector>(hst.indices(), hst.block_size()));
       x = hst.sampletTransform(x);
       y2.setZero();
       y1.setZero();
