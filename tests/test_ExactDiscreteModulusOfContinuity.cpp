@@ -27,12 +27,34 @@ int main() {
   f2 << 3, 2, 3, 3, 4, 3;
   FMCA::ExactDiscreteModulusOfContinuity dmoc;
   T.tic();
-  dmoc.init(P, f1, "EUCLIDEAN", "EUCLIDEAN");
-  std::cout << "omega_t: " << dmoc.computeMocPlot(P, f1, t);
+  dmoc.init(P, f1, 5, "EUCLIDEAN", "EUCLIDEAN", "NO");
+  dmoc.computeMocPlot(P, f1, t);
+  Eigen::VectorXd omega_vec = Eigen::Map<Eigen::VectorXd>(
+      dmoc.getOmegaT().data(), dmoc.getOmegaT().size());
+  std::cout << "omega_t: " << omega_vec;
   T.toc("eval: ");
 
   T.tic();
-  dmoc.init(P, f2, "EUCLIDEAN", "EUCLIDEAN");
-  std::cout << "omega_t: " << dmoc.computeMocPlot(P, f2, t);
+  dmoc.init(P, f1, 0, "EUCLIDEAN", "EUCLIDEAN", "NO");
+  dmoc.computeMocPlot(P, f1, t);
+  Eigen::VectorXd omega_vec2 = Eigen::Map<Eigen::VectorXd>(
+      dmoc.getOmegaT().data(), dmoc.getOmegaT().size());
+  std::cout << "omega_t: " << omega_vec2;
+  T.toc("eval: ");
+
+  T.tic();
+  dmoc.init(P, f1, 0, "EUCLIDEAN", "EUCLIDEAN", "TRICK");
+  dmoc.computeMocPlot(P, f1, t);
+  Eigen::VectorXd omega_vec3 = Eigen::Map<Eigen::VectorXd>(
+      dmoc.getOmegaT().data(), dmoc.getOmegaT().size());
+  std::cout << "omega_t: " << omega_vec3;
+  T.toc("eval: ");
+
+  T.tic();
+  dmoc.init(P, f2, 0, "EUCLIDEAN", "EUCLIDEAN", "NO");
+  dmoc.computeMocPlot(P, f2, t);
+  Eigen::VectorXd omega_vec4 = Eigen::Map<Eigen::VectorXd>(
+      dmoc.getOmegaT().data(), dmoc.getOmegaT().size());
+  std::cout << "omega_t: " << omega_vec4;
   T.toc("eval: ");
 }

@@ -12,6 +12,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 ////////////////////////////////////////////////////////////////////////////////
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
@@ -537,10 +538,13 @@ PYBIND11_MODULE(FMCA, m) {
       m, "ExactDiscreteModulusOfContinuity");
   pyMOC.def(py::init<>());
   pyMOC.def("init", &FMCA::ExactDiscreteModulusOfContinuity::init, py::arg("P"),
-            py::arg("f"), py::arg("dx_type") = "EUCLIDEAN",
-            py::arg("dy_type") = "EUCLIDEAN");
-  pyMOC.def("computeMoc", &FMCA::ExactDiscreteModulusOfContinuity::computeMoc);
+            py::arg("f"), py::arg("TX"), py::arg("dx_type") = "EUCLIDEAN",
+            py::arg("dy_type") = "EUCLIDEAN", py::arg("trick") = "NO");
+  pyMOC.def("getOmega", &FMCA::ExactDiscreteModulusOfContinuity::getOmega);
   pyMOC.def("computeMocPlot",
             &FMCA::ExactDiscreteModulusOfContinuity::computeMocPlot,
             py::arg("P"), py::arg("f"), py::arg("d"));
+
+  pyMOC.def("getOmegaT", &FMCA::ExactDiscreteModulusOfContinuity::getOmegaT);
+  pyMOC.def("getTGrid", &FMCA::ExactDiscreteModulusOfContinuity::getTGrid);
 }

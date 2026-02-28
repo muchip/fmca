@@ -52,6 +52,12 @@ else()
   set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 endif()
 
+if(APPLE AND NOT DEFINED ENV{CXX})
+    set(CMAKE_C_COMPILER /opt/homebrew/bin/gcc-15)
+    set(CMAKE_CXX_COMPILER /opt/homebrew/bin/g++-15)
+endif()
+
+
 set( PROJECT_SOURCE_DIR "${PROJECT_SOURCE_DIR}")
 include_directories("${PROJECT_SOURCE_DIR}")
 

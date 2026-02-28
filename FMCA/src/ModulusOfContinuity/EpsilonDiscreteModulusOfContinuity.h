@@ -9,14 +9,16 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#ifndef FMCA_MODULUSOFCONTINUITY_DISCRETEMODULUSOFCONTINUITY_H_
-#define FMCA_MODULUSOFCONTINUITY_DISCRETEMODULUSOFCONTINUITY_H_
+#ifndef FMCA_MODULUSOFCONTINUITY_EPSILONDISCRETEMODULUSOFCONTINUITY_H_
+#define FMCA_MODULUSOFCONTINUITY_EPSILONDISCRETEMODULUSOFCONTINUITY_H_
+
+// #include "../util/Macros.h"
 
 namespace FMCA {
 
-class DiscreteModulusOfContinuity {
- public:
-  DiscreteModulusOfContinuity() {};
+class EpsilonDiscreteModulusOfContinuity {
+public:
+  EpsilonDiscreteModulusOfContinuity() {};
 
   template <typename Derived>
   void init(const Matrix &P, const Vector &f, const Scalar r, const Index R = 2,
@@ -98,12 +100,16 @@ class DiscreteModulusOfContinuity {
       bool hasmax = false;
       for (Index j = 0; j < XNk_indices_[k].size(); ++j) {
         XNk_indices_[k][j] = XNk_indices_[k - 1][XNk_indices_[k][j]];
-        if (XNk_indices_[k][j] == X_min_max_[0]) hasmin = true;
-        if (XNk_indices_[k][j] == X_min_max_[1]) hasmax = true;
+        if (XNk_indices_[k][j] == X_min_max_[0])
+          hasmin = true;
+        if (XNk_indices_[k][j] == X_min_max_[1])
+          hasmax = true;
       }
       if (add_maxpts_) {
-        if (!hasmin) XNk_indices_[k].push_back(X_min_max_[0]);
-        if (!hasmax) XNk_indices_[k].push_back(X_min_max_[1]);
+        if (!hasmin)
+          XNk_indices_[k].push_back(X_min_max_[0]);
+        if (!hasmax)
+          XNk_indices_[k].push_back(X_min_max_[1]);
       }
       std::sort(XNk_indices_[k].begin(), XNk_indices_[k].end());
       Rkr *= R;
@@ -145,7 +151,8 @@ class DiscreteModulusOfContinuity {
     if (t > TX_)
       k = K_;
     else
-      while (t > tgrid_[k]) ++k;
+      while (t > tgrid_[k])
+        ++k;
     Matrix Ploc(P.rows(), XNk_indices_[k].size());
     Vector floc(XNk_indices_[k].size());
     // set up local point set for constructing a cluster tree for epsNN
@@ -184,7 +191,7 @@ class DiscreteModulusOfContinuity {
   const std::vector<Scalar> &omegat() const { return omegat_; }
   const std::vector<Scalar> &tgrid() const { return tgrid_; }
 
- private:
+private:
   void setDistanceType(const std::string &dist_type) {
     if (dist_type == "EUCLIDEAN") {
       distance_ = [](const Vector &x, const Vector &y) {
@@ -212,5 +219,5 @@ class DiscreteModulusOfContinuity {
   Index min_csize_;
   bool add_maxpts_;
 };
-}  // namespace FMCA
+} // namespace FMCA
 #endif
