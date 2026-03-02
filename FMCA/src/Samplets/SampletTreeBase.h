@@ -117,20 +117,23 @@ struct SampletTreeBase : public ClusterTreeBase<Derived> {
       const Index *indices = cluster->indices();
       const Index nindices = cluster->block_size();
       Matrix buf = (cluster->Q()).transpose();
-      std::cout << buf << std::endl << std::endl;
+      Matrix buf2;
       while (!(cluster->is_root())) {
         for (Index j = 0; j < nindices; ++j)
           for (Index i = 0; i < cluster->nsamplets(); ++i)
             triplet_list.push_back(Triplet(cluster->start_index() + i,
                                            inv_ids[indices[j]],
                                            buf(i + cluster->nscalfs(), j)));
-        buf.conservativeResize((cluster->dad().Q()).cols(), buf.cols());
-        buf.bottomRows(buf.rows() - cluster->nscalfs()).setZero();
+        buf2 = Matrix::Zero(cluster->dad().Q().cols(), buf.cols());
+        Index row_offset = 0;
+        for (Index s = 0; s < cluster->dad().nSons(); ++s) {
+          if (std::addressof(cluster->dad().sons(s)) == cluster) break;
+          row_offset += cluster->dad().sons(s).nscalfs();
+        }
+        buf2.middleRows(row_offset, cluster->nscalfs()) =
+            buf.topRows(cluster->nscalfs());
         cluster = std::addressof(cluster->dad());
-        std::cout << buf << std::endl;
-        std::cout << cluster->Q() << std::endl;
-        buf = (cluster->Q()).transpose() * buf;
-        std::cout << buf << std::endl << std::endl;
+        buf = (cluster->Q()).transpose() * buf2;
       }
       // root level now
       for (Index j = 0; j < nindices; ++j)
