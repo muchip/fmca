@@ -61,6 +61,14 @@ int main() {
     std::cout << t << " w" << omega_val << std::endl;
   }
 
+  dmoc.init<FMCA::ClusterTree>(P, f2, r, R, TX, 1, "EUCLIDEAN", "EUCLIDEAN",
+                               true);
+
+  for (FMCA::Scalar t = 0; t <= TX; t += t_step) {
+    FMCA::Scalar omega_val = dmoc.omega<FMCA::ClusterTree>(t, P, f1);
+    std::cout << t << " w" << omega_val << std::endl;
+  }
+
   //   T.toc("set up dmoc: ");
 
   //   const FMCA::Index nPts = 1000000;

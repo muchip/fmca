@@ -45,9 +45,9 @@ public:
       Derived ct(P, min_csize_);
       min_dist = minDistanceVector(ct, P); // assumes L2 norm (TO BE CHANGED)
     }
-    std::cout << "fill distance: " << min_dist.maxCoeff() << std::endl;
-    std::cout << "separation distance: " << min_dist.minCoeff() << std::endl;
-    std::cout << "number of intervals: " << K_ + 1 << std::endl;
+    // std::cout << "fill distance: " << min_dist.maxCoeff() << std::endl;
+    // std::cout << "separation distance: " << min_dist.minCoeff() << std::endl;
+    // std::cout << "number of intervals: " << K_ + 1 << std::endl;
     {
       Derived ct(P, min_csize_);
       // set up modulus of continuity for the full set X = P using the
@@ -72,9 +72,9 @@ public:
       XNk_indices_[0].resize(P.cols());
       std::iota(XNk_indices_[0].begin(), XNk_indices_[0].end(), 0);
     }
-    std::cout << "#N0=" << XNk_indices_[0].size() << std::endl;
-    // compute reduced index sets using greedy method and compute corresponding
-    // moduli of continuity
+    // std::cout << "#N0=" << XNk_indices_[0].size() << std::endl;
+    //  compute reduced index sets using greedy method and compute corresponding
+    //  moduli of continuity
     Scalar Rkr = r_;
     Matrix Pprev = P;
     X_min_max_.resize(2);
@@ -95,10 +95,10 @@ public:
         X_min_max_[1] = i;
       }
     }
-    std::cout << X_min_max_[0] << ": (" << P.col(X_min_max_[0]) << ","
-              << f.col(X_min_max_[0]) << "), " << X_min_max_[1] << ": ("
-              << P.col(X_min_max_[1]) << "," << f.col(X_min_max_[1]) << ") "
-              << std::endl;
+    // std::cout << X_min_max_[0] << ": (" << P.col(X_min_max_[0]) << ","
+    //           << f.col(X_min_max_[0]) << "), " << X_min_max_[1] << ": ("
+    //           << P.col(X_min_max_[1]) << "," << f.col(X_min_max_[1]) << ") "
+    //           << std::endl;
 
     for (Index k = 1; k <= K_; ++k) {
       Derived ct(Pprev, min_csize_);
@@ -149,7 +149,7 @@ public:
       }
       omegaNk_[k] = max_quotient;
       omegat_[k] = omegaNk_[k] > omegat_[k - 1] ? omegaNk_[k] : omegat_[k - 1];
-      std::cout << "#N" << k << "=" << XNk_indices_[k].size() << std::endl;
+      // std::cout << "#N" << k << "=" << XNk_indices_[k].size() << std::endl;
     }
   }
   template <typename Derived>
