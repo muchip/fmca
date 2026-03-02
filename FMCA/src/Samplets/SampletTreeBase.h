@@ -104,46 +104,39 @@ struct SampletTreeBase : public ClusterTreeBase<Derived> {
 
   std::vector<Triplet> transformationMatrixTriplets2() const {
     std::vector<Triplet> triplet_list;
-    const internal::RandomTreeAccessor<Derived> rta(
-        this->derived(), (this->derived()).block_size());
-    const Index max_l = rta.max_level();
-#pragma omp parallel for
-    for (Index i = rta.levels()[max_l - 1]; i < rta.levels()[max_l]; ++i) {
-            const Derived &cluster = *(rta.nodes()[i]);
-      std::vector<Matrix> tvec(rta.nodes().size());
-      std::vector<iVector> ivec(rta.nodes().size());
-      std::vector<Triplet> local_trips;
-
-      Matrix &block = tvec[cluster.block_id()];
-      iVector &indices = ivec[cluster.block_id()];
-      if (!cluster.nSons()) {
-        block = Matrix::Identity(cluster.block_size(), cluster.block_size());
-        indices.resize(cluster.block_size());
-        for (Index i = 0; i < cluster.block_size(); ++i)
-          indices(i) = cluster.indices()[i];
-      } else
-        for (auto i = 0; i < cluster.nSons(); ++i) {
-          block.conservativeResize(block.rows() + cluster.sons(i).nscalfs(),
-                                   indices.size());
-          block.bottomRows(cluster.sons(i).nscalfs()) =
-              tvec[cluster.sons(i).block_id()].topRows(
-                  cluster.sons(i).nscalfs());
-        }
-      block = cluster.Q().transpose() * block;
-      // write data to output
-      if (cluster.is_root())
-        for (Index j = 0; j < indices.size(); ++j)
-          for (Index i = 0; i < cluster.Q().cols(); ++i)
-            local_trips.push_back(
-                Triplet(cluster.start_index() + i, indices(j), block(i, j)));
-      else if (cluster.nsamplets())
-        for (Index j = 0; j < indices.size(); ++j)
-          for (Index i = 0; i < cluster.nsamplets(); ++i)
-            local_trips.push_back(Triplet(cluster.start_index() + i, indices(j),
-                                          block(i + cluster.nscalfs(), j)));
-#pragma omp critical
-      triplet_list.insert(triplet_list.end(), local_trips.begin(),
-                          local_trips.end());
+    std::vector<Index> inv_ids(this->derived().block_size());
+    for (Index i = 0; i < inv_ids.size(); ++i)
+      inv_ids[this->derived().indices()[i]] = i;
+    std::vector<const Derived *> leaves;
+    // get leaves of the tree
+    for (const auto &it : this->derived())
+      if (!it.nSons() && it.block_size()) leaves.push_back(std::addressof(it));
+    // we spawn a transform from each leaf
+    for (Index l = 0; l < leaves.size(); ++l) {
+      const Derived *cluster = leaves[l];
+      const Index *indices = cluster->indices();
+      const Index nindices = cluster->block_size();
+      Matrix buf = (cluster->Q()).transpose();
+      std::cout << buf << std::endl << std::endl;
+      while (!(cluster->is_root())) {
+        for (Index j = 0; j < nindices; ++j)
+          for (Index i = 0; i < cluster->nsamplets(); ++i)
+            triplet_list.push_back(Triplet(cluster->start_index() + i,
+                                           inv_ids[indices[j]],
+                                           buf(i + cluster->nscalfs(), j)));
+        buf.conservativeResize((cluster->dad().Q()).cols(), buf.cols());
+        buf.bottomRows(buf.rows() - cluster->nscalfs()).setZero();
+        cluster = std::addressof(cluster->dad());
+        std::cout << buf << std::endl;
+        std::cout << cluster->Q() << std::endl;
+        buf = (cluster->Q()).transpose() * buf;
+        std::cout << buf << std::endl << std::endl;
+      }
+      // root level now
+      for (Index j = 0; j < nindices; ++j)
+        for (Index i = 0; i < (cluster->Q()).cols(); ++i)
+          triplet_list.push_back(Triplet(cluster->start_index() + i,
+                                         inv_ids[indices[j]], buf(i, j)));
     }
     return triplet_list;
   }
