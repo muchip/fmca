@@ -21,9 +21,10 @@ public:
   EpsilonDiscreteModulusOfContinuity() {};
 
   template <typename Derived>
-  void init(const Matrix &P, const Vector &f, const Scalar r, const Index R = 2,
+  void init(const Matrix &P, const Matrix &f, const Scalar r, const Index R = 2,
             const Scalar TX = 1, const Index min_csize = 1,
-            const std::string dist_type = "EUCLIDEAN",
+            const std::string dx_type = "EUCLIDEAN",
+            const std::string dy_type = "EUCLIDEAN",
             const bool add_maxpts = true) {
     // set all parameters
     TX_ = TX;
@@ -35,12 +36,14 @@ public:
     omegat_.resize(K_ + 1);
     omegaNk_.resize(K_ + 1);
     XNk_indices_.resize(K_ + 1);
-    setDistanceType(dist_type);
+    setDistanceType(dx_, dx_type);
+    setDistanceType(dy_, dy_type);
+
     add_maxpts_ = add_maxpts;
     Vector min_dist;
     {
       Derived ct(P, min_csize_);
-      min_dist = minDistanceVector(ct, P);
+      min_dist = minDistanceVector(ct, P); // assumes L2 norm (TO BE CHANGED)
     }
     std::cout << "fill distance: " << min_dist.maxCoeff() << std::endl;
     std::cout << "separation distance: " << min_dist.minCoeff() << std::endl;
@@ -52,13 +55,13 @@ public:
       Scalar max_quotient = -1.;
 #pragma omp parallel for reduction(max : max_quotient)
       for (Index i = 0; i < P.cols(); ++i) {
-        const std::vector<Index> nn_idcs = epsNN(ct, P, P.col(i), r_);
+        const std::vector<Index> nn_idcs =
+            epsNN(ct, P, P.col(i), r_); // assumes L2 norm (TO BE CHANGED)
         for (Index j = 0; j < nn_idcs.size(); ++j)
           for (Index k = 0; k < j; ++k) {
-            const Scalar xdist =
-                distance_(P.col(nn_idcs[j]), P.col(nn_idcs[k]));
+            const Scalar xdist = dx_(P.col(nn_idcs[j]), P.col(nn_idcs[k]));
             assert(xdist <= 2 * r_ && "error");
-            const Scalar fdist = std::abs(f(nn_idcs[j]) - f(nn_idcs[k]));
+            const Scalar fdist = dy_(f.col(nn_idcs[j]), f.col(nn_idcs[k]));
             if (xdist <= r_)
               max_quotient = max_quotient < fdist ? fdist : max_quotient;
           }
@@ -70,26 +73,31 @@ public:
       std::iota(XNk_indices_[0].begin(), XNk_indices_[0].end(), 0);
     }
     std::cout << "#N0=" << XNk_indices_[0].size() << std::endl;
-    // compute reduced index sets using greedy method annd compute corresponding
+    // compute reduced index sets using greedy method and compute corresponding
     // moduli of continuity
     Scalar Rkr = r_;
     Matrix Pprev = P;
     X_min_max_.resize(2);
     FMCA::Scalar max = -FMCA_INF;
     FMCA::Scalar min = FMCA_INF;
-    for (FMCA::Index i = 0; i < f.size(); ++i) {
-      if (f(i) < min) {
-        min = f(i);
+    for (FMCA::Index i = 0; i < f.cols(); ++i) {
+      Scalar normfi =
+          dy_(f.col(i),
+              Vector::Zero(f.rows())); // norm using dy_ distance function
+                                       // (assuming it is possible to do so)
+
+      if (normfi < min) {
+        min = normfi;
         X_min_max_[0] = i;
       }
-      if (f(i) > max) {
-        max = f(i);
+      if (normfi > max) {
+        max = normfi;
         X_min_max_[1] = i;
       }
     }
     std::cout << X_min_max_[0] << ": (" << P.col(X_min_max_[0]) << ","
-              << f(X_min_max_[0]) << "), " << X_min_max_[1] << ": ("
-              << P.col(X_min_max_[1]) << "," << f(X_min_max_[1]) << ") "
+              << f.col(X_min_max_[0]) << "), " << X_min_max_[1] << ": ("
+              << P.col(X_min_max_[1]) << "," << f.col(X_min_max_[1]) << ") "
               << std::endl;
 
     for (Index k = 1; k <= K_; ++k) {
@@ -115,24 +123,26 @@ public:
       Rkr *= R;
       tgrid_[k] = Rkr;
       Matrix Ploc(P.rows(), XNk_indices_[k].size());
-      Vector floc(XNk_indices_[k].size());
+      Matrix floc(f.rows(), XNk_indices_[k].size());
       // set up local point set for constructing a cluster tree for epsNN
       for (Index j = 0; j < Ploc.cols(); ++j) {
         Ploc.col(j) = P.col(XNk_indices_[k][j]);
-        floc(j) = f(XNk_indices_[k][j]);
+        floc.col(j) = f.col(XNk_indices_[k][j]);
       }
       Pprev = Ploc;
       Derived ctk(Ploc, min_csize_);
       Scalar max_quotient = -1.;
 #pragma omp parallel for reduction(max : max_quotient)
       for (Index i = 0; i < Ploc.cols(); ++i) {
-        const std::vector<Index> nn_idcs = epsNN(ctk, Ploc, Ploc.col(i), Rkr);
+        const std::vector<Index> nn_idcs = epsNN(
+            ctk, Ploc, Ploc.col(i), Rkr); // assumes L2 norm (TO BE CHANGED)
         for (Index j = 0; j < nn_idcs.size(); ++j)
           for (Index k = 0; k < j; ++k) {
             const Scalar xdist =
-                distance_(Ploc.col(nn_idcs[j]), Ploc.col(nn_idcs[k]));
+                dx_(Ploc.col(nn_idcs[j]), Ploc.col(nn_idcs[k]));
             assert(xdist <= 2 * Rkr && "error");
-            const Scalar fdist = std::abs(floc(nn_idcs[j]) - floc(nn_idcs[k]));
+            const Scalar fdist =
+                dy_(floc.col(nn_idcs[j]), floc.col(nn_idcs[k]));
             if (xdist <= Rkr)
               max_quotient = max_quotient < fdist ? fdist : max_quotient;
           }
@@ -143,7 +153,7 @@ public:
     }
   }
   template <typename Derived>
-  Scalar omega(Scalar t, const Matrix &P, const Vector &f) const {
+  Scalar omega(Scalar t, const Matrix &P, const Matrix &f) const {
     t = (t >= 0 ? t : 0);
     Scalar retval = 0;
     Index k = 0;
@@ -154,23 +164,22 @@ public:
       while (t > tgrid_[k])
         ++k;
     Matrix Ploc(P.rows(), XNk_indices_[k].size());
-    Vector floc(XNk_indices_[k].size());
+    Matrix floc(f.rows(), XNk_indices_[k].size());
     // set up local point set for constructing a cluster tree for epsNN
     for (Index j = 0; j < Ploc.cols(); ++j) {
       Ploc.col(j) = P.col(XNk_indices_[k][j]);
-      floc(j) = f(XNk_indices_[k][j]);
+      floc.col(j) = f.col(XNk_indices_[k][j]);
     }
     Derived ctk(Ploc, min_csize_);
     Scalar max_quotient = -1.;
 #pragma omp parallel for reduction(max : max_quotient)
     for (Index i = 0; i < Ploc.cols(); ++i) {
-      const std::vector<Index> nn_idcs =
-          epsNN(ctk, Ploc, Ploc.col(i), tgrid_[k]);
+      const std::vector<Index> nn_idcs = epsNN(
+          ctk, Ploc, Ploc.col(i), tgrid_[k]); // assumes L2 norm (TO BE CHANGED)
       for (Index j = 0; j < nn_idcs.size(); ++j)
         for (Index k = 0; k < j; ++k) {
-          const Scalar xdist =
-              distance_(Ploc.col(nn_idcs[j]), Ploc.col(nn_idcs[k]));
-          const Scalar fdist = std::abs(floc(nn_idcs[j]) - floc(nn_idcs[k]));
+          const Scalar xdist = dx_(Ploc.col(nn_idcs[j]), Ploc.col(nn_idcs[k]));
+          const Scalar fdist = dy_(floc.col(nn_idcs[j]), floc.col(nn_idcs[k]));
           if (xdist <= t)
             max_quotient = max_quotient < fdist ? fdist : max_quotient;
         }
@@ -192,13 +201,13 @@ public:
   const std::vector<Scalar> &tgrid() const { return tgrid_; }
 
 private:
-  void setDistanceType(const std::string &dist_type) {
+  void
+  setDistanceType(std::function<Scalar(const Vector &, const Vector &)> &df,
+                  const std::string &dist_type) {
     if (dist_type == "EUCLIDEAN") {
-      distance_ = [](const Vector &x, const Vector &y) {
-        return (x - y).norm();
-      };
+      df = [](const Vector &x, const Vector &y) { return (x - y).norm(); };
     } else if (dist_type == "GEODESIC") {
-      distance_ = [](const Vector &x, const Vector &y) {
+      df = [](const Vector &x, const Vector &y) {
         return SphereClusterTree::geodesicDistance(x, y);
       };
     } else
@@ -211,7 +220,8 @@ private:
   std::vector<Scalar> omegaNk_;
   std::vector<Scalar> tgrid_;
   std::vector<Scalar> omegat_;
-  std::function<Scalar(const Vector &, const Vector &)> distance_;
+  std::function<Scalar(const Vector &, const Vector &)> dx_;
+  std::function<Scalar(const Vector &, const Vector &)> dy_;
   Scalar TX_;
   Scalar r_;
   Index R_;

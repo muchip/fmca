@@ -22,7 +22,7 @@ public:
   ExactDiscreteModulusOfContinuity() {}
 
   void init(const Matrix &P, const Matrix &f, const Scalar TX,
-            std::string dx_type = "EUCLIDEAN",
+            const std::string dx_type = "EUCLIDEAN",
             const std::string dy_type = "EUCLIDEAN",
             const std::string trick = "NO") {
     /*P is dxn dimensional matrix (n datapoints, d dimensions)
