@@ -44,6 +44,14 @@ public:
     }
   }
 
+  Scalar getTX() {
+    if (!computed_)
+      throw std::logic_error(
+          "computeMocPlot not called"); // we can avoid this but for now let's
+                                        // keep a single bool value
+    return TX_;
+  }
+
   Scalar getOmega(const Matrix &P, const Matrix &f, const Scalar &d) {
     // this will make use of dx, dy initialized in init (we might cast the
     // getMax function and re-use it here) computes moc exactly, for freely

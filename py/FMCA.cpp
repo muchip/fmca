@@ -550,6 +550,7 @@ PYBIND11_MODULE(FMCA, m) {
 
   pyMOC.def("getOmegaT", &FMCA::ExactDiscreteModulusOfContinuity::getOmegaT);
   pyMOC.def("getTGrid", &FMCA::ExactDiscreteModulusOfContinuity::getTGrid);
+  pyMOC.def("getTX", &FMCA::ExactDiscreteModulusOfContinuity::getTX);
 
   using EDMOC = FMCA::EpsilonDiscreteModulusOfContinuity;
   using CT = FMCA::ClusterTree; // or whatever cluster tree you actually want
