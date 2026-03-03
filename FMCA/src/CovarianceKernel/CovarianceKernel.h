@@ -17,7 +17,7 @@ namespace FMCA {
 class CovarianceKernel {
  public:
   CovarianceKernel() {};
-  CovarianceKernel(const CovarianceKernel &other) {
+  CovarianceKernel(const CovarianceKernel& other) {
     kernel_ = other.kernel_;
     ktype_ = other.ktype_;
     distance_ = other.distance_;
@@ -26,7 +26,7 @@ class CovarianceKernel {
     nu_ = other.nu_;
   }
 
-  CovarianceKernel(CovarianceKernel &&other) {
+  CovarianceKernel(CovarianceKernel&& other) {
     kernel_ = other.kernel_;
     ktype_ = other.ktype_;
     distance_ = other.distance_;
@@ -36,7 +36,7 @@ class CovarianceKernel {
     nu_ = other.nu_;
   }
 
-  CovarianceKernel &operator=(CovarianceKernel other) {
+  CovarianceKernel& operator=(CovarianceKernel other) {
     std::swap(kernel_, other.kernel_);
     std::swap(ktype_, other.ktype_);
     std::swap(distance_, other.distance_);
@@ -47,11 +47,11 @@ class CovarianceKernel {
     return *this;
   }
 
-  CovarianceKernel(const std::string &ktype, Scalar l = 1., Scalar c = 1.,
+  CovarianceKernel(const std::string& ktype, Scalar l = 1., Scalar c = 1.,
                    Scalar nu = 1.)
       : ktype_(ktype), l_(l), c_(c), nu_(nu) {
     // transform string to upper and check if kernel is implemented
-    for (auto &chr : ktype_) chr = (char)toupper(chr);
+    for (auto& chr : ktype_) chr = (char)toupper(chr);
     ////////////////////////////////////////////////////////////////////////////
     if (ktype_ == "BIHARMONIC2D")
       kernel_ = [this](Scalar r) {
@@ -133,15 +133,15 @@ class CovarianceKernel {
     setDistanceType("EUCLIDEAN");
   }
 
-  void setDistanceType(const std::string &dist_type) {
-    for (auto &chr : ktype_) chr = (char)toupper(chr);
+  void setDistanceType(const std::string& dist_type) {
+    for (auto& chr : ktype_) chr = (char)toupper(chr);
 
     if (dist_type == "EUCLIDEAN") {
-      distance_ = [](const Vector &x, const Vector &y) {
+      distance_ = [](const Vector& x, const Vector& y) {
         return (x - y).norm();
       };
     } else if (dist_type == "GEODESIC") {
-      distance_ = [](const Vector &x, const Vector &y) {
+      distance_ = [](const Vector& x, const Vector& y) {
         return SphereClusterTree::geodesicDistance(x, y);
       };
     } else
@@ -150,12 +150,12 @@ class CovarianceKernel {
   }
 
   template <typename derived, typename otherDerived>
-  Scalar operator()(const MatrixBase<derived> &x,
-                    const MatrixBase<otherDerived> &y) const {
+  Scalar operator()(const MatrixBase<derived>& x,
+                    const MatrixBase<otherDerived>& y) const {
     return kernel_(distance_(x, y));
   }
 
-  Matrix eval(const Matrix &PR, const Matrix &PC) const {
+  Matrix eval(const Matrix& PR, const Matrix& PC) const {
     Matrix retval(PR.cols(), PC.cols());
     for (auto j = 0; j < PC.cols(); ++j)
       for (auto i = 0; i < PR.cols(); ++i)
@@ -164,20 +164,20 @@ class CovarianceKernel {
   }
 
   //////////////////////////////////////////////////////////////////////////////
-  const Scalar &nu() const { return nu_; }
-  const Scalar &l() const { return l_; }
-  const Scalar &c() const { return c_; }
-  Scalar &nu() { return nu_; }
-  Scalar &l() { return l_; }
-  Scalar &c() { return c_; }
+  const Scalar& nu() const { return nu_; }
+  const Scalar& l() const { return l_; }
+  const Scalar& c() const { return c_; }
+  Scalar& nu() { return nu_; }
+  Scalar& l() { return l_; }
+  Scalar& c() { return c_; }
 
   std::string kernelType() const { return ktype_; }
-  const std::function<Scalar(Scalar)> &kernel() { return kernel_; }
+  const std::function<Scalar(Scalar)>& kernel() { return kernel_; }
 
  private:
   // member variables
   std::function<Scalar(Scalar)> kernel_;
-  std::function<Scalar(const Vector &, const Vector &)> distance_;
+  std::function<Scalar(const Vector&, const Vector&)> distance_;
   std::string ktype_;
   Scalar l_;
   Scalar c_;
