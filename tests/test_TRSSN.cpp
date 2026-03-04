@@ -15,12 +15,29 @@
 
 #include "../FMCA/CovarianceKernel"
 #include "../FMCA/Samplets"
+#include "../FMCA/src/Samplets/samplet_matrix_compressor.h"
 #include "../FMCA/src/util/IO.h"
 #include "../FMCA/src/util/SSN.h"
 #include "../FMCA/src/util/Tictoc.h"
 
 #define NPTS 100000
 #define DIM 2
+
+namespace FMCA {
+/*
+ *  \brief symmetric power iteration for the largest eigenvalue
+ *
+ **/
+Scalar powerIteration(const SparseMatrix& A, Index steps = 20) {
+  Scalar norm = 0;
+  Vector x = Vector::Random(A.rows());
+  for (auto i = 0; i < steps; ++i) {
+    x = A * x;
+    x /= x.norm();
+  }
+  return x.dot(A * x);
+}
+}  // namespace FMCA
 
 using Interpolator = FMCA::TotalDegreeInterpolator;
 using SampletInterpolator = FMCA::MonomialInterpolator;
@@ -29,7 +46,7 @@ using SampletMoments = FMCA::MinNystromSampletMoments<SampletInterpolator>;
 using MatrixEvaluator = FMCA::NystromEvaluator<Moments, FMCA::CovarianceKernel>;
 using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
-FMCA::Matrix rhs(const H2SampletTree &hst, const FMCA::SparseMatrix &K) {
+FMCA::Matrix rhs(const H2SampletTree& hst, const FMCA::SparseMatrix& K) {
   srand(0);
   const FMCA::Index npts = K.cols();
   FMCA::Vector data(npts);
@@ -71,13 +88,13 @@ int main() {
   Scomp.compress(mat_eval);
   T.toc("compressor:                  ");
   T.tic();
-  const auto &ap_trips = Scomp.triplets();
+  const auto& ap_trips = Scomp.triplets();
   std::cout << "anz (a-priori):               "
             << std::round(ap_trips.size() / FMCA::Scalar(NPTS)) << std::endl;
   T.toc("triplets:                    ");
 
   T.tic();
-  const auto &trips = Scomp.aposteriori_triplets_fast(threshold);
+  const auto& trips = Scomp.aposteriori_triplets_fast(threshold);
   std::cout << "anz (a-posteriori):           "
             << std::round(trips.size() / FMCA::Scalar(NPTS)) << std::endl;
 
@@ -95,7 +112,7 @@ int main() {
           col(Eigen::Map<const FMCA::iVector>(hst.indices(), hst.block_size()));
       x = hst.sampletTransform(x);
       y2.setZero();
-      for (const auto &i : trips) {
+      for (const auto& i : trips) {
         y2(i.row()) += i.value() * x(i.col());
         if (i.row() != i.col()) y2(i.col()) += i.value() * x(i.row());
       }
@@ -111,52 +128,63 @@ int main() {
   S.setFromTriplets(trips.begin(), trips.end());
   Eigen::SparseMatrix<FMCA::Scalar> Ssym = S.selfadjointView<Eigen::Upper>();
   Ssym *= 1. / FMCA::Scalar(NPTS);
-  // const FMCA::Matrix data = rhs(hst, Ssym);
-  FMCA::Vector data(NPTS);
-  for (FMCA::Index i = 0; i < NPTS; ++i)
-    data(i) = std::cos(10 * FMCA_PI * P.col(i).norm()) *
-              std::exp(-4 * P.col(i).norm());
-  data = hst.toClusterOrder(data);
+  std::cout << "max eval: " << FMCA::powerIteration(Ssym) << std::endl;
+  FMCA::Matrix data = rhs(hst, Ssym);
+  //   FMCA::Vector data(NPTS);
+  //   for (FMCA::Index i = 0; i < NPTS; ++i)
+  //     data(i) = std::cos(10 * FMCA_PI * P.col(i).norm()) *
+  //               std::exp(-4 * P.col(i).norm());
+  // data = hst.toClusterOrder(data);
   FMCA::Matrix P3(3, P.cols());
   P3.topRows(2) = P;
   P3.bottomRows(1) = hst.toNaturalOrder(data).transpose();
   FMCA::IO::plotPointsColor("data.vtk", P3, hst.toNaturalOrder(data));
   FMCA::Matrix Tdata =
       1. / std::sqrt(FMCA::Scalar(NPTS)) * hst.sampletTransform(data);
+
   FMCA::Vector w(NPTS);
   FMCA::Vector x0(NPTS);
   x0.setZero();
   w.setOnes();
-
   w *= 1. / std::sqrt(FMCA::Scalar(NPTS));
   FMCA::ActiveSetManager asmgr;
   // x0(0) = 1e4;
   FMCA::Scalar ramp = 1 << 15;
+  FMCA::Scalar eta1 = 1e-2;
+  FMCA::Scalar eta2 = 2e-2;
+  FMCA::Scalar tau = 2 * 0.05 / 3;
+  FMCA::Scalar nu = 0.5 * std::min(tau, 0.05 * (1 - tau * 0.75));
+  std::cout << "tau:                         " << tau << std::endl;
+  std::cout << "nu:                          " << nu << std::endl;
+  FMCA::Index max_it = 100;
+  FMCA::Scalar tol = 1e-8;
 
-  x0 = FMCA::SSN(Ssym, Tdata, 0.001 * w, x0, asmgr, 200, 1e-8);
+  FMCA::Vector x = x0;
   while (ramp > 1) {
-    x0 = TRSSN(Ssym, Tdata, 2 * ramp * 1e-10 * w, x0, asmgr, 1e4, 0.01, .5, 400,
-               1e-5);
+    std::cout << "------------------------------" << std::endl;
+    std::cout << "ramp:                         " << ramp << std::endl;
+    x = TRSSN(Ssym, Tdata, 2 * ramp * 1e-10 * w, x, asmgr, eta1, eta2, tau, nu,
+              max_it, tol);
     ramp *= 0.5;
   }
+  x *= 1. / std::sqrt(FMCA::Scalar(NPTS));
 
-#if 0
-  for (FMCA::Index i = 0; i < 10; ++i) {
-    x0 = TRSSN(Ssym, Tdata, w, x0, asmgr, 5e-2, 0.05, .05, 200, 1e-6);
-    w *= 0.5;
-    fac *= 0.5;
-  }
-#endif
-  x0 *= 1. / std::sqrt(FMCA::Scalar(NPTS));
-  Tdata = hst.inverseSampletTransform(NPTS * Ssym * x0);
+  FMCA::Vector Trec = hst.inverseSampletTransform(NPTS * Ssym * x);
+  Trec = hst.toNaturalOrder(Trec);
 
-  Tdata = hst.toNaturalOrder(Tdata);
-  P3.bottomRows(1) = Tdata.transpose();
-  FMCA::IO::plotPointsColor("rec.vtk", P3, Tdata);
-  FMCA::Vector err = hst.toNaturalOrder(data) - Tdata;
-  std::cout << "error: " << err.norm() / data.norm() << std::endl;
+  FMCA::Vector err = hst.toNaturalOrder(data) - Trec;
+  FMCA::Scalar rel_err = err.norm() / data.norm();
+
+  std::cout << " relative inf error = " << rel_err << std::endl;
+
+  std::cout << "------------------------" << std::endl;
+
+  P3.bottomRows(1) = Trec.transpose();
+  FMCA::IO::plotPointsColor("rec.vtk", P3, Trec);
+
   P3.bottomRows(1) = err.transpose();
   FMCA::IO::plotPointsColor("err.vtk", P3, err);
+  //   }
 
   return 0;
 }

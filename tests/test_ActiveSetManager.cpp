@@ -39,6 +39,10 @@ int main() {
   aidcs2.push_back(555);
   aidcs2.push_back(333);
   aidcs2.push_back(222);
+  aidcs2.push_back(111);
+  aidcs2.push_back(345);
+  aidcs2.push_back(432);
+  aidcs2.push_back(888);
   astm.update(A, aidcs2);
   FMCA::Matrix Aactive(A.rows(), aidcs2.size());
   for (FMCA::Index i = 0; i < aidcs2.size(); ++i)
