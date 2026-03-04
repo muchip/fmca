@@ -124,7 +124,7 @@ struct ClusterTreeInitializer<UnitKDTree> {
       leaf_offset[i + 1] = leaf_offset[i] + leaf_count[i];
     }
     for (Index i = 0; i < leaf_id.size(); ++i)
-      CT.derived().indices()[(leaf_offset[leaf_id[i]])++] = i;
+      CT.node().indices_.get()[(leaf_offset[leaf_id[i]])++] = i;
     // finally traverse tree in post order to set parents
     for (auto it = dfs_order.rbegin(); it != dfs_order.rend(); ++it) {
       Derived &node = *(*it);
