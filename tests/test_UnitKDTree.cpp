@@ -13,11 +13,17 @@
 #include <iostream>
 
 #include "../FMCA/Clustering"
+#include "../FMCA/Samplets"
+
 #include "../FMCA/src/util/IO.h"
 #include "../FMCA/src/util/Tictoc.h"
 
-#define DIM 2
-#define NPTS 10000
+#define DIM 1
+#define NPTS 100
+
+using SampletInterpolator = FMCA::MonomialInterpolator;
+using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
+using SampletTree = FMCA::SampletTree<FMCA::UnitKDTree>;
 
 int main() {
   FMCA::Tictoc T;
@@ -46,10 +52,16 @@ int main() {
       bbvec.push_back(it.bb());
     }
   }
+#if 0
   FMCA::IO::plotBoxes2D("boxes.vtk", bbvec);
   FMCA::Matrix P3(3, P.cols());
   P3.setZero();
   P3.topRows(2) = P;
   FMCA::IO::plotPoints("points.vtk", P3);
-  return 0;
+#endif
+  const SampletMoments samp_mom(P, 4 - 1);
+  SampletTree hst(samp_mom, 0, P, 10);
+  std::cout << hst.block_size() << std::endl;
+  FMCA::clusterTreeStatistics(hst, P);
+    return 0;
 }

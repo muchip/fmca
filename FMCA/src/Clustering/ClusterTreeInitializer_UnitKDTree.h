@@ -22,8 +22,8 @@ struct ClusterTreeInitializer<UnitKDTree> {
   ClusterTreeInitializer() = delete;
   //////////////////////////////////////////////////////////////////////////////
   template <typename Derived>
-  static void init(ClusterTreeBase<Derived> &CT, Index n_levels,
-                   const Matrix &P) {
+  static void init(ClusterTreeBase<Derived> &CT, Index min_csize,
+                   const Matrix &P, Index n_levels) {
     CT.node().bb_.resize(P.rows(), 3);
     CT.node().bb_.col(0).setZero();
     CT.node().bb_.col(1).setOnes();

@@ -54,7 +54,7 @@ struct UnitKDTree : public ClusterTreeBase<UnitKDTree> {
   // implementation of init
   //////////////////////////////////////////////////////////////////////////////
   void init(const Matrix &P, Index n_levels = 1) {
-    initializer::init(*this, n_levels, P);
+    initializer::init(*this, 0, P, n_levels);
   }
 };
 
