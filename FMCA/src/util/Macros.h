@@ -85,9 +85,7 @@ constexpr auto Upper = Eigen::Upper;
 
 // matrix algorithms
 using Cholesky = Eigen::LLT<Matrix>;
-
 using HouseholderQR = Eigen::HouseholderQR<Matrix>;
-
 using ColPivHouseholderQR = Eigen::ColPivHouseholderQR<Matrix>;
 
 using FullPivHouseholderQR = Eigen::FullPivHouseholderQR<Matrix>;
