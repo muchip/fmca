@@ -13,7 +13,6 @@
 #define FMCA_MODULUSOFCONTINUITY_EXACTDISCRETEMODULUSOFCONTINUITY_H_
 
 #include "../util/Macros.h"
-// #include <omp.h>
 
 namespace FMCA {
 
