@@ -58,67 +58,96 @@ public:
 
     // hash_tables[t][b].push_back(p);
     Index n = static_cast<Index>(P.cols());
-    const int num_threads = omp_get_max_threads();
 
     for (Index t = 0; t < L_; t++) {
       Matrix projections = A_[t].transpose() * P; // precompute projections
 
-      for (Index i = 0; i < n; i++) {
+      std::vector<std::unordered_map<std::string, std::vector<int>>> local_hash(
+          omp_get_max_threads());
 
+#pragma omp parallel {
+
+      int tid = omp_get_thread_num();
+
+#pragma omp for
+      for (Index i = 0; i < n; i++) {
         Vector hvec =
             ((projections.col(i).array() + B_[t].array()) / r_).floor();
-        hash_tables_[t][gethash(hvec)].push_back(i);
-      }
-    }
-  }
 
-  std::string gethash(const Vector &v) {
-    // replace this with something faster avoiding strings
-    std::string hash = "";
-    for (Index j = 0; j < v.size(); j++) {
-      hash += std::to_string(v(j)) +
-              "_"; // avoid collisions e.g. "12_3_" vs "1_23_"
-    }
-    return hash;
-  }
-
-  void getANN(const Vector &q) {
-    // return both the point(index) and distance
-    std::set<Index> candidates;
-    for (Index t = 0; t < L_; t++) {
-      auto it = hash_tables_[t].find(
-          gethash(t, q)); // will contain index of candidates
-      if (it != hash_tables_[t].end()) {
-        candidates.insert(it->second.begin(), it->second.end());
+        std::string key = gethash(hvec);
+        local_hash[tid][key].push_back(i);
       }
     }
 
-    // find among the candidates the nearest (under l2 norm) to q
-    Index best_idx = -1;
-    Scalar best_dist = FMCA_INF;
+    for (auto &thread_map : local_hash) {
 
-    // add pragma
-    for (auto idx : candidates) {
-      Scalar dist = (P.col(idx) - q).squaredNorm();
-      if (dist < best_dist) {
-        best_dist = dist;
-        best_idx = idx;
+      for (auto &kv : thread_map) {
+        auto &main_bucket = hash_tables_[t][kv.first];
+        main_bucket.insert(main_bucket.end(), kv.second.begin(),
+                           kv.second.end());
       }
     }
 
-    return best_dist;
+    // hash_tables_[t][gethash(hvec)].push_back(i);
+  }
+}
+
+std::string
+gethash(const Vector &v) {
+  // replace this with something faster avoiding strings
+  std::string hash = "";
+  for (Index j = 0; j < v.size(); j++) {
+    hash +=
+        std::to_string(v(j)) + "_"; // avoid collisions e.g. "12_3_" vs "1_23_"
+  }
+  return hash;
+}
+
+void computeANN(const Vector &q) {
+  // return both the point(index) and distance
+  std::set<Index> candidates;
+  for (Index t = 0; t < L_; t++) {
+    auto it =
+        hash_tables_[t].find(gethash(t, q)); // will contain index of candidates
+    if (it != hash_tables_[t].end()) {
+      candidates.insert(it->second.begin(), it->second.end());
+    }
   }
 
-  void addPoint() {} // not for current impl.
+  // find among the candidates the nearest (under l2 norm) to q
+  Index best_idx = -1;
+  Scalar best_dist = FMCA_INF;
+
+  // add pragma
+  for (auto idx : candidates) {
+    Scalar dist = (P.col(idx) - q).squaredNorm();
+    if (dist < best_dist) {
+      best_dist = dist;
+      best_idx = idx;
+    }
+  }
+
+  best_dist_ = best_dist;
+  best_idx_ = best_idx;
+}
+
+Index getBestIdx() { return best_idx_; }
+
+Scalar getBestDist() { return best_dist_; }
+
+void addPoint() {} // not for current impl.
 
 private:
-  Scalar k_;
-  Scalar L_;
-  Scalar r_;
-  std::vector<std::unordered_map<std::string, std::vector<int>>> hash_tables_;
-  std::vector<Matrix> A_;
-  std::vector<Vector> B_;
-};
+Scalar k_;
+Scalar L_;
+Scalar r_;
+std::vector<std::unordered_map<std::string, std::vector<int>>> hash_tables_;
+std::vector<Matrix> A_;
+std::vector<Vector> B_;
 
-} // namespace FMCA
+Index best_idx_;
+Scalar best_dist_;
+
+}; // namespace FMCA
+}
 #endif
