@@ -564,14 +564,14 @@ PYBIND11_MODULE(FMCA, m) {
       [](EDMOC &self, const FMCA::Matrix &P, const FMCA::Matrix &f,
          FMCA::Scalar r, FMCA::Index R, FMCA::Scalar TX, FMCA::Index min_csize,
          const std::string &dx_type, const std::string &dy_type,
-         bool add_maxpts = true, const bool use_lsh = false) {
+         bool add_maxpts, bool use_lsh) {
         self.template init<CT>(P, f, r, R, TX, min_csize, dx_type, dy_type,
                                add_maxpts, use_lsh);
       },
       py::arg("P"), py::arg("f"), py::arg("r"), py::arg("R"), py::arg("TX") = 1,
       py::arg("min_csize") = 1, py::arg("dx_type") = "EUCLIDEAN",
-      py::arg("dy_type") = "EUCLIDEAN", py::arg("add_maxpts") = true),
-      py::arg("use_lsh") = false;
+      py::arg("dy_type") = "EUCLIDEAN", py::arg("add_maxpts") = true,
+      py::arg("use_lsh") = false);
 
   pyEMOC.def(
       "omega",
