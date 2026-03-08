@@ -13,6 +13,7 @@
 #define FMCA_CLUSTERING_E2LSH_H_
 
 #include "../util/Macros.h"
+#include <functional>
 #include <random>
 #include <set>
 #include <string>
@@ -26,7 +27,7 @@ private:
   Index k_;
   Index L_;
   Scalar r_;
-  std::vector<std::unordered_map<std::string, std::vector<int>>> hash_tables_;
+  std::vector<std::unordered_map<Index, std::vector<Index>>> hash_tables_;
   std::vector<Matrix> A_;
   std::vector<Vector> B_;
 
@@ -69,7 +70,7 @@ public:
     for (Index t = 0; t < L_; t++) {
       Matrix projections = A_[t].transpose() * P; // precompute projections
 
-      std::vector<std::unordered_map<std::string, std::vector<int>>> local_hash(
+      std::vector<std::unordered_map<Index, std::vector<Index>>> local_hash(
           omp_get_max_threads());
 
 #pragma omp parallel
@@ -82,7 +83,7 @@ public:
           Vector hvec =
               ((projections.col(i).array() + B_[t].array()) / r_).floor();
 
-          std::string key = gethash(hvec);
+          Index key = gethash(hvec);
           local_hash[tid][key].push_back(i);
         }
       }
@@ -100,17 +101,16 @@ public:
     }
   }
 
-  std::string gethash(const Vector &v) const {
-    // replace this with something faster avoiding strings
-    std::string hash = "";
+  Index gethash(const Vector &v) const {
+    Index seed = 0;
     for (Index j = 0; j < v.size(); j++) {
-      hash += std::to_string(v(j)) +
-              "_"; // avoid collisions e.g. "12_3_" vs "1_23_"
+      Index h = static_cast<Index>(v(j));
+      seed ^= h + 0x9e3779b9 + (seed << 6) + (seed >> 2); // boost hash combine
     }
-    return hash;
+    return seed;
   }
 
-  std::vector<Index> computeAENN(const Matrix P, const Vector &q,
+  std::vector<Index> computeAENN(const Matrix &P, const Vector &q,
                                  const Scalar epsilon) const {
     // return both the point(index) and distance
     std::set<Index> candidates;
