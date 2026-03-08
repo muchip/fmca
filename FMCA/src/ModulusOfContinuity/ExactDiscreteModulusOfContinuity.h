@@ -12,6 +12,7 @@
 #ifndef FMCA_MODULUSOFCONTINUITY_EXACTDISCRETEMODULUSOFCONTINUITY_H_
 #define FMCA_MODULUSOFCONTINUITY_EXACTDISCRETEMODULUSOFCONTINUITY_H_
 
+#include "../Clustering/E2LSH.h"
 #include "../util/Macros.h"
 
 namespace FMCA {
@@ -23,11 +24,13 @@ public:
   void init(const Matrix &P, const Matrix &f, const Scalar TX,
             const std::string dx_type = "EUCLIDEAN",
             const std::string dy_type = "EUCLIDEAN",
-            const std::string trick = "NO") {
+            const std::string trick = "NO", const bool use_lsh = false) {
     /*P is dxn dimensional matrix (n datapoints, d dimensions)
     // f is qxn dimensional matrix (n datapoints, q dimensions)
      where f.col(i) contains function values for P.col(i)
     */
+
+    use_lsh_ = use_lsh;
 
     setDistanceType(dx_, dx_type);
     setDistanceType(dy_, dy_type);
@@ -40,6 +43,12 @@ public:
     TX_ = TX;
     if (TX == 0) {
       TX_ = getMaxDistance(dx_, P, "TRICK");
+    }
+
+    if (use_lsh_) {
+      lsh_ = E2LSH();
+      // using settings as in original  E2LSH paper experimentals
+      lsh_.init(P, 10, 30, 4);
     }
   }
 
@@ -54,22 +63,40 @@ public:
   Scalar getOmega(const Matrix &P, const Matrix &f, const Scalar &d) {
     // this will make use of dx, dy initialized in init (we might cast the
     // getMax function and re-use it here) computes moc exactly, for freely
-    // chosen delta value t
+    // chosen delta value d
     Scalar omega = 0;
     Index n = static_cast<Index>(P.cols());
 
-#pragma omp parallel for reduction(max : omega)
-    for (Index i = 0; i < n; i++) {
-      for (Index j = 0; j < i; j++) {
-        Scalar dis_x = dx_(P.col(j), P.col(i));
-        if (dis_x <= d) {
+    if (use_lsh_) {
+
+      // #pragma omp parallel for reduction(max : omega)
+      for (Index i = 0; i < n; i++) {
+        const std::vector<Index> nn_idcs = lsh_.computeAENN(P, P.col(i), d);
+
+        for (auto j : nn_idcs) {
           Scalar dis_y = dy_(f.col(j), f.col(i));
           if (dis_y > omega) {
             omega = dis_y;
           }
         }
       }
+
+    } else {
+#pragma omp parallel for reduction(max : omega)
+      for (Index i = 0; i < n; i++) {
+
+        for (Index j = 0; j < i; j++) {
+          Scalar dis_x = dx_(P.col(j), P.col(i));
+          if (dis_x <= d) {
+            Scalar dis_y = dy_(f.col(j), f.col(i));
+            if (dis_y > omega) {
+              omega = dis_y;
+            }
+          }
+        }
+      }
     }
+
     return omega;
   }
 
@@ -151,6 +178,8 @@ private:
   std::vector<Scalar> tgrid_;
   std::vector<Scalar> omegat_;
   bool computed_ = false;
+  bool use_lsh_ = false;
+  E2LSH lsh_;
 
   void
   setDistanceType(std::function<Scalar(const Vector &, const Vector &)> &df,

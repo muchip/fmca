@@ -542,7 +542,8 @@ PYBIND11_MODULE(FMCA, m) {
   pyMOC.def(py::init<>());
   pyMOC.def("init", &FMCA::ExactDiscreteModulusOfContinuity::init, py::arg("P"),
             py::arg("f"), py::arg("TX"), py::arg("dx_type") = "EUCLIDEAN",
-            py::arg("dy_type") = "EUCLIDEAN", py::arg("trick") = "NO");
+            py::arg("dy_type") = "EUCLIDEAN", py::arg("trick") = "NO",
+            py::arg("use_lsh") = false);
   pyMOC.def("getOmega", &FMCA::ExactDiscreteModulusOfContinuity::getOmega);
   pyMOC.def("computeMocPlot",
             &FMCA::ExactDiscreteModulusOfContinuity::computeMocPlot,
@@ -563,13 +564,14 @@ PYBIND11_MODULE(FMCA, m) {
       [](EDMOC &self, const FMCA::Matrix &P, const FMCA::Matrix &f,
          FMCA::Scalar r, FMCA::Index R, FMCA::Scalar TX, FMCA::Index min_csize,
          const std::string &dx_type, const std::string &dy_type,
-         bool add_maxpts = true) {
+         bool add_maxpts = true, const bool use_lsh = false) {
         self.template init<CT>(P, f, r, R, TX, min_csize, dx_type, dy_type,
-                               add_maxpts);
+                               add_maxpts, use_lsh);
       },
       py::arg("P"), py::arg("f"), py::arg("r"), py::arg("R"), py::arg("TX") = 1,
       py::arg("min_csize") = 1, py::arg("dx_type") = "EUCLIDEAN",
-      py::arg("dy_type") = "EUCLIDEAN", py::arg("add_maxpts") = true);
+      py::arg("dy_type") = "EUCLIDEAN", py::arg("add_maxpts") = true),
+      py::arg("use_lsh") = false;
 
   pyEMOC.def(
       "omega",

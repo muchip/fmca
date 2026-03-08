@@ -14,6 +14,8 @@
 
 // #include "../util/Macros.h"
 
+#include "../Clustering/E2LSH.h"
+
 namespace FMCA {
 
 class EpsilonDiscreteModulusOfContinuity {
@@ -25,7 +27,7 @@ public:
             const Scalar TX = 1, const Index min_csize = 1,
             const std::string dx_type = "EUCLIDEAN",
             const std::string dy_type = "EUCLIDEAN",
-            const bool add_maxpts = true) {
+            const bool add_maxpts = true, const bool use_lsh = false) {
     // set all parameters
     TX_ = TX;
     r_ = r;
@@ -40,6 +42,14 @@ public:
     setDistanceType(dy_, dy_type);
 
     add_maxpts_ = add_maxpts;
+    use_lsh_ = use_lsh;
+
+    if (use_lsh_) {
+      lsh_ = E2LSH();
+      // using settings as in original  E2LSH paper experimentals
+      lsh_.init(P, 10, 30, 4);
+    }
+
     Vector min_dist;
     {
       Derived ct(P, min_csize_);
@@ -55,8 +65,13 @@ public:
       Scalar max_quotient = -1.;
 #pragma omp parallel for reduction(max : max_quotient)
       for (Index i = 0; i < P.cols(); ++i) {
-        const std::vector<Index> nn_idcs =
-            epsNN(ct, P, P.col(i), r_); // assumes L2 norm (TO BE CHANGED)
+        std::vector<Index> nn_idcs;
+        if (use_lsh_) {
+          nn_idcs = lsh_.computeAENN(P, P.col(i), r_);
+        } else {
+          nn_idcs = epsNN(ct, P, P.col(i), r_); // assumes L2 norm
+        }
+
         for (Index j = 0; j < nn_idcs.size(); ++j)
           for (Index k = 0; k < j; ++k) {
             const Scalar xdist = dx_(P.col(nn_idcs[j]), P.col(nn_idcs[k]));
@@ -134,8 +149,14 @@ public:
       Scalar max_quotient = -1.;
 #pragma omp parallel for reduction(max : max_quotient)
       for (Index i = 0; i < Ploc.cols(); ++i) {
-        const std::vector<Index> nn_idcs = epsNN(
-            ctk, Ploc, Ploc.col(i), Rkr); // assumes L2 norm (TO BE CHANGED)
+        std::vector<Index> nn_idcs;
+        if (use_lsh_) {
+          nn_idcs = lsh_.computeAENN(Ploc, Ploc.col(i), Rkr);
+        } else {
+          nn_idcs = epsNN(ctk, Ploc, Ploc.col(i),
+                          Rkr); // assumes L2 norm (TO BE CHANGED)
+        }
+
         for (Index j = 0; j < nn_idcs.size(); ++j)
           for (Index k = 0; k < j; ++k) {
             const Scalar xdist =
@@ -174,8 +195,13 @@ public:
     Scalar max_quotient = -1.;
 #pragma omp parallel for reduction(max : max_quotient)
     for (Index i = 0; i < Ploc.cols(); ++i) {
-      const std::vector<Index> nn_idcs = epsNN(
-          ctk, Ploc, Ploc.col(i), tgrid_[k]); // assumes L2 norm (TO BE CHANGED)
+      std::vector<Index> nn_idcs;
+      if (use_lsh_) {
+        nn_idcs = lsh_.computeAENN(Ploc, Ploc.col(i), tgrid_[k]);
+      } else {
+        nn_idcs = epsNN(ctk, Ploc, Ploc.col(i), tgrid_[k]); // assumes L2 norm
+      }
+
       for (Index j = 0; j < nn_idcs.size(); ++j)
         for (Index k = 0; k < j; ++k) {
           const Scalar xdist = dx_(Ploc.col(nn_idcs[j]), Ploc.col(nn_idcs[k]));
@@ -228,6 +254,8 @@ private:
   Index K_;
   Index min_csize_;
   bool add_maxpts_;
+  bool use_lsh_;
+  E2LSH lsh_;
 };
 } // namespace FMCA
 #endif
