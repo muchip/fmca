@@ -56,9 +56,7 @@ public:
       }
     }
 
-    // hash_tables[t][b].push_back(p);
     Index n = static_cast<Index>(P.cols());
-
     for (Index t = 0; t < L_; t++) {
       Matrix projections = A_[t].transpose() * P; // precompute projections
 
@@ -103,7 +101,7 @@ gethash(const Vector &v) {
   return hash;
 }
 
-void computeANN(const Vector &q) {
+std::set<Index> computeAENN(const Vector &q, const Scalar epsilon) {
   // return both the point(index) and distance
   std::set<Index> candidates;
   for (Index t = 0; t < L_; t++) {
@@ -114,26 +112,36 @@ void computeANN(const Vector &q) {
     }
   }
 
-  // find among the candidates the nearest (under l2 norm) to q
-  Index best_idx = -1;
-  Scalar best_dist = FMCA_INF;
+  // find among the candidates the one within distance epsilon
+  std::set<Index> aenn;
+  epsilon_sqrd = epsilon * epsilon;
 
-  // add pragma
-  for (auto idx : candidates) {
-    Scalar dist = (P.col(idx) - q).squaredNorm();
-    if (dist < best_dist) {
-      best_dist = dist;
-      best_idx = idx;
+  std::vector<std::set<Index>> local_aenn(omp_get_max_threads());
+
+  // convert to vector for pragma usage
+  std::vector<Index> candidates_vec(candidates.begin(), candidates.end());
+
+#pragma omp parallel {
+
+  int tid = omp_get_thread_num();
+
+#pragma omp for
+  for (Index c = 0; c < candidates_vec.size(); c++) {
+    auto idx = candidates_vec[c];
+    Scalar dist_sqrd = (P.col(idx) - q).squaredNorm();
+    if (dist_sqrd < epsilon_sqrd) {
+      local_aenn[tid].insert(idx);
     }
   }
-
-  best_dist_ = best_dist;
-  best_idx_ = best_idx;
 }
 
-Index getBestIdx() { return best_idx_; }
+// take the union
+for (auto &thread_set : local_aenn) {
+  aenn.insert(thread_set.begin(), thread_set.end());
+}
 
-Scalar getBestDist() { return best_dist_; }
+return aenn;
+} // namespace FMCA
 
 void addPoint() {} // not for current impl.
 
@@ -144,10 +152,7 @@ Scalar r_;
 std::vector<std::unordered_map<std::string, std::vector<int>>> hash_tables_;
 std::vector<Matrix> A_;
 std::vector<Vector> B_;
-
-Index best_idx_;
-Scalar best_dist_;
-
-}; // namespace FMCA
+}
+; // namespace FMCA
 }
 #endif
