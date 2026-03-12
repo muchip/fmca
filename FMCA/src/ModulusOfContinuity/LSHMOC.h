@@ -1,7 +1,7 @@
 // This file is part of FMCA, the Fast Multiresolution Covariance Analysis
 // package.
 //
-// Copyright (c) 2025, Michael Multerer
+// Copyright (c) 2026, Michael Multerer, Michele Palma
 //
 // All rights reserved.
 //
@@ -9,67 +9,48 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#ifndef FMCA_MODULUSOFCONTINUITY_EXACTDISCRETEMODULUSOFCONTINUITY_H_
-#define FMCA_MODULUSOFCONTINUITY_EXACTDISCRETEMODULUSOFCONTINUITY_H_
+#ifndef FMCA_MODULUSOFCONTINUITY_DISCRETEMODULUSOFCONTINUITY_H_
+#define FMCA_MODULUSOFCONTINUITY_DISCRETEMODULUSOFCONTINUITY_H_
 
 #include "../Clustering/E2LSH.h"
 #include "../util/Macros.h"
 
 namespace FMCA {
 
-class ExactDiscreteModulusOfContinuity {
-public:
-  ExactDiscreteModulusOfContinuity() {}
+class DiscreteModulusOfContinuity {
+ public:
+  DiscreteModulusOfContinuity() {}
 
-  void init(const Matrix &P, const Matrix &f, const Scalar TX,
+  void init(const Matrix &P, const Scalar TX,
             const std::string dx_type = "EUCLIDEAN",
             const std::string dy_type = "EUCLIDEAN",
-            const std::string trick = "NO", const bool use_lsh = false) {
-    /*P is dxn dimensional matrix (n datapoints, d dimensions)
-    // f is qxn dimensional matrix (n datapoints, q dimensions)
-     where f.col(i) contains function values for P.col(i)
-    */
-
+            const bool use_lsh = false) {
     use_lsh_ = use_lsh;
-
     setDistanceType(dx_, dx_type);
     setDistanceType(dy_, dy_type);
 
-    // determine the max_distance (we will compute moc for t=
-    // 0,...,max_distance) via bounding boxes
-
-    // TX shall be optional, for now use a jolly value 0, remove trick in future
-    // vers
     TX_ = TX;
-    if (TX == 0) {
-      TX_ = getMaxDistance(dx_, P, "TRICK");
-    }
+    bb_.resize(P.rows(), 3);
+    bb_.col(0) = P.rowwise().minCoeff();
+    bb_.col(1) = P.rowwise().maxCoeff();
+    bb_.col(2) = bb_.col(1) - bb_.col(0);
+    const Scalar bb_diam = bb_.col(2).norm();
+    TX_ = TX > bb_diam ? bb_diam : TX;
 
     if (use_lsh_) {
       lsh_ = E2LSH();
-      // using settings as in original  E2LSH paper experimentals
+      // using settings as in original E2LSH paper experimentals put reference
       lsh_.init(P, 10, 30, 4);
-      // lsh_.init(P, 5, 15, 4);
     }
   }
 
-  Scalar getTX() {
-    if (!computed_)
-      throw std::logic_error(
-          "computeMocPlot not called"); // we can avoid this but for now let's
-                                        // keep a single bool value
-    return TX_;
-  }
+  const Scalar TX() { return TX_; }
 
-  Scalar getOmega(const Matrix &P, const Matrix &f, const Scalar &d) {
-    // this will make use of dx, dy initialized in init (we might cast the
-    // getMax function and re-use it here) computes moc exactly, for freely
-    // chosen delta value d
+  const Scalar omega(const Matrix &P, const Matrix &f, const Scalar &t) {
     Scalar omega = 0;
-    Index n = static_cast<Index>(P.cols());
+    const Index n = P.cols();
 
     if (use_lsh_) {
-
 #pragma omp parallel for reduction(max : omega)
       for (Index i = 0; i < n; i++) {
         const std::vector<Index> nn_idcs = lsh_.computeAENN(P, P.col(i), d);
@@ -85,7 +66,6 @@ public:
     } else {
 #pragma omp parallel for reduction(max : omega)
       for (Index i = 0; i < n; i++) {
-
         for (Index j = 0; j < i; j++) {
           Scalar dis_x = dx_(P.col(j), P.col(i));
           if (dis_x <= d) {
@@ -111,7 +91,7 @@ public:
     Index n = static_cast<Index>(P.cols());
     const int num_threads = omp_get_max_threads();
 
-    K_ = static_cast<Index>(std::ceil((TX_) / d)) + 1; //(must be an integer)
+    K_ = static_cast<Index>(std::ceil((TX_) / d)) + 1;  //(must be an integer)
     std::vector<Vector> B_local(num_threads, Vector::Zero(K_));
 
 // thread-local maxima: reduce across threads with element-wise max.
@@ -121,7 +101,6 @@ public:
 
 #pragma omp for
       for (Index i = 0; i < n; i++) {
-
         for (Index j = 0; j < i; j++) {
           Scalar dist_x = dx_(P.col(j), P.col(i));
           Scalar dist_y = dy_(f.col(j), f.col(i));
@@ -161,17 +140,16 @@ public:
   }
 
   std::vector<Scalar> getOmegaT() {
-    if (!computed_)
-      throw std::logic_error("computeMocPlot not called");
+    if (!computed_) throw std::logic_error("computeMocPlot not called");
     return omegat_;
   }
   std::vector<Scalar> getTGrid() {
-    if (!computed_)
-      throw std::logic_error("computeMocPlot not called");
+    if (!computed_) throw std::logic_error("computeMocPlot not called");
     return tgrid_;
   }
 
-private:
+ private:
+  Matrix bb_;
   std::function<Scalar(const Vector &, const Vector &)> dx_;
   std::function<Scalar(const Vector &, const Vector &)> dy_;
   Scalar TX_;
@@ -182,10 +160,9 @@ private:
   bool use_lsh_ = false;
   E2LSH lsh_;
 
-  void
-  setDistanceType(std::function<Scalar(const Vector &, const Vector &)> &df,
-                  const std::string &dist_type) {
-
+  void setDistanceType(
+      std::function<Scalar(const Vector &, const Vector &)> &df,
+      const std::string &dist_type) {
     if (dist_type == "EUCLIDEAN") {
       df = [](const Vector &x, const Vector &y) { return (x - y).norm(); };
     } else
@@ -219,7 +196,6 @@ private:
 
 #pragma omp parallel for reduction(max : max_d)
     for (int i = 0; i < P.cols(); i++) {
-
       for (int j = 0; j < i; j++) {
         Scalar dist = df(P.col(j), P.col(i));
         if (dist > max_d) {
@@ -231,5 +207,5 @@ private:
   }
 };
 
-} // namespace FMCA
+}  // namespace FMCA
 #endif

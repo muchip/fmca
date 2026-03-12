@@ -26,6 +26,9 @@ struct H2SampletTreeBase;
 template <typename Derived>
 struct H2MatrixBase;
 
+template <typename Derived>
+class DiscreteModulusOfContinuityBase;
+
 namespace internal {
 template <typename Derived>
 struct ClusterTreeInitializer;
@@ -46,6 +49,8 @@ class MortonClusterTree;
 class RandomProjectionTree;
 
 class KDTree;
+
+class DiscreteModulusOfContinuity;
 
 template <typename ClusterTreeType>
 class SampletTree;

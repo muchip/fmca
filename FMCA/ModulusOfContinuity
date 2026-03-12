@@ -1,0 +1,30 @@
+// This file is part of FMCA, the Fast Multiresolution Covariance Analysis
+// package.
+//
+// Copyright (c) 2026, Michael Multerer
+//
+// All rights reserved.
+//
+// This source code is subject to the GNU Affero General Public License v3.0
+// license and without any warranty, see <https://github.com/muchip/FMCA>
+// for further information.
+//
+#ifndef FMCA_MODULUSOFCONTINUITY_MODULE_
+#define FMCA_MODULUSOFCONTINUITY_MODULE_
+
+/**
+ *  \ingroup Modules
+ *  \defgroup ModulusOfContinuity ModulusOfContinuity 
+ *  \brief Module containing all functionality related to the modulus of
+ *         continuity
+ *
+ **/
+
+#include "src/util/Macros.h"
+
+#include "src/util/ForwardDeclarations.h"
+//
+#include "src/ModulusOfContinuity/DiscreteModulusOfContinuityBase.h"
+#include "src/ModulusOfContinuity/DiscreteModulusOfContinuity.h"
+
+#endif
