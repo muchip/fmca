@@ -49,6 +49,7 @@ public:
       lsh_ = E2LSH();
       // using settings as in original  E2LSH paper experimentals
       lsh_.init(P, 10, 30, 4);
+      // lsh_.init(P, 5, 15, 4);
     }
   }
 
@@ -69,7 +70,7 @@ public:
 
     if (use_lsh_) {
 
-      // #pragma omp parallel for reduction(max : omega)
+#pragma omp parallel for reduction(max : omega)
       for (Index i = 0; i < n; i++) {
         const std::vector<Index> nn_idcs = lsh_.computeAENN(P, P.col(i), d);
 

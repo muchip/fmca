@@ -15,7 +15,7 @@
 namespace FMCA {
 
 class PriorityQueue {
- public:
+public:
   explicit PriorityQueue(Index n) : pos_(n, -1) { heap_.reserve(n); }
   bool empty() const { return heap_.empty(); }
 
@@ -33,21 +33,24 @@ class PriorityQueue {
     swapNodes(0, last);
     pos_[heap_[last].second] = -1;
     heap_.pop_back();
-    if (not heap_.empty()) siftDown(0);
+    if (not heap_.empty())
+      siftDown(0);
   }
 
   void decreaseKey(Index i) {
     const Index k = pos_[i];
-    if (k == -1 || heap_[k].first == 0) return;
+    if (k == -1 || heap_[k].first == 0)
+      return;
     --(heap_[k].first);
     siftDown(k);
   }
 
- private:
+private:
   void siftUp(Index k) {
     while (k > 0) {
       const Index p = (k - 1) / 2;
-      if (!(heap_[p].first < heap_[k].first)) break;
+      if (!(heap_[p].first < heap_[k].first))
+        break;
       swapNodes(p, k);
       k = p;
     }
@@ -58,9 +61,12 @@ class PriorityQueue {
       const Index l = 2 * k + 1;
       const Index r = 2 * k + 2;
       Index best = k;
-      if (l < heap_.size() && heap_[best] < heap_[l]) best = l;
-      if (r < heap_.size() && heap_[best] < heap_[r]) best = r;
-      if (best == k) break;
+      if (l < heap_.size() && heap_[best] < heap_[l])
+        best = l;
+      if (r < heap_.size() && heap_[best] < heap_[r])
+        best = r;
+      if (best == k)
+        break;
       swapNodes(k, best);
       k = best;
     }
@@ -83,34 +89,46 @@ class PriorityQueue {
  **/
 template <typename Derived>
 std::vector<Index> greedySetCovering(const ClusterTreeBase<Derived> &ct,
-                                     const Matrix &P, const Scalar r) {
+                                     const Matrix &P, const Scalar r,
+                                     const E2LSH *lsh) {
   std::vector<Index> retval;
   std::vector<bool> is_covered(P.cols(), false);
+  std::vector<Index> n_uncovered(P.cols());
   std::vector<std::vector<Index>> rballs(P.cols());
   std::vector<std::vector<Index>> index_covers(P.cols());
   Index num_covered = 0;
 
 #pragma omp parallel for
   for (Index i = 0; i < rballs.size(); ++i) {
-    rballs[i] = epsNN(ct, P, P.col(i), 0.5 * r);
+
+    if (lsh) { // clean this and make eithe lsh or clt
+      rballs[i] = lsh->computeAENN(P, P.col(i), 0.5 * r);
+    } else {
+      rballs[i] = epsNN(ct, P, P.col(i), 0.5 * r);
+    }
+
+    n_uncovered[i] = rballs[i].size();
     for (const auto &it : rballs[i])
 #pragma omp critical
       index_covers[it].push_back(i);
   }
-  PriorityQueue heap(P.cols());
-  // create a max-heap to order points by n_uncovered
-  for (Index i = 0; i < P.cols(); ++i)
-    if (rballs[i].size() > 0) heap.push(rballs[i].size(), i);
 
   while (num_covered != P.cols()) {
-    std::pair<Index, Index> top = heap.top();
-    heap.pop();
-    num_covered += top.first;
-    retval.push_back(top.second);
-    for (const auto &it : rballs[top.second]) {
+    Index max_size = 0;
+    Index max_index = -1;
+    // determine largest ball
+    for (Index i = 0; i < rballs.size(); ++i) {
+      max_index = max_size < n_uncovered[i] ? i : max_index;
+      max_size = max_size < n_uncovered[i] ? n_uncovered[i] : max_size;
+    }
+    // store selected ball
+    num_covered += max_size;
+    retval.push_back(max_index);
+    for (const auto &it : rballs[max_index]) {
       // reduce uncovered size of affected balls
       if (!is_covered[it]) {
-        for (const auto &it2 : index_covers[it]) heap.decreaseKey(it2);
+        for (const auto &it2 : index_covers[it])
+          n_uncovered[it2] -= 1;
         // mask covered indices
         is_covered[it] = true;
       }
@@ -119,5 +137,5 @@ std::vector<Index> greedySetCovering(const ClusterTreeBase<Derived> &ct,
   return retval;
 }
 
-}  // namespace FMCA
+} // namespace FMCA
 #endif

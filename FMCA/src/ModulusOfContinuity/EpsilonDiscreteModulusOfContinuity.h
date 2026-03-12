@@ -43,23 +43,22 @@ public:
 
     add_maxpts_ = add_maxpts;
     use_lsh_ = use_lsh;
-
     if (use_lsh_) {
       lsh_ = E2LSH();
       // using settings as in original  E2LSH paper experimentals
       lsh_.init(P, 10, 30, 4);
+    } else {
+      // for now leave it as it it, later avoid ct construction
+      // assumes L2 norm (TO BE CHANGED)
     }
 
-    Vector min_dist;
-    {
-      Derived ct(P, min_csize_);
-      min_dist = minDistanceVector(ct, P); // assumes L2 norm (TO BE CHANGED)
-    }
     // std::cout << "fill distance: " << min_dist.maxCoeff() << std::endl;
     // std::cout << "separation distance: " << min_dist.minCoeff() << std::endl;
     // std::cout << "number of intervals: " << K_ + 1 << std::endl;
+
+    // block
     {
-      Derived ct(P, min_csize_);
+
       // set up modulus of continuity for the full set X = P using the
       // resolution r
       Scalar max_quotient = -1.;
@@ -69,6 +68,9 @@ public:
         if (use_lsh_) {
           nn_idcs = lsh_.computeAENN(P, P.col(i), r_);
         } else {
+          Derived ct(P, min_csize);
+
+          Vector min_dist = minDistanceVector(ct, P);
           nn_idcs = epsNN(ct, P, P.col(i), r_); // assumes L2 norm
         }
 
@@ -86,7 +88,10 @@ public:
       omegat_[0] = omegaNk_[0];
       XNk_indices_[0].resize(P.cols());
       std::iota(XNk_indices_[0].begin(), XNk_indices_[0].end(), 0);
+
+      // std::cout << "this is done! we have " << P.cols() << " points";
     }
+
     // std::cout << "#N0=" << XNk_indices_[0].size() << std::endl;
     //  compute reduced index sets using greedy method and compute corresponding
     //  moduli of continuity
@@ -116,13 +121,28 @@ public:
     //           << std::endl;
 
     for (Index k = 1; k <= K_; ++k) {
-      Derived ct(Pprev, min_csize_);
-      XNk_indices_[k] = greedySetCovering(ct, Pprev, Rkr);
+      Derived ct(Pprev, min_csize_); // later move in the else branch only
+      if (use_lsh_) {
+        XNk_indices_[k] = greedySetCovering(
+            ct, Pprev, Rkr,
+            nullptr); // here we will require to map back the indices from P to
+                      // just those valid in Pprev
+      } else {
+        XNk_indices_[k] = greedySetCovering(ct, Pprev, Rkr, nullptr);
+      }
+
+      // for (auto idx : XNk_indices_[k]) {
+      //   if (idx < 0 || idx > P.cols())
+      //     std::cout << "PROBLEM!!";
+      // }
+
       // fix indices to become the global indices
       bool hasmin = false;
       bool hasmax = false;
       for (Index j = 0; j < XNk_indices_[k].size(); ++j) {
+
         XNk_indices_[k][j] = XNk_indices_[k - 1][XNk_indices_[k][j]];
+
         if (XNk_indices_[k][j] == X_min_max_[0])
           hasmin = true;
         if (XNk_indices_[k][j] == X_min_max_[1])
@@ -134,24 +154,72 @@ public:
         if (!hasmax)
           XNk_indices_[k].push_back(X_min_max_[1]);
       }
+
       std::sort(XNk_indices_[k].begin(), XNk_indices_[k].end());
+
+      // std::cout << "for" << k << " we have " << XNk_indices_[k].size()
+      //           << " pointsss";
+
       Rkr *= R;
       tgrid_[k] = Rkr;
-      Matrix Ploc(P.rows(), XNk_indices_[k].size());
+      Matrix Ploc(
+          P.rows(),
+          XNk_indices_[k].size()); // e.g. just points from XNk_indices_[k]
       Matrix floc(f.rows(), XNk_indices_[k].size());
       // set up local point set for constructing a cluster tree for epsNN
       for (Index j = 0; j < Ploc.cols(); ++j) {
         Ploc.col(j) = P.col(XNk_indices_[k][j]);
         floc.col(j) = f.col(XNk_indices_[k][j]);
       }
+
+      // std::cout << "for" << k << " the construction of Ploc, floc, was okay";
+
       Pprev = Ploc;
-      Derived ctk(Ploc, min_csize_);
+
+      Derived ctk(Ploc, min_csize_); // avoid declaration if lsh is in use....
+      // std::cout << "after Ploc (size " << Ploc.cols() << ") for " << k << "
+      // ";
+      //  COMMENT BLOCK A (computation of moc on the reduced set)
       Scalar max_quotient = -1.;
 #pragma omp parallel for reduction(max : max_quotient)
       for (Index i = 0; i < Ploc.cols(); ++i) {
         std::vector<Index> nn_idcs;
+        std::vector<Index> lsh_nn_idcs;
+
         if (use_lsh_) {
-          nn_idcs = lsh_.computeAENN(Ploc, Ploc.col(i), Rkr);
+          lsh_nn_idcs = lsh_.computeAENN(P, Ploc.col(i), Rkr);
+          // map indices to X_Nk (just exclude those points that are not
+          // actually there)
+          std::vector<Index> nn_idcs_global;
+          // we can probably do this via binary search, given ordered vectors
+          std::set<Index> ploc_set(XNk_indices_[k].begin(),
+                                   XNk_indices_[k].end());
+          std::set<Index> lsh_set(lsh_nn_idcs.begin(), lsh_nn_idcs.end());
+
+          std::set_intersection(ploc_set.begin(), ploc_set.end(),
+                                lsh_set.begin(), lsh_set.end(),
+                                std::back_inserter(nn_idcs_global));
+
+          nn_idcs.clear();
+
+          for (auto global_idx : nn_idcs_global) {
+            auto it = std::lower_bound(XNk_indices_[k].begin(),
+                                       XNk_indices_[k].end(), global_idx);
+            if (it != XNk_indices_[k].end() && *it == global_idx) {
+              nn_idcs.push_back(std::distance(XNk_indices_[k].begin(), it));
+            }
+          }
+
+          // for (auto el_inter : nn_idcs_global) {
+          //   // find index position of el in XNk_indices_[k]
+          //   // store it in nn_idcs
+          //   for(local_idx=0; local_idx< XNK_indices_[k].size();local_idx++){
+          //     if (el_inter==XNk_indices_[k][local_idx])
+          //     nn_idcs.push_back(local_idx)
+          //   }
+
+          // }
+
         } else {
           nn_idcs = epsNN(ctk, Ploc, Ploc.col(i),
                           Rkr); // assumes L2 norm (TO BE CHANGED)
@@ -159,6 +227,9 @@ public:
 
         for (Index j = 0; j < nn_idcs.size(); ++j)
           for (Index k = 0; k < j; ++k) {
+
+            // std::cout << " nn_idcs[j] = " << nn_idcs[j] << ";";
+
             const Scalar xdist =
                 dx_(Ploc.col(nn_idcs[j]), Ploc.col(nn_idcs[k]));
             assert(xdist <= 2 * Rkr && "error");
@@ -170,11 +241,16 @@ public:
       }
       omegaNk_[k] = max_quotient;
       omegat_[k] = omegaNk_[k] > omegat_[k - 1] ? omegaNk_[k] : omegat_[k - 1];
+      // DECOMMENT BLOCK A
       // std::cout << "#N" << k << "=" << XNk_indices_[k].size() << std::endl;
     }
+
+    // std::cout << "init finished!";
   }
   template <typename Derived>
   Scalar omega(Scalar t, const Matrix &P, const Matrix &f) const {
+    // std::cout << "omega started! for " << t << " ";
+
     t = (t >= 0 ? t : 0);
     Scalar retval = 0;
     Index k = 0;
@@ -187,17 +263,41 @@ public:
     Matrix Ploc(P.rows(), XNk_indices_[k].size());
     Matrix floc(f.rows(), XNk_indices_[k].size());
     // set up local point set for constructing a cluster tree for epsNN
+
     for (Index j = 0; j < Ploc.cols(); ++j) {
       Ploc.col(j) = P.col(XNk_indices_[k][j]);
       floc.col(j) = f.col(XNk_indices_[k][j]);
     }
+
     Derived ctk(Ploc, min_csize_);
     Scalar max_quotient = -1.;
 #pragma omp parallel for reduction(max : max_quotient)
     for (Index i = 0; i < Ploc.cols(); ++i) {
       std::vector<Index> nn_idcs;
+      std::vector<Index> lsh_nn_idcs;
+
       if (use_lsh_) {
-        nn_idcs = lsh_.computeAENN(Ploc, Ploc.col(i), tgrid_[k]);
+        lsh_nn_idcs =
+            lsh_.computeAENN(P, Ploc.col(i), tgrid_[k]); // shoulnd't be t
+        std::vector<Index> nn_idcs_global;
+        std::set<Index> ploc_set(XNk_indices_[k].begin(),
+                                 XNk_indices_[k].end());
+        std::set<Index> lsh_set(lsh_nn_idcs.begin(), lsh_nn_idcs.end());
+
+        std::set_intersection(ploc_set.begin(), ploc_set.end(), lsh_set.begin(),
+                              lsh_set.end(),
+                              std::back_inserter(nn_idcs_global));
+
+        nn_idcs.clear();
+
+        for (auto global_idx : nn_idcs_global) {
+          auto it = std::lower_bound(XNk_indices_[k].begin(),
+                                     XNk_indices_[k].end(), global_idx);
+          if (it != XNk_indices_[k].end() && *it == global_idx) {
+            nn_idcs.push_back(std::distance(XNk_indices_[k].begin(), it));
+          }
+        }
+
       } else {
         nn_idcs = epsNN(ctk, Ploc, Ploc.col(i), tgrid_[k]); // assumes L2 norm
       }
@@ -210,6 +310,7 @@ public:
             max_quotient = max_quotient < fdist ? fdist : max_quotient;
         }
     }
+    // std::cout << "good omega";
     max_quotient = max_quotient >= 0 ? max_quotient : 0;
     if (k > 0)
       max_quotient =

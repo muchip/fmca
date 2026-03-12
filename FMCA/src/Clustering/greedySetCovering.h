@@ -14,6 +14,74 @@
 
 namespace FMCA {
 
+class PriorityQueue {
+public:
+  explicit PriorityQueue(Index n) : pos_(n, -1) { heap_.reserve(n); }
+  bool empty() const { return heap_.empty(); }
+
+  void push(Index key, Index ind) {
+    heap_.push_back(std::make_pair(key, ind));
+    const Index k = heap_.size() - 1;
+    pos_[ind] = k;
+    siftUp(k);
+  }
+
+  std::pair<Index, Index> top() const { return heap_.front(); }
+
+  void pop() {
+    const Index last = heap_.size() - 1;
+    swapNodes(0, last);
+    pos_[heap_[last].second] = -1;
+    heap_.pop_back();
+    if (not heap_.empty())
+      siftDown(0);
+  }
+
+  void decreaseKey(Index i) {
+    const Index k = pos_[i];
+    if (k == -1 || heap_[k].first == 0)
+      return;
+    --(heap_[k].first);
+    siftDown(k);
+  }
+
+private:
+  void siftUp(Index k) {
+    while (k > 0) {
+      const Index p = (k - 1) / 2;
+      if (!(heap_[p].first < heap_[k].first))
+        break;
+      swapNodes(p, k);
+      k = p;
+    }
+  }
+
+  void siftDown(Index k) {
+    while (true) {
+      const Index l = 2 * k + 1;
+      const Index r = 2 * k + 2;
+      Index best = k;
+      if (l < heap_.size() && heap_[best] < heap_[l])
+        best = l;
+      if (r < heap_.size() && heap_[best] < heap_[r])
+        best = r;
+      if (best == k)
+        break;
+      swapNodes(k, best);
+      k = best;
+    }
+  }
+
+  void swapNodes(Index a, Index b) {
+    std::swap(heap_[a], heap_[b]);
+    pos_[heap_[a].second] = a;
+    pos_[heap_[b].second] = b;
+  }
+
+  std::vector<std::pair<Index, Index>> heap_;
+  std::vector<Index> pos_;
+};
+
 /**
  *  \ingroup Clustering
  *  \brief uses the cluster tree ct to efficiently determine a
@@ -21,7 +89,8 @@ namespace FMCA {
  **/
 template <typename Derived>
 std::vector<Index> greedySetCovering(const ClusterTreeBase<Derived> &ct,
-                                     const Matrix &P, const Scalar r) {
+                                     const Matrix &P, const Scalar r,
+                                     const E2LSH *lsh) {
   std::vector<Index> retval;
   std::vector<bool> is_covered(P.cols(), false);
   std::vector<Index> n_uncovered(P.cols());
@@ -31,7 +100,13 @@ std::vector<Index> greedySetCovering(const ClusterTreeBase<Derived> &ct,
 
 #pragma omp parallel for
   for (Index i = 0; i < rballs.size(); ++i) {
-    rballs[i] = epsNN(ct, P, P.col(i), 0.5 * r);
+
+    if (lsh) { // clean this and make eithe lsh or clt
+      rballs[i] = lsh->computeAENN(P, P.col(i), 0.5 * r);
+    } else {
+      rballs[i] = epsNN(ct, P, P.col(i), 0.5 * r);
+    }
+
     n_uncovered[i] = rballs[i].size();
     for (const auto &it : rballs[i])
 #pragma omp critical
@@ -52,7 +127,8 @@ std::vector<Index> greedySetCovering(const ClusterTreeBase<Derived> &ct,
     for (const auto &it : rballs[max_index]) {
       // reduce uncovered size of affected balls
       if (!is_covered[it]) {
-        for (const auto &it2 : index_covers[it]) n_uncovered[it2] -= 1;
+        for (const auto &it2 : index_covers[it])
+          n_uncovered[it2] -= 1;
         // mask covered indices
         is_covered[it] = true;
       }
@@ -61,5 +137,5 @@ std::vector<Index> greedySetCovering(const ClusterTreeBase<Derived> &ct,
   return retval;
 }
 
-}  // namespace FMCA
+} // namespace FMCA
 #endif
