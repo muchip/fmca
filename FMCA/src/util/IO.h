@@ -438,8 +438,10 @@ int print2ascii(const std::string &fileName, const Matrix &tmp) {
   myfile.open(fileName);
   // write matrix to file (precision is fixed here!)
   for (auto i = 0; i < tmp.rows(); ++i) {
-    for (auto j = 0; j < tmp.cols(); ++j)
-      myfile << std::setprecision(10) << tmp(i, j) << " \t ";
+    for (auto j = 0; j < tmp.cols(); ++j) {
+      myfile << std::setprecision(10) << tmp(i, j);
+      if (j < tmp.cols() - 1) myfile << " ";
+    }
     myfile << std::endl;
   }
   myfile.close();

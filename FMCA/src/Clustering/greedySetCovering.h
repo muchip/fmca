@@ -108,6 +108,8 @@ std::vector<Index> greedySetCovering(const ClusterTreeBase<Derived> *ct,
 
     if (ct == nullptr) {
       rballs[i] = lsh->computeAENN(P_original, P.col(i), 0.5 * r);
+      // this shall be points
+
     } else {
       rballs[i] = epsNN(*ct, P, P.col(i), 0.5 * r);
     }
