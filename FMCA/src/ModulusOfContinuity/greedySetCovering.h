@@ -12,6 +12,8 @@
 #ifndef FMCA_CLUSTERING_GREEDYSETCOVERING_H_
 #define FMCA_CLUSTERING_GREEDYSETCOVERING_H_
 
+#include <cassert>
+
 namespace FMCA {
 
 class PriorityQueue {
@@ -88,7 +90,7 @@ private:
  *         set covering of a given radius
  **/
 template <typename Derived>
-std::vector<Index> greedySetCovering(const ClusterTreeBase<Derived> &ct,
+std::vector<Index> greedySetCovering(const ClusterTreeBase<Derived> *ct,
                                      const Matrix &P, const Scalar r,
                                      const E2LSH *lsh) {
   std::vector<Index> retval;
@@ -101,10 +103,13 @@ std::vector<Index> greedySetCovering(const ClusterTreeBase<Derived> &ct,
 #pragma omp parallel for
   for (Index i = 0; i < rballs.size(); ++i) {
 
-    if (lsh) { // clean this and make eithe lsh or clt
+    assert(!(ct != nullptr && lsh != nullptr) &&
+           !(ct == nullptr && lsh == nullptr));
+
+    if (ct == nullptr) {
       rballs[i] = lsh->computeAENN(P, P.col(i), 0.5 * r);
     } else {
-      rballs[i] = epsNN(ct, P, P.col(i), 0.5 * r);
+      rballs[i] = epsNN(*ct, P, P.col(i), 0.5 * r);
     }
 
     n_uncovered[i] = rballs[i].size();
