@@ -12,6 +12,7 @@
 #ifndef FMCA_CLUSTERING_GREEDYSETCOVERING_H_
 #define FMCA_CLUSTERING_GREEDYSETCOVERING_H_
 
+#include "E2LSH.h"
 #include <cassert>
 
 namespace FMCA {
@@ -90,9 +91,8 @@ private:
  *         set covering of a given radius
  **/
 template <typename Derived>
-std::vector<Index> greedySetCovering(const ClusterTreeBase<Derived> *ct,
-                                     const Matrix &P, const Scalar r,
-                                     const E2LSH *lsh) {
+std::vector<Index> greedySetCovering(const ClusterTreeBase<Derived> &ct,
+                                     const Matrix &P, const Scalar r) {
   std::vector<Index> retval;
   std::vector<bool> is_covered(P.cols(), false);
   std::vector<Index> n_uncovered(P.cols());
@@ -103,14 +103,58 @@ std::vector<Index> greedySetCovering(const ClusterTreeBase<Derived> *ct,
 #pragma omp parallel for
   for (Index i = 0; i < rballs.size(); ++i) {
 
-    assert(!(ct != nullptr && lsh != nullptr) &&
-           !(ct == nullptr && lsh == nullptr));
+    rballs[i] = epsNN(ct, P, P.col(i), 0.5 * r);
 
-    if (ct == nullptr) {
-      rballs[i] = lsh->computeAENN(P, P.col(i), 0.5 * r);
-    } else {
-      rballs[i] = epsNN(*ct, P, P.col(i), 0.5 * r);
+    n_uncovered[i] = rballs[i].size();
+    for (const auto &it : rballs[i])
+#pragma omp critical
+      index_covers[it].push_back(i);
+  }
+
+  while (num_covered != P.cols()) {
+    Index max_size = 0;
+    Index max_index = -1;
+    // determine largest ball
+    for (Index i = 0; i < rballs.size(); ++i) {
+      max_index = max_size < n_uncovered[i] ? i : max_index;
+      max_size = max_size < n_uncovered[i] ? n_uncovered[i] : max_size;
     }
+    // store selected ball
+    num_covered += max_size;
+    retval.push_back(max_index);
+    for (const auto &it : rballs[max_index]) {
+      // reduce uncovered size of affected balls
+      if (!is_covered[it]) {
+        for (const auto &it2 : index_covers[it])
+          n_uncovered[it2] -= 1;
+        // mask covered indices
+        is_covered[it] = true;
+      }
+    }
+  }
+  return retval;
+}
+
+// new
+std::vector<Index> greedySetCoveringLSH(const E2LSH &lsh, const Matrix &P,
+                                        const Matrix &P_original,
+                                        const Scalar r) {
+  std::vector<Index> retval;
+  std::vector<bool> is_covered(P.cols(), false);
+  std::vector<Index> n_uncovered(P.cols());
+  std::vector<std::vector<Index>> rballs(P.cols());
+  std::vector<std::vector<Index>> index_covers(P.cols());
+  Index num_covered = 0;
+
+#pragma omp parallel for
+  for (Index i = 0; i < rballs.size(); ++i) {
+
+    rballs[i] = lsh.computeAENN(
+        P, P.col(i), 0.5 * r); // needs to be fixed (indices mapped to P)
+
+    // map back the indices from P to those valid in Pprev
+    // same as mapping indices to X_Nk (just exclude those points that are not
+    // there) fix indices to become the global indices
 
     n_uncovered[i] = rballs[i].size();
     for (const auto &it : rballs[i])

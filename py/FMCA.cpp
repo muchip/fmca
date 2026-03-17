@@ -26,8 +26,6 @@
 #include <FMCA/H2Matrix>
 #include <FMCA/LowRankApproximation>
 #include <FMCA/Samplets>
-#include <FMCA/src/ModulusOfContinuity/EpsilonDiscreteModulusOfContinuity.h>
-#include <FMCA/src/ModulusOfContinuity/ExactDiscreteModulusOfContinuity.h>
 
 #include <FMCA/src/Clustering/greedySetCovering.h>
 
@@ -537,45 +535,4 @@ PYBIND11_MODULE(FMCA, m) {
   //////////////////////////////////////////////////////////////////////////////
   // MODULUS OF CONTINUITY
   //////////////////////////////////////////////////////////////////////////////
-  py::class_<FMCA::ExactDiscreteModulusOfContinuity> pyMOC(
-      m, "ExactDiscreteModulusOfContinuity");
-  pyMOC.def(py::init<>());
-  pyMOC.def("init", &FMCA::ExactDiscreteModulusOfContinuity::init, py::arg("P"),
-            py::arg("f"), py::arg("TX"), py::arg("dx_type") = "EUCLIDEAN",
-            py::arg("dy_type") = "EUCLIDEAN", py::arg("trick") = "NO",
-            py::arg("use_lsh") = false);
-  pyMOC.def("getOmega", &FMCA::ExactDiscreteModulusOfContinuity::getOmega);
-  pyMOC.def("computeMocPlot",
-            &FMCA::ExactDiscreteModulusOfContinuity::computeMocPlot,
-            py::arg("P"), py::arg("f"), py::arg("d"));
-
-  pyMOC.def("getOmegaT", &FMCA::ExactDiscreteModulusOfContinuity::getOmegaT);
-  pyMOC.def("getTGrid", &FMCA::ExactDiscreteModulusOfContinuity::getTGrid);
-  pyMOC.def("getTX", &FMCA::ExactDiscreteModulusOfContinuity::getTX);
-
-  using EDMOC = FMCA::EpsilonDiscreteModulusOfContinuity;
-  using CT = FMCA::ClusterTree; // or whatever cluster tree you actually want
-
-  py::class_<EDMOC> pyEMOC(m, "EpsilonDiscreteModulusOfContinuity");
-  pyEMOC.def(py::init<>());
-
-  pyEMOC.def(
-      "init",
-      [](EDMOC &self, const FMCA::Matrix &P, const FMCA::Matrix &f,
-         FMCA::Scalar r, FMCA::Index R, FMCA::Scalar TX, FMCA::Index min_csize,
-         const std::string &dx_type, const std::string &dy_type,
-         bool add_maxpts, bool use_lsh) {
-        self.template init<CT>(P, f, r, R, TX, min_csize, dx_type, dy_type,
-                               add_maxpts, use_lsh);
-      },
-      py::arg("P"), py::arg("f"), py::arg("r"), py::arg("R"), py::arg("TX") = 1,
-      py::arg("min_csize") = 1, py::arg("dx_type") = "EUCLIDEAN",
-      py::arg("dy_type") = "EUCLIDEAN", py::arg("add_maxpts") = true,
-      py::arg("use_lsh") = false);
-
-  pyEMOC.def(
-      "omega",
-      [](const EDMOC &self, FMCA::Scalar t, const FMCA::Matrix &P,
-         const FMCA::Matrix &f) { return self.template omega<CT>(t, P, f); },
-      py::arg("t"), py::arg("P"), py::arg("f"));
 }

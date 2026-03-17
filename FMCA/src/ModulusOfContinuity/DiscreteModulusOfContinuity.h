@@ -14,12 +14,13 @@
 
 #include "../Clustering/E2LSH.h"
 #include "../util/Macros.h"
+#include "DiscreteModulusOfContinuityBase.h"
 
 namespace FMCA {
 
 class DiscreteModulusOfContinuity
     : public DiscreteModulusOfContinuityBase<DiscreteModulusOfContinuity> {
- public:
+public:
   typedef DiscreteModulusOfContinuityBase<DiscreteModulusOfContinuity> Base;
 
   DiscreteModulusOfContinuity() {}
@@ -36,7 +37,7 @@ class DiscreteModulusOfContinuity
     bb_.resize(P.rows(), 3);
     bb_.col(0) = P.rowwise().minCoeff();
     bb_.col(1) = P.rowwise().maxCoeff();
-    bb_.col(2) = bb_.col(1) - bb_.col(0);
+    bb_.col(2) = bb_.col(1) - bb_.col(0); // only if EUCLIDEAN is used.
     const Scalar bb_diam = bb_.col(2).norm();
     TX_ = TX_ > bb_diam ? bb_diam : TX_;
     if (TX_ <= 0) {
@@ -49,7 +50,8 @@ class DiscreteModulusOfContinuity
     const Index nbins = std::ceil(TX_ / step_size_) + 1;
     Base::tgrid_.resize(nbins);
     Base::omegat_.resize(nbins);
-    for (Index i = 0; i < tgrid_.size(); ++i) tgrid_[i] = i * step_size_;
+    for (Index i = 0; i < tgrid_.size(); ++i)
+      tgrid_[i] = i * step_size_;
 
 #pragma omp parallel
     {
@@ -74,7 +76,7 @@ class DiscreteModulusOfContinuity
       omegat_[k] = std::max(omegat_[k - 1], omegat_[k]);
   }
 
- private:
+private:
   using Base::bb_;
   using Base::dx_;
   using Base::dy_;
@@ -84,5 +86,5 @@ class DiscreteModulusOfContinuity
   using Base::tgrid_;
 };
 
-}  // namespace FMCA
+} // namespace FMCA
 #endif
