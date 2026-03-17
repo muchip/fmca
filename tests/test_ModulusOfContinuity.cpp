@@ -48,7 +48,7 @@ int main() {
 
   FMCA::LSHDiscreteModulusOfContinuity lmoc;
   T.tic();
-  lmoc.init(P, f, 1, 0.001);
+  lmoc.init(P, f, 1, 0.001, 2, 1, true, 1, 1, 2);
   T.toc("lshmoc init: ");
 
   for (FMCA::Index i = 0; i < Omegat.rows(); ++i)
