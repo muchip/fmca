@@ -276,9 +276,10 @@ Vector TRSSN(const SparseMatrix& A, const Vector& b, const Vector& w,
     ++iter;
     fnor = Fnormal(A, b, w, x, lambda);
     norm_fnor = fnor.norm();
-    std::cout << "iter: " << iter << " lambda: " << lambda << " w: " << w[0]
-              << " delta: " << delta << " nactive: " << n_active
-              << " cond: " << cond << " res: " << norm_fnor << std::endl;
+    std::cout << "\r" << std::string(80, ' ') << "\riter: " << iter
+              << " lambda: " << lambda << " w: " << w[0] << " delta: " << delta
+              << " nactive: " << n_active << " cond: " << cond
+              << " res: " << norm_fnor << std::flush;
   } while (iter < steps && norm_fnor > tol);
 
   std::cout << "\n"
