@@ -19,9 +19,9 @@
 int main() {
   FMCA::DiscreteModulusOfContinuity moc;
   FMCA::Tictoc T;
-  FMCA::Index num_points = 1000;
-  FMCA::Matrix P(1, num_points);
-  FMCA::Matrix f(1, num_points);
+  FMCA::Index num_points = 5000;
+  FMCA::Matrix P(3, num_points);
+  FMCA::Matrix f(3, num_points);
   P.setRandom();
   P = 0.5 * (P.array() + 1);
   for (FMCA::Index i = 0; i < P.cols(); ++i)
@@ -48,7 +48,7 @@ int main() {
 
   FMCA::LSHDiscreteModulusOfContinuity lmoc;
   T.tic();
-  lmoc.init(P, f, 1, 0.001, 2, 1, true, 1, 1, 2);
+  lmoc.init(P, f, 1, 0.001);
   T.toc("lshmoc init: ");
 
   for (FMCA::Index i = 0; i < Omegat.rows(); ++i)

@@ -27,6 +27,7 @@
 #include <FMCA/LowRankApproximation>
 #include <FMCA/Samplets>
 
+#include <FMCA/ModulusOfContinuity>
 #include <FMCA/src/Clustering/greedySetCovering.h>
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -535,4 +536,42 @@ PYBIND11_MODULE(FMCA, m) {
   //////////////////////////////////////////////////////////////////////////////
   // MODULUS OF CONTINUITY
   //////////////////////////////////////////////////////////////////////////////
+  py::class_<FMCA::DiscreteModulusOfContinuity>(m,
+                                                "DiscreteModulusOfContinuity")
+      .def(py::init<>())
+
+      .def("init", &FMCA::DiscreteModulusOfContinuity::init,
+           py::arg().noconvert(), // P
+           py::arg().noconvert(), // f
+           py::arg(),             // TX
+           py::arg(),             // step_size
+           py::arg("dx_type") = "EUCLIDEAN", py::arg("dy_type") = "EUCLIDEAN")
+
+      .def("TX", &FMCA::DiscreteModulusOfContinuity::TX)
+      .def("omega", &FMCA::DiscreteModulusOfContinuity::omega)
+      .def("tgrid", &FMCA::DiscreteModulusOfContinuity::tgrid)
+      .def("omegat", &FMCA::DiscreteModulusOfContinuity::omegat)
+      .def("bb", &FMCA::DiscreteModulusOfContinuity::bb);
+
+  using EpsMOC = FMCA::EpsilonDiscreteModulusOfContinuity<FMCA::ClusterTree>;
+
+  py::class_<EpsMOC>(m, "EpsilonDiscreteModulusOfContinuity")
+      .def(py::init<>())
+
+      .def("init", &EpsMOC::init,
+           py::arg().noconvert(), // P
+           py::arg().noconvert(), // f
+           py::arg(),             // TX
+           py::arg(),             // r
+           py::arg("R") = 2, py::arg("min_csize") = 1,
+           py::arg("add_maxpts") = true)
+
+      // inherited from base
+      .def("TX", &EpsMOC::TX)
+      .def("tgrid", &EpsMOC::tgrid)
+      .def("omegat", &EpsMOC::omegat)
+      .def("bb", &EpsMOC::bb)
+
+      .def("omega", &EpsMOC::omega, py::arg(), py::arg().noconvert(),
+           py::arg().noconvert(), "Evaluate omega(t) using reduced sets");
 }
