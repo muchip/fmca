@@ -541,10 +541,10 @@ PYBIND11_MODULE(FMCA, m) {
       .def(py::init<>())
 
       .def("init", &FMCA::DiscreteModulusOfContinuity::init,
-           py::arg().noconvert(), // P
-           py::arg().noconvert(), // f
-           py::arg(),             // TX
-           py::arg(),             // step_size
+           py::arg().noconvert(),        // P
+           py::arg().noconvert(),        // f
+           py::arg("TX") = std::nullopt, // TX
+           py::arg("step_size") = 1,     // step_size
            py::arg("dx_type") = "EUCLIDEAN", py::arg("dy_type") = "EUCLIDEAN")
 
       .def("TX", &FMCA::DiscreteModulusOfContinuity::TX)
@@ -559,10 +559,10 @@ PYBIND11_MODULE(FMCA, m) {
       .def(py::init<>())
 
       .def("init", &EpsMOC::init,
-           py::arg().noconvert(), // P
-           py::arg().noconvert(), // f
-           py::arg(),             // TX
-           py::arg(),             // r
+           py::arg().noconvert(),        // P
+           py::arg().noconvert(),        // f
+           py::arg("TX") = std::nullopt, // TX
+           py::arg("r") = 1,             // step_size
            py::arg("R") = 2, py::arg("min_csize") = 1,
            py::arg("add_maxpts") = true)
 
@@ -581,10 +581,10 @@ PYBIND11_MODULE(FMCA, m) {
       .def(py::init<>())
 
       .def("init", &FMCA::LSHDiscreteModulusOfContinuity::init,
-           py::arg().noconvert(), // P
-           py::arg().noconvert(), // f
-           py::arg(),             // TX
-           py::arg(),             // r
+           py::arg().noconvert(),        // P
+           py::arg().noconvert(),        // f
+           py::arg("TX") = std::nullopt, // TX
+           py::arg("r") = 1,             // step_size
            py::arg("R") = 2, py::arg("min_csize") = 1,
            py::arg("add_maxpts") = true, py::arg("kl") = 10, py::arg("L") = 30,
            py::arg("w") = 4)

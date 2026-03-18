@@ -15,6 +15,7 @@
 #include "../Clustering/E2LSH.h"
 #include "../util/Macros.h"
 #include "DiscreteModulusOfContinuityBase.h"
+#include <optional>
 
 namespace FMCA {
 
@@ -27,19 +28,20 @@ public:
   // for now, we only use linearly scaled bins for evaluation of the discrete
   // MOC. Similarly to DM25, it might make sense to use quadratically graded
   // grids to improve resolution of omegat at 0.
-  void init(const Matrix &P, const Matrix &f, const Scalar TX,
-            const Scalar step_size, const std::string dx_type = "EUCLIDEAN",
+  void init(const Matrix &P, const Matrix &f,
+            const std::optional<Scalar> TX = std::nullopt,
+            const Scalar step_size = 1, const std::string dx_type = "EUCLIDEAN",
             const std::string dy_type = "EUCLIDEAN") {
     setDistanceType(dx_, dx_type);
     setDistanceType(dy_, dy_type);
 
-    TX_ = TX > 0 ? TX : 0;
     bb_.resize(P.rows(), 3);
     bb_.col(0) = P.rowwise().minCoeff();
     bb_.col(1) = P.rowwise().maxCoeff();
     bb_.col(2) = bb_.col(1) - bb_.col(0); // only if EUCLIDEAN is used.
     const Scalar bb_diam = bb_.col(2).norm();
-    TX_ = TX_ > bb_diam ? bb_diam : TX_;
+    TX_ = TX.has_value() ? std::min(TX.value(), bb_diam) : bb_diam;
+    TX_ = TX_ > 0 ? TX_ : 0;
     if (TX_ <= 0) {
       Base::tgrid_.resize(1, 0);
       Base::omegat_.resize(1, 0);

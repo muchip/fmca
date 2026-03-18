@@ -16,6 +16,7 @@
 #include "../Clustering/greedySetCovering.h"
 #include "../util/Macros.h"
 #include "DiscreteModulusOfContinuityBase.h"
+#include <optional>
 namespace FMCA {
 
 template <typename DerivedCT>
@@ -28,19 +29,20 @@ public:
 
   EpsilonDiscreteModulusOfContinuity() {}
 
-  void init(const Matrix &P, const Matrix &f, const Scalar TX, const Scalar r,
+  void init(const Matrix &P, const Matrix &f,
+            const std::optional<Scalar> TX = std::nullopt, const Scalar r = 1,
             const Index R = 2, const Index min_csize = 1,
             const bool add_maxpts = true) {
     setDistanceType(dx_, "EUCLIDEAN");
     setDistanceType(dy_, "EUCLIDEAN");
 
-    TX_ = TX > 0 ? TX : 0;
     bb_.resize(P.rows(), 3);
     bb_.col(0) = P.rowwise().minCoeff();
     bb_.col(1) = P.rowwise().maxCoeff();
     bb_.col(2) = bb_.col(1) - bb_.col(0);
     const Scalar bb_diam = bb_.col(2).norm();
-    TX_ = TX_ > bb_diam ? bb_diam : TX_;
+    TX_ = TX.has_value() ? std::min(TX.value(), bb_diam) : bb_diam;
+    TX_ = TX_ > 0 ? TX_ : 0;
     if (TX_ <= 0) {
       Base::tgrid_.resize(1, 0);
       Base::omegat_.resize(1, 0);
