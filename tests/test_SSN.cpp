@@ -15,7 +15,6 @@
 
 #include "../FMCA/CovarianceKernel"
 #include "../FMCA/Samplets"
-#include "../FMCA/src/Samplets/samplet_matrix_compressor.h"
 #include "../FMCA/src/util/IO.h"
 #include "../FMCA/src/util/SSN.h"
 #include "../FMCA/src/util/Tictoc.h"
@@ -128,6 +127,7 @@ int main() {
   FMCA::Vector x0(NPTS);
   x0.setZero();
   w.setOnes();
+
   w *= 1. / std::sqrt(FMCA::Scalar(NPTS));
   FMCA::ActiveSetManager asmgr;
   // x0(0) = 1e4;
@@ -135,8 +135,8 @@ int main() {
 
   x0 = FMCA::SSN(Ssym, Tdata, 0.001 * w, x0, asmgr, 200, 1e-8);
   while (ramp > 1) {
-    x0 = TRSSN(Ssym, Tdata, 2 * ramp * 1e-10 * w, x0, asmgr, 1e4, 0.01, .5,
-               400, 1e-5);
+    x0 = TRSSN(Ssym, Tdata, 2 * ramp * 1e-10 * w, x0, asmgr, 1e4, 0.01, .5, 400,
+               1e-5);
     ramp *= 0.5;
   }
 
@@ -149,6 +149,7 @@ int main() {
 #endif
   x0 *= 1. / std::sqrt(FMCA::Scalar(NPTS));
   Tdata = hst.inverseSampletTransform(NPTS * Ssym * x0);
+
   Tdata = hst.toNaturalOrder(Tdata);
   P3.bottomRows(1) = Tdata.transpose();
   FMCA::IO::plotPointsColor("rec.vtk", P3, Tdata);

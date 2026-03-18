@@ -95,8 +95,7 @@ class SampletKernelSolver {
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
-  Scalar compressionError(const Matrix& P,
-                          const CovarianceKernel& kernel) {
+  Scalar compressionError(const Matrix& P, const CovarianceKernel& kernel) {
     kernel_ = kernel;
     Vector x(K_.cols()), y1(K_.rows()), y2(K_.rows());
     Scalar err = 0;
@@ -108,7 +107,7 @@ class SampletKernelSolver {
       Vector col = kernel_.eval(P, P.col(hst_.indices()[index]));
       y1 = hst_.toClusterOrder(col);
       x = hst_.sampletTransform(x);
-      y2 = K_.template selfadjointView<Eigen::Upper>() * x;
+      y2 = K_.selfadjointView<Upper>() * x;
       y2 = hst_.inverseSampletTransform(y2);
       err += (y1 - y2).squaredNorm();
       nrm += y1.squaredNorm();
@@ -120,12 +119,11 @@ class SampletKernelSolver {
 #if defined(CHOLMOD_SUPPORT) || defined(METIS_SUPPORT)
   //////////////////////////////////////////////////////////////////////////////
   void factorize() { llt_.compute(K_); }
-
   //////////////////////////////////////////////////////////////////////////////
   Matrix solveDirectly(const Matrix& rhs) {
     Matrix sol = hst_.toClusterOrder(rhs);
-    sol = hst_.sampletTransform(sol);
-    sol = llt_.solve(sol);
+    const Matrix trhs = hst_.sampletTransform(sol);
+    sol = llt_.solve(trhs);
     sol = hst_.inverseSampletTransform(sol);
     sol = hst_.toNaturalOrder(sol);
     solver_iterations_ = 1;  // Direct solver has no iterations
@@ -174,7 +172,7 @@ class SampletKernelSolver {
   SampletTree hst_;
   CovarianceKernel kernel_;
 #if defined(CHOLMOD_SUPPORT) || defined(METIS_SUPPORT)
-  Cholesky llt_;
+  SparseCholesky llt_;
 #endif
   SparseMatrix K_;
   Scalar dtilde_;

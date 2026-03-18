@@ -13,6 +13,7 @@
 #define FMCA_UTIL_MACROS_H_
 
 #include <algorithm>
+#include <cassert>
 #include <iomanip>
 #include <iostream>
 #include <limits>
@@ -85,9 +86,7 @@ constexpr auto Upper = Eigen::Upper;
 
 // matrix algorithms
 using Cholesky = Eigen::LLT<Matrix>;
-
 using HouseholderQR = Eigen::HouseholderQR<Matrix>;
-
 using ColPivHouseholderQR = Eigen::ColPivHouseholderQR<Matrix>;
 
 using FullPivHouseholderQR = Eigen::FullPivHouseholderQR<Matrix>;
@@ -95,8 +94,10 @@ using FullPivHouseholderQR = Eigen::FullPivHouseholderQR<Matrix>;
 constexpr auto ComputeThinUV = Eigen::ComputeThinU | Eigen::ComputeThinV;
 constexpr auto ComputeFullUV = Eigen::ComputeFullU | Eigen::ComputeFullV;
 
-using JacobiSVD = Eigen::JacobiSVD<Matrix>;
-using BDCSVD = Eigen::BDCSVD<Matrix>;
+using JacobiSVD = Eigen::JacobiSVD<Matrix, ComputeThinUV>;
+using JacobiFullSVD = Eigen::JacobiSVD<Matrix, ComputeFullUV>;
+using BDCSVD = Eigen::BDCSVD<Matrix, ComputeThinUV>;
+using BDCFullSVD = Eigen::BDCSVD<Matrix, ComputeFullUV>;
 using SelfAdjointEigenSolver = Eigen::SelfAdjointEigenSolver<Matrix>;
 
 constexpr auto Success = Eigen::Success;

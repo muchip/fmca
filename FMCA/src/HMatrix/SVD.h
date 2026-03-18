@@ -22,7 +22,7 @@ void SVD(const MatrixEvaluator &mat_eval, const RowCType &rc,
   for (Index j = 0; j < A.cols(); ++j)
     for (Index i = 0; i < A.rows(); ++i)
       A(i, j) = mat_eval(rc.indices()[i], cc.indices()[j]);
-  svd.compute(A, ComputeThinUV);
+  svd.compute(A);
   const Scalar fnorm2 = svd.singularValues().squaredNorm();
   Index rank = 0;
   Scalar cur_fnorm2;

@@ -110,7 +110,7 @@ Vector SSN(const SparseMatrix& A, const Vector& b, const Vector& w,
   const Index npts = A.rows();
   std::vector<Index> aidcs, iidcs;
   Vector x = x0, g = x0, u = x0, r = x0, active, inactive;
-  Scalar cond = 0, gamma = 1., phi = 0, phimin = Phi(A, b, w, x);
+  Scalar cond = 0, gamma = 1., phi = Phi(A, b, w, x);
   Index n_active = 0, iter = 0, n_gamma = 0;
   //////////////////////////////////////////////////////////////////////////
   for (; iter < steps; ++iter) {
@@ -120,8 +120,8 @@ Vector SSN(const SparseMatrix& A, const Vector& b, const Vector& w,
     active = activeSet(u, gamma * w);
     inactive = Vector::Ones(npts) - active;
     n_active = active.sum();
-    std::cout << "\rres: " << r.cwiseAbs().maxCoeff() << " active: " << n_active
-              << std::endl;
+    std::cout << "phi: " << phi << " res: " << r.cwiseAbs().maxCoeff()
+              << " active: " << n_active << std::endl;
     if (r.cwiseAbs().maxCoeff() < tol) break;
     Vector rhs = gamma * A * (A * (inactive.asDiagonal() * r).eval()).eval();
     rhs = active.asDiagonal() * (rhs - r);
@@ -238,6 +238,12 @@ Vector TRSSN(const SparseMatrix& A, const Vector& b, const Vector& w,
       cond *= cond;
       if (cond > 1e15) std::cout << "ill conditioned" << std::endl;
       const Vector ax = VSinv * (VSinv.transpose() * arhs).eval();
+      // lambda = 1/L, where L is ||K^T K||_2 = sigma_max(K)^2
+      Scalar sigma_min = asmgr.sactive()(asmgr.sactive().size() - 1);
+      Scalar L = sigma_min * sigma_min;
+      lambda = 1.0;  // / L;
+      std::cout << "lambda: " << lambda << std::endl;
+      // set active components to compute inactive part
       s.setZero();
       for (Index i = 0; i < aidcs.size(); ++i) s(aidcs[i]) = ax(i);
       const Vector AAs = A.transpose() * (A * s).eval();  // size npar
@@ -276,8 +282,8 @@ Vector TRSSN(const SparseMatrix& A, const Vector& b, const Vector& w,
     ++iter;
     fnor = Fnormal(A, b, w, x, lambda);
     norm_fnor = fnor.norm();
-    std::cout << "\r" << std::string(80, ' ') << "\riter: " << iter
-              << " lambda: " << lambda << " w: " << w[0] << " delta: " << delta
+    std::cout << "\r" << std::string(80, ' ') << "\ri: " << iter
+              << " l: " << lambda << " w: " << w[0] << " delta: " << delta
               << " nactive: " << n_active << " cond: " << cond
               << " res: " << norm_fnor << std::flush;
   } while (iter < steps && norm_fnor > tol);

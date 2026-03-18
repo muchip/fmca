@@ -12,6 +12,8 @@
 #ifndef FMCA_SAMPLETS_SAMPLETTREEBASE_H_
 #define FMCA_SAMPLETS_SAMPLETTREEBASE_H_
 
+#include "../util/RandomTreeAccessor.h"
+
 namespace FMCA {
 
 /**
@@ -99,6 +101,49 @@ struct SampletTreeBase : public ClusterTreeBase<Derived> {
     }
     return triplet_list;
   }
+
+  std::vector<Triplet> transformationMatrixTriplets2() const {
+    std::vector<Triplet> triplet_list;
+    std::vector<Index> inv_ids(this->derived().block_size());
+    for (Index i = 0; i < inv_ids.size(); ++i)
+      inv_ids[this->derived().indices()[i]] = i;
+    std::vector<const Derived *> leaves;
+    // get leaves of the tree
+    for (const auto &it : this->derived())
+      if (!it.nSons() && it.block_size()) leaves.push_back(std::addressof(it));
+    // we spawn a transform from each leaf
+    for (Index l = 0; l < leaves.size(); ++l) {
+      const Derived *cluster = leaves[l];
+      const Index *indices = cluster->indices();
+      const Index nindices = cluster->block_size();
+      Matrix buf = (cluster->Q()).transpose();
+      Matrix buf2;
+      while (!(cluster->is_root())) {
+        for (Index j = 0; j < nindices; ++j)
+          for (Index i = 0; i < cluster->nsamplets(); ++i)
+            triplet_list.push_back(Triplet(cluster->start_index() + i,
+                                           inv_ids[indices[j]],
+                                           buf(i + cluster->nscalfs(), j)));
+        buf2 = Matrix::Zero(cluster->dad().Q().cols(), buf.cols());
+        Index row_offset = 0;
+        for (Index s = 0; s < cluster->dad().nSons(); ++s) {
+          if (std::addressof(cluster->dad().sons(s)) == cluster) break;
+          row_offset += cluster->dad().sons(s).nscalfs();
+        }
+        buf2.middleRows(row_offset, cluster->nscalfs()) =
+            buf.topRows(cluster->nscalfs());
+        cluster = std::addressof(cluster->dad());
+        buf = (cluster->Q()).transpose() * buf2;
+      }
+      // root level now
+      for (Index j = 0; j < nindices; ++j)
+        for (Index i = 0; i < (cluster->Q()).cols(); ++i)
+          triplet_list.push_back(Triplet(cluster->start_index() + i,
+                                         inv_ids[indices[j]], buf(i, j)));
+    }
+    return triplet_list;
+  }
+
   //////////////////////////////////////////////////////////////////////////////
   Index nscalfs() const { return node().nscalfs_; }
   Index nsamplets() const { return node().nsamplets_; }
