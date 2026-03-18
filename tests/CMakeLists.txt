@@ -1,78 +1,34 @@
-find_package(Eigen3 REQUIRED)
-
-link_directories(${CMAKE_SOURCE_DIR}/FMCA)
-
-include_directories(${CMAKE_SOURCE_DIR}/FMCA)
-
-add_executable(test_AdaptiveTreeSearch.out test_AdaptiveTreeSearch.cpp)
-add_test(AdaptiveTreeSearch test_AdaptiveTreeSearch.out)
-
-add_executable(test_Alpha.out test_Alpha.cpp)
-add_test(Alpha test_Alpha.out)
-
-add_executable(test_ClusterTree.out test_ClusterTree.cpp)
-add_test(ClusterTree test_ClusterTree.out)
-
-add_executable(test_ClusterTreeMetrics.out test_ClusterTreeMetrics.cpp)
-add_test(ClusterTreeMetrics test_ClusterTreeMetrics.out)
-
-add_executable(test_Droplet.out test_Droplet.cpp)
-add_test(Droplet test_Droplet.out)
-
-add_executable(test_FALKON.out test_FALKON.cpp)
-add_test(FALKON test_FALKON.out)
-
-add_executable(test_H2DualClusterBases.out test_H2DualClusterBases.cpp)
-add_test(H2DualClusterBases test_H2DualClusterBases.out)
-
-add_executable(test_H2Matrix.out test_H2Matrix.cpp)
-add_test(H2Matrix test_H2Matrix.out)
-
-add_executable(test_H2MatrixProjector.out test_H2MatrixProjector.cpp)
-add_test(H2MatrixProjector test_H2MatrixProjector.out)
-
-add_executable(test_H2SampletCompressor.out test_H2SampletCompressor.cpp)
-add_test(H2SampletCompressor test_H2SampletCompressor.out)
-
-add_executable(test_H2SampletCompressorUnsymmetric.out
-  test_H2SampletCompressorUnsymmetric.cpp)
-add_test(H2SampletCompressorUnsymmetric test_H2SampletCompressorUnsymmetric.out)
-
-add_executable(test_H2SampletCondition.out test_H2SampletCondition.cpp)
-add_test(H2SampletCompressor test_H2SampletCompressor.out)
-
-add_executable(test_H2kernelActor.out test_H2kernelActor.cpp)
-add_test(H2kernelActor test_H2kernelActor.out)
-
-add_executable(test_HMatrix.out test_HMatrix.cpp)
-add_test(H2Matrix test_HMatrix.out)
-
-add_executable(test_KMinList.out test_KMinList.cpp)
-add_test(KMinList test_KMinList.out)
-
-add_executable(test_KernelInterpolation.out test_KernelInterpolation.cpp)
-add_test(KernelInterpolation test_KernelInterpolation.out)
-
-
-add_executable(test_MortonClusterTree.out test_MortonClusterTree.cpp)
-add_test(MortonClusterTree test_MortonClusterTree.out)
-
-add_executable(test_MortonCompare.out test_MortonCompare.cpp)
-add_test(MortonCompare test_MortonCompare.out)
-
-add_executable(test_RandomTreeAccessor.out test_RandomTreeAccessor.cpp)
-add_test(RandomTreeAccessor test_RandomTreeAccessor.out)
-
-add_executable(test_SampletBasis.out test_SampletBasis.cpp)
-add_test(SampletBasis test_SampletBasis.out)
-
-add_executable(test_SampletTransformer.out test_SampletTransformer.cpp)
-add_test(SampletTransformer test_SampletTransformer.out)
-
-add_executable(test_TreeIterator.out test_TreeIterator.cpp)
-add_test(TreeIterator test_TreeIterator.out)
-
-add_executable(test_kNN.out test_kNN.cpp)
-add_test(kNN test_kNN.out)
+find_package(Eigen3 REQUIRED NO_MODULE)
 
 enable_testing()
+
+macro(add_fmca_test name)
+  add_executable(${name}.out ${name}.cpp)
+  target_link_libraries(${name}.out PRIVATE Eigen3::Eigen)
+  target_include_directories(${name}.out PRIVATE ${CMAKE_SOURCE_DIR}/FMCA)
+  add_test(NAME ${name} COMMAND ${name}.out)
+endmacro()
+
+add_fmca_test(test_AdaptiveTreeSearch)
+add_fmca_test(test_Alpha)
+add_fmca_test(test_ClusterTree)
+add_fmca_test(test_ClusterTreeMetrics)
+add_fmca_test(test_Droplet)
+add_fmca_test(test_FALKON)
+add_fmca_test(test_H2DualClusterBases)
+add_fmca_test(test_H2Matrix)
+add_fmca_test(test_H2MatrixProjector)
+add_fmca_test(test_H2SampletCompressor)
+add_fmca_test(test_H2SampletCompressorUnsymmetric)
+add_fmca_test(test_H2SampletCondition)
+add_fmca_test(test_H2kernelActor)
+add_fmca_test(test_HMatrix)
+add_fmca_test(test_KMinList)
+add_fmca_test(test_KernelInterpolation)
+add_fmca_test(test_MortonClusterTree)
+add_fmca_test(test_MortonCompare)
+add_fmca_test(test_RandomTreeAccessor)
+add_fmca_test(test_SampletBasis)
+add_fmca_test(test_SampletTransformer)
+add_fmca_test(test_TreeIterator)
+add_fmca_test(test_kNN)

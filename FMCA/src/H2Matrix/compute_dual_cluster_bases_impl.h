@@ -51,7 +51,7 @@ struct compute_dual_cluster_bases_impl {
           qr.matrixQR().topRows(rows).template triangularView<Upper>();
       const Matrix RT = qr.colsPermutation() * R.transpose();
       // compute the Moore-Penrose inverse of RT using SVD
-      svd.compute(RT, ComputeThinUV);
+      svd.compute(RT);
       const Matrix invRT = svd.matrixV() *
                            svd.singularValues().cwiseInverse().asDiagonal() *
                            svd.matrixU().transpose();
