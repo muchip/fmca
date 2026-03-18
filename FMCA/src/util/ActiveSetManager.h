@@ -134,8 +134,9 @@ class ActiveSetManager {
     JacobiSVD svd(retval * sigma_.asDiagonal(), ComputeThinUV);
 
     sactive_ = svd.singularValues();
-    const Vector s_inv = (sactive_.array() > 100 * FMCA_ZERO_TOLERANCE)
-                             .select(sactive_.array().inverse(), 0.0);
+    const Scalar trace = sactive_.sum();
+    const Vector s_inv = (sactive_.array() > 1e-4 * trace)
+                             .select(sactive_.array().inverse(), 1e4 / trace);
     // satisfies VA * S^2 * VA^T * VSinv * VSinv^T = I
     return svd.matrixU() * s_inv.asDiagonal();
   }
