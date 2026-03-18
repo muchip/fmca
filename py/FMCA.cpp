@@ -49,7 +49,7 @@ using usMatrixEvaluator =
  *
  **/
 struct pySampletTree {
-  pySampletTree(){};
+  pySampletTree() {};
   pySampletTree(const FMCA::Matrix &P, FMCA::Index dtilde) {
     dtilde_ = dtilde > 0 ? dtilde : 1;
     p_ = 2 * (dtilde_ - 1);
@@ -118,7 +118,7 @@ struct pySampletTree {
  *
  **/
 struct pySampletTreeRP {
-  pySampletTreeRP(){};
+  pySampletTreeRP() {};
   pySampletTreeRP(const FMCA::Matrix &P, FMCA::Index dtilde,
                   FMCA::Index seed = 0.) {
     dtilde_ = dtilde > 0 ? dtilde : 1;
@@ -364,6 +364,8 @@ PYBIND11_MODULE(FMCA, m) {
   pySampletTree_.def(py::init<>());
   pySampletTree_.def(py::init<const FMCA::Matrix &, FMCA::Index>());
   pySampletTree_.def("indices", &pySampletTree::indices);
+  pySampletTree_.def("toNaturalOrder", &pySampletTree::toNaturalOrder);
+  pySampletTree_.def("toClusterOrder", &pySampletTree::toClusterOrder);
   pySampletTree_.def("levels", &pySampletTree::levels);
   pySampletTree_.def("adpativeTreeLeafPartition",
                      &pySampletTree::adaptiveTreeLeafPartition);
