@@ -574,4 +574,29 @@ PYBIND11_MODULE(FMCA, m) {
 
       .def("omega", &EpsMOC::omega, py::arg(), py::arg().noconvert(),
            py::arg().noconvert(), "Evaluate omega(t) using reduced sets");
+
+  py::class_<FMCA::LSHDiscreteModulusOfContinuity>(
+      m, "LSHDiscreteModulusOfContinuity")
+
+      .def(py::init<>())
+
+      .def("init", &FMCA::LSHDiscreteModulusOfContinuity::init,
+           py::arg().noconvert(), // P
+           py::arg().noconvert(), // f
+           py::arg(),             // TX
+           py::arg(),             // r
+           py::arg("R") = 2, py::arg("min_csize") = 1,
+           py::arg("add_maxpts") = true, py::arg("kl") = 10, py::arg("L") = 30,
+           py::arg("w") = 4)
+
+      .def("TX", &FMCA::LSHDiscreteModulusOfContinuity::TX)
+      .def("tgrid", &FMCA::LSHDiscreteModulusOfContinuity::tgrid)
+      .def("omegat", &FMCA::LSHDiscreteModulusOfContinuity::omegat)
+      .def("bb", &FMCA::LSHDiscreteModulusOfContinuity::bb)
+
+      .def("omega", &FMCA::LSHDiscreteModulusOfContinuity::omega,
+           py::arg(),             // t
+           py::arg().noconvert(), // P
+           py::arg().noconvert(), // f
+           "Evaluate omega(t) using LSH approximation");
 }
