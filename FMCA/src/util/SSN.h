@@ -200,16 +200,26 @@ Vector TRSSN(const SparseMatrix& A, const Vector& b, const Vector& w,
   const Index npar = A.cols();   // parameter dimension (coefficients)
   const Scalar delta_min = 1e-5;
   const Scalar delta_max = 1e5;
+  bool update = true;
   Scalar success_iter = 0.0;
   std::vector<Index> aidcs, iidcs;
-  Vector x = x0;      // size npar
-  Vector s = x0;      // size npar
-  Vector fnor(npar);  // Fnormal is in parameter space
+  Vector x = x0;  // size npar
+  Vector s = x0;  // size npar
   Vector active(npar), inactive(npar);
-  Scalar delta = 1.0, ared = 0.0, pred = 0.0, rho = 0.0, cond = 0.0;
+  Scalar delta = 1.0, cond = 0.0;
   Index iter = 0, n_active = 0;
-  fnor = Fnormal(A, b, w, x, lambda);  // size npar
+
+  // we inline the normal map to reuse computations
+  const Vector ATb = A.transpose() * b;
+  Vector SSx = SS(x, lambda * w);
+  Vector ASSx = A * SSx;
+  Vector res = b - ASSx;
+  Vector ATASSx = A.transpose() * ASSx;
+  Scalar phi = 0.5 * res.squaredNorm() + SSx.cwiseAbs().dot(w);
+  Vector fnor = ATASSx - ATb + (1. / lambda) * (x - SSx);
   Scalar norm_fnor = fnor.norm();
+  Scalar Htau = phi + 0.5 * tau * lambda * norm_fnor * norm_fnor;
+  ////////////////////////////////////////////////////////////////////////////
   do {
     // active set of coefficients
     active = activeSet(x, lambda * w);  // size npar
@@ -228,8 +238,8 @@ Vector TRSSN(const SparseMatrix& A, const Vector& b, const Vector& w,
       asmgr.init(A, aidcs);
     else
       asmgr.update(A, aidcs);
-    // Newton correction
-    if (n_active) {
+    // Newton correction (only compute if we accepted the step)
+    if (n_active && update) {
       Vector arhs(n_active);
       for (Index i = 0; i < aidcs.size(); ++i)
         arhs(i) = -fnor(aidcs[i]);  // fnor in param space
@@ -238,54 +248,64 @@ Vector TRSSN(const SparseMatrix& A, const Vector& b, const Vector& w,
       cond *= cond;
       if (cond > 1e15) std::cout << "ill conditioned" << std::endl;
       const Vector ax = VSinv * (VSinv.transpose() * arhs).eval();
-      // lambda = 1/L, where L is ||K^T K||_2 = sigma_max(K)^2
-      Scalar sigma_min = asmgr.sactive()(asmgr.sactive().size() - 1);
-      Scalar L = sigma_min * sigma_min;
-      lambda = 1.0;  // / L;
-      std::cout << "lambda: " << lambda << std::endl;
       // set active components to compute inactive part
       s.setZero();
       for (Index i = 0; i < aidcs.size(); ++i) s(aidcs[i]) = ax(i);
       const Vector AAs = A.transpose() * (A * s).eval();  // size npar
       s = -lambda * (fnor + AAs);
       for (Index i = 0; i < aidcs.size(); ++i) s(aidcs[i]) = ax(i);
-      s *= std::min(Scalar(1.), Scalar(delta / s.norm()));
-    } else {
+    } else if (!n_active)
       s = -lambda * fnor;
-      s *= std::min(Scalar(1.), Scalar(delta / s.norm()));
-    }
+    s *= std::min(Scalar(1.), Scalar(delta / s.norm()));
+
     // Reduction
-    ared = Htau(A, b, w, x, lambda, tau) - Htau(A, b, w, x + s, lambda, tau);
+    // we inline Htau and reuse everything already computed
+    const Vector SSxPs = SS(x + s, lambda * w);
+    const Vector ASSxPs = A * SSxPs;
+    const Vector resxPs = b - ASSxPs;
+    const Scalar phixPs = 0.5 * resxPs.squaredNorm() + SSxPs.cwiseAbs().dot(w);
+    const Vector ATASSxPs = A.transpose() * ASSxPs;
+    const Vector fnorxPs = (ATASSxPs - ATb) + (1. / lambda) * (x + s - SSxPs);
+    const Scalar norm_fnorxPs = fnorxPs.norm();
+    const Scalar HtauxPs =
+        phixPs + 0.5 * tau * lambda * norm_fnorxPs * norm_fnorxPs;
+    ////////////////////////////////////////////////////////////////////////////
+    const Scalar ared = Htau - HtauxPs;
+    const Scalar norm_SSdiff = (SSxPs - SSx).norm();
     const Scalar scal = std::min({lambda, delta, lambda * norm_fnor});
     const Scalar scal2 = std::min({delta, lambda * norm_fnor});
-    Scalar nu_k = std::min(
+    const Scalar nu_k = std::min(
         nu, Scalar(1e-3) *
                 std::pow((success_iter * std::pow(std::log(success_iter), 2)),
                          Scalar(0.2)) *
-                std::pow((SS(x + s, lambda * w) - SS(x, lambda * w)).norm(),
-                         Scalar(0.2)));
-    pred = 0.5 * tau * norm_fnor * scal +
-           nu_k * norm_fnor / scal2 *
-               (SS(x + s, lambda * w) - SS(x, lambda * w)).squaredNorm();
+                std::pow(norm_SSdiff, Scalar(0.2)));
+    const Scalar pred = 0.5 * tau * norm_fnor * scal +
+                        nu_k * norm_fnor / scal2 * norm_SSdiff * norm_SSdiff;
     // Trust-region acceptance
-    rho = (pred <= 0) ? 0.0 : ared / pred;
+    const Scalar rho = (pred <= 0) ? 0.0 : ared / pred;
     if (rho >= eta1) {
       x += s;
+      SSx = SS(x, lambda * w);
+      ASSx = A * SSx;
+      res = b - ASSx;
+      ATASSx = A.transpose() * ASSx;
+      phi = 0.5 * res.squaredNorm() + SSx.cwiseAbs().dot(w);
+      fnor = (ATASSx - ATb) + (1. / lambda) * (x - SSx);
+      norm_fnor = fnor.norm();
+      Htau = phi + 0.5 * tau * lambda * norm_fnor * norm_fnor;
       success_iter++;
-    }
-    if (rho < eta1) {
+      update = true;
+      if (rho >= eta2) delta *= 2.0;
+    } else {
       delta *= 0.5;
-    } else if (rho >= eta2) {
-      delta *= 2.0;
+      update = false;
     }
     delta = std::clamp(delta, delta_min, delta_max);
     ++iter;
-    fnor = Fnormal(A, b, w, x, lambda);
-    norm_fnor = fnor.norm();
     std::cout << "\r" << std::string(80, ' ') << "\ri: " << iter
               << " l: " << lambda << " w: " << w[0] << " delta: " << delta
-              << " nactive: " << n_active << " cond: " << cond
-              << " res: " << norm_fnor << std::flush;
+              << " nact: " << n_active << " cnd: " << cond
+              << " res: " << norm_fnor << " phi: " << phi << std::flush;
   } while (iter < steps && norm_fnor > tol);
 
   std::cout << "\n"

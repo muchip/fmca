@@ -114,8 +114,8 @@ int main() {
   // const FMCA::Matrix data = rhs(hst, Ssym);
   FMCA::Vector data(NPTS);
   for (FMCA::Index i = 0; i < NPTS; ++i)
-    data(i) = std::cos(10 * FMCA_PI * P.col(i).norm()) *
-              std::exp(-4 * P.col(i).norm());
+    data(i) = std::cos(2 * FMCA_PI * P.col(i).norm()) *
+              std::exp(-1 * P.col(i).norm());
   data = hst.toClusterOrder(data);
   FMCA::Matrix P3(3, P.cols());
   P3.topRows(2) = P;
@@ -133,10 +133,12 @@ int main() {
   // x0(0) = 1e4;
   FMCA::Scalar ramp = 1 << 15;
 
-  x0 = FMCA::SSN(Ssym, Tdata, 0.001 * w, x0, asmgr, 200, 1e-8);
+  x0 = FMCA::SSN(Ssym, Tdata, w, x0, asmgr, 200, 1e-8);
   while (ramp > 1) {
-    x0 = TRSSN(Ssym, Tdata, 2 * ramp * 1e-10 * w, x0, asmgr, 1e4, 0.01, .5, 400,
-               1e-5);
+    T.tic();
+    x0 = TRSSN(Ssym, Tdata, ramp * 1e-6 * w, x0, asmgr, 1, 0.01, .1, 0.01, 0.01,
+               100, 1e-6);
+    T.toc("time iter: ");
     ramp *= 0.5;
   }
 

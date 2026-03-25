@@ -32,7 +32,7 @@ class ActiveSetManager {
       idcs_[aidcs[i]] = i;
     }
     if (U_.cols()) {
-      JacobiSVD svd(U_, ComputeThinUV);
+      JacobiSVD svd(U_);
       U_ = svd.matrixU();
       sigma_ = svd.singularValues();
       sactive_ = sigma_;
@@ -97,7 +97,7 @@ class ActiveSetManager {
       V_.bottomRows(nnew).setZero();
       V_.bottomRows(nnew).rightCols(nnew).setIdentity();
 
-      JacobiSVD svd(S, ComputeThinUV);
+      JacobiSVD svd(S);
       // std::cout << "[ActiveSetManager] SVD recomputed, added "
       //     << nnew << " columns" << std::endl;
 
@@ -131,7 +131,7 @@ class ActiveSetManager {
     Matrix retval(aidcs.size(), V_.rows());
     for (Index i = 0; i < aidcs.size(); ++i)
       retval.row(i) = V_.row(idcs_[aidcs[i]]);
-    JacobiSVD svd(retval * sigma_.asDiagonal(), ComputeThinUV);
+    JacobiSVD svd(retval * sigma_.asDiagonal());
 
     sactive_ = svd.singularValues();
     const Scalar trace = sactive_.sum();
