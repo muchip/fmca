@@ -115,6 +115,12 @@ struct SampletTree : public SampletTreeBase<SampletTree<ClusterTreeType>> {
                                .block(0, 0, mom.mdtilde(), mom.mdtilde2())
                                .template triangularView<Upper>()
                                .transpose();
+      for (Eigen::Index j = 0; j < node().mom_buffer_.cols(); ++j) {
+        if (node().mom_buffer_(j, j) < 0) {
+          node().Q_.col(j) *= -1;
+          node().mom_buffer_.row(j) *= -1;
+        }
+      }
     } else {
       node().Q_ = Matrix::Identity(node().mom_buffer_.cols(),
                                    node().mom_buffer_.cols());
