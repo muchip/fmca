@@ -14,9 +14,9 @@
 
 #include "E2LSH.h"
 #include <cassert>
-
+#include <falconn/lsh_nn_table.h>
 namespace FMCA {
-
+using Point = falconn::DenseVector<float>;
 class PriorityQueue {
 public:
   explicit PriorityQueue(Index n) : pos_(n, -1) { heap_.reserve(n); }
@@ -169,10 +169,11 @@ std::vector<Index> globalLocalMapping(std::vector<Index> lsh_nn_idcs,
 }
 
 // new
-std::vector<Index> greedySetCoveringLSH(const E2LSH &lsh, const Matrix &P,
-                                        const Matrix &P_original,
-                                        std::vector<Index> XNk_indices_k,
-                                        const Scalar r) {
+template <class QueryPoolT>
+std::vector<Index>
+greedySetCoveringLSH(QueryPoolT &query_pool, const std::vector<Point> &queries,
+                     const Matrix &P, std::vector<Index> XNk_indices_k,
+                     const Scalar r) {
   std::vector<Index> retval;
   std::vector<bool> is_covered(P.cols(), false);
   std::vector<Index> n_uncovered(P.cols());
@@ -183,11 +184,14 @@ std::vector<Index> greedySetCoveringLSH(const E2LSH &lsh, const Matrix &P,
 #pragma omp parallel for
   for (Index i = 0; i < rballs.size(); ++i) {
 
-    std::vector<Index> lsh_nn_idcs =
-        lsh.computeAENN(P_original, P.col(i),
-                        0.5 * r); // contains nearest neighbours of the point
-                                  // wrt original init matrix P_original
-
+    std::vector<u_int32_t> lsh_nn_idcs_raw;
+    query_pool.find_near_neighbors(queries[XNk_indices_k[i]],
+                                   static_cast<float>((0.5 * r) * (0.5 * r)),
+                                   &lsh_nn_idcs_raw);
+    // contains nearest neighbours of the point
+    // wrt original init matrix P_original
+    std::vector<Index> lsh_nn_idcs(lsh_nn_idcs_raw.begin(),
+                                   lsh_nn_idcs_raw.end());
     // map points of P to P_original via XNk_indices construction
     std::vector<Index> nn_idcs = globalLocalMapping(lsh_nn_idcs, XNk_indices_k);
 

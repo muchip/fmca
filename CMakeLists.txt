@@ -39,6 +39,11 @@ endif()
 message("${CMAKE_MODULE_PATH}")
 message("${EIGEN3_INCLUDE_DIR}")
 
+include_directories(
+    ${CMAKE_SOURCE_DIR}/include/FALCONN/src/include
+    ${CMAKE_SOURCE_DIR}/include/FALCONN/external/simple-serializer
+)
+
 
 set(CMAKE_CXX_STANDARD 17)
 set (FMCA_PATH ${PROJECT_SOURCE_DIR})
@@ -60,6 +65,8 @@ endif()
 
 set( PROJECT_SOURCE_DIR "${PROJECT_SOURCE_DIR}")
 include_directories("${PROJECT_SOURCE_DIR}")
+
+
 
 add_subdirectory(tests)
 add_subdirectory(py)

@@ -14,6 +14,7 @@
 
 #include "../util/Macros.h"
 #include <functional>
+#include <omp.h> //later remove this
 #include <random>
 #include <set>
 #include <string>
@@ -34,7 +35,8 @@ private:
 public:
   E2LSH() {}
 
-  void init(const Matrix &P, const Index k, const Index L, const Scalar r) {
+  void init(const Matrix &P, const Index k, const Index L, const Scalar r,
+            const Index seed = 0) {
     // points are stored as columns of P
     k_ = k;
     L_ = L;
@@ -45,9 +47,8 @@ public:
     A_.resize(L_);
     B_.resize(L_);
     Index d = P.rows();
-    std::random_device rd;
+    std::mt19937 gen(seed); // seed per table
     for (Index t = 0; t < L_; t++) {
-      std::mt19937 gen(rd() + t); // seed per table
       std::normal_distribution<Scalar> gauss(0.0, 1.0);
       std::uniform_real_distribution<Scalar> uniform(0.0, r_);
 
@@ -110,13 +111,15 @@ public:
     return seed;
   }
 
-  std::vector<Index> computeAENN(const Matrix &P, const Vector &q,
+  std::vector<Index> computeAENN(const Matrix &P, const Index q_idx,
                                  const Scalar epsilon) const {
     // return both the point(index) and distance
+
     std::set<Index> candidates;
     for (Index t = 0; t < L_; t++) {
 
-      Vector projections = A_[t].transpose() * q; // precompute projections
+      Vector projections =
+          A_[t].transpose() * P.col(q_idx); // precompute projections
       Vector hvec = ((projections.array() + B_[t].array()) / r_).floor();
 
       auto it = hash_tables_[t].find(
@@ -150,7 +153,7 @@ public:
 #pragma omp for
       for (Index c = 0; c < candidates_vec.size(); c++) {
         auto idx = candidates_vec[c];
-        Scalar dist_sqrd = (P.col(idx) - q).squaredNorm();
+        Scalar dist_sqrd = (P.col(idx) - P.col(q_idx)).squaredNorm();
         if (dist_sqrd < epsilon_sqrd) {
           local_aenn[tid].insert(idx);
         }

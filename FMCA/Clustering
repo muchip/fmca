@@ -50,5 +50,7 @@
 #include "src/Clustering/kNN.h"
 #include "src/Clustering/approximateKNN.h"
 #include "src/Clustering/epsNN.h"
+#include "src/Clustering/E2LSH.h"
+#include "src/Clustering/RestrictedE2LSH.h"
 
 #endif

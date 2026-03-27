@@ -14,9 +14,9 @@
 
 #include "E2LSH.h"
 #include <cassert>
-
+#include <falconn/lsh_nn_table.h>
 namespace FMCA {
-
+using Point = falconn::DenseVector<float>;
 class PriorityQueue {
 public:
   explicit PriorityQueue(Index n) : pos_(n, -1) { heap_.reserve(n); }
@@ -135,10 +135,45 @@ std::vector<Index> greedySetCovering(const ClusterTreeBase<Derived> &ct,
   return retval;
 }
 
+std::vector<Index> globalLocalMapping(std::vector<Index> lsh_nn_idcs,
+                                      std::vector<Index> XNk_indices_k) {
+
+  // maps indices of lsh_nn_idcs (referred to P) to corresponding indices of
+  // Ploc, that is built from XNK_indices_[k]
+
+  std::vector<Index> nn_idcs;
+  std::vector<Index> nn_idcs_global;
+  std::set<Index> ploc_set(
+      XNk_indices_k.begin(),
+      XNk_indices_k.end()); // contains indices of P for the current level
+  std::set<Index> lsh_set(
+      lsh_nn_idcs.begin(),
+      lsh_nn_idcs.end()); // contains indices of P (elements of lsh_nn_idcs) in
+                          // the form of a set.
+
+  std::set_intersection(ploc_set.begin(), ploc_set.end(), lsh_set.begin(),
+                        lsh_set.end(), std::back_inserter(nn_idcs_global));
+
+  for (auto global_idx : nn_idcs_global) {
+    // assumes Xnk_indices_[k] is sorted
+    auto it = std::lower_bound(XNk_indices_k.begin(), XNk_indices_k.end(),
+                               global_idx);
+    if (it != XNk_indices_k.end() && *it == global_idx) {
+      nn_idcs.push_back(std::distance(
+          XNk_indices_k.begin(),
+          it)); // maps global indices from P back to indices of Ploc
+    }
+  }
+
+  return nn_idcs;
+}
+
 // new
-std::vector<Index> greedySetCoveringLSH(const E2LSH &lsh, const Matrix &P,
-                                        const Matrix &P_original,
-                                        const Scalar r) {
+template <class QueryPoolT>
+std::vector<Index>
+greedySetCoveringLSH(QueryPoolT &query_pool, const std::vector<Point> &queries,
+                     const Matrix &P, std::vector<Index> XNk_indices_k,
+                     const Scalar r) {
   std::vector<Index> retval;
   std::vector<bool> is_covered(P.cols(), false);
   std::vector<Index> n_uncovered(P.cols());
@@ -149,13 +184,18 @@ std::vector<Index> greedySetCoveringLSH(const E2LSH &lsh, const Matrix &P,
 #pragma omp parallel for
   for (Index i = 0; i < rballs.size(); ++i) {
 
-    rballs[i] = lsh.computeAENN(
-        P, P.col(i), 0.5 * r); // needs to be fixed (indices mapped to P)
+    std::vector<u_int32_t> lsh_nn_idcs_raw;
+    query_pool.find_near_neighbors(queries[XNk_indices_k[i]],
+                                   static_cast<float>((0.5 * r) * (0.5 * r)),
+                                   &lsh_nn_idcs_raw);
+    // contains nearest neighbours of the point
+    // wrt original init matrix P_original
+    std::vector<Index> lsh_nn_idcs(lsh_nn_idcs_raw.begin(),
+                                   lsh_nn_idcs_raw.end());
+    // map points of P to P_original via XNk_indices construction
+    std::vector<Index> nn_idcs = globalLocalMapping(lsh_nn_idcs, XNk_indices_k);
 
-    // map back the indices from P to those valid in Pprev
-    // same as mapping indices to X_Nk (just exclude those points that are not
-    // there) fix indices to become the global indices
-
+    rballs[i] = nn_idcs;
     n_uncovered[i] = rballs[i].size();
     for (const auto &it : rballs[i])
 #pragma omp critical

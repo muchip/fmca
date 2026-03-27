@@ -9,29 +9,43 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#ifndef FMCA_MODULUSOFCONTINUITY_LSHDISCRETEMODULUSOFCONTINUITY_H_
-#define FMCA_MODULUSOFCONTINUITY_LSHDISCRETEMODULUSOFCONTINUITY_H_
+#ifndef FMCA_MODULUSOFCONTINUITY_FALCONLSHDISCRETEMODULUSOFCONTINUITY_H_
+#define FMCA_MODULUSOFCONTINUITY_FALCONLSHDISCRETEMODULUSOFCONTINUITY_H_
 
 #include "../Clustering/E2LSH.h"
 #include "../Clustering/greedySetCovering.h"
 #include "../util/Macros.h"
 #include "DiscreteModulusOfContinuityBase.h"
+#include "omp.h"
+#include <falconn/lsh_nn_table.h>
 #include <optional>
 
+using falconn::compute_number_of_hash_functions;
+using falconn::construct_table;
+using falconn::DistanceFunction;
+using falconn::LSHConstructionParameters;
+using falconn::LSHFamily;
+using falconn::StorageHashTable;
+
 namespace FMCA {
+using Point = falconn::DenseVector<float>;
 
-class LSHDiscreteModulusOfContinuity
-    : public DiscreteModulusOfContinuityBase<LSHDiscreteModulusOfContinuity> {
+class FalconLSHDiscreteModulusOfContinuity
+    : public DiscreteModulusOfContinuityBase<
+          FalconLSHDiscreteModulusOfContinuity> {
 public:
-  using Base = DiscreteModulusOfContinuityBase<LSHDiscreteModulusOfContinuity>;
-
-  LSHDiscreteModulusOfContinuity() {}
+  using Base =
+      DiscreteModulusOfContinuityBase<FalconLSHDiscreteModulusOfContinuity>;
+  using KeyType = std::uint32_t;
+  FalconLSHDiscreteModulusOfContinuity() {}
 
   void init(const Matrix &P, const Matrix &f,
             const std::optional<Scalar> TX = std::nullopt, const Scalar r = 1,
             const Index R = 2, const Index min_csize = 1,
-            const bool add_maxpts = true, const Index kl = 10,
-            const Index L = 30, const Scalar w = 4) {
+            const bool add_maxpts = true, const Index L = 5,
+            const Index num_hash_bits = 18) {
+
+    num_threads_ = omp_get_max_threads();
     setDistanceType(dx_, "EUCLIDEAN");
     setDistanceType(dy_, "EUCLIDEAN");
 
@@ -54,8 +68,11 @@ public:
     // set all parameters
     r_ = r; // also initial step_size
     R_ = R;
+    L_ = L;
     min_csize_ = min_csize;
     add_maxpts_ = add_maxpts;
+    Index N = P.cols();
+    Index D = P.rows();
 
     // const Index nbins = ... + 1;
     K_ = std::ceil(std::log(TX_ / r_) / std::log(R_));
@@ -64,24 +81,51 @@ public:
     omegaNk_.resize(K_ + 1);
     XNk_indices_.resize(K_ + 1);
 
-    lsh_ = E2LSH();
-    // using settings as in original  E2LSH paper experimentals init(P,10,30,4)
-    lsh_.init(P, kl, L, w);
+    std::vector<Point> data;
+    data.reserve(N);
+    for (Index j = 0; j < N; ++j) {
+      Point p(D);
+      for (Index i = 0; i < D; ++i) {
+        p[i] = static_cast<float>(P(i, j));
+      }
+      data.emplace_back(std::move(p));
+    }
 
-    // it shall all happen in init procedure
+    LSHConstructionParameters params;
+    params.dimension = D;
+    params.lsh_family = LSHFamily::CrossPolytope;
+    params.l = L;
+    params.distance_function = DistanceFunction::EuclideanSquared;
+    params.num_rotations = 1; // dense data
+    params.num_setup_threads = num_threads_;
+    compute_number_of_hash_functions<Point>(num_hash_bits, &params);
+    params.storage_hash_table = StorageHashTable::FlatHashTable;
+    queries_.reserve(N);
+    table_ = construct_table<Point, std::uint32_t>(data, params);
+    for (Index j = 0; j < N; ++j) {
+      Point q(D);
+      for (Index i = 0; i < D; ++i) {
+        q[i] = static_cast<float>(P(i, j));
+      }
+      queries_.emplace_back(std::move(q));
+    }
+
+    auto query_pool = table_->construct_query_pool(L, -1, num_threads_);
+    std::vector<std::vector<u_int32_t>> all_neighbors(N);
+
     {
-
       // set up modulus of continuity for the full set X = P using the
       // resolution r
       Scalar max_quotient = -1.;
+
 #pragma omp parallel for reduction(max : max_quotient)
       for (Index i = 0; i < P.cols(); ++i) {
-        std::vector<Index> nn_idcs;
-
-        nn_idcs = lsh_.computeAENN(P, P.col(i), r_); // assumes L2 norm
-
+        query_pool->find_near_neighbors(
+            queries_[i], static_cast<float>(r_ * r_), &all_neighbors[i]);
+        std::vector<u_int32_t> nn_idcs = all_neighbors[i];
         for (Index j = 0; j < nn_idcs.size(); ++j)
           for (Index k = 0; k < j; ++k) {
+
             const Scalar xdist = dx_(P.col(nn_idcs[j]), P.col(nn_idcs[k]));
             assert(xdist <= 2 * r_ && "error");
             const Scalar fdist = dy_(f.col(nn_idcs[j]), f.col(nn_idcs[k]));
@@ -97,8 +141,9 @@ public:
     }
 
     // std::cout << "#N0=" << XNk_indices_[0].size() << std::endl;
-    //  compute reduced index sets using greedy method and compute corresponding
-    //  moduli of continuity
+    //  compute reduced index sets using greedy method and compute
+    //  corresponding moduli of continuity
+    // new part
     Scalar Rkr = r_;
     Matrix Pprev = P;
     X_min_max_.resize(2);
@@ -121,11 +166,10 @@ public:
       //
     }
 
-    // block2
     for (Index k = 1; k <= K_; ++k) {
 
-      XNk_indices_[k] =
-          greedySetCoveringLSH(lsh_, Pprev, P, XNk_indices_[k - 1], Rkr);
+      XNk_indices_[k] = greedySetCoveringLSH(*query_pool, queries_, Pprev,
+                                             XNk_indices_[k - 1], Rkr);
       // does not contain yet indices of P for the current level k
 
       bool hasmin = false;
@@ -163,7 +207,8 @@ public:
         floc.col(j) = f.col(XNk_indices_[k][j]);
       }
 
-      // std::cout << "for" << k << " the construction of Ploc, floc, was okay";
+      // std::cout << "for" << k << " the construction of Ploc, floc, was
+      // okay";
 
       Pprev = Ploc;
 
@@ -171,11 +216,14 @@ public:
       Scalar max_quotient = -1.;
 #pragma omp parallel for reduction(max : max_quotient)
       for (Index i = 0; i < Ploc.cols(); ++i) {
-        std::vector<Index> lsh_nn_idcs = lsh_.computeAENN(P, Ploc.col(i), Rkr);
+        std::vector<u_int32_t> lsh_nn_idcs;
 
+        query_pool->find_near_neighbors(queries_[XNk_indices_[k][i]],
+                                        static_cast<float>(Rkr * Rkr),
+                                        &lsh_nn_idcs);
         std::vector<Index> nn_idcs = globalLocalMapping(
-            lsh_nn_idcs, XNk_indices_[k]); // filters neighbours that are in the
-                                           // current covering
+            lsh_nn_idcs, XNk_indices_[k]); // filters neighbours that are in
+                                           // the current covering
 
         for (Index j = 0; j < nn_idcs.size(); ++j)
           for (Index k = 0; k < j; ++k) {
@@ -196,12 +244,25 @@ public:
       // DECOMMENT BLOCK A
       // std::cout << "#N" << k << "=" << XNk_indices_[k].size() << std::endl;
     }
-    // std::cout << "init finished!";
+    std::cout << "init internal finished!";
+    std::cout << "\n=== FALCONN init summary ===\n";
+    std::cout << "TX_ = " << TX_ << "\n";
+    std::cout << "r_  = " << r_ << "\n";
+    std::cout << "R_  = " << R_ << "\n";
+    std::cout << "K_  = " << K_ << "\n";
+    std::cout << "queries_.size() = " << queries_.size() << "\n";
+
+    for (Index kk = 0; kk <= K_; ++kk) {
+      std::cout << "level " << kk << "  tgrid=" << tgrid_[kk]
+                << "  omegaNk=" << omegaNk_[kk] << "  omegat=" << omegat_[kk]
+                << "  |XNk|=" << XNk_indices_[kk].size() << "\n";
+    }
+    std::cout << "============================\n";
   }
 
   Scalar omega(Scalar t, const Matrix &P, const Matrix &f) const {
-    // std::cout << "omega started! for " << t << " ";
 
+    auto query_pool = table_->construct_query_pool(L_, -1, num_threads_);
     t = (t >= 0 ? t : 0);
     Scalar retval = 0;
     Index k = 0;
@@ -218,16 +279,22 @@ public:
       Ploc.col(j) = P.col(XNk_indices_[k][j]);
       floc.col(j) = f.col(XNk_indices_[k][j]);
     }
-
+    std::cout << "so far soo goood started! for ";
     Scalar max_quotient = -1.;
 #pragma omp parallel for reduction(max : max_quotient)
     for (Index i = 0; i < Ploc.cols(); ++i) {
+      std::vector<u_int32_t> lsh_nn_idcs;
+      std::cout << "omega started! for " << t << " and " << i;
+      query_pool->find_near_neighbors(queries_[XNk_indices_[k][i]],
+                                      static_cast<float>(tgrid_[k] * tgrid_[k]),
+                                      &lsh_nn_idcs);
 
-      std::vector<Index> lsh_nn_idcs =
-          lsh_.computeAENN(P, Ploc.col(i), tgrid_[k]);
-
-      std::vector<Index> nn_idcs =
-          globalLocalMapping(lsh_nn_idcs, XNk_indices_[k]);
+      std::vector<Index> nn_idcs;
+      if (t == 0) {
+        nn_idcs = std::vector<Index>(lsh_nn_idcs.begin(), lsh_nn_idcs.end());
+      } else {
+        nn_idcs = globalLocalMapping(lsh_nn_idcs, XNk_indices_[k]);
+      }
 
       for (Index j = 0; j < nn_idcs.size(); ++j)
         for (Index k = 0; k < j; ++k) {
@@ -254,6 +321,9 @@ private:
   using Base::step_size_;
   using Base::tgrid_;
   using Base::TX_;
+  using TablePtr = decltype(construct_table<Point, KeyType>(
+      std::declval<std::vector<Point>>(),
+      std::declval<LSHConstructionParameters>()));
 
   std::vector<std::vector<Index>> XNk_indices_;
   std::vector<Index> X_min_max_;
@@ -261,9 +331,12 @@ private:
   Scalar r_;
   Index R_;
   Index K_;
+  Index L_;
   Index min_csize_;
   bool add_maxpts_;
-  E2LSH lsh_;
+  std::vector<Point> queries_;
+  TablePtr table_;
+  Index num_threads_;
 };
 
 } // namespace FMCA

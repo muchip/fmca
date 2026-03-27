@@ -27,5 +27,5 @@
 #include "src/ModulusOfContinuity/DiscreteModulusOfContinuity.h"
 #include "src/ModulusOfContinuity/DiscreteModulusOfContinuityBase.h"
 #include "src/ModulusOfContinuity/EpsilonDiscreteModulusOfContinuity.h"
-#include "src/ModulusOfContinuity/LSHDiscreteModulusOfContinuity.h"
+#include "src/ModulusOfContinuity/FalconLSHDiscreteModulusOfContinuity.h"
 #endif
