@@ -105,12 +105,23 @@ struct SampletTree : public SampletTreeBase<SampletTree<ClusterTreeType>> {
       // compute cluster basis of the leaf
       node().mom_buffer_ = mom.moment_matrix(*this);
     // are there samplets?
-    if (mom.mdtilde() < node().mom_buffer_.cols()) {
+    if (mom.mdtilde() <= node().mom_buffer_.cols()) {
       HouseholderQR qr(node().mom_buffer_.transpose());
-      node().Q_ = qr.householderQ();
-      node().nscalfs_ = mom.mdtilde();
-      node().nsamplets_ = node().Q_.cols() - node().nscalfs_;
+      if (!nSons()) {
+        node().Q_ =
+            qr.householderQ() * Matrix::Identity(node().mom_buffer_.cols(),
+                                                 node().mom_buffer_.rows());
+        node().nscalfs_ = mom.mdtilde();
+        node().nsamplets_ = 0;
+
+      } else {
+        node().Q_ = qr.householderQ();
+        node().nscalfs_ = mom.mdtilde();
+        node().nsamplets_ = node().Q_.cols() - node().nscalfs_;
+      }
       // this is the moment for the dad cluster
+      assert(mom.mdtilde2() <= node().mom_buffer_.rows() &&
+             "this would be wrong");
       node().mom_buffer_ = qr.matrixQR()
                                .block(0, 0, mom.mdtilde(), mom.mdtilde2())
                                .template triangularView<Upper>()
