@@ -15,26 +15,16 @@
 #include "ActiveSetManager.h"
 
 namespace FMCA {
-/*
- *  \brief goal function ||b-Ax||_2^2+ w^T|x|
- *
- **/
 template <typename MatrixReplacement>
 inline Scalar Phi(const MatrixReplacement& A, const Vector& b, const Vector& w,
                   const Vector& x) {
   return 0.5 * (b - A * x).squaredNorm() + x.cwiseAbs().dot(w);
 }
 
-/**
- *  \brief Soft-Shrinkage operator
- **/
 inline Vector SS(const Vector& x, const Vector& w) {
   return (x.array().abs() - w.array()).max(0.0) * x.array().sign();
 }
 
-/**
- *  \brief normal map
- **/
 template <typename MatrixReplacement>
 inline Vector Fnormal(const MatrixReplacement& A, const Vector& b,
                       const Vector& w, const Vector& x, const Scalar lambda) {
@@ -68,9 +58,7 @@ inline Scalar Htau(const MatrixReplacement& A, const Vector& b, const Vector& w,
   return psi + 0.5 * tau * lambda * fnor2;
 }
 
-/**
- *  \brief active set
- **/
+
 inline Vector activeSet(const Vector& x, const Vector& w) {
   return (x.array().abs() > w.array()).cast<Scalar>();
 }
@@ -86,10 +74,9 @@ inline Vector activeSet(const Vector& x, const Vector& w) {
  *  where A is a sparse matrix, b and w are vectors, and x is the
  *  variable to be optimized.
  *
- *  The algorithm is an iterative method that starts from an initial
- *  guess and converges to the optimal solution. At each iteration,
+ *  At each iteration,
  *  the algorithm updates the active set of variables and computes the
- *  Newton correction. The Newton correction is then used to update the
+ *  Newton correction, that is then used to update the
  *  variables.
  *
  *  \param A The sparse matrix A in the problem
@@ -156,6 +143,7 @@ Vector SSN(const SparseMatrix& A, const Vector& b, const Vector& w,
             << std::endl;
   return x;
 }
+
 
 /**
  *  \brief Trust Region SemiSmooth Newton (TRSSN) algorithm
