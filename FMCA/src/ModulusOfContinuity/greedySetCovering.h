@@ -14,9 +14,8 @@
 
 #include "E2LSH.h"
 #include <cassert>
-#include <falconn/lsh_nn_table.h>
+
 namespace FMCA {
-using Point = falconn::DenseVector<float>;
 class PriorityQueue {
 public:
   explicit PriorityQueue(Index n) : pos_(n, -1) { heap_.reserve(n); }
@@ -166,64 +165,6 @@ std::vector<Index> globalLocalMapping(std::vector<Index> lsh_nn_idcs,
   }
 
   return nn_idcs;
-}
-
-// new
-template <class QueryPoolT>
-std::vector<Index>
-greedySetCoveringLSH(QueryPoolT &query_pool, const std::vector<Point> &queries,
-                     const Matrix &P, std::vector<Index> XNk_indices_k,
-                     const Scalar r) {
-  std::vector<Index> retval;
-  std::vector<bool> is_covered(P.cols(), false);
-  std::vector<Index> n_uncovered(P.cols());
-  std::vector<std::vector<Index>> rballs(P.cols());
-  std::vector<std::vector<Index>> index_covers(P.cols());
-  Index num_covered = 0;
-
-#pragma omp parallel for
-  for (Index i = 0; i < rballs.size(); ++i) {
-
-    std::vector<u_int32_t> lsh_nn_idcs_raw;
-    query_pool.find_near_neighbors(queries[XNk_indices_k[i]],
-                                   static_cast<float>((0.5 * r) * (0.5 * r)),
-                                   &lsh_nn_idcs_raw);
-    // contains nearest neighbours of the point
-    // wrt original init matrix P_original
-    std::vector<Index> lsh_nn_idcs(lsh_nn_idcs_raw.begin(),
-                                   lsh_nn_idcs_raw.end());
-    // map points of P to P_original via XNk_indices construction
-    std::vector<Index> nn_idcs = globalLocalMapping(lsh_nn_idcs, XNk_indices_k);
-
-    rballs[i] = nn_idcs;
-    n_uncovered[i] = rballs[i].size();
-    for (const auto &it : rballs[i])
-#pragma omp critical
-      index_covers[it].push_back(i);
-  }
-
-  while (num_covered != P.cols()) {
-    Index max_size = 0;
-    Index max_index = -1;
-    // determine largest ball
-    for (Index i = 0; i < rballs.size(); ++i) {
-      max_index = max_size < n_uncovered[i] ? i : max_index;
-      max_size = max_size < n_uncovered[i] ? n_uncovered[i] : max_size;
-    }
-    // store selected ball
-    num_covered += max_size;
-    retval.push_back(max_index);
-    for (const auto &it : rballs[max_index]) {
-      // reduce uncovered size of affected balls
-      if (!is_covered[it]) {
-        for (const auto &it2 : index_covers[it])
-          n_uncovered[it2] -= 1;
-        // mask covered indices
-        is_covered[it] = true;
-      }
-    }
-  }
-  return retval;
 }
 
 } // namespace FMCA

@@ -83,8 +83,7 @@ add_test(kNN test_kNN.out)
 add_executable(test_ModulusOfContinuity.out test_ModulusOfContinuity.cpp)
 add_test(MOC test_ModulusOfContinuity.out)
 
-add_executable(test_FALCONN.out test_FALCONN.cpp)
-add_test(MOC test_FALCONN.out)
+
 
 
 

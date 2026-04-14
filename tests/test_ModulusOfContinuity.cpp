@@ -22,11 +22,11 @@ int main() {
 
   FMCA::DiscreteModulusOfContinuity moc;
   FMCA::Tictoc T;
-  FMCA::Index num_points = 1000;
-  FMCA::Scalar moc_base_radius = 0.5;
+  FMCA::Index num_points = 70000;
+  FMCA::Scalar moc_base_radius = 1;
 
-  FMCA::Matrix P(4, num_points);
-  FMCA::Matrix f(1, num_points);
+  FMCA::Matrix P(600, num_points);
+  FMCA::Matrix f(10, num_points);
   P.setRandom();
   P = 0.5 * (P.array() + 1);
   for (FMCA::Index i = 0; i < P.cols(); ++i)
@@ -45,25 +45,26 @@ int main() {
 
   std::cout << "TX_: " << moc.TX();
 
-  FMCA::EpsilonDiscreteModulusOfContinuity<FMCA::ClusterTree> emoc;
+  // FMCA::EpsilonDiscreteModulusOfContinuity<FMCA::ClusterTree> emoc;
+  // T.tic();
+  // emoc.init(P, f, 1, moc_base_radius);
+  // T.toc("emoc init: ");
+  // T.tic();
+  // for (FMCA::Index i = 0; i < Omegat.rows(); ++i)
+  //   Omegat.row(i) << moc.tgrid()[i], emoc.omega(moc.tgrid()[i], P, f);
+  // T.toc("emoc queries: ");
+  // FMCA::IO::print2ascii("eomegat.txt", Omegat);
+
+  FMCA::LSHDiscreteModulusOfContinuity amoc;
   T.tic();
-  emoc.init(P, f, 1, moc_base_radius);
-  T.toc("emoc init: ");
+  amoc.init(P, f, std::nullopt, moc_base_radius);
+  T.toc("amoc init: ");
   T.tic();
   for (FMCA::Index i = 0; i < Omegat.rows(); ++i)
-    Omegat.row(i) << moc.tgrid()[i], emoc.omega(moc.tgrid()[i], P, f);
-  T.toc("emoc queries: ");
-  FMCA::IO::print2ascii("eomegat.txt", Omegat);
+    Omegat.row(i) << amoc.tgrid()[i], amoc.omegat()[i];
 
-  FMCA::FalconLSHDiscreteModulusOfContinuity lmoc;
-  T.tic();
-  lmoc.init(P, f, std::nullopt, moc_base_radius);
-  T.toc("lshmoc init done: ");
-  T.tic();
-  for (FMCA::Index i = 0; i < Omegat.rows(); ++i)
-    Omegat.row(i) << moc.tgrid()[i], lmoc.omega(moc.tgrid()[i], P, f);
+  T.toc("amoc queries: ");
+  FMCA::IO::print2ascii("aomegat.txt", Omegat);
 
-  T.toc("lshmoc queries: ");
-  FMCA::IO::print2ascii("lomegat.txt", Omegat);
   return 0;
 }
