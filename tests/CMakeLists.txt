@@ -1,5 +1,8 @@
 find_package(Eigen3 REQUIRED NO_MODULE)
 
+add_executable(test_MultilevelFrankeFunction.out test_MultilevelFrankeFunction.cpp)
+add_test(test_MultilevelFrankeFunction test_MultilevelFrankeFunction.out)
+
 enable_testing()
 
 macro(add_fmca_test name)

@@ -178,6 +178,42 @@ class SampletMatrixCompressorUnsymmetric {
     }
     return triplet_list_;
   }
+  std::vector<Triplet> aposteriori_triplets_fast(const Scalar thres) {
+    std::vector<Triplet> retval;
+    std::vector<std::vector<Index>> buckets(17);
+    std::vector<Scalar> norms2(17);
+    const Scalar invlog10 = 1. / std::log(10.);
+    for (FMCA::Index i = 0; i < triplet_list_.size(); ++i) {
+      const Scalar entry = std::abs(triplet_list_[i].value());
+      const Scalar val = -std::floor(invlog10 * std::log(entry));
+      const Index ind = val < 0 ? 0 : val;
+      buckets[ind > 16 ? 16 : ind].push_back(i);
+      norms2[ind > 16 ? 16 : ind] += entry * entry;
+    }
+    Scalar fnorm2 = 0;
+    for (int i = 16; i >= 0; --i) fnorm2 += norms2[i];
+    Scalar cut_snorm = 0;
+    Index cut_off = 17;
+    for (int i = 16; i >= 0; --i) {
+      cut_snorm += norms2[i];
+      if (std::sqrt(cut_snorm / fnorm2) >= thres) break;
+      --cut_off;
+    }
+    Index ntriplets = 0;
+    for (Index i = 0; i < cut_off; ++i) ntriplets += buckets[i].size();
+    const Index n_diag = std::min(r_rta_.nodes()[0]->block_size(),
+                                  c_rta_.nodes()[0]->block_size());
+    retval.reserve(ntriplets + n_diag);
+    for (Index i = 0; i < cut_off; ++i)
+      for (const auto &it : buckets[i]) retval.push_back(triplet_list_[it]);
+    // make sure the matrix contains the diagonal
+    for (Index i = cut_off; i < 17; ++i)
+      for (const auto &it : buckets[i])
+        if (triplet_list_[it].row() == triplet_list_[it].col())
+          retval.push_back(triplet_list_[it]);
+    retval.shrink_to_fit();
+    return retval;
+  }
 
   std::vector<Triplet> release_triplets() {
     std::vector<Triplet> retval;

@@ -20,12 +20,26 @@
  **/
 
 #include "src/util/Macros.h"
-//
+ 
+#include<Eigen/Sparse>
+#include <Eigen/IterativeLinearSolvers>
+#include <random>
+#include <stdexcept>
+#include <string>
+#include <cmath>
+#include <iomanip>
+#include <iostream>
+#include <vector>
+
+
+#include "src/util/Tictoc.h"
 
 #include "CovarianceKernel"
 #include "Samplets"
 #include "H2Matrix"
 
 #include "src/KernelInterpolation/SampletKernelSolver.h"
+#include "src/KernelInterpolation/H2MatrixKernelSolver.h"
 #include "src/KernelInterpolation/MultipoleFunctionEvaluator.h"
+#include "src/KernelInterpolation/MultiscaleInterpolator.h"
 #endif
