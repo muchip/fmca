@@ -3,7 +3,7 @@ project(FMCA CXX)
 
 message(STATUS "
 ****************************************************************************
-*                  ______   __    __    ______    ______                   * 
+*                  ______   __    __    ______    ______                   *
 *                 |   ___| |  \\  /  |  /   ___|  /      \\                  *
 *                 |   __   |   \\/   | |   /     |   /\\   |                 *
 *                 |   __|  |        | |  |      |  |__|  |                 *
@@ -23,14 +23,21 @@ for further information.
 ")
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
-find_package(Eigen3 REQUIRED)
+
+# Language standard
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Dependencies
+find_package(Eigen3 REQUIRED NO_MODULE)   # provides Eigen3::Eigen target [web:15][web:62]
 find_package(Python COMPONENTS Interpreter Development)
 find_package(pybind11 CONFIG)
 find_package(OpenMP)
 
-include_directories(${EIGEN3_INCLUDE_DIR})
-message("${CMAKE_MODULE_PATH}")
-message("${EIGEN3_INCLUDE_DIR}")
+# Project include path (for your own headers)
+set(FMCA_PATH "${PROJECT_SOURCE_DIR}")
+include_directories("${FMCA_PATH}")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -45,10 +52,8 @@ else()
   set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 endif()
 
-set( PROJECT_SOURCE_DIR "${PROJECT_SOURCE_DIR}")
-include_directories("${PROJECT_SOURCE_DIR}")
-
+# Subdirectories define targets
 add_subdirectory(tests)
 add_subdirectory(py)
-enable_testing()
 
+enable_testing()
