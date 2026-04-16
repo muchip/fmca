@@ -69,6 +69,17 @@ class GradKernel {
         return -5 / (3 * l_ * l_) * exp(-sqrt(5) / l_ * r) *
                (1 + sqrt(5) / l_ * r - 5 / (l_ * l_) * (x - y) * (x - y));
       };
+    else if (ktype_ == "TPS2D_FIRST_DERIVATIVE")
+      gradkernel_ = [this](Scalar x, Scalar y, Scalar r, Scalar) {
+        if (r < 1e-14) return Scalar(0);
+        return (2.0 * std::log(r) + 1.0) * (x - y);
+      };
+    else if (ktype_ == "TPS2D_SECOND_DERIVATIVE")
+      gradkernel_ = [this](Scalar x, Scalar y, Scalar r, Scalar) {
+        if (r < 1e-14) return Scalar(0);
+        Scalar diff = x - y;
+        return (2.0 * std::log(r) + 1.0) + 2.0 * diff * diff / (r * r);
+      };
     else
       assert(false && "desired gradient kernel not implemented");
   }
