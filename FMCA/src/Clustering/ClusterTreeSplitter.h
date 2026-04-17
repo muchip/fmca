@@ -35,17 +35,15 @@ struct GeometricBisection {
     c2.bb_(longest, 0) = c1.bb_(longest, 1);
     // now split the index vector
     pivot = c1.bb_(longest, 1);
-    Index low = 0;
-    Index high = c1.block_size_ - 1;
-    Index offs = c1.indices_begin_;
-    while (low < high) {
-      while (low < high && P(longest, idcs[offs + low]) <= pivot) ++low;
-      while (high > 0 && P(longest, idcs[offs + high]) > pivot) --high;
-      if (low < high) std::swap(idcs[offs + low], idcs[offs + high]);
-    }
-    c1.block_size_ = low;
-    c2.block_size_ -= low;
-    c2.indices_begin_ += low;
+    Index *first = idcs + c1.indices_begin_;
+    Index *last = first + c1.block_size_;
+    const Index *mid = std::partition(
+        first, last, [&](Index idx) { return P(longest, idx) <= pivot; });
+
+    const Index size = static_cast<Index>(mid - first);
+    c1.block_size_ = size;
+    c2.block_size_ -= size;
+    c2.indices_begin_ += size;
   }
 };
 
