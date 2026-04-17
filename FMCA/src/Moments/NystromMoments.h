@@ -25,11 +25,13 @@ class NystromMoments {
   Matrix moment_matrix(const ClusterTreeBase<otherDerived> &CT) const {
     const otherDerived &H2T = CT.derived();
     Matrix retval(interp_.Xi().cols(), H2T.block_size());
+    const Vector inv_scale =
+        (H2T.bb().col(2).array().cwiseAbs() > 100 * FMCA_ZERO_TOLERANCE)
+            .select(1.0 / H2T.bb().col(2).array(), 0.0);
     for (auto i = 0; i < H2T.block_size(); ++i)
-      retval.col(i) = interp_.evalPolynomials(
-          ((P_.col(H2T.indices()[i]) - H2T.bb().col(0)).array() /
-           H2T.bb().col(2).array())
-              .matrix());
+      retval.col(i) =
+          interp_.evalPolynomials(inv_scale.asDiagonal() *
+                                  (P_.col(H2T.indices()[i]) - H2T.bb().col(0)));
     return retval;
   }
 
