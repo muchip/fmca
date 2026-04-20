@@ -1,0 +1,280 @@
+// This file is part of FMCA, the Fast Multiresolution Covariance Analysis
+// package.
+//
+// Copyright (c) 2026, Michael Multerer, Michele Palma
+//
+// All rights reserved.
+//
+// This source code is subject to the GNU Affero General Public License v3.0
+// license and without any warranty, see <https://github.com/muchip/FMCA>
+// for further information.
+//
+#ifndef FMCA_MODULUSOFCONTINUITY_EPSILONLSHDISCRETEMODULUSOFCONTINUITY_H_
+#define FMCA_MODULUSOFCONTINUITY_EPSILONLSHDISCRETEMODULUSOFCONTINUITY_H_
+
+#include "../Clustering/RestrictedE2LSH.h"
+#include "../Clustering/greedySetCovering.h"
+#include "../util/Macros.h"
+#include "DiscreteModulusOfContinuityBase.h"
+#include <optional>
+namespace FMCA {
+
+class EpsilonLSHDiscreteModulusOfContinuity
+    : public DiscreteModulusOfContinuityBase<
+          EpsilonLSHDiscreteModulusOfContinuity> {
+public:
+  using Base =
+      DiscreteModulusOfContinuityBase<EpsilonLSHDiscreteModulusOfContinuity>;
+
+  EpsilonLSHDiscreteModulusOfContinuity() {}
+
+  void init(const Matrix &P, const Matrix &f,
+            const std::optional<Scalar> TX = std::nullopt, const Scalar r = 1,
+            const Index R = 2, const bool add_maxpts = true,
+            const Index lsh_L = 5, const Index lsh_k = 5) {
+    setDistanceType(dx_, "EUCLIDEAN");
+    setDistanceType(dy_, "EUCLIDEAN");
+
+    bb_.resize(P.rows(), 3);
+    bb_.col(0) = P.rowwise().minCoeff();
+    bb_.col(1) = P.rowwise().maxCoeff();
+    bb_.col(2) = bb_.col(1) - bb_.col(0);
+    const Scalar bb_diam = bb_.col(2).norm();
+    TX_ = TX.has_value() ? std::min(TX.value(), bb_diam) : bb_diam;
+    TX_ = TX_ > 0 ? TX_ : 0;
+    if (TX_ <= 0) {
+      Base::tgrid_.resize(1, 0);
+      Base::omegat_.resize(1, 0);
+      return;
+    }
+
+    // step_size_ = step_size <= TX_ ? step_size : TX_; //must be defined as
+    // here it changes....
+
+    // set all parameters
+    r_ = r; // also initial step_size
+    R_ = R;
+    min_csize_ = min_csize;
+    add_maxpts_ = add_maxpts;
+
+    // const Index nbins = ... + 1;
+    K_ = (TX_ <= r_)
+             ? 0
+             : static_cast<Index>(std::ceil(std::log(TX_ / r_) / std::log(R_)));
+
+    Base::tgrid_.resize(K_ + 1);
+    Base::omegat_.resize(K_ + 1);
+    omegaNk_.resize(K_ + 1);
+    XNk_indices_.resize(K_ + 1);
+    level_global_to_local_.resize(K_ + 1);
+    level_lsh_.resize(K_ + 1);
+    FMCA::RestrictedE2LSH lsh;
+    lsh.init(P, lsh_k, lsh_L, r_);
+
+    // level 0 (global indices)
+    {
+
+      // set up modulus of continuity for the full set X = P using the
+      // resolution r
+      Scalar max_quotient = -1.;
+#pragma omp parallel for reduction(max : max_quotient)
+      for (Index i = 0; i < P.cols(); ++i) {
+        std::vector<Index> nn_idcs;
+        // DerivedCT ct(P, min_csize);
+        // Vector min_dist = minDistanceVector(ct, P);
+        nn_idcs = lsh.computeAENN(P, i, r_);
+        // nn_idcs = epsNN(ct, P, P.col(i), r_); // assumes L2 norm
+
+        for (Index j = 0; j < nn_idcs.size(); ++j)
+          for (Index k = 0; k < j; ++k) {
+            const Scalar xdist = dx_(P.col(nn_idcs[j]), P.col(nn_idcs[k]));
+            assert(xdist <= 2 * r_ && "error");
+            const Scalar fdist = dy_(f.col(nn_idcs[j]), f.col(nn_idcs[k]));
+            if (xdist <= r_)
+              max_quotient = max_quotient < fdist ? fdist : max_quotient;
+          }
+      }
+      omegaNk_[0] = max_quotient;
+      tgrid_[0] = r;
+      omegat_[0] = omegaNk_[0];
+      XNk_indices_[0].resize(P.cols());
+      std::iota(XNk_indices_[0].begin(), XNk_indices_[0].end(), 0);
+    }
+
+    // std::cout << "#N0=" << XNk_indices_[0].size() << std::endl;
+    //  compute reduced index sets using greedy method and compute corresponding
+    //  moduli of continuity
+    Scalar Rkr = r_;
+    Matrix Pprev = P;
+    X_min_max_.resize(2);
+    FMCA::Scalar max = -FMCA_INF;
+    FMCA::Scalar min = FMCA_INF;
+    for (FMCA::Index i = 0; i < f.cols(); ++i) {
+      Scalar normfi =
+          dy_(f.col(i),
+              Vector::Zero(f.rows())); // norm using dy_ distance function
+                                       // (assuming it is possible to do so)
+
+      if (normfi < min) {
+        min = normfi;
+        X_min_max_[0] = i;
+      }
+      if (normfi > max) {
+        max = normfi;
+        X_min_max_[1] = i;
+      }
+    }
+
+    // block2
+    for (Index k = 1; k <= K_; ++k) {
+      // std::cout << "so far" << k << " so good";
+
+      XNk_indices_[k] = greedySetCoveringLSH(lsh, Pprev, Rkr);
+
+      // fix indices to become the global indices
+      bool hasmin = false;
+      bool hasmax = false;
+      for (Index j = 0; j < XNk_indices_[k].size(); ++j) {
+
+        XNk_indices_[k][j] = XNk_indices_[k - 1][XNk_indices_[k][j]];
+
+        if (XNk_indices_[k][j] == X_min_max_[0])
+          hasmin = true;
+        if (XNk_indices_[k][j] == X_min_max_[1])
+          hasmax = true;
+      }
+      if (add_maxpts_) {
+        if (!hasmin)
+          XNk_indices_[k].push_back(X_min_max_[0]);
+        if (!hasmax)
+          XNk_indices_[k].push_back(X_min_max_[1]);
+      }
+
+      std::sort(XNk_indices_[k].begin(), XNk_indices_[k].end());
+
+      // std::cout << "for" << k << " we have " << XNk_indices_[k].size()
+      //           << " pointsss";
+
+      Rkr *= R;
+      tgrid_[k] = Rkr;
+      Matrix Ploc(
+          P.rows(),
+          XNk_indices_[k].size()); // e.g. just points from XNk_indices_[k]
+      Matrix floc(f.rows(), XNk_indices_[k].size());
+      // set up local point set for constructing a cluster tree for epsNN
+      for (Index j = 0; j < Ploc.cols(); ++j) {
+        Ploc.col(j) = P.col(XNk_indices_[k][j]);
+        floc.col(j) = f.col(XNk_indices_[k][j]);
+      }
+
+      // std::cout << "for" << k << " the construction of Ploc, floc, was okay";
+
+      Pprev = Ploc;
+      //  COMMENT BLOCK A (computation of moc on the reduced set)
+      Scalar max_quotient = -1.;
+#pragma omp parallel for reduction(max : max_quotient)
+      for (Index i = 0; i < Ploc.cols(); ++i) {
+        std::vector<Index> nn_idcs;
+
+        std::vector<Index> nn_idcs;
+        // DerivedCT ct(P, min_csize);
+        // Vector min_dist = minDistanceVector(ct, P);
+        nn_idcs = lsh.computeAENN(P, XNk_indices_[k][i], Rkr);
+        // nn_idcs = epsNN(ct, P, P.col(i), r_); // assumes L2 norm
+
+        // ensure nn_idcs contains only points present in Ploc cols indices
+        // map nn_idcs that are global indices from P, to Ploc
+
+        for (Index j = 0; j < nn_idcs.size(); ++j)
+          for (Index k = 0; k < j; ++k) {
+
+            // std::cout << " nn_idcs[j] = " << nn_idcs[j] << ";";
+
+            const Scalar xdist =
+                dx_(Ploc.col(nn_idcs[j]), Ploc.col(nn_idcs[k]));
+            assert(xdist <= 2 * Rkr && "error");
+            const Scalar fdist =
+                dy_(floc.col(nn_idcs[j]), floc.col(nn_idcs[k]));
+            if (xdist <= Rkr)
+              max_quotient = max_quotient < fdist ? fdist : max_quotient;
+          }
+      }
+      omegaNk_[k] = max_quotient;
+      omegat_[k] = omegaNk_[k] > omegat_[k - 1] ? omegaNk_[k] : omegat_[k - 1];
+      // DECOMMENT BLOCK A
+      // std::cout << "#N" << k << "=" << XNk_indices_[k].size() << std::endl;
+    }
+    // std::cout << "init finished!";
+  }
+
+  Scalar omega(Scalar t, const Matrix &P, const Matrix &f) const {
+    // std::cout << "omega started! for " << t << " ";
+
+    t = (t >= 0 ? t : 0);
+    Scalar retval = 0;
+    Index k = 0;
+    // find interval
+    if (t > TX_)
+      k = K_;
+    else
+      while (t > tgrid_[k])
+        ++k;
+    Matrix Ploc(P.rows(), XNk_indices_[k].size());
+    Matrix floc(f.rows(), XNk_indices_[k].size());
+    // set up local point set for constructing a cluster tree for epsNN
+
+    for (Index j = 0; j < Ploc.cols(); ++j) {
+      Ploc.col(j) = P.col(XNk_indices_[k][j]);
+      floc.col(j) = f.col(XNk_indices_[k][j]);
+    }
+
+    Scalar max_quotient = -1.;
+#pragma omp parallel for reduction(max : max_quotient)
+    for (Index i = 0; i < Ploc.cols(); ++i) {
+      std::vector<Index> nn_idcs;
+
+      nn_idcs = lsh.computeAENN(P, XNk_indices_[k][i], tgrid_[k]);
+
+      // make sure nn_idcs only contains points whose index is present in Ploc
+      // (i think it is sufficient to intersection with XNk_indices_[k])
+
+      // map the global indices contained in nn_idcs to columns of Ploc
+
+      for (Index j = 0; j < nn_idcs.size(); ++j)
+        for (Index l = 0; l < j; ++l) {
+          const Scalar xdist = dx_(Ploc.col(nn_idcs[j]), Ploc.col(nn_idcs[l]));
+          const Scalar fdist = dy_(floc.col(nn_idcs[j]), floc.col(nn_idcs[l]));
+          if (xdist <= t)
+            max_quotient = max_quotient < fdist ? fdist : max_quotient;
+        }
+    }
+    // std::cout << "good omega";
+    max_quotient = max_quotient >= 0 ? max_quotient : 0;
+    if (k > 0)
+      max_quotient =
+          max_quotient > omegat_[k - 1] ? max_quotient : omegat_[k - 1];
+    return max_quotient;
+  }
+
+private:
+  using Base::bb_;
+  using Base::dx_;
+  using Base::dy_;
+  using Base::omegat_;
+  using Base::setDistanceType;
+  using Base::step_size_;
+  using Base::tgrid_;
+  using Base::TX_;
+
+  std::vector<std::vector<Index>> XNk_indices_;
+  std::vector<Index> X_min_max_;
+  std::vector<Scalar> omegaNk_;
+  Scalar r_;
+  Index R_;
+  Index K_;
+  Index min_csize_;
+  bool add_maxpts_;
+};
+
+} // namespace FMCA
+#endif

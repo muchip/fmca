@@ -540,12 +540,27 @@ PYBIND11_MODULE(FMCA, m) {
                                                 "DiscreteModulusOfContinuity")
       .def(py::init<>())
 
-      .def("init", &FMCA::DiscreteModulusOfContinuity::init,
+      .def("init",
+           py::overload_cast<const FMCA::Matrix &, const FMCA::Matrix &,
+                             const std::optional<FMCA::Scalar>,
+                             const FMCA::Scalar, const std::string,
+                             const std::string>(
+               &FMCA::DiscreteModulusOfContinuity::init),
            py::arg().noconvert(),        // P
            py::arg().noconvert(),        // f
            py::arg("TX") = std::nullopt, // TX
            py::arg("step_size") = 1,     // step_size
            py::arg("dx_type") = "EUCLIDEAN", py::arg("dy_type") = "EUCLIDEAN")
+
+      .def("init",
+           py::overload_cast<const std::string &, const std::string &,
+                             const std::optional<FMCA::Scalar>,
+                             const FMCA::Scalar, const std::string,
+                             const std::string, const FMCA::Index>(
+               &FMCA::DiscreteModulusOfContinuity::init),
+           py::arg("P_path"), py::arg("f_path"), py::arg("TX") = std::nullopt,
+           py::arg("step_size") = 1, py::arg("dx_type") = "EUCLIDEAN",
+           py::arg("dy_type") = "EUCLIDEAN", py::arg("block_size") = 1024)
 
       .def("TX", &FMCA::DiscreteModulusOfContinuity::TX)
       .def("omega", &FMCA::DiscreteModulusOfContinuity::omega)
@@ -580,13 +595,29 @@ PYBIND11_MODULE(FMCA, m) {
   py::class_<LSHMOC>(m, "LSHDiscreteModulusOfContinuity")
       .def(py::init<>())
 
-      .def("init", &LSHMOC::init,
+      .def("init",
+           py::overload_cast<const FMCA::Matrix &, const FMCA::Matrix &,
+                             const std::optional<FMCA::Scalar>,
+                             const FMCA::Scalar, const std::string,
+                             const std::string, const FMCA::Index,
+                             const FMCA::Index>(&LSHMOC::init),
            py::arg().noconvert(),        // P
            py::arg().noconvert(),        // f
            py::arg("TX") = std::nullopt, // TX
-           py::arg("step_size") = 1,     // step_size
-           py::arg("dx_type") = "EUCLIDEAN", py::arg("dy_type") = "EUCLIDEAN",
-           py::arg("L") = 5, py::arg("k") = 5)
+           py::arg("step_size") = 1, py::arg("dx_type") = "EUCLIDEAN",
+           py::arg("dy_type") = "EUCLIDEAN", py::arg("L") = 5, py::arg("k") = 5)
+
+      .def("init",
+           py::overload_cast<const std::string &, const std::string &,
+                             const std::optional<FMCA::Scalar>,
+                             const FMCA::Scalar, const std::string,
+                             const std::string, const FMCA::Index,
+                             const FMCA::Index, const FMCA::Index>(
+               &LSHMOC::init),
+           py::arg("P_path"), py::arg("f_path"), py::arg("TX") = std::nullopt,
+           py::arg("step_size") = 1, py::arg("dx_type") = "EUCLIDEAN",
+           py::arg("dy_type") = "EUCLIDEAN", py::arg("L") = 5, py::arg("k") = 5,
+           py::arg("block_size") = 1024)
 
       // inherited from base
       .def("TX", &LSHMOC::TX)
