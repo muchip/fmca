@@ -52,8 +52,9 @@ public:
     const Index nbins = std::ceil(TX_ / step_size_) + 1;
     Base::tgrid_.resize(nbins);
     Base::omegat_.resize(nbins);
+    const Scalar quad_scale = TX_ / ((nbins - 1) * (nbins - 1));
     for (Index i = 0; i < tgrid_.size(); ++i)
-      tgrid_[i] = i * step_size_;
+      tgrid_[i] = quad_scale * i * i;
 
 #pragma omp parallel
     {
@@ -64,7 +65,10 @@ public:
           const Scalar xdist = Base::dx_(P.col(k), P.col(l));
           const Scalar ydist = Base::dy_(f.col(k), f.col(l));
           const Index idx =
-              std::min(Index(std::ceil(xdist / step_size_)), nbins - 1);
+              static_cast<Index>(std::ceil(std::sqrt(xdist / quad_scale)));
+          if (idx >= nbins)
+            idx = nbins - 1;
+          // std::min(Index(std::ceil(xdist / step_size_)), nbins - 1);
           local_omegat[idx] = std::max(local_omegat[idx], ydist);
         }
       }
