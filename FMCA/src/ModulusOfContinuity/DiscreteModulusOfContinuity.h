@@ -64,7 +64,7 @@ public:
         for (FMCA::Index l = 0; l < k; ++l) {
           const Scalar xdist = Base::dx_(P.col(k), P.col(l));
           const Scalar ydist = Base::dy_(f.col(k), f.col(l));
-          const Index idx =
+          Index idx =
               static_cast<Index>(std::ceil(std::sqrt(xdist / quad_scale)));
           if (idx >= nbins)
             idx = nbins - 1;
