@@ -14,9 +14,8 @@
 
 namespace FMCA {
 
-template <typename Derived>
-class DiscreteModulusOfContinuityBase {
- public:
+template <typename Derived> class DiscreteModulusOfContinuityBase {
+public:
   DiscreteModulusOfContinuityBase() {}
   //////////////////////////////////////////////////////////////////////////////
   // return a reference to the derived object
@@ -26,8 +25,7 @@ class DiscreteModulusOfContinuityBase {
 
   //////////////////////////////////////////////////////////////////////////////
   // exposed the trees init routine
-  template <typename... Ts>
-  void init(Ts &&...ts) {
+  template <typename... Ts> void init(Ts &&...ts) {
     derived().init(std::forward<Ts>(ts)...);
   }
 
@@ -50,7 +48,7 @@ class DiscreteModulusOfContinuityBase {
   const std::vector<Scalar> &tgrid() const { return tgrid_; }
   const std::vector<Scalar> &omegat() const { return omegat_; }
 
- protected:
+protected:
   Matrix bb_;
   std::function<Scalar(const Vector &, const Vector &)> dx_;
   std::function<Scalar(const Vector &, const Vector &)> dy_;
@@ -59,17 +57,26 @@ class DiscreteModulusOfContinuityBase {
   std::vector<Scalar> tgrid_;
   std::vector<Scalar> omegat_;
 
-  void setDistanceType(
-      std::function<Scalar(const Vector &, const Vector &)> &df,
-      std::string dist_type) {
-    for (auto &chr : dist_type) chr = (char)toupper(chr);
+  void
+  setDistanceType(std::function<Scalar(const Vector &, const Vector &)> &df,
+                  std::string dist_type) {
+    for (auto &chr : dist_type)
+      chr = (char)toupper(chr);
     if (dist_type == "EUCLIDEAN") {
       df = [](const Vector &x, const Vector &y) { return (x - y).norm(); };
-    } else
-      assert(false && "desired distance not implemented");
-    return;
+    } else {
+
+      if (dist_type == "TAXICAB") {
+        df = [](const Vector &x, const Vector &y) {
+          return (x - y).lpNorm<1>();
+        };
+      } else {
+        assert(false && "desired distance not implemented");
+        return;
+      }
+    }
   }
 };
 
-}  // namespace FMCA
+} // namespace FMCA
 #endif
