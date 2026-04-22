@@ -40,7 +40,7 @@ public:
     bb_.col(1) = P.rowwise().maxCoeff();
     bb_.col(2) = bb_.col(1) - bb_.col(0); // only if EUCLIDEAN is used.
     const Scalar bb_diam = bb_.col(2).norm();
-    TX_ = TX.has_value() ? std::min(TX.value(), bb_diam) : bb_diam;
+    TX_ = TX.has_value() ? TX.value() : bb_diam;
     TX_ = TX_ > 0 ? TX_ : 0;
     if (TX_ <= 0) {
       Base::tgrid_.resize(1, 0);
