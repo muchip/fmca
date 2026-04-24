@@ -23,44 +23,34 @@ for further information.
 ")
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
-find_package(Eigen3 REQUIRED)
+
+# Language standard
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Dependencies
+find_package(Eigen3 REQUIRED NO_MODULE)   # provides Eigen3::Eigen target [web:15][web:62]
 find_package(Python COMPONENTS Interpreter Development)
 find_package(pybind11 CONFIG)
 find_package(OpenMP)
 
-include_directories(${EIGEN3_INCLUDE_DIR})
-# If Eigen3 is not providing a CMake target, manually add the include path
-if(NOT DEFINED EIGEN3_INCLUDE_DIR OR EIGEN3_INCLUDE_DIR STREQUAL "")
-    message(STATUS "Eigen3 include path not found by CMake, adding Homebrew path manually")
-    include_directories(/opt/homebrew/include/eigen3)
-else()
-    include_directories(${EIGEN3_INCLUDE_DIR})
-endif()
-message("${CMAKE_MODULE_PATH}")
-message("${EIGEN3_INCLUDE_DIR}")
+# Project include path (for your own headers)
+set(FMCA_PATH "${PROJECT_SOURCE_DIR}")
+include_directories("${FMCA_PATH}")
 
-
-set(CMAKE_CXX_STANDARD 17)
-set (FMCA_PATH ${PROJECT_SOURCE_DIR})
-message("${PROJECT_SOURCE_DIR}")
-
-set(CMAKE_CXX_FLAGS "-I${FMCA_PATH}")
-set(CMAKE_CXX_FLAGS_DEBUG "-g")
-if(OpenMP_CXX_FOUND)
-  set(CMAKE_CXX_FLAGS_RELEASE "-O3 -fopenmp")
-else()
-  set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+# Build-type dependent flags (do not clobber existing flags)
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
+  if(OpenMP_CXX_FOUND)
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -fopenmp")
+  else()
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
+  endif()
 endif()
 
-if(APPLE AND NOT DEFINED ENV{CXX})
-    set(CMAKE_C_COMPILER /opt/homebrew/bin/gcc-15)
-    set(CMAKE_CXX_COMPILER /opt/homebrew/bin/g++-15)
-endif()
-
-
-set( PROJECT_SOURCE_DIR "${PROJECT_SOURCE_DIR}")
-include_directories("${PROJECT_SOURCE_DIR}")
-
+# Subdirectories define targets
 add_subdirectory(tests)
 add_subdirectory(py)
+
 enable_testing()

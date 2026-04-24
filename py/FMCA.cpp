@@ -371,6 +371,8 @@ PYBIND11_MODULE(FMCA, m) {
   pySampletTree_.def(py::init<>());
   pySampletTree_.def(py::init<const FMCA::Matrix &, FMCA::Index>());
   pySampletTree_.def("indices", &pySampletTree::indices);
+  pySampletTree_.def("toNaturalOrder", &pySampletTree::toNaturalOrder);
+  pySampletTree_.def("toClusterOrder", &pySampletTree::toClusterOrder);
   pySampletTree_.def("levels", &pySampletTree::levels);
   pySampletTree_.def("adpativeTreeLeafPartition",
                      &pySampletTree::adaptiveTreeLeafPartition);

@@ -1,45 +1,39 @@
-find_package(Eigen3 REQUIRED)
-
-link_directories(${CMAKE_SOURCE_DIR}/FMCA)
-
-include_directories(${CMAKE_SOURCE_DIR}/FMCA)
+find_package(Eigen3 REQUIRED NO_MODULE)
+find_package(Python COMPONENTS Interpreter Development REQUIRED)
+find_package(pybind11 CONFIG REQUIRED)
 
 add_library(FMCA MODULE FMCA.cpp)
-execute_process(OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND 
-python3-config --extension-suffix OUTPUT_VARIABLE FMCA_SUFFIX)
-message("Library suffix: ${FMCA_SUFFIX}")
-SET_TARGET_PROPERTIES(FMCA PROPERTIES PREFIX "")
-SET_TARGET_PROPERTIES(FMCA PROPERTIES SUFFIX "${FMCA_SUFFIX}")
+target_link_libraries(FMCA PRIVATE Eigen3::Eigen pybind11::module)
 
-add_custom_command(TARGET FMCA POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy
-${CMAKE_SOURCE_DIR}/py/FMCA_Samplets.ipynb
-${CMAKE_CURRENT_BINARY_DIR}/FMCA_Samplets.ipynb)
+# Python extension suffix
+execute_process(
+  COMMAND python3-config --extension-suffix
+  OUTPUT_VARIABLE FMCA_SUFFIX
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+message(STATUS "Library suffix: ${FMCA_SUFFIX}")
 
-add_custom_command(TARGET FMCA POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy
-${CMAKE_SOURCE_DIR}/py/FMCA_Cholesky.ipynb
-${CMAKE_CURRENT_BINARY_DIR}/FMCA_Cholesky.ipynb)
+set_target_properties(FMCA PROPERTIES
+  PREFIX ""
+  SUFFIX "${FMCA_SUFFIX}"
+)
 
-add_custom_command(TARGET FMCA POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy
-${CMAKE_SOURCE_DIR}/py/FMCA_GP.ipynb
-${CMAKE_CURRENT_BINARY_DIR}/FMCA_GP.ipynb)
-
-add_custom_command(TARGET FMCA POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy
-${CMAKE_SOURCE_DIR}/py/FMCA_H2Matrix.ipynb
-${CMAKE_CURRENT_BINARY_DIR}/FMCA_H2Matrix.ipynb)
-
-add_custom_command(TARGET FMCA POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy
-${CMAKE_SOURCE_DIR}/py/FMCA_Samplet_GP_Filtering.ipynb
-${CMAKE_CURRENT_BINARY_DIR}/FMCA_Samplet_GP_Filtering.ipynb)
-
-add_custom_command(TARGET FMCA POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy
-${CMAKE_SOURCE_DIR}/py/FMCA_Samplet_KRR.ipynb
-${CMAKE_CURRENT_BINARY_DIR}/FMCA_Samplet_KRR.ipynb)
-
-add_custom_command(TARGET FMCA POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy
-${CMAKE_SOURCE_DIR}/py/FMCA_SampletAdaptiveClustering.ipynb
-${CMAKE_CURRENT_BINARY_DIR}/FMCA_SampletAdaptiveClustering.ipynb)
-
-target_link_libraries(FMCA PUBLIC pybind11::module)
+# Copy notebooks next to the built module
+foreach(nb
+    FMCA_Samplets.ipynb
+    FMCA_Cholesky.ipynb
+    FMCA_GP.ipynb
+    FMCA_H2Matrix.ipynb
+    FMCA_Samplet_GP_Filtering.ipynb
+    FMCA_Samplet_KRR.ipynb
+    FMCA_SampletAdaptiveClustering.ipynb
+)
+  add_custom_command(TARGET FMCA POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+            ${CMAKE_SOURCE_DIR}/py/${nb}
+            ${CMAKE_CURRENT_BINARY_DIR}/${nb}
+  )
+endforeach()
 
 
 
