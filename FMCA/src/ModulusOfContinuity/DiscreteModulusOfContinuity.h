@@ -35,11 +35,12 @@ public:
     setDistanceType(dx_, dx_type);
     setDistanceType(dy_, dy_type);
 
+    // only if EUCLIDEAN or TAXICAB is used.
     bb_.resize(P.rows(), 3);
     bb_.col(0) = P.rowwise().minCoeff();
     bb_.col(1) = P.rowwise().maxCoeff();
-    bb_.col(2) = bb_.col(1) - bb_.col(0); // only if EUCLIDEAN is used.
-    const Scalar bb_diam = bb_.col(2).norm();
+    bb_.col(2) = bb_.col(1) - bb_.col(0);
+    const Scalar bb_diam = Base::dx_(bb_.col(0), bb_.col(1));
     TX_ = TX.has_value() ? TX.value() : bb_diam;
     TX_ = TX_ > 0 ? TX_ : 0;
     if (TX_ <= 0) {
@@ -140,9 +141,7 @@ public:
     bb_.resize(p_dim, 3);
     bb_.col(0) = pmin;
     bb_.col(1) = pmax;
-    bb_.col(2) = pmax - pmin; // meaningful for EUCLIDEAN
-
-    const Scalar bb_diam = bb_.col(2).norm();
+    const Scalar bb_diam = Base::dx_(bb_.col(0), bb_.col(1));
     TX_ = TX.has_value() ? std::min(TX.value(), bb_diam) : bb_diam;
     TX_ = TX_ > 0 ? TX_ : 0;
 
