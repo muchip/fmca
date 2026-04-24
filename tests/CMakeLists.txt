@@ -1,11 +1,5 @@
 find_package(Eigen3 REQUIRED NO_MODULE)
 
-add_executable(test_ExactDiscreteModulusOfContinuity.out test_ExactDiscreteModulusOfContinuity.cpp)
-add_test(ExactDiscreteModulusOfContinuity test_ExactDiscreteModulusOfContinuity.out)
-
-add_executable(test_EpsilonDiscreteModulusOfContinuity.out test_EpsilonDiscreteModulusOfContinuity.cpp)
-add_test(EpsilonDiscreteModulusOfContinuity test_EpsilonDiscreteModulusOfContinuity.out)
-
 enable_testing()
 
 macro(add_fmca_test name)

@@ -9,30 +9,29 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#ifndef FMCA_MODULUSOFCONTINUITY_EPSILONDISCRETEMODULUSOFCONTINUITY_H_
-#define FMCA_MODULUSOFCONTINUITY_EPSILONDISCRETEMODULUSOFCONTINUITY_H_
+#ifndef FMCA_MODULUSOFCONTINUITY_EPSILONLSHDISCRETEMODULUSOFCONTINUITY_H_
+#define FMCA_MODULUSOFCONTINUITY_EPSILONLSHDISCRETEMODULUSOFCONTINUITY_H_
 
-#include "../Clustering/E2LSH.h"
+#include "../Clustering/RestrictedE2LSH.h"
 #include "../Clustering/greedySetCovering.h"
 #include "../util/Macros.h"
 #include "DiscreteModulusOfContinuityBase.h"
 #include <optional>
 namespace FMCA {
 
-template <typename DerivedCT>
-class EpsilonDiscreteModulusOfContinuity
+class EpsilonLSHDiscreteModulusOfContinuity
     : public DiscreteModulusOfContinuityBase<
-          EpsilonDiscreteModulusOfContinuity<DerivedCT>> {
+          EpsilonLSHDiscreteModulusOfContinuity> {
 public:
-  using Base = DiscreteModulusOfContinuityBase<
-      EpsilonDiscreteModulusOfContinuity<DerivedCT>>;
+  using Base =
+      DiscreteModulusOfContinuityBase<EpsilonLSHDiscreteModulusOfContinuity>;
 
-  EpsilonDiscreteModulusOfContinuity() {}
+  EpsilonLSHDiscreteModulusOfContinuity() {}
 
   void init(const Matrix &P, const Matrix &f,
             const std::optional<Scalar> TX = std::nullopt, const Scalar r = 1,
-            const Index R = 2, const Index min_csize = 1,
-            const bool add_maxpts = true) {
+            const Index R = 2, const bool add_maxpts = true,
+            const Index lsh_L = 5, const Index lsh_k = 5) {
     setDistanceType(dx_, "EUCLIDEAN");
     setDistanceType(dy_, "EUCLIDEAN");
 
@@ -59,13 +58,20 @@ public:
     add_maxpts_ = add_maxpts;
 
     // const Index nbins = ... + 1;
-    K_ = std::ceil(std::log(TX_ / r_) / std::log(R_));
+    K_ = (TX_ <= r_)
+             ? 0
+             : static_cast<Index>(std::ceil(std::log(TX_ / r_) / std::log(R_)));
+
     Base::tgrid_.resize(K_ + 1);
     Base::omegat_.resize(K_ + 1);
     omegaNk_.resize(K_ + 1);
     XNk_indices_.resize(K_ + 1);
+    level_global_to_local_.resize(K_ + 1);
+    level_lsh_.resize(K_ + 1);
+    FMCA::RestrictedE2LSH lsh;
+    lsh.init(P, lsh_k, lsh_L, r_);
 
-    // it shall all happen in init procedure
+    // level 0 (global indices)
     {
 
       // set up modulus of continuity for the full set X = P using the
@@ -74,9 +80,10 @@ public:
 #pragma omp parallel for reduction(max : max_quotient)
       for (Index i = 0; i < P.cols(); ++i) {
         std::vector<Index> nn_idcs;
-        DerivedCT ct(P, min_csize);
-        Vector min_dist = minDistanceVector(ct, P);
-        nn_idcs = epsNN(ct, P, P.col(i), r_); // assumes L2 norm
+        // DerivedCT ct(P, min_csize);
+        // Vector min_dist = minDistanceVector(ct, P);
+        nn_idcs = lsh.computeAENN(P, i, r_);
+        // nn_idcs = epsNN(ct, P, P.col(i), r_); // assumes L2 norm
 
         for (Index j = 0; j < nn_idcs.size(); ++j)
           for (Index k = 0; k < j; ++k) {
@@ -122,8 +129,7 @@ public:
     for (Index k = 1; k <= K_; ++k) {
       // std::cout << "so far" << k << " so good";
 
-      DerivedCT ct(Pprev, min_csize_);
-      XNk_indices_[k] = greedySetCovering<DerivedCT>(ct, Pprev, Rkr);
+      XNk_indices_[k] = greedySetCoveringLSH(lsh, Pprev, Rkr);
 
       // fix indices to become the global indices
       bool hasmin = false;
@@ -164,17 +170,20 @@ public:
       // std::cout << "for" << k << " the construction of Ploc, floc, was okay";
 
       Pprev = Ploc;
-      DerivedCT ctk(Ploc, min_csize_);
-
       //  COMMENT BLOCK A (computation of moc on the reduced set)
       Scalar max_quotient = -1.;
 #pragma omp parallel for reduction(max : max_quotient)
       for (Index i = 0; i < Ploc.cols(); ++i) {
         std::vector<Index> nn_idcs;
-        std::vector<Index> lsh_nn_idcs;
 
-        nn_idcs = epsNN(ctk, Ploc, Ploc.col(i),
-                        Rkr); // assumes L2 norm
+        std::vector<Index> nn_idcs;
+        // DerivedCT ct(P, min_csize);
+        // Vector min_dist = minDistanceVector(ct, P);
+        nn_idcs = lsh.computeAENN(P, XNk_indices_[k][i], Rkr);
+        // nn_idcs = epsNN(ct, P, P.col(i), r_); // assumes L2 norm
+
+        // ensure nn_idcs contains only points present in Ploc cols indices
+        // map nn_idcs that are global indices from P, to Ploc
 
         for (Index j = 0; j < nn_idcs.size(); ++j)
           for (Index k = 0; k < j; ++k) {
@@ -219,15 +228,17 @@ public:
       floc.col(j) = f.col(XNk_indices_[k][j]);
     }
 
-    DerivedCT ctk(Ploc, min_csize_);
-
     Scalar max_quotient = -1.;
 #pragma omp parallel for reduction(max : max_quotient)
     for (Index i = 0; i < Ploc.cols(); ++i) {
       std::vector<Index> nn_idcs;
-      std::vector<Index> lsh_nn_idcs;
 
-      nn_idcs = epsNN(ctk, Ploc, Ploc.col(i), tgrid_[k]); // assumes L2 norm
+      nn_idcs = lsh.computeAENN(P, XNk_indices_[k][i], tgrid_[k]);
+
+      // make sure nn_idcs only contains points whose index is present in Ploc
+      // (i think it is sufficient to intersection with XNk_indices_[k])
+
+      // map the global indices contained in nn_idcs to columns of Ploc
 
       for (Index j = 0; j < nn_idcs.size(); ++j)
         for (Index l = 0; l < j; ++l) {

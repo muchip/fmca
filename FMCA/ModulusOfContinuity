@@ -14,7 +14,7 @@
 
 /**
  *  \ingroup Modules
- *  \defgroup ModulusOfContinuity ModulusOfContinuity 
+ *  \defgroup ModulusOfContinuity ModulusOfContinuity
  *  \brief Module containing all functionality related to the modulus of
  *         continuity
  *
@@ -23,8 +23,8 @@
 #include "src/util/Macros.h"
 
 #include "src/util/ForwardDeclarations.h"
-//
-#include "src/ModulusOfContinuity/DiscreteModulusOfContinuityBase.h"
 #include "src/ModulusOfContinuity/DiscreteModulusOfContinuity.h"
-
+#include "src/ModulusOfContinuity/LSHDiscreteModulusOfContinuity.h"
+#include "src/ModulusOfContinuity/DiscreteModulusOfContinuityBase.h"
+#include "src/ModulusOfContinuity/EpsilonDiscreteModulusOfContinuity.h"
 #endif

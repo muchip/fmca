@@ -26,9 +26,8 @@
 #include <FMCA/H2Matrix>
 #include <FMCA/LowRankApproximation>
 #include <FMCA/Samplets>
-#include <FMCA/src/ModulusOfContinuity/EpsilonDiscreteModulusOfContinuity.h>
-#include <FMCA/src/ModulusOfContinuity/ExactDiscreteModulusOfContinuity.h>
 
+#include <FMCA/ModulusOfContinuity>
 #include <FMCA/src/Clustering/greedySetCovering.h>
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -539,45 +538,93 @@ PYBIND11_MODULE(FMCA, m) {
   //////////////////////////////////////////////////////////////////////////////
   // MODULUS OF CONTINUITY
   //////////////////////////////////////////////////////////////////////////////
-  py::class_<FMCA::ExactDiscreteModulusOfContinuity> pyMOC(
-      m, "ExactDiscreteModulusOfContinuity");
-  pyMOC.def(py::init<>());
-  pyMOC.def("init", &FMCA::ExactDiscreteModulusOfContinuity::init, py::arg("P"),
-            py::arg("f"), py::arg("TX"), py::arg("dx_type") = "EUCLIDEAN",
-            py::arg("dy_type") = "EUCLIDEAN", py::arg("trick") = "NO",
-            py::arg("use_lsh") = false);
-  pyMOC.def("getOmega", &FMCA::ExactDiscreteModulusOfContinuity::getOmega);
-  pyMOC.def("computeMocPlot",
-            &FMCA::ExactDiscreteModulusOfContinuity::computeMocPlot,
-            py::arg("P"), py::arg("f"), py::arg("d"));
+  py::class_<FMCA::DiscreteModulusOfContinuity>(m,
+                                                "DiscreteModulusOfContinuity")
+      .def(py::init<>())
 
-  pyMOC.def("getOmegaT", &FMCA::ExactDiscreteModulusOfContinuity::getOmegaT);
-  pyMOC.def("getTGrid", &FMCA::ExactDiscreteModulusOfContinuity::getTGrid);
-  pyMOC.def("getTX", &FMCA::ExactDiscreteModulusOfContinuity::getTX);
+      .def("init",
+           py::overload_cast<const FMCA::Matrix &, const FMCA::Matrix &,
+                             const std::optional<FMCA::Scalar>,
+                             const FMCA::Scalar, const std::string,
+                             const std::string>(
+               &FMCA::DiscreteModulusOfContinuity::init),
+           py::arg().noconvert(),        // P
+           py::arg().noconvert(),        // f
+           py::arg("TX") = std::nullopt, // TX
+           py::arg("step_size") = 1,     // step_size
+           py::arg("dx_type") = "EUCLIDEAN", py::arg("dy_type") = "EUCLIDEAN")
 
-  using EDMOC = FMCA::EpsilonDiscreteModulusOfContinuity;
-  using CT = FMCA::ClusterTree; // or whatever cluster tree you actually want
+      .def("init",
+           py::overload_cast<const std::string &, const std::string &,
+                             const std::optional<FMCA::Scalar>,
+                             const FMCA::Scalar, const std::string,
+                             const std::string, const FMCA::Index>(
+               &FMCA::DiscreteModulusOfContinuity::init),
+           py::arg("P_path"), py::arg("f_path"), py::arg("TX") = std::nullopt,
+           py::arg("step_size") = 1, py::arg("dx_type") = "EUCLIDEAN",
+           py::arg("dy_type") = "EUCLIDEAN", py::arg("block_size") = 1024)
 
-  py::class_<EDMOC> pyEMOC(m, "EpsilonDiscreteModulusOfContinuity");
-  pyEMOC.def(py::init<>());
+      .def("TX", &FMCA::DiscreteModulusOfContinuity::TX)
+      .def("omega", &FMCA::DiscreteModulusOfContinuity::omega)
+      .def("tgrid", &FMCA::DiscreteModulusOfContinuity::tgrid)
+      .def("omegat", &FMCA::DiscreteModulusOfContinuity::omegat)
+      .def("bb", &FMCA::DiscreteModulusOfContinuity::bb);
 
-  pyEMOC.def(
-      "init",
-      [](EDMOC &self, const FMCA::Matrix &P, const FMCA::Matrix &f,
-         FMCA::Scalar r, FMCA::Index R, FMCA::Scalar TX, FMCA::Index min_csize,
-         const std::string &dx_type, const std::string &dy_type,
-         bool add_maxpts, bool use_lsh) {
-        self.template init<CT>(P, f, r, R, TX, min_csize, dx_type, dy_type,
-                               add_maxpts, use_lsh);
-      },
-      py::arg("P"), py::arg("f"), py::arg("r"), py::arg("R"), py::arg("TX") = 1,
-      py::arg("min_csize") = 1, py::arg("dx_type") = "EUCLIDEAN",
-      py::arg("dy_type") = "EUCLIDEAN", py::arg("add_maxpts") = true,
-      py::arg("use_lsh") = false);
+  using EpsMOC = FMCA::EpsilonDiscreteModulusOfContinuity<FMCA::ClusterTree>;
 
-  pyEMOC.def(
-      "omega",
-      [](const EDMOC &self, FMCA::Scalar t, const FMCA::Matrix &P,
-         const FMCA::Matrix &f) { return self.template omega<CT>(t, P, f); },
-      py::arg("t"), py::arg("P"), py::arg("f"));
+  py::class_<EpsMOC>(m, "EpsilonDiscreteModulusOfContinuity")
+      .def(py::init<>())
+
+      .def("init", &EpsMOC::init,
+           py::arg().noconvert(),        // P
+           py::arg().noconvert(),        // f
+           py::arg("TX") = std::nullopt, // TX
+           py::arg("r") = 1,             // step_size
+           py::arg("R") = 2, py::arg("min_csize") = 1,
+           py::arg("add_maxpts") = true)
+
+      // inherited from base
+      .def("TX", &EpsMOC::TX)
+      .def("tgrid", &EpsMOC::tgrid)
+      .def("omegat", &EpsMOC::omegat)
+      .def("bb", &EpsMOC::bb)
+
+      .def("omega", &EpsMOC::omega, py::arg(), py::arg().noconvert(),
+           py::arg().noconvert(), "Evaluate omega(t) using reduced sets");
+
+  using LSHMOC = FMCA::LSHDiscreteModulusOfContinuity;
+
+  py::class_<LSHMOC>(m, "LSHDiscreteModulusOfContinuity")
+      .def(py::init<>())
+
+      .def("init",
+           py::overload_cast<const FMCA::Matrix &, const FMCA::Matrix &,
+                             const std::optional<FMCA::Scalar>,
+                             const FMCA::Scalar, const std::string,
+                             const std::string, const FMCA::Index,
+                             const FMCA::Index>(&LSHMOC::init),
+           py::arg().noconvert(),        // P
+           py::arg().noconvert(),        // f
+           py::arg("TX") = std::nullopt, // TX
+           py::arg("step_size") = 1, py::arg("dx_type") = "EUCLIDEAN",
+           py::arg("dy_type") = "EUCLIDEAN", py::arg("L") = 5, py::arg("k") = 5)
+
+      .def("init",
+           py::overload_cast<const std::string &, const std::string &,
+                             const std::optional<FMCA::Scalar>,
+                             const FMCA::Scalar, const std::string,
+                             const std::string, const FMCA::Index,
+                             const FMCA::Index, const FMCA::Index>(
+               &LSHMOC::init),
+           py::arg("P_path"), py::arg("f_path"), py::arg("TX") = std::nullopt,
+           py::arg("step_size") = 1, py::arg("dx_type") = "EUCLIDEAN",
+           py::arg("dy_type") = "EUCLIDEAN", py::arg("L") = 5, py::arg("k") = 5,
+           py::arg("block_size") = 1024)
+
+      // inherited from base
+      .def("TX", &LSHMOC::TX)
+      .def("omega", &LSHMOC::omega)
+      .def("tgrid", &LSHMOC::tgrid)
+      .def("omegat", &LSHMOC::omegat)
+      .def("bb", &LSHMOC::bb);
 }
