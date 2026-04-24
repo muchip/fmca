@@ -545,13 +545,13 @@ PYBIND11_MODULE(FMCA, m) {
       .def("init",
            py::overload_cast<const FMCA::Matrix &, const FMCA::Matrix &,
                              const std::optional<FMCA::Scalar>,
-                             const FMCA::Scalar, const std::string,
+                             const FMCA::Index, const std::string,
                              const std::string>(
                &FMCA::DiscreteModulusOfContinuity::init),
            py::arg().noconvert(),        // P
            py::arg().noconvert(),        // f
            py::arg("TX") = std::nullopt, // TX
-           py::arg("step_size") = 1,     // step_size
+           py::arg("nbins") = 1,         // step_size
            py::arg("dx_type") = "EUCLIDEAN", py::arg("dy_type") = "EUCLIDEAN")
 
       .def("init",

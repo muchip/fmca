@@ -30,7 +30,7 @@ public:
   // grids to improve resolution of omegat at 0.
   void init(const Matrix &P, const Matrix &f,
             const std::optional<Scalar> TX = std::nullopt,
-            const Scalar step_size = 1, const std::string dx_type = "EUCLIDEAN",
+            const Index nbins = 100, const std::string dx_type = "EUCLIDEAN",
             const std::string dy_type = "EUCLIDEAN") {
     setDistanceType(dx_, dx_type);
     setDistanceType(dy_, dy_type);
@@ -49,13 +49,48 @@ public:
       return;
     }
 
-    step_size_ = step_size <= TX_ ? step_size : TX_;
-    const Index nbins = std::ceil(TX_ / step_size_) + 1;
+    // compute moc for t in [q_x, T_x]
+    Scalar qX = TX_;
+
+#pragma omp parallel
+    {
+      Scalar local_qX = TX_;
+
+#pragma omp for schedule(dynamic)
+      for (FMCA::Index k = 0; k < P.cols(); ++k) {
+        for (FMCA::Index l = 0; l < k; ++l) {
+          const Scalar xdist = Base::dx_(P.col(k), P.col(l));
+
+          // Use the smallest strictly positive distance.
+          // This avoids log(0), and ignores duplicate points.
+          if (xdist > 0)
+            local_qX = std::min(local_qX, xdist);
+        }
+      }
+
+#pragma omp critical
+      {
+        qX = std::min(qX, local_qX);
+      }
+    }
+
     Base::tgrid_.resize(nbins);
     Base::omegat_.resize(nbins);
-    const Scalar quad_scale = TX_ / ((nbins - 1) * (nbins - 1));
-    for (Index i = 0; i < tgrid_.size(); ++i)
-      tgrid_[i] = quad_scale * i * i;
+    Base::omegat_.assign(nbins, 0);
+    const Scalar log_qX = std::log(qX);
+    const Scalar log_TX = std::log(TX_);
+    const Scalar log_step = (log_TX - log_qX) / (nbins - 1);
+
+    for (Index i = 0; i < Base::tgrid_.size(); ++i)
+      Base::tgrid_[i] = std::exp(log_qX + i * log_step);
+
+    // Avoid tiny floating-point endpoint drift.
+    Base::tgrid_[0] = qX;
+    Base::tgrid_[nbins - 1] = TX_;
+
+    // const Scalar quad_scale = TX_ / ((nbins - 1) * (nbins - 1));
+    // for (Index i = 0; i < tgrid_.size(); ++i)
+    //   tgrid_[i] = quad_scale * i * i;
 
 #pragma omp parallel
     {
@@ -65,10 +100,25 @@ public:
         for (FMCA::Index l = 0; l < k; ++l) {
           const Scalar xdist = Base::dx_(P.col(k), P.col(l));
           const Scalar ydist = Base::dy_(f.col(k), f.col(l));
-          Index idx =
-              static_cast<Index>(std::ceil(std::sqrt(xdist / quad_scale)));
-          if (idx >= nbins)
+
+          Index idx = 0;
+
+          if (xdist <= qX) {
+            idx = 0;
+          } else if (xdist >= TX_) {
             idx = nbins - 1;
+          } else {
+            idx =
+                static_cast<Index>(std::ceil(std::log(xdist / qX) / log_step));
+
+            if (idx >= nbins)
+              idx = nbins - 1;
+          }
+
+          // Index idx =
+          //     static_cast<Index>(std::ceil(std::sqrt(xdist / quad_scale)));
+          // if (idx >= nbins)
+          //   idx = nbins - 1;
           // std::min(Index(std::ceil(xdist / step_size_)), nbins - 1);
           local_omegat[idx] = std::max(local_omegat[idx], ydist);
         }
