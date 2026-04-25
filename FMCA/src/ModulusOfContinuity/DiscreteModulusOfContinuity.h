@@ -30,6 +30,7 @@ public:
   // grids to improve resolution of omegat at 0.
   void init(const Matrix &P, const Matrix &f,
             const std::optional<Scalar> TX = std::nullopt,
+            const std::optional<Scalar> qX = std::nullopt,
             const Index nbins = 100, const std::string dx_type = "EUCLIDEAN",
             const std::string dy_type = "EUCLIDEAN") {
     setDistanceType(dx_, dx_type);
@@ -50,34 +51,38 @@ public:
     }
 
     // compute moc for t in [q_x, T_x]
-    Scalar qX = TX_;
-
+    Scalar qX_;
+    if (!qX.has_value()) {
+      qX_ = TX_;
 #pragma omp parallel
-    {
-      Scalar local_qX = TX_;
+      {
+        Scalar local_qX = TX_;
 
 #pragma omp for schedule(dynamic)
-      for (FMCA::Index k = 0; k < P.cols(); ++k) {
-        for (FMCA::Index l = 0; l < k; ++l) {
-          const Scalar xdist = Base::dx_(P.col(k), P.col(l));
+        for (FMCA::Index k = 0; k < P.cols(); ++k) {
+          for (FMCA::Index l = 0; l < k; ++l) {
+            const Scalar xdist = Base::dx_(P.col(k), P.col(l));
 
-          // Use the smallest strictly positive distance.
-          // This avoids log(0), and ignores duplicate points.
-          if (xdist > 0)
-            local_qX = std::min(local_qX, xdist);
+            // Use the smallest strictly positive distance.
+            // This avoids log(0), and ignores duplicate points.
+            if (xdist > 0)
+              local_qX = std::min(local_qX, xdist);
+          }
         }
-      }
 
 #pragma omp critical
-      {
-        qX = std::min(qX, local_qX);
+        {
+          qX_ = std::min(qX_, local_qX);
+        }
       }
+    } else {
+      qX_ = qX.value();
     }
 
     Base::tgrid_.resize(nbins);
     Base::omegat_.resize(nbins);
     Base::omegat_.assign(nbins, 0);
-    const Scalar log_qX = std::log(qX);
+    const Scalar log_qX = std::log(qX_);
     const Scalar log_TX = std::log(TX_);
     const Scalar log_step = (log_TX - log_qX) / (nbins - 1);
 
@@ -85,7 +90,7 @@ public:
       Base::tgrid_[i] = std::exp(log_qX + i * log_step);
 
     // Avoid tiny floating-point endpoint drift.
-    Base::tgrid_[0] = qX;
+    Base::tgrid_[0] = qX_;
     Base::tgrid_[nbins - 1] = TX_;
 
     // const Scalar quad_scale = TX_ / ((nbins - 1) * (nbins - 1));
@@ -103,13 +108,13 @@ public:
 
           Index idx = 0;
 
-          if (xdist <= qX) {
+          if (xdist <= qX_) {
             idx = 0;
           } else if (xdist >= TX_) {
             idx = nbins - 1;
           } else {
             idx =
-                static_cast<Index>(std::ceil(std::log(xdist / qX) / log_step));
+                static_cast<Index>(std::ceil(std::log(xdist / qX_) / log_step));
 
             if (idx >= nbins)
               idx = nbins - 1;
