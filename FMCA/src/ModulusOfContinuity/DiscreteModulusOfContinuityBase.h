@@ -47,12 +47,14 @@ public:
 
   const std::vector<Scalar> &tgrid() const { return tgrid_; }
   const std::vector<Scalar> &omegat() const { return omegat_; }
+  const Scalar qX() const { return qX_; }
 
 protected:
   Matrix bb_;
   std::function<Scalar(const Vector &, const Vector &)> dx_;
   std::function<Scalar(const Vector &, const Vector &)> dy_;
   Scalar TX_;
+  Scalar qX_;
   Scalar step_size_;
   std::vector<Scalar> tgrid_;
   std::vector<Scalar> omegat_;

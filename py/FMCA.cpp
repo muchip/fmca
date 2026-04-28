@@ -556,17 +556,8 @@ PYBIND11_MODULE(FMCA, m) {
            py::arg("nbins") = 1, // step_size
            py::arg("dx_type") = "EUCLIDEAN", py::arg("dy_type") = "EUCLIDEAN")
 
-      .def("init",
-           py::overload_cast<const std::string &, const std::string &,
-                             const std::optional<FMCA::Scalar>,
-                             const FMCA::Scalar, const std::string,
-                             const std::string, const FMCA::Index>(
-               &FMCA::DiscreteModulusOfContinuity::init),
-           py::arg("P_path"), py::arg("f_path"), py::arg("TX") = std::nullopt,
-           py::arg("step_size") = 1, py::arg("dx_type") = "EUCLIDEAN",
-           py::arg("dy_type") = "EUCLIDEAN", py::arg("block_size") = 1024)
-
       .def("TX", &FMCA::DiscreteModulusOfContinuity::TX)
+      .def("qX", &FMCA::DiscreteModulusOfContinuity::qX)
       .def("omega", &FMCA::DiscreteModulusOfContinuity::omega)
       .def("tgrid", &FMCA::DiscreteModulusOfContinuity::tgrid)
       .def("omegat", &FMCA::DiscreteModulusOfContinuity::omegat)
