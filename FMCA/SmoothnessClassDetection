@@ -1,0 +1,31 @@
+// This file is part of FMCA, the Fast Multiresolution Covariance Analysis
+// package.
+//
+// Copyright (c) 2025, Michael Multerer, Sara Avesani
+//
+// All rights reserved.
+//
+// This source code is subject to the GNU Affero General Public License v3.0
+// license and without any warranty, see <https://github.com/muchip/FMCA>
+// for further information.
+//
+#ifndef FMCA_SMOOTHNESSCLASSDETECTION_MODULE_
+#define FMCA_SMOOTHNESSCLASSDETECTION_MODULE_
+
+#include <Eigen/Dense>
+#include <algorithm>
+#include <iostream>
+#include <map>
+#include <optional>
+#include <utility>
+#include <vector>
+#include <cmath>
+#include <numeric>
+
+#include "Samplets"
+#include "src/util/Macros.h"
+
+#include "src/SmoothnessClassDetection/SampletCoefficientsAnalyzer.h"
+#include "src/SmoothnessClassDetection/SlopeFitter.h"
+
+#endif

@@ -58,7 +58,11 @@ namespace FMCA {
 #define FMCA_MAXINDEX UINT_MAX
 
 #define FMCA_UNSAFE 0
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> SampletsSmoothnessDetection
 typedef FMCA_INDEX Index;
 
 typedef FMCA_SCALAR Scalar;

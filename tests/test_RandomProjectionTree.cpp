@@ -25,7 +25,13 @@ int main() {
   FMCA::Vector colr(NPTS);
   std::vector<FMCA::Scalar> colr2;
   T.tic();
+<<<<<<< HEAD
   FMCA::RandomProjectionTree ct(P, 100);
+=======
+  FMCA::RandomProjectionTree ct(P, 10);
+  clusterTreeStatistics(ct, P);
+
+>>>>>>> SampletsSmoothnessDetection
   T.toc("tree computation: ");
   std::vector<FMCA::Matrix> bbvec;
   for (const auto &it : ct) {
