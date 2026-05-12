@@ -10,6 +10,7 @@ macro(add_fmca_test name)
 endmacro()
 
 add_fmca_test(test_AdaptiveTreeSearch)
+add_fmca_test(test_AdaptiveSL_Halton)
 add_fmca_test(test_Alpha)
 add_fmca_test(test_ClusterTree)
 add_fmca_test(test_ClusterTreeMetrics)
