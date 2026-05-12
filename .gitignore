@@ -4,8 +4,8 @@
 *.swp
 html/
 build/
-SemiLagrangian/
-EdgeDetection/
+tests/compile_and_run.sh
+tests/debug.sh
 tests/test_MultilevelFrankeFunction.cpp
 tests/test_MultilevelFranke_Adaptive.cpp
 tests/test_MultilevelGP.cpp

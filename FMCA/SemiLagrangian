@@ -1,0 +1,32 @@
+// This file is part of FMCA, the Fast Multiresolution Covariance Analysis
+// package.
+//
+// Copyright (c) 2025, Michael Multerer, Sara Avesani
+//
+// All rights reserved.
+//
+// This source code is subject to the GNU Affero General Public License v3.0
+// license and without any warranty, see <https://github.com/muchip/FMCA>
+// for further information.
+//
+#ifndef FMCA_SEMILAGRANGIAN_MODULE_
+#define FMCA_SEMILAGRANGIAN_MODULE_
+
+/**
+ *  \ingroup Modules
+ *  \defgroup SemiLagrangian SemiLagrangian
+ *  \brief Adaptive semi-Lagrangian solver for 2D transport-type
+ *         equations (e.g. Burgers) on scattered data, coupled with the
+ *         samplet-based smoothness-class detector.
+ */
+
+#include "src/util/Macros.h"
+//
+#include "KernelInterpolation"
+#include "SmoothnessClassDetection"
+
+#include "src/SemiLagrangian/KernelInterpolator2D.h"
+#include "src/SemiLagrangian/NearestNeighborInterpolator2D.h"
+#include "src/SemiLagrangian/AdaptiveSemiLagrangian2D.h"
+
+#endif
