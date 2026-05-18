@@ -1,3 +1,4 @@
+
 // This file is part of FMCA, the Fast Multiresolution Covariance Analysis
 // package.
 //
@@ -48,11 +49,18 @@ class GradKernel {
     // Transform string to upper case
     for (auto& chr : ktype_) chr = (char)toupper(chr);
     ////////////////////////////////////////////////////////////////////////////
-    if (ktype_ == "GAUSSIAN_SECOND_DERIVATIVE")
+
+    if (ktype_ == "GAUSSIAN_FIRST_DERIVATIVE")
+      gradkernel_ = [this](Scalar x, Scalar y, Scalar r, Scalar) {
+        return -(x - y) / (l_ * l_) * exp(-0.5 * r * r / (l_ * l_));
+      };
+
+    else if (ktype_ == "GAUSSIAN_SECOND_DERIVATIVE")
       gradkernel_ = [this](Scalar x, Scalar y, Scalar r, Scalar) {
         return ((x - y) * (x - y) - (l_ * l_)) / (l_ * l_ * l_ * l_) *
                exp(-0.5 * r * r / (l_ * l_));
       };
+
     else if (ktype_ == "GAUSSIAN_FOURTH_DERIVATIVE")
       gradkernel_ = [this](Scalar x, Scalar y, Scalar r, Scalar) {
         return (3 * pow(l_, 4) - 6 * pow((x - y), 2) * pow(l_, 2) +
@@ -64,22 +72,45 @@ class GradKernel {
         return (1 / (l_ * l_ * sqrt((r / l_) * (r / l_) + c_ * c_))) *
                (1 - ((x - y) * (x - y) / ((r / l_) * (r / l_) + c_ * c_)));
       };
+
+    else if (ktype_ == "MATERN52_FIRST_DERIVATIVE")
+      gradkernel_ = [this](Scalar x, Scalar y, Scalar r, Scalar) {
+        return -5 / (3 * l_ * l_) * (x - y) * exp(-sqrt(5) / l_ * r) *
+               (1 + sqrt(5) / l_ * r);
+      };
+
     else if (ktype_ == "MATERN52_SECOND_DERIVATIVE")
       gradkernel_ = [this](Scalar x, Scalar y, Scalar r, Scalar) {
         return -5 / (3 * l_ * l_) * exp(-sqrt(5) / l_ * r) *
                (1 + sqrt(5) / l_ * r - 5 / (l_ * l_) * (x - y) * (x - y));
       };
+
+    else if (ktype_ == "MATERN32_FIRST_DERIVATIVE")
+      gradkernel_ = [this](Scalar x, Scalar y, Scalar r, Scalar) {
+        return -3 / (l_ * l_) * (x - y) * exp(-sqrt(3) / l_ * r);
+      };
+
+    else if (ktype_ == "MATERN32_SECOND_DERIVATIVE")
+      gradkernel_ = [this](Scalar x, Scalar y, Scalar r, Scalar) {
+        if (r < 1e-14) return Scalar(1);
+        else
+          return -3 / (l_ * l_) * exp(-sqrt(3) / l_ * r) *
+               (1 - (sqrt(3) / (l_ * r) * (x - y) * (x - y)));
+      };
+
     else if (ktype_ == "TPS2D_FIRST_DERIVATIVE")
       gradkernel_ = [this](Scalar x, Scalar y, Scalar r, Scalar) {
         if (r < 1e-14) return Scalar(0);
         return (2.0 * std::log(r) + 1.0) * (x - y);
       };
+
     else if (ktype_ == "TPS2D_SECOND_DERIVATIVE")
       gradkernel_ = [this](Scalar x, Scalar y, Scalar r, Scalar) {
         if (r < 1e-14) return Scalar(0);
         Scalar diff = x - y;
         return (2.0 * std::log(r) + 1.0) + 2.0 * diff * diff / (r * r);
       };
+
     else
       assert(false && "desired gradient kernel not implemented");
   }

@@ -126,18 +126,6 @@ class SampletMatrixCompressorUnsymmetric {
             block = (block * pr->Q()).transpose();
           }
         }
-        // #pragma omp critical
-        // {
-        //   if (block.array().isNaN().any()) {
-        //     std::cout << "NaN detected in block: "
-        //               << "row_id=" << row_id << " col_id=" << col_id
-        //               << " pr_level=" << pr->level() << " pc_level=" << pc->level()
-        //               << " pr_nSons=" << pr->nSons() << " pc_nSons=" << pc->nSons()
-        //               << " pr_size=" << pr->block_size() << " pc_size=" << pc->block_size()
-        //               << " block_size=(" << block.rows() << "x" << block.cols() << ")"
-        //               << std::endl;
-        //   }
-        // }
       }
       // garbage collector
       if (it != queue_.rbegin()) {
@@ -190,42 +178,6 @@ class SampletMatrixCompressorUnsymmetric {
     }
     return triplet_list_;
   }
-  std::vector<Triplet> aposteriori_triplets_fast(const Scalar thres) {
-    std::vector<Triplet> retval;
-    std::vector<std::vector<Index>> buckets(17);
-    std::vector<Scalar> norms2(17);
-    const Scalar invlog10 = 1. / std::log(10.);
-    for (FMCA::Index i = 0; i < triplet_list_.size(); ++i) {
-      const Scalar entry = std::abs(triplet_list_[i].value());
-      const Scalar val = -std::floor(invlog10 * std::log(entry));
-      const Index ind = val < 0 ? 0 : val;
-      buckets[ind > 16 ? 16 : ind].push_back(i);
-      norms2[ind > 16 ? 16 : ind] += entry * entry;
-    }
-    Scalar fnorm2 = 0;
-    for (int i = 16; i >= 0; --i) fnorm2 += norms2[i];
-    Scalar cut_snorm = 0;
-    Index cut_off = 17;
-    for (int i = 16; i >= 0; --i) {
-      cut_snorm += norms2[i];
-      if (std::sqrt(cut_snorm / fnorm2) >= thres) break;
-      --cut_off;
-    }
-    Index ntriplets = 0;
-    for (Index i = 0; i < cut_off; ++i) ntriplets += buckets[i].size();
-    const Index n_diag = std::min(r_rta_.nodes()[0]->block_size(),
-                                  c_rta_.nodes()[0]->block_size());
-    retval.reserve(ntriplets + n_diag);
-    for (Index i = 0; i < cut_off; ++i)
-      for (const auto &it : buckets[i]) retval.push_back(triplet_list_[it]);
-    // make sure the matrix contains the diagonal
-    for (Index i = cut_off; i < 17; ++i)
-      for (const auto &it : buckets[i])
-        if (triplet_list_[it].row() == triplet_list_[it].col())
-          retval.push_back(triplet_list_[it]);
-    retval.shrink_to_fit();
-    return retval;
-  }
 
   std::vector<Triplet> release_triplets() {
     std::vector<Triplet> retval;
@@ -239,8 +191,6 @@ class SampletMatrixCompressorUnsymmetric {
    *clusters the four blocks [A^PhiPhi, A^PhiSigma; A^SigmaPhi,
    *A^SigmaSigma]
    **/
-
-
   template <typename EntryGenerator>
   Matrix recursivelyComputeBlock(const Derived &TR, const Derived &TC,
                                  const EntryGenerator &e_gen) {
@@ -295,105 +245,6 @@ class SampletMatrixCompressorUnsymmetric {
     }
     return Matrix(0, 0);
   }
-  // template <typename EntryGenerator>
-  // Matrix recursivelyComputeBlock(const Derived &TR, const Derived &TC,
-  //                                const EntryGenerator &e_gen) {
-  //   Matrix buf(0, 0);
-  //   if (ClusterComparison::compare(TR, TC, eta_) == LowRank) {
-  //     e_gen.interpolate_kernel(TR, TC, &buf);
-  //     auto result = TR.V().transpose() * buf * TC.V();
-  //     if (result.array().isNaN().any())
-  //       std::cout << "NaN in LowRank branch: TR.level=" << TR.level()
-  //                 << " TC.level=" << TC.level()
-  //                 << " buf_hasNaN=" << buf.array().isNaN().any()
-  //                 << " TR.V_hasNaN=" << TR.V().array().isNaN().any()
-  //                 << " TC.V_hasNaN=" << TC.V().array().isNaN().any()
-  //                 << " buf_size=(" << buf.rows() << "x" << buf.cols() << ")"
-  //                 << std::endl;
-  //     return result;
-  //   } else {
-  //     const char the_case = 2 * (!TR.nSons()) + !TC.nSons();
-  //     switch (the_case) {
-  //       case 3: {
-  //         e_gen.compute_dense_block(TR, TC, &buf);
-  //         auto result = TR.Q().transpose() * buf * TC.Q();
-  //         if (result.array().isNaN().any())
-  //           std::cout << "NaN in case3 leaf-leaf: TR.level=" << TR.level()
-  //                     << " TC.level=" << TC.level()
-  //                     << " buf_hasNaN=" << buf.array().isNaN().any()
-  //                     << " TR.Q_hasNaN=" << TR.Q().array().isNaN().any()
-  //                     << " TC.Q_hasNaN=" << TC.Q().array().isNaN().any()
-  //                     << " buf_size=(" << buf.rows() << "x" << buf.cols() << ")"
-  //                     << std::endl;
-  //         return result;
-  //       }
-  //       case 2: {
-  //         for (auto j = 0; j < TC.nSons(); ++j) {
-  //           const Index nscalfs = TC.sons(j).nscalfs();
-  //           Matrix ret = recursivelyComputeBlock(TR, TC.sons(j), e_gen);
-  //           buf.conservativeResize(ret.rows(), buf.cols() + nscalfs);
-  //           buf.rightCols(nscalfs) = ret.leftCols(nscalfs);
-  //         }
-  //         auto result = buf * TC.Q();
-  //         if (result.array().isNaN().any())
-  //           std::cout << "NaN in case2 row-leaf: TR.level=" << TR.level()
-  //                     << " TC.level=" << TC.level()
-  //                     << " buf_hasNaN=" << buf.array().isNaN().any()
-  //                     << " TC.Q_hasNaN=" << TC.Q().array().isNaN().any()
-  //                     << " buf_size=(" << buf.rows() << "x" << buf.cols() << ")"
-  //                     << std::endl;
-  //         return result;
-  //       }
-  //       case 1: {
-  //         for (auto i = 0; i < TR.nSons(); ++i) {
-  //           const Index nscalfs = TR.sons(i).nscalfs();
-  //           Matrix ret = recursivelyComputeBlock(TR.sons(i), TC, e_gen);
-  //           buf.conservativeResize(ret.cols(), buf.cols() + nscalfs);
-  //           buf.rightCols(nscalfs) = ret.transpose().leftCols(nscalfs);
-  //         }
-  //         auto result = (buf * TR.Q()).transpose();
-  //         if (result.array().isNaN().any())
-  //           std::cout << "NaN in case1 col-leaf: TR.level=" << TR.level()
-  //                     << " TC.level=" << TC.level()
-  //                     << " buf_hasNaN=" << buf.array().isNaN().any()
-  //                     << " TR.Q_hasNaN=" << TR.Q().array().isNaN().any()
-  //                     << " buf_size=(" << buf.rows() << "x" << buf.cols() << ")"
-  //                     << std::endl;
-  //         return result;
-  //       }
-  //       case 0: {
-  //         for (auto i = 0; i < TR.nSons(); ++i) {
-  //           Matrix ret1(0, 0);
-  //           const Index r_nscalfs = TR.sons(i).nscalfs();
-  //           for (auto j = 0; j < TC.nSons(); ++j) {
-  //             const Index c_nscalfs = TC.sons(j).nscalfs();
-  //             Matrix ret2 =
-  //                 recursivelyComputeBlock(TR.sons(i), TC.sons(j), e_gen);
-  //             ret1.conservativeResize(ret2.rows(), ret1.cols() + c_nscalfs);
-  //             ret1.rightCols(c_nscalfs) = ret2.leftCols(c_nscalfs);
-  //           }
-  //           ret1 = ret1 * TC.Q();
-  //           buf.conservativeResize(ret1.cols(), buf.cols() + r_nscalfs);
-  //           buf.rightCols(r_nscalfs) = ret1.transpose().leftCols(r_nscalfs);
-  //         }
-  //         auto result = (buf * TR.Q()).transpose();
-  //         if (result.array().isNaN().any())
-  //           std::cout << "NaN in case0 neither-leaf: TR.level=" << TR.level()
-  //                     << " TC.level=" << TC.level()
-  //                     << " buf_hasNaN=" << buf.array().isNaN().any()
-  //                     << " TR.Q_hasNaN=" << TR.Q().array().isNaN().any()
-  //                     << " TC.Q_hasNaN=" << TC.Q().array().isNaN().any()
-  //                     << " buf_size=(" << buf.rows() << "x" << buf.cols() << ")"
-  //                     << std::endl;
-  //         return result;
-  //       }
-  //     }
-  //   }
-  //   return Matrix(0, 0);
-  // }
-
-
-
 
   /**
    *  \brief writes a given matrix block into a-posteriori thresholded
