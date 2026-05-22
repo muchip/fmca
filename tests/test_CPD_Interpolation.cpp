@@ -64,9 +64,9 @@ void PivotedCholesky(const T& K, FMCA::Matrix* L,
   return;
 }
 
-#define NPTS 500000
+#define NPTS 200000
 #define DIM 2
-// #define USE_PIVOTED_CHOLESKY
+#define USE_PIVOTED_CHOLESKY
 
 FMCA::Scalar u_true(FMCA::Scalar x, FMCA::Scalar y) {
   // Affine trend
@@ -107,7 +107,7 @@ int main() {
   // Build samplet tree
   T.tic();
   const Moments mom(P, mpole_deg);
-  const Moments Pmom(P, 1);
+  const Moments Pmom(P, 0);
   const MatrixEvaluator mat_eval(mom, function);
   const SampletMoments samp_mom(P, dtilde - 1);
   H2SampletTree hst(mom, samp_mom, 0, P);
@@ -184,8 +184,7 @@ int main() {
   T.tic();
   Eigen::SparseMatrix<FMCA::Scalar> Ksym = Kpsi.selfadjointView<Eigen::Upper>();
   T.toc("build symmetric K_psi:       ");
-  const FMCA::Scalar pchol_tol =
-      1e-8;  // trace tolerance, smaller => bigger rank
+  const FMCA::Scalar pchol_tol = 1e-14;  // trace tolerance, smaller => bigger rank
   const FMCA::Index pchol_max_cols = 20000;
 
   FMCA::Matrix L;
@@ -242,7 +241,7 @@ int main() {
   }
 
   //----------- (C) Woodbury / Sherman-Morrison on (eps I + L L^T) -------
-  const FMCA::Scalar eps = 1e-8;
+  const FMCA::Scalar eps = 1e-7;
   T.tic();
   FMCA::Matrix M = LtL;
   M.diagonal().array() += eps;  // eps I_r + L^T L
@@ -250,7 +249,7 @@ int main() {
   FMCA::Vector zw = L.transpose() * f_Psi;  // r
   FMCA::Vector w = llt_M.solve(zw);         // (eps I + L^T L)^{-1} z
   FMCA::Vector c_Psi_wb = (f_Psi - L * w) / eps;
-  T.toc("(C) Woodbury (eps=1e-8):     ");
+  T.toc("(C) Woodbury:                ");
   {
     FMCA::Vector LLt_c = L * (L.transpose() * c_Psi_wb);
     FMCA::Vector res_C = eps * c_Psi_wb + LLt_c - f_Psi;
@@ -259,7 +258,8 @@ int main() {
   }
 
   // Choose which one feeds the downstream interpolation.
-  c_Psi = c_Psi_qr;
+  c_Psi = c_Psi_wb;
+
 #else
   {
     Eigen::SparseMatrix<FMCA::Scalar> I(NPTS - mq, NPTS - mq);
@@ -295,21 +295,8 @@ int main() {
   FMCA::Vector rhs_d = S_block.transpose() * (f_P - KPPsi_cPsi);
   FMCA::Vector d = STS.inverse() * rhs_d;
   std::cout << "d recovered:                  " << d.transpose() << std::endl;
-  // Training interpolation check
-  {
-    FMCA::MultipoleFunctionEvaluator mfe_train;
-    mfe_train.init(function, P, P, eta, mpole_deg);
-    FMCA::Vector s_train_kernel = mfe_train.evaluate(P, P, c);  // natural order
-    // Pol.transpose() * d is in cluster order -> permute to natural
-    FMCA::Vector s_train_poly_clust = Pol.transpose() * d;
-    FMCA::Vector s_train_poly(NPTS);
-    for (FMCA::Index i = 0; i < NPTS; ++i)
-      s_train_poly(hst.indices()[i]) = s_train_poly_clust(i);
-    FMCA::Vector s_train = s_train_kernel + s_train_poly;
-    std::cout << "Rel L2 error on training points: "
-              << (s_train - f).norm() / f.norm() << std::endl;
-  }
-  // Prediction on test points
+
+  //////////////////////////////////////////////////////////// Evaluation
   T.tic();
   const FMCA::Index NEVAL = 500000;
   const FMCA::Matrix P_eval =
@@ -320,7 +307,7 @@ int main() {
   FMCA::Vector mu_kernel = mfe.evaluate(P, P_eval, c);
 
   const Moments mom_eval(P_eval, mpole_deg);
-  const Moments Pmom_eval(P_eval, 1);
+  const Moments Pmom_eval(P_eval, 0);
   const MatrixEvaluator mat_eval_eval(mom_eval, function);
   const SampletMoments samp_mom_eval(P_eval, dtilde - 1);
   H2SampletTree hst_eval(mom_eval, samp_mom_eval, 0, P_eval);
