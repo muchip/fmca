@@ -22,6 +22,7 @@ using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
 using MatrixEvaluator = FMCA::NystromEvaluator<Moments, FMCA::CovarianceKernel>;
 using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
+//////////////////////////////////////////////////////////////////////
 template <typename T>
 void PivotedCholesky(const T& K, FMCA::Matrix* L,
                      std::vector<FMCA::Index>* idcs, FMCA::Scalar tol = 1e-3,
@@ -64,10 +65,12 @@ void PivotedCholesky(const T& K, FMCA::Matrix* L,
   return;
 }
 
-#define NPTS 200000
+///////////////////////////////////////////////////////////////////////
+#define NPTS 500000
 #define DIM 2
 #define USE_PIVOTED_CHOLESKY
 
+////////////////////////////////////////////////////////////////////////
 FMCA::Scalar u_true(FMCA::Scalar x, FMCA::Scalar y) {
   // Affine trend
   FMCA::Scalar val = 0.30 - 0.20 * x + 0.10 * y;
@@ -98,7 +101,6 @@ int main() {
   const FMCA::Scalar eta = 0.5;
   const FMCA::Index dtilde = 8;
   const FMCA::Index mpole_deg = 2 * (dtilde - 1);
-
   std::cout << "dtilde:                       " << dtilde << std::endl;
   std::cout << "mpole_deg:                    " << mpole_deg << std::endl;
   std::cout << "eta:                          " << eta << std::endl;
@@ -178,13 +180,14 @@ int main() {
   FMCA::Vector f_Psi = Uf.tail(NPTS - mq);
   FMCA::Vector c_Psi;
 
-  //////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
 #ifdef USE_PIVOTED_CHOLESKY
 
   T.tic();
   Eigen::SparseMatrix<FMCA::Scalar> Ksym = Kpsi.selfadjointView<Eigen::Upper>();
   T.toc("build symmetric K_psi:       ");
-  const FMCA::Scalar pchol_tol = 1e-14;  // trace tolerance, smaller => bigger rank
+  const FMCA::Scalar pchol_tol =
+      1e-14;  // trace tolerance, smaller => bigger rank
   const FMCA::Index pchol_max_cols = 20000;
 
   FMCA::Matrix L;
@@ -256,7 +259,6 @@ int main() {
     std::cout << "    Woodbury residual on (lambda I + L L^T): "
               << res_C.norm() / f_Psi.norm() << std::endl;
   }
-
   // Choose which one feeds the downstream interpolation.
   c_Psi = c_Psi_wb;
 
@@ -298,7 +300,7 @@ int main() {
 
   //////////////////////////////////////////////////////////// Evaluation
   T.tic();
-  const FMCA::Index NEVAL = 500000;
+  const FMCA::Index NEVAL = 1000000;
   const FMCA::Matrix P_eval =
       0.5 * (FMCA::Matrix::Random(DIM, NEVAL).array() + 1);
 
