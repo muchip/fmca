@@ -31,9 +31,6 @@ using SampletMoments = FMCA::MinNystromSampletMoments<SampletInterpolator>;
 namespace {
 
 // Gaussian bump centred at (x0, y0), peak amplitude A, width sigma.
-// Burgers self-advection u_t + u u_x = 0 transports the top of the
-// bump to the right at speed = u. The right side compresses into a
-// shock at t ~ sigma / A.
 FMCA::Scalar initialCondition(FMCA::Scalar x, FMCA::Scalar y) {
   constexpr FMCA::Scalar x0 = -0.5;
   constexpr FMCA::Scalar y0 = 0.5;
@@ -88,7 +85,7 @@ int main() {
   const Scalar threshold = 1e-8;
   const Scalar ridgep = 1e-10;  
   const Index k_low = 4;
-  const Scalar alpha_thr = 2.5; 
+  const Scalar alpha_thr = 2.5; //2.5 
   const Scalar smooth_thr = 1e-6;
 
   const Moments mom(P, 2 * (dtilde - 1));
@@ -145,16 +142,16 @@ int main() {
     char fname[256];
     Vector flagv(N);
     for (Index i = 0; i < N; ++i) flagv(i) = flags[i];
-    std::snprintf(fname, sizeof(fname), "halton_u_%04u.vtk",
-                  static_cast<unsigned>(step));
-    IO::plotPointsColor(fname, P3, u);
-    std::snprintf(fname, sizeof(fname), "halton_flag_%04u.vtk",
-                  static_cast<unsigned>(step));
-    IO::plotPointsColor(fname, P3, flagv);
+    // std::snprintf(fname, sizeof(fname), "output_SL/halton_u_%04u.vtk",
+    //               static_cast<unsigned>(step));
+    // IO::plotPointsColor(fname, P3, u);
+    // std::snprintf(fname, sizeof(fname), "output_SL/halton_flag_%04u.vtk",
+    //               static_cast<unsigned>(step));
+    // IO::plotPointsColor(fname, P3, flagv);
     Matrix P3u(3, N);
     P3u.topRows(2) = P;
     P3u.row(2) = u;
-    std::snprintf(fname, sizeof(fname), "halton_u3d_%04u.vtk",
+    std::snprintf(fname, sizeof(fname), "output_SL/halton_u3d_no_flag_%04u.vtk",
                   static_cast<unsigned>(step));
     IO::plotPointsColor(fname, P3u, u);
   };
