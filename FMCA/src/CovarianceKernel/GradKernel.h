@@ -49,25 +49,35 @@ class GradKernel {
     // Transform string to upper case
     for (auto& chr : ktype_) chr = (char)toupper(chr);
     ////////////////////////////////////////////////////////////////////////////
-    
+
     if (ktype_ == "GAUSSIAN_FIRST_DERIVATIVE")
       gradkernel_ = [this](Scalar x, Scalar y, Scalar r, Scalar) {
-        return -(x - y) / ( l_ * l_ ) *
-               exp(-0.5 * r * r / (l_ * l_));
+        return -(x - y) / (l_ * l_) * exp(-0.5 * r * r / (l_ * l_));
       };
-    
+
     else if (ktype_ == "GAUSSIAN_SECOND_DERIVATIVE")
       gradkernel_ = [this](Scalar x, Scalar y, Scalar r, Scalar) {
         return ((x - y) * (x - y) - (l_ * l_)) / (l_ * l_ * l_ * l_) *
                exp(-0.5 * r * r / (l_ * l_));
       };
-      
+
     else if (ktype_ == "GAUSSIAN_FOURTH_DERIVATIVE")
       gradkernel_ = [this](Scalar x, Scalar y, Scalar r, Scalar) {
         return (3 * pow(l_, 4) - 6 * pow((x - y), 2) * pow(l_, 2) +
                 pow((x - y), 4)) /
                pow(l_, 8) * exp(-0.5 * r * r / (l_ * l_));
       };
+
+    else if (ktype_ == "BIHARMONIC3D_FIRST_DERIVATIVE")
+      gradkernel_ = [this](Scalar x, Scalar y, Scalar r, Scalar) {
+        if (r < 1e-14) return Scalar(0);
+        return (x - y) / (l_ * r);
+      };
+    else if (ktype_ == "TRIHARMONIC3D_FIRST_DERIVATIVE")
+      gradkernel_ = [this](Scalar x, Scalar y, Scalar r, Scalar) {
+        return 3.0 * r / (l_ * l_ * l_) * (x - y);
+      };
+      
     else if (ktype_ == "MULTIQUADRIC_SECOND_DERIVATIVE")
       gradkernel_ = [this](Scalar x, Scalar y, Scalar r, Scalar) {
         return (1 / (l_ * l_ * sqrt((r / l_) * (r / l_) + c_ * c_))) *
@@ -85,15 +95,16 @@ class GradKernel {
         return -5 / (3 * l_ * l_) * exp(-sqrt(5) / l_ * r) *
                (1 + sqrt(5) / l_ * r - 5 / (l_ * l_) * (x - y) * (x - y));
       };
-    
+
     else if (ktype_ == "MATERN32_FIRST_DERIVATIVE")
       gradkernel_ = [this](Scalar x, Scalar y, Scalar r, Scalar) {
-        return -3 / (l_ * l_ ) * (x - y ) * exp(-sqrt(3) / l_ * r);
+        return -3 / (l_ * l_) * (x - y) * exp(-sqrt(3) / l_ * r);
       };
 
     else if (ktype_ == "MATERN32_SECOND_DERIVATIVE")
       gradkernel_ = [this](Scalar x, Scalar y, Scalar r, Scalar) {
-        return -3 / (l_ * l_) * exp(-sqrt(3)/ l_ * r) *  (1 - (sqrt(3)/ (l_ * r ) * (x - y)*(x - y)));
+        return -3 / (l_ * l_) * exp(-sqrt(3) / l_ * r) *
+               (1 - (sqrt(3) / (l_ * r) * (x - y) * (x - y)));
       };
 
     else if (ktype_ == "TPS2D_FIRST_DERIVATIVE")
@@ -101,7 +112,7 @@ class GradKernel {
         if (r < 1e-14) return Scalar(0);
         return (2.0 * std::log(r) + 1.0) * (x - y);
       };
-      
+
     else if (ktype_ == "TPS2D_SECOND_DERIVATIVE")
       gradkernel_ = [this](Scalar x, Scalar y, Scalar r, Scalar) {
         if (r < 1e-14) return Scalar(0);
