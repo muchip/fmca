@@ -15,25 +15,26 @@
 
 namespace FMCA {
 
+template <typename KernelType = CovarianceKernel>
 class MultipoleFunctionEvaluator {
  public:
   using Interpolator = TotalDegreeInterpolator;
   using Moments = NystromMoments<Interpolator>;
   using H2CT = H2ClusterTree<ClusterTree>;
   using H2Mat = H2Matrix<H2CT, CompareCluster>;
-  using MatEval = unsymmetricNystromEvaluator<Moments, CovarianceKernel>;
+  using MatEval = unsymmetricNystromEvaluator<Moments, KernelType>;
 
   MultipoleFunctionEvaluator() {}
 
-  MultipoleFunctionEvaluator(const CovarianceKernel& kernel, const Matrix& P,
+  MultipoleFunctionEvaluator(const KernelType& kernel, const Matrix& P,
                              const Matrix& Peval, Scalar eta = 0.,
                              Index mpole_deg = 3) {
     init(kernel, P, Peval, eta, mpole_deg);
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
-  void init(const CovarianceKernel& kernel, const Matrix& P,
-            const Matrix& Peval, Scalar eta = 0., Index mpole_deg = 3) {
+  void init(const KernelType& kernel, const Matrix& P, const Matrix& Peval,
+            Scalar eta = 0., Index mpole_deg = 3) {
     // set parameters
     eta_ = eta >= 0 ? eta : 0;
     mpole_deg_ = mpole_deg;
@@ -58,7 +59,7 @@ class MultipoleFunctionEvaluator {
   }
 
  private:
-  CovarianceKernel kernel_;
+  KernelType kernel_;
   H2CT hct_;
   H2CT hct_eval_;
   H2Mat h2mat_;
