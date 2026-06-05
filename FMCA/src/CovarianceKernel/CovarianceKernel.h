@@ -58,7 +58,7 @@ class CovarianceKernel {
         return r < FMCA_ZERO_TOLERANCE ? 0 : log(r / l_) * (r / l_) * (r / l_);
       };
     else if (ktype_ == "BIHARMONIC3D")
-      kernel_ = [this](Scalar r) { return r / l_; };
+      kernel_ = [this](Scalar r) { return -r / l_; };
     else if (ktype_ == "TRIHARMONIC3D")
       kernel_ = [this](Scalar r) { return (r / l_) * (r / l_) * (r / l_); };
     else if (ktype_ == "EXPONENTIAL")
