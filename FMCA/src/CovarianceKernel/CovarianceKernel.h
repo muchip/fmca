@@ -58,7 +58,7 @@ class CovarianceKernel {
         return r < FMCA_ZERO_TOLERANCE ? 0 : log(r / l_) * (r / l_) * (r / l_);
       };
     else if (ktype_ == "BIHARMONIC3D")
-      kernel_ = [this](Scalar r) { return r / l_; };
+      kernel_ = [this](Scalar r) { return -r / l_; };
     else if (ktype_ == "TRIHARMONIC3D")
       kernel_ = [this](Scalar r) { return (r / l_) * (r / l_) * (r / l_); };
     else if (ktype_ == "EXPONENTIAL")
@@ -110,7 +110,7 @@ class CovarianceKernel {
       };
     else if (ktype_ == "MULTIQUADRIC")
       kernel_ = [this](Scalar r) {
-        return std::sqrt((r / l_) * (r / l_) + c_ * c_);
+        return -std::sqrt((r / l_) * (r / l_) + c_ * c_);
       };
     else if (ktype_ == "TPS2D")
       kernel_ = [this](Scalar r) { return r > 0 ? r * r * std::log(r) : 0; };
