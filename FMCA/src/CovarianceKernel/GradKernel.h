@@ -73,11 +73,17 @@ class GradKernel {
         if (r < 1e-14) return Scalar(0);
         return (x - y) / (l_ * r);
       };
+    else if (ktype_ == "BIHARMONIC3D_SECOND_DERIVATIVE")
+      gradkernel_ = [this](Scalar x, Scalar y, Scalar r, Scalar) {
+        if (r < 1e-14) return Scalar(0);
+        Scalar diff = x - y;
+        return 1.0 / (l_ * r) - (diff * diff) / (l_ * r * r * r);
+      };
     else if (ktype_ == "TRIHARMONIC3D_FIRST_DERIVATIVE")
       gradkernel_ = [this](Scalar x, Scalar y, Scalar r, Scalar) {
         return 3.0 * r / (l_ * l_ * l_) * (x - y);
       };
-      
+
     else if (ktype_ == "MULTIQUADRIC_SECOND_DERIVATIVE")
       gradkernel_ = [this](Scalar x, Scalar y, Scalar r, Scalar) {
         return (1 / (l_ * l_ * sqrt((r / l_) * (r / l_) + c_ * c_))) *
