@@ -147,7 +147,16 @@ class CovarianceKernel {
   Scalar &c() { return c_; }
 
   std::string kernelType() const { return ktype_; }
-  const std::function<Scalar(Scalar)> &kernel() { return kernel_; }
+  const std::function<Scalar(Scalar)> &kernel() const { return kernel_; }
+
+ protected:
+  // Hook for derived kernels (e.g. SumKernel) that are not one of the
+  // predefined types: set the radial function r |-> k(r) directly. Everything
+  // downstream (operator(), eval, all evaluators) only ever calls this radial
+  // function, so such a kernel behaves exactly like a CovarianceKernel.
+  void setRadialFunction(std::function<Scalar(Scalar)> radial) {
+    kernel_ = std::move(radial);
+  }
 
  private:
   // member variables
