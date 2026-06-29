@@ -26,6 +26,12 @@ class MemoryArena {
     free_list_.reserve(initial_capacity);
   }
 
+  void init(Index slab_size, Index initial_capacity = 64) {
+    slab_size_ = slab_size;
+    slabs_in_use_ = 0;
+    free_list_.reserve(initial_capacity);
+    return;
+  }
   MemoryArena(const MemoryArena &) = delete;
   MemoryArena(MemoryArena &&) = delete;
   //////////////////////////////////////////////////////////////////////////////
@@ -69,7 +75,7 @@ class MemoryArena {
   }
 
  private:
-  const Index slab_size_;
+  Index slab_size_;
   Index slabs_in_use_;
   std::vector<std::unique_ptr<T[]>> free_list_;
   mutable std::mutex mutex_;

@@ -12,6 +12,7 @@
 #ifndef FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_H_
 #define FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_H_
 
+#include "../util/MemoryArena.h"
 #include "../util/RandomTreeAccessor.h"
 
 namespace FMCA {
@@ -42,7 +43,7 @@ class SampletMatrixCompressor {
     npts_ = ST.block_size();
     rta_.init(ST, ST.block_size());
     pattern_.resize(2 * rta_.max_level() + 1);
-
+    std::ptrdiff_t max_block_size = 0;
 #pragma omp parallel for schedule(dynamic)
     for (Index j = 0; j < rta_.nodes().size(); ++j) {
       const Derived *pc = rta_.nodes()[j];
@@ -65,10 +66,21 @@ class SampletMatrixCompressor {
           const size_t id =
               pr->block_id() + rta_.nodes().size() * pc->block_id();
 #pragma omp critical
-          pattern_[pc->level() + pr->level()].insert({id, Matrix(0, 0)});
+          {
+            pattern_[pc->level() + pr->level()].insert({id, Matrix(0, 0)});
+            max_block_size =
+                std::max<std::ptrdiff_t>({max_block_size, pr->Q().rows(),
+                                          pr->Q().cols(), pr->V().cols()});
+            max_block_size =
+                std::max<std::ptrdiff_t>({max_block_size, pc->Q().rows(),
+                                          pc->Q().cols(), pc->V().cols()});
+          }
         }
       }
     }
+    std::cout << "determined maximum mem size:  " << max_block_size
+              << std::endl;
+    mem_arena_.init(3 * max_block_size);
     return;
   }
 
@@ -99,6 +111,7 @@ class SampletMatrixCompressor {
           Index offset = 0;
           size_t son_id = 0;
           Matrix &block = it2->second;
+          Matrix buf;
           const char the_case = 2 * (!pr->nSons()) + (!pc->nSons());
           switch (the_case) {
             // (leaf,leaf), compute the block
@@ -395,6 +408,84 @@ class SampletMatrixCompressor {
     }
     return Matrix(0, 0);
   }
+  /**
+   *  \brief recursively computes for a given pair of row and column
+   *clusters the four blocks [A^PhiPhi, A^PhiSigma; A^SigmaPhi,
+   *A^SigmaSigma]
+   **/
+  template <typename EntryGenerator>
+  void recursivelyComputeBlock_noalloc(const Derived &TR, const Derived &TC,
+                                       const EntryGenerator &e_gen,
+                                       std::unique_ptr<Scalar[]> &mem,
+                                       Index bsize) {
+    // check for admissibility
+    if (ClusterComparison::compare(TR, TC, eta_) == LowRank) {
+      e_gen.interpolate_kernel_noalloc(TR, TC, mem, bsize);
+      Map<Matrix> buf(mem.get() + 2 * bsize, TR.V().rows(), TC.V().rows());
+      Map<Matrix> temp(mem.get() + bsize, TR.V().rows(), TC.V().cols());
+      Map<Matrix> retval(mem.get(), TR.V().cols(), TC.V().cols());
+      temp.noalias() = buf * TC.V();
+      retval.noalias() = TR.V().transpose() * temp;
+      return;
+    } else {
+      const char the_case = 2 * (!TR.nSons()) + !TC.nSons();
+      switch (the_case) {
+        case 3:
+          // both are leafs: compute the block and return
+          e_gen.compute_dense_block_noalloc(TR, TC, mem, bsize);
+          Map<Matrix> buf(mem.get() + 2 * bsize, TR.Q().rows(), TC.Q().rows());
+          Map<Matrix> temp(mem.get() + bsize, TR.Q().rows(), TC.Q().cols());
+          Map<Matrix> retval(mem.get(), TR.Q().cols(), TC.Q().cols());
+          temp.noalias() = buf * TC.Q();
+          retval.noalias() = TR.Q().transpose() * temp;
+          return;
+        case 2:
+          Map<Matrix> retval(mem.get(), TR.Q().cols(), TC.Q().cols());
+          Map<Matrix> buf(mem.get() + 2 * bsize, TR.Q().cols(), TC.Q().rows());
+          // the row cluster is a leaf cluster: recursion on the col cluster
+          Index offset = 0;
+          for (auto j = 0; j < TC.nSons(); ++j) {
+            std::unique_ptr<Scalar[]> c_mem = mem_arena_.acquire();
+            recursivelyComputeBlock_noalloc(TR, TC.sons(j), e_gen, c_mem,
+                                            bsize);
+            Map<Matrix> temp(c_mem.get(), TR.Q().cols(), TC.sons(j).Q().cols());
+            const Index nscalfs = TC.sons(j).nscalfs();
+            buf.middleCols(offset, nscalfs) = temp.leftCols(nscalfs);
+            offset += nscalfs;
+            mem_arena_.release(std::move(c_mem));
+          }
+          retval.noalias() = buf * TC.Q();
+          return;
+        case 1:
+          // the col cluster is a leaf cluster: recursion on the row cluster
+          for (auto i = 0; i < TR.nSons(); ++i) {
+            const Index nscalfs = TR.sons(i).nscalfs();
+            Matrix ret = recursivelyComputeBlock(TR.sons(i), TC, e_gen);
+            buf.conservativeResize(ret.cols(), buf.cols() + nscalfs);
+            buf.rightCols(nscalfs) = ret.transpose().leftCols(nscalfs);
+          }
+          return (buf * TR.Q()).transpose();
+        case 0:
+          // neither is a leaf, let recursion handle this
+          for (auto i = 0; i < TR.nSons(); ++i) {
+            Matrix ret1(0, 0);
+            const Index r_nscalfs = TR.sons(i).nscalfs();
+            for (auto j = 0; j < TC.nSons(); ++j) {
+              const Index c_nscalfs = TC.sons(j).nscalfs();
+              Matrix ret2 =
+                  recursivelyComputeBlock(TR.sons(i), TC.sons(j), e_gen);
+              ret1.conservativeResize(ret2.rows(), ret1.cols() + c_nscalfs);
+              ret1.rightCols(c_nscalfs) = ret2.leftCols(c_nscalfs);
+            }
+            ret1 = ret1 * TC.Q();
+            buf.conservativeResize(ret1.cols(), buf.cols() + r_nscalfs);
+            buf.rightCols(r_nscalfs) = ret1.transpose().leftCols(r_nscalfs);
+          }
+          return (buf * TR.Q()).transpose();
+      }
+    }
+    return Matrix(0, 0);
+  }
 
   /**
    *  \brief writes a given matrix block into a-posteriori thresholded
@@ -417,13 +508,14 @@ class SampletMatrixCompressor {
           triplet_buffer.push_back(Triplet(srow + j, scol + k, 0));
   }
   //////////////////////////////////////////////////////////////////////////////
+  MemoryArena<Scalar> mem_arena_;
   std::vector<Triplet> triplet_list_;
   std::vector<LevelBuffer> pattern_;
   RandomTreeAccessor<Derived> rta_;
   Scalar eta_;
   Scalar threshold_;
   Index npts_;
-};
+};  // namespace internal
 }  // namespace internal
 }  // namespace FMCA
 

@@ -55,6 +55,41 @@ struct NystromEvaluator {
     return;
   }
   /**
+   *  \brief provides the kernel evaluation for the H2-matrix, in principle
+   *         this method could also be used to return the desired block from
+   *         a precomputed H2-matrix! The variant below computes entries
+   *         on the fly
+   **/
+  template <typename Derived>
+  void interpolate_kernel_noalloc(const ClusterTreeBase<Derived> &TR,
+                                  const ClusterTreeBase<Derived> &TC,
+                                  std::unique_ptr<Scalar[]> &mem,
+                                  Index bsize) const {
+    // slab: [XiX (d x K) | mat (K x K) | XiY (d x K)]
+    // after kernel fill: [scratch (K x K) | mat (K x K) | retval (K x K)]
+    Map<Matrix> XiX(mem.get(), mom_.interp().Xi().rows(),
+                    mom_.interp().Xi().cols());
+    Map<Matrix> XiY(mem.get() + 2 * bsize, mom_.interp().Xi().rows(),
+                    mom_.interp().Xi().cols());
+    Map<Matrix> mat(mem.get() + bsize, XiX.cols(), XiX.cols());
+    XiX = mom_.interp().Xi().cwiseProduct(
+              TR.bb().col(2).replicate(1, mom_.interp().Xi().cols())) +
+          TR.bb().col(0).replicate(1, mom_.interp().Xi().cols());
+    XiY = mom_.interp().Xi().cwiseProduct(
+              TC.bb().col(2).replicate(1, mom_.interp().Xi().cols())) +
+          TC.bb().col(0).replicate(1, mom_.interp().Xi().cols());
+    for (Index j = 0; j < mat.cols(); ++j)
+      for (Index i = 0; i < mat.rows(); ++i)
+        mat(i, j) = kernel_(XiX.col(i), XiY.col(j));
+    // invV * mat * invV^T -> mem + 2 * bsize
+    Map<Matrix> temp(mem.get(), mom_.interp().Xi().cols(),
+                     mom_.interp().Xi().cols());
+    Map<Matrix> retval(mem.get() + 2 * bsize, mom_.interp().Xi().cols(),
+                       mom_.interp().Xi().cols());
+    temp.noalias() = mat * mom_.interp().invV().transpose();
+    retval.noalias() = mom_.interp().invV() * temp;
+  }
+  /**
    *  \brief provides the evaluaton of a dense matrix block for a given
    *         cluster pair
    **/
@@ -69,7 +104,22 @@ struct NystromEvaluator {
                                   mom_.P().col(TC.indices()[j]));
     return;
   }
-
+  /**
+   *  \brief provides the evaluaton of a dense matrix block for a given
+   *         cluster pair
+   **/
+  template <typename Derived>
+  void compute_dense_block_noalloc(const ClusterTreeBase<Derived> &TR,
+                                   const ClusterTreeBase<Derived> &TC,
+                                   std::unique_ptr<Scalar[]> &mem,
+                                   Index bsize) const {
+    Map<Matrix> retval(mem.get() + 2 * bsize, TR.block_size(), TC.block_size());
+    for (Index j = 0; j < TC.block_size(); ++j)
+      for (Index i = 0; i < TR.block_size(); ++i)
+        retval(i, j) = kernel_(mom_.P().col(TR.indices()[i]),
+                               mom_.P().col(TC.indices()[j]));
+    return;
+  }
   /**
    *  \brief provides the evaluaton of a matrix entry given
    *         an index pair
