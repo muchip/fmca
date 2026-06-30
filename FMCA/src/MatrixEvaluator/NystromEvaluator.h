@@ -63,15 +63,13 @@ struct NystromEvaluator {
   template <typename Derived>
   void interpolate_kernel_noalloc(const ClusterTreeBase<Derived> &TR,
                                   const ClusterTreeBase<Derived> &TC,
-                                  std::unique_ptr<Scalar[]> &mem,
-                                  Index bsize) const {
+                                  Scalar *mem, Index stride) const {
     // slab: [XiX (d x K) | mat (K x K) | XiY (d x K)]
     // after kernel fill: [scratch (K x K) | mat (K x K) | retval (K x K)]
-    Map<Matrix> XiX(mem.get(), mom_.interp().Xi().rows(),
+    Map<Matrix> XiX(mem, mom_.interp().Xi().rows(), mom_.interp().Xi().cols());
+    Map<Matrix> XiY(mem + 2 * stride, mom_.interp().Xi().rows(),
                     mom_.interp().Xi().cols());
-    Map<Matrix> XiY(mem.get() + 2 * bsize, mom_.interp().Xi().rows(),
-                    mom_.interp().Xi().cols());
-    Map<Matrix> mat(mem.get() + bsize, XiX.cols(), XiX.cols());
+    Map<Matrix> mat(mem + stride, XiX.cols(), XiX.cols());
     XiX = mom_.interp().Xi().cwiseProduct(
               TR.bb().col(2).replicate(1, mom_.interp().Xi().cols())) +
           TR.bb().col(0).replicate(1, mom_.interp().Xi().cols());
@@ -81,10 +79,9 @@ struct NystromEvaluator {
     for (Index j = 0; j < mat.cols(); ++j)
       for (Index i = 0; i < mat.rows(); ++i)
         mat(i, j) = kernel_(XiX.col(i), XiY.col(j));
-    // invV * mat * invV^T -> mem + 2 * bsize
-    Map<Matrix> temp(mem.get(), mom_.interp().Xi().cols(),
-                     mom_.interp().Xi().cols());
-    Map<Matrix> retval(mem.get() + 2 * bsize, mom_.interp().Xi().cols(),
+    // invV * mat * invV^T -> mem + 2 * stride
+    Map<Matrix> temp(mem, mom_.interp().Xi().cols(), mom_.interp().Xi().cols());
+    Map<Matrix> retval(mem + 2 * stride, mom_.interp().Xi().cols(),
                        mom_.interp().Xi().cols());
     temp.noalias() = mat * mom_.interp().invV().transpose();
     retval.noalias() = mom_.interp().invV() * temp;
@@ -111,9 +108,8 @@ struct NystromEvaluator {
   template <typename Derived>
   void compute_dense_block_noalloc(const ClusterTreeBase<Derived> &TR,
                                    const ClusterTreeBase<Derived> &TC,
-                                   std::unique_ptr<Scalar[]> &mem,
-                                   Index bsize) const {
-    Map<Matrix> retval(mem.get() + 2 * bsize, TR.block_size(), TC.block_size());
+                                   Scalar *mem, Index stride) const {
+    Map<Matrix> retval(mem + 2 * stride, TR.block_size(), TC.block_size());
     for (Index j = 0; j < TC.block_size(); ++j)
       for (Index i = 0; i < TR.block_size(); ++i)
         retval(i, j) = kernel_(mom_.P().col(TR.indices()[i]),
