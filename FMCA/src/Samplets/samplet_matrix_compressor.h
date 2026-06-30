@@ -20,7 +20,8 @@ namespace internal {
 template <typename Derived, typename ClusterComparison = CompareCluster>
 class SampletMatrixCompressor {
  public:
-  typedef std::map<size_t, Matrix, std::greater<size_t>> LevelBuffer;
+  typedef std::map<size_t, std::unique_ptr<Scalar[]>, std::greater<size_t>>
+      LevelBuffer;
   SampletMatrixCompressor() {}
   SampletMatrixCompressor(const SampletTreeBase<Derived> &ST, Scalar eta,
                           Scalar threshold = 0) {
@@ -67,7 +68,8 @@ class SampletMatrixCompressor {
               pr->block_id() + rta_.nodes().size() * pc->block_id();
 #pragma omp critical
           {
-            pattern_[pc->level() + pr->level()].insert({id, Matrix(0, 0)});
+            pattern_[pc->level() + pr->level()].insert(
+                {id, std::unique_ptr<Scalar[]>()});
             max_size_ = std::max<std::ptrdiff_t>(
                 {max_size_, pr->Q().rows(), pr->Q().cols(), pr->V().cols()});
             max_size_ = std::max<std::ptrdiff_t>(
@@ -83,6 +85,7 @@ class SampletMatrixCompressor {
 
   template <typename EntGenerator>
   void compress(const EntGenerator &e_gen) {
+    triplet_list_.clear();
     // the column cluster tree is traversed bottom up
     const auto &rclusters = rta_.nodes();
     const auto &cclusters = rta_.nodes();
@@ -107,26 +110,21 @@ class SampletMatrixCompressor {
           Index son_lvl = 0;
           Index offset = 0;
           size_t son_id = 0;
-          Matrix &block = it2->second;
-          Matrix buf;
+          std::unique_ptr<Scalar[]> &block = it2->second;
           const char the_case = 2 * (!pr->nSons()) + (!pc->nSons());
           switch (the_case) {
             // (leaf,leaf), compute the block
             case 3: {
-              std::unique_ptr<Scalar[]> mem = mem_arena_.acquire();
-              recursivelyComputeBlock_noalloc(*pr, *pc, e_gen, mem.get(),
+              block = mem_arena_.acquire();
+              recursivelyComputeBlock_noalloc(*pr, *pc, e_gen, block.get(),
                                               max_size_ * max_size_);
-              assert(pr->Q().cols() <= max_size_ &&
-                     pc->Q().cols() <= max_size_ &&
-                     "mem mismatch at comp case 3");
-              Map<Matrix> retval(mem.get(), pr->Q().cols(), pc->Q().cols());
-              block = retval;
-              mem_arena_.release(std::move(mem));
               break;
             }
             // (noleaf,leaf), recycle from below
             case 1: {
-              block.resize(pr->Q().rows(), pc->Q().cols());
+              block = mem_arena_.acquire();
+              Map<Matrix> buf(block.get() + max_size_ * max_size_,
+                              pr->Q().rows(), pc->Q().cols());
               for (auto k = 0; k < pr->nSons(); ++k) {
                 nscalfs = pr->sons(k).nscalfs();
                 son_lvl = pr->sons(k).level() + pc->level();
@@ -134,8 +132,10 @@ class SampletMatrixCompressor {
                 const auto it3 = pattern_[son_lvl].find(son_id);
                 // if so, reuse the matrix block, otherwise recompute it
                 if (it3 != pattern_[son_lvl].end()) {
-                  const Matrix &ret = it3->second;
-                  block.middleRows(offset, nscalfs) = ret.topRows(nscalfs);
+                  std::unique_ptr<Scalar[]> &c_mem = it3->second;
+                  Map<Matrix> ret(c_mem.get(), pr->sons(k).Q().cols(),
+                                  pc->Q().cols());
+                  buf.middleRows(offset, nscalfs) = ret.topRows(nscalfs);
                 } else {
                   std::unique_ptr<Scalar[]> mem = mem_arena_.acquire();
                   recursivelyComputeBlock_noalloc(pr->sons(k), *pc, e_gen,
@@ -146,18 +146,21 @@ class SampletMatrixCompressor {
                          "mem mismatch at comp case 1");
                   Map<Matrix> ret(mem.get(), pr->sons(k).Q().cols(),
                                   pc->Q().cols());
-                  block.middleRows(offset, nscalfs) = ret.topRows(nscalfs);
+                  buf.middleRows(offset, nscalfs) = ret.topRows(nscalfs);
                   mem_arena_.release(std::move(mem));
                 }
                 offset += nscalfs;
               }
-              block = pr->Q().transpose() * block;
+              Map<Matrix> retval(block.get(), pr->Q().cols(), pc->Q().cols());
+              retval.noalias() = pr->Q().transpose() * buf;
               break;
             }
               // (*,noleaf), recycle from right
             case 2:
             case 0: {
-              block.resize(pr->Q().cols(), pc->Q().rows());
+              block = mem_arena_.acquire();
+              Map<Matrix> buf(block.get() + max_size_ * max_size_,
+                              pr->Q().cols(), pc->Q().rows());
               for (auto k = 0; k < pc->nSons(); ++k) {
                 nscalfs = pc->sons(k).nscalfs();
                 son_lvl = pc->sons(k).level() + pr->level();
@@ -166,8 +169,10 @@ class SampletMatrixCompressor {
                 // if so, reuse the matrix block, otherwise recompute it
                 const auto it3 = pattern_[son_lvl].find(son_id);
                 if (it3 != pattern_[son_lvl].end()) {
-                  const Matrix &ret = it3->second;
-                  block.middleCols(offset, nscalfs) = ret.leftCols(nscalfs);
+                  std::unique_ptr<Scalar[]> &r_mem = it3->second;
+                  Map<Matrix> ret(r_mem.get(), pr->Q().cols(),
+                                  pc->sons(k).Q().cols());
+                  buf.middleCols(offset, nscalfs) = ret.leftCols(nscalfs);
                 } else {
                   std::unique_ptr<Scalar[]> mem = mem_arena_.acquire();
                   recursivelyComputeBlock_noalloc(*pr, pc->sons(k), e_gen,
@@ -178,12 +183,13 @@ class SampletMatrixCompressor {
                          "mem mismatch at comp case 0/2");
                   Map<Matrix> ret(mem.get(), pr->Q().cols(),
                                   pc->sons(k).Q().cols());
-                  block.middleCols(offset, nscalfs) = ret.leftCols(nscalfs);
+                  buf.middleCols(offset, nscalfs) = ret.leftCols(nscalfs);
                   mem_arena_.release(std::move(mem));
                 }
                 offset += nscalfs;
               }
-              block = block * pc->Q();
+              Map<Matrix> retval(block.get(), pr->Q().cols(), pc->Q().cols());
+              retval.noalias() = buf * pc->Q();
               break;
             }
           }
@@ -200,6 +206,7 @@ class SampletMatrixCompressor {
         LevelBuffer::iterator it2 = pattern_[ll + 1].begin();
 #pragma omp parallel shared(pos), firstprivate(it2)
         {
+          std::vector<Triplet> list;
           Index i = 0;
           Index prev_i = 0;
 #pragma omp atomic capture
@@ -208,17 +215,65 @@ class SampletMatrixCompressor {
             std::advance(it2, i - prev_i);
             const Derived *pr = rclusters[it2->first % nclusters];
             const Derived *pc = cclusters[it2->first / nclusters];
-            Matrix &block = it2->second;
+            std::unique_ptr<Scalar[]> &block = it2->second;
+            Map<Matrix> mat(block.get(), pr->Q().cols(), pc->Q().cols());
             if (!pr->is_root() && !pc->is_root())
-              block = block.bottomRightCorner(pr->nsamplets(), pc->nsamplets())
-                          .eval();
+              storeBlock(
+                  list, pr->start_index(), pc->start_index(), pr->nsamplets(),
+                  pc->nsamplets(),
+                  mat.bottomRightCorner(pr->nsamplets(), pc->nsamplets()));
+            else if (!pc->is_root())
+              storeBlock(list, pr->start_index(), pc->start_index(),
+                         pr->Q().cols(), pc->nsamplets(),
+                         mat.rightCols(pc->nsamplets()));
+            else if (pr->is_root() && pc->is_root())
+              storeBlock(list, pr->start_index(), pc->start_index(),
+                         pr->Q().cols(), pc->Q().cols(), mat);
+            mem_arena_.release(std::move(block));
             prev_i = i;
 #pragma omp atomic capture
             i = pos++;
           }
+#pragma omp critical
+          triplet_list_.insert(triplet_list_.end(), list.begin(), list.end());
         }
       }
     }
+    // garbage collector
+    {
+      Index pos = 0;
+      const size_t map_size = pattern_[0].size();
+      LevelBuffer::iterator it2 = pattern_[0].begin();
+      {
+        std::vector<Triplet> list;
+        Index i = 0;
+        Index prev_i = 0;
+        i = pos++;
+        while (i < map_size) {
+          std::advance(it2, i - prev_i);
+          const Derived *pr = rclusters[it2->first % nclusters];
+          const Derived *pc = cclusters[it2->first / nclusters];
+          std::unique_ptr<Scalar[]> &block = it2->second;
+          Map<Matrix> mat(block.get(), pr->Q().cols(), pc->Q().cols());
+          if (!pr->is_root() && !pc->is_root())
+            storeBlock(list, pr->start_index(), pc->start_index(),
+                       pr->nsamplets(), pc->nsamplets(),
+                       mat.bottomRightCorner(pr->nsamplets(), pc->nsamplets()));
+          else if (!pc->is_root())
+            storeBlock(list, pr->start_index(), pc->start_index(),
+                       pr->Q().cols(), pc->nsamplets(),
+                       mat.rightCols(pc->nsamplets()));
+          else if (pr->is_root() && pc->is_root())
+            storeBlock(list, pr->start_index(), pc->start_index(),
+                       pr->Q().cols(), pc->Q().cols(), mat);
+          mem_arena_.release(std::move(block));
+          prev_i = i;
+          i = pos++;
+        }
+        triplet_list_.insert(triplet_list_.end(), list.begin(), list.end());
+      }
+    }
+
     std::cout << "final arena size: " << mem_arena_.slabs_in_use() << "/"
               << mem_arena_.num_free_slabs() << std::endl;
 
@@ -258,6 +313,7 @@ class SampletMatrixCompressor {
    *the triplet list
    **/
   const std::vector<Triplet> &triplets() {
+#if 0
     if (pattern_.size()) {
       triplet_list_.clear();
 #pragma omp parallel for schedule(dynamic)
@@ -285,6 +341,7 @@ class SampletMatrixCompressor {
       }
       pattern_.resize(0);
     }
+#endif
     return triplet_list_;
   }
 
@@ -546,8 +603,10 @@ class SampletMatrixCompressor {
    *  \brief writes a given matrix block into a-posteriori thresholded
    *         triplet format
    **/
+  template <typename otherDerived>
   void storeBlock(std::vector<Triplet> &triplet_buffer, Index srow, Index scol,
-                  Index nrows, Index ncols, const Matrix &block) {
+                  Index nrows, Index ncols,
+                  const MatrixBase<otherDerived> &block) {
     for (auto k = 0; k < ncols; ++k)
       for (auto j = 0; j < nrows; ++j)
         if ((srow + j <= scol + k && std::abs(block(j, k)) > threshold_) ||
