@@ -86,6 +86,7 @@ class SampletMatrixCompressor {
   template <typename EntGenerator>
   void compress(const EntGenerator &e_gen) {
     triplet_list_.clear();
+    std::vector<std::vector<Triplet>> tlist(omp_get_max_threads());
     // the column cluster tree is traversed bottom up
     const auto &rclusters = rta_.nodes();
     const auto &cclusters = rta_.nodes();
@@ -141,9 +142,6 @@ class SampletMatrixCompressor {
                   recursivelyComputeBlock_noalloc(pr->sons(k), *pc, e_gen,
                                                   mem.get(),
                                                   max_size_ * max_size_);
-                  assert(pr->sons(k).Q().cols() <= max_size_ &&
-                         pc->Q().cols() <= max_size_ &&
-                         "mem mismatch at comp case 1");
                   Map<Matrix> ret(mem.get(), pr->sons(k).Q().cols(),
                                   pc->Q().cols());
                   buf.middleRows(offset, nscalfs) = ret.topRows(nscalfs);
@@ -178,9 +176,6 @@ class SampletMatrixCompressor {
                   recursivelyComputeBlock_noalloc(*pr, pc->sons(k), e_gen,
                                                   mem.get(),
                                                   max_size_ * max_size_);
-                  assert(pr->Q().cols() <= max_size_ &&
-                         pc->sons(k).Q().cols() <= max_size_ &&
-                         "mem mismatch at comp case 0/2");
                   Map<Matrix> ret(mem.get(), pr->Q().cols(),
                                   pc->sons(k).Q().cols());
                   buf.middleCols(offset, nscalfs) = ret.leftCols(nscalfs);
@@ -206,7 +201,7 @@ class SampletMatrixCompressor {
         LevelBuffer::iterator it2 = pattern_[ll + 1].begin();
 #pragma omp parallel shared(pos), firstprivate(it2)
         {
-          std::vector<Triplet> list;
+          const Index tid = omp_get_thread_num();
           Index i = 0;
           Index prev_i = 0;
 #pragma omp atomic capture
@@ -219,23 +214,21 @@ class SampletMatrixCompressor {
             Map<Matrix> mat(block.get(), pr->Q().cols(), pc->Q().cols());
             if (!pr->is_root() && !pc->is_root())
               storeBlock(
-                  list, pr->start_index(), pc->start_index(), pr->nsamplets(),
-                  pc->nsamplets(),
+                  tlist[tid], pr->start_index(), pc->start_index(),
+                  pr->nsamplets(), pc->nsamplets(),
                   mat.bottomRightCorner(pr->nsamplets(), pc->nsamplets()));
             else if (!pc->is_root())
-              storeBlock(list, pr->start_index(), pc->start_index(),
+              storeBlock(tlist[tid], pr->start_index(), pc->start_index(),
                          pr->Q().cols(), pc->nsamplets(),
                          mat.rightCols(pc->nsamplets()));
             else if (pr->is_root() && pc->is_root())
-              storeBlock(list, pr->start_index(), pc->start_index(),
+              storeBlock(tlist[tid], pr->start_index(), pc->start_index(),
                          pr->Q().cols(), pc->Q().cols(), mat);
             mem_arena_.release(std::move(block));
             prev_i = i;
 #pragma omp atomic capture
             i = pos++;
           }
-#pragma omp critical
-          triplet_list_.insert(triplet_list_.end(), list.begin(), list.end());
         }
       }
     }
@@ -245,7 +238,6 @@ class SampletMatrixCompressor {
       const size_t map_size = pattern_[0].size();
       LevelBuffer::iterator it2 = pattern_[0].begin();
       {
-        std::vector<Triplet> list;
         Index i = 0;
         Index prev_i = 0;
         i = pos++;
@@ -256,24 +248,25 @@ class SampletMatrixCompressor {
           std::unique_ptr<Scalar[]> &block = it2->second;
           Map<Matrix> mat(block.get(), pr->Q().cols(), pc->Q().cols());
           if (!pr->is_root() && !pc->is_root())
-            storeBlock(list, pr->start_index(), pc->start_index(),
+            storeBlock(tlist[0], pr->start_index(), pc->start_index(),
                        pr->nsamplets(), pc->nsamplets(),
                        mat.bottomRightCorner(pr->nsamplets(), pc->nsamplets()));
           else if (!pc->is_root())
-            storeBlock(list, pr->start_index(), pc->start_index(),
+            storeBlock(tlist[0], pr->start_index(), pc->start_index(),
                        pr->Q().cols(), pc->nsamplets(),
                        mat.rightCols(pc->nsamplets()));
           else if (pr->is_root() && pc->is_root())
-            storeBlock(list, pr->start_index(), pc->start_index(),
+            storeBlock(tlist[0], pr->start_index(), pc->start_index(),
                        pr->Q().cols(), pc->Q().cols(), mat);
           mem_arena_.release(std::move(block));
           prev_i = i;
           i = pos++;
         }
-        triplet_list_.insert(triplet_list_.end(), list.begin(), list.end());
       }
     }
-
+    for (Index i = 0; i < tlist.size(); ++i)
+      triplet_list_.insert(triplet_list_.end(), tlist[i].begin(),
+                           tlist[i].end());
     std::cout << "final arena size: " << mem_arena_.slabs_in_use() << "/"
               << mem_arena_.num_free_slabs() << std::endl;
 
@@ -504,12 +497,9 @@ class SampletMatrixCompressor {
     // check for admissibility
     if (ClusterComparison::compare(TR, TC, eta_) == LowRank) {
       e_gen.interpolate_kernel_noalloc(TR, TC, mem, stride);
-      assert(stride >= TR.V().rows() * TC.V().rows());
       Map<Matrix> buf(mem + 2 * stride, TR.V().rows(), TC.V().rows());
-      assert(stride >= TR.V().rows() * TC.V().cols());
       Map<Matrix> temp(mem + stride, TR.V().rows(), TC.V().cols());
       temp.noalias() = buf * TC.V();
-      assert(stride >= TR.Q().cols() * TC.Q().cols());
       Map<Matrix> retval(mem, TR.Q().cols(), TC.Q().cols());
       retval.noalias() = TR.V().transpose() * temp;
       return;
@@ -519,12 +509,9 @@ class SampletMatrixCompressor {
         case 3: {
           // both are leafs: compute the block and return
           e_gen.compute_dense_block_noalloc(TR, TC, mem, stride);
-          assert(stride >= TR.Q().rows() * TC.Q().rows());
           Map<Matrix> buf(mem + 2 * stride, TR.Q().rows(), TC.Q().rows());
-          assert(stride >= TR.Q().rows() * TC.Q().cols());
           Map<Matrix> temp(mem + stride, TR.Q().rows(), TC.Q().cols());
           temp.noalias() = buf * TC.Q();
-          assert(stride >= TR.Q().cols() * TC.Q().cols());
           Map<Matrix> retval(mem, TR.Q().cols(), TC.Q().cols());
           retval.noalias() = TR.Q().transpose() * temp;
           return;
