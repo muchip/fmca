@@ -45,12 +45,12 @@ class MemoryArena {
   MemoryArena() {}
 
   MemoryArena(Index slab_size, Index num_stacks = 1,
-              Index initial_capacity = 1024) {
+              Index initial_capacity = 64) {
     init(slab_size, num_stacks, initial_capacity);
   }
 
   void init(Index slab_size, Index num_stacks = 1,
-            Index initial_capacity = 1024) {
+            Index initial_capacity = 64) {
     slab_size_ = slab_size;
     overflow_threshold_ = 2 * initial_capacity;
     central_.clear();
