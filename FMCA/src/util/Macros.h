@@ -13,13 +13,13 @@
 #define FMCA_UTIL_MACROS_H_
 
 #include <algorithm>
+#include <atomic>
 #include <cassert>
 #include <iomanip>
 #include <iostream>
 #include <limits>
 #include <map>
 #include <memory>
-#include <mutex>
 #include <numeric>
 #include <queue>
 #include <random>
@@ -70,6 +70,9 @@ using MatrixBase = Eigen::MatrixBase<Derived>;
 
 template <typename Derived>
 using Map = Eigen::Map<Derived>;
+
+template <typename Derived>
+using AMap = Eigen::Map<Derived, Eigen::Aligned>;
 
 using Matrix = Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>;
 
