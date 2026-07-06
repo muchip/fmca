@@ -55,6 +55,36 @@ struct NystromEvaluator {
     return;
   }
   /**
+   *  \brief same as interpolate_kernel, but heap allocation free: the
+   *         result is written to S (Xi().cols()^2 scalars); work must
+   *         hold Xi().cols()^2 + 2 * dim * Xi().cols() scalars and is
+   *         used for the product temporary and the mapped interpolation
+   *         points
+   **/
+  template <typename Derived>
+  void interpolate_kernel_noalloc(const ClusterTreeBase<Derived> &TR,
+                                  const ClusterTreeBase<Derived> &TC,
+                                  Scalar *S, Scalar *work) const {
+    const Matrix &Xi = mom_.interp().Xi();
+    const Index nips = Xi.cols();
+    const Index dim = Xi.rows();
+    Map<Matrix> W(work, nips, nips);
+    Map<Matrix> XiX(work + nips * nips, dim, nips);
+    Map<Matrix> XiY(work + nips * nips + dim * nips, dim, nips);
+    // map the reference interpolation points to the two clusters
+    for (auto j = 0; j < nips; ++j) {
+      XiX.col(j) = TR.bb().col(0) + Xi.col(j).cwiseProduct(TR.bb().col(2));
+      XiY.col(j) = TC.bb().col(0) + Xi.col(j).cwiseProduct(TC.bb().col(2));
+    }
+    Map<Matrix> Smap(S, nips, nips);
+    for (auto j = 0; j < nips; ++j)
+      for (auto i = 0; i < nips; ++i)
+        Smap(i, j) = kernel_(XiX.col(i), XiY.col(j));
+    W.noalias() = mom_.interp().invV() * Smap;
+    Smap.noalias() = W * mom_.interp().invV().transpose();
+    return;
+  }
+  /**
    *  \brief provides the evaluaton of a dense matrix block for a given
    *         cluster pair
    **/
@@ -67,6 +97,22 @@ struct NystromEvaluator {
       for (auto i = 0; i < TR.block_size(); ++i)
         (*retval)(i, j) = kernel_(mom_.P().col(TR.indices()[i]),
                                   mom_.P().col(TC.indices()[j]));
+    return;
+  }
+  /**
+   *  \brief same as compute_dense_block, but writes the result into
+   *         caller provided memory of at least
+   *         TR.block_size() * TC.block_size() scalars
+   **/
+  template <typename Derived>
+  void compute_dense_block_noalloc(const ClusterTreeBase<Derived> &TR,
+                                   const ClusterTreeBase<Derived> &TC,
+                                   Scalar *mem) const {
+    Map<Matrix> retval(mem, TR.block_size(), TC.block_size());
+    for (auto j = 0; j < TC.block_size(); ++j)
+      for (auto i = 0; i < TR.block_size(); ++i)
+        retval(i, j) = kernel_(mom_.P().col(TR.indices()[i]),
+                               mom_.P().col(TC.indices()[j]));
     return;
   }
 
