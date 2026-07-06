@@ -71,9 +71,9 @@ class SampletMatrixCompressor {
             pattern_[pc->level() + pr->level()].insert(
                 {id, MemoryArena<Scalar>::Ptr()});
             max_size_ = std::max<std::ptrdiff_t>(
-                {max_size_, pr->Q().rows(), pr->Q().cols(), pr->V().cols()});
+                {max_size_, pr->Q().rows(), pr->Q().cols(), pr->V().rows()});
             max_size_ = std::max<std::ptrdiff_t>(
-                {max_size_, pc->Q().rows(), pc->Q().cols(), pc->V().cols()});
+                {max_size_, pc->Q().rows(), pc->Q().cols(), pc->V().rows()});
           }
         }
       }
