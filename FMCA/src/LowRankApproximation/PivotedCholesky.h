@@ -31,6 +31,119 @@ class PivotedCholesky {
     compute(ker, P, tol);
   }
 
+  template <typename T>
+  static void pivotedCholeskyQR(const T &K, Matrix *Q, Matrix *R,
+                                std::vector<Index> *idcs, Scalar tol = 1e-3,
+                                Index max_cols = 1000) {
+    Vector D = K.diagonal();
+    Index pivot = 0;
+    Scalar tr = 0;
+    Q->resize(K.rows(), max_cols);
+    R->resize(max_cols, max_cols);
+    Q->setZero();
+    R->setZero();
+    idcs->resize(max_cols);
+    tr = D.sum();
+    // we guarantee the error tr(K-LL^T)/tr(K) < tol
+    tol *= tr;
+    // perform pivoted Cholesky decomposition
+    std::cout << "N: " << K.rows() << " max number of cols: " << max_cols
+              << std::endl
+              << "rel tol: " << tol << " initial trace: " << tr << std::endl;
+    Index step = 0;
+    Index qstep = 0;
+    while ((step < max_cols) && (tol < tr)) {
+      D.maxCoeff(&pivot);
+      (*idcs)[step] = pivot;
+      const Scalar scal = 1. / std::sqrt(D(pivot));
+      const Vector col = K.col(pivot);
+      const Vector row = R->block(0, 0, qstep, step).transpose() *
+                         Q->row(pivot).head(qstep).transpose();
+      const Vector l =
+          scal * (col - Q->leftCols(qstep) *
+                            (R->block(0, 0, qstep, step) * row).eval());
+      Vector q = l;
+      Vector r(qstep);
+      r.setZero();
+      if (qstep)
+        for (Index i = 0; i < 2; ++i) {
+          const Vector cc = Q->leftCols(qstep).transpose() * q;
+          q = q - Q->leftCols(qstep) * cc;
+          r += cc;
+        }
+      const Scalar rho = q.norm();
+      if (rho > 1e4 * FMCA_ZERO_TOLERANCE) {
+        Q->col(qstep) = (1. / rho) * q;
+        R->col(step).head(qstep) = r;
+        (*R)(qstep, step) = rho;
+        ++qstep;
+      } else {
+        R->col(step).head(qstep) = r;
+      }
+
+      D.array() -= l.array().square();
+      const Scalar minD = D.minCoeff();
+      if (minD < -1e-10) {
+        std::cout << minD << " breaking with non spd matrix\n";
+        break;
+      }
+      D = D.cwiseMax(0);
+      // compute the trace of the Schur complement
+      tr = D.sum();
+      ++step;
+    }
+    std::cout << "steps: " << step << " trace error: " << tr << std::endl;
+    std::cout << "qstep: " << qstep << std::endl;
+    // crop L, indices to their actual size
+    Q->conservativeResize(Q->rows(), std::min(qstep, step));
+    R->conservativeResize(std::min(qstep, step), step);
+    idcs->resize(step);
+    return;
+  }
+
+  template <typename T>
+  static void pivotedCholesky(const T &K, Matrix *L,
+                              std::vector<FMCA::Index> *idcs, Scalar tol = 1e-3,
+                              Index max_cols = 1000) {
+    Vector D = K.diagonal();
+    Index pivot = 0;
+    Scalar tr = 0;
+    L->resize(K.rows(), max_cols);
+    idcs->resize(max_cols);
+    tr = D.sum();
+    // we guarantee the error tr(K-LL^T)/tr(K) < tol
+    tol *= tr;
+    // perform pivoted Cholesky decomposition
+    std::cout << "N: " << K.rows() << " max number of cols: " << max_cols
+              << std::endl
+              << "rel tol: " << tol << " initial trace: " << tr << std::endl;
+    FMCA::Index step = 0;
+    while ((step < max_cols) && (tol < tr)) {
+      D.maxCoeff(&pivot);
+      (*idcs)[step] = pivot;
+      const Vector col =
+          1. / std::sqrt(D(pivot)) *
+          (K.col(pivot) -
+           L->leftCols(step) * L->row(pivot).head(step).transpose());
+      L->col(step) = col;
+      D.array() -= L->col(step).array().square();
+      const Scalar minD = D.minCoeff();
+      if (minD < -1e-10) {
+        std::cout << minD << " breaking with non spd matrix\n";
+        break;
+      }
+      D = D.cwiseMax(0);
+      // compute the trace of the Schur complement
+      tr = D.sum();
+      ++step;
+    }
+    std::cout << "steps: " << step << " trace error: " << tr << std::endl;
+    // crop L, indices to their actual size
+    L->conservativeResize(L->rows(), step);
+    idcs->resize(step);
+    return;
+  }
+
   void compute(const CovarianceKernel &ker, const Matrix &P,
                Scalar tol = 1e-3) {
     const Index dim = P.cols();
