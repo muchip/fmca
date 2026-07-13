@@ -82,7 +82,7 @@ class SampletMatrixCompressor {
 
   template <typename EntGenerator>
   void compress(const EntGenerator &e_gen) {
-    const Index max_threads = omp_get_max_threads();
+    const Index max_threads = 1;//omp_get_max_threads();
     triplet_list_.clear();
     std::vector<std::vector<Triplet>> tlist(max_threads);
     mem_arena_.init(max_size_, max_threads);
@@ -96,7 +96,7 @@ class SampletMatrixCompressor {
       LevelBuffer::iterator it2 = pattern_[ll].begin();
 #pragma omp parallel shared(pos), firstprivate(it2)
       {
-        const Index tid = omp_get_thread_num();
+        const Index tid = 0;// omp_get_thread_num();
         Index i = 0;
         Index prev_i = 0;
 #pragma omp atomic capture
@@ -196,7 +196,7 @@ class SampletMatrixCompressor {
         LevelBuffer::iterator it2 = pattern_[ll + 1].begin();
 #pragma omp parallel shared(pos), firstprivate(it2)
         {
-          const Index tid = omp_get_thread_num();
+          const Index tid = 0;//omp_get_thread_num();
           Index i = 0;
           Index prev_i = 0;
 #pragma omp atomic capture
