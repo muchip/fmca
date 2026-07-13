@@ -20,6 +20,7 @@
 #include <limits>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <numeric>
 #include <queue>
 #include <random>
@@ -67,6 +68,9 @@ typedef FMCA_SCALAR Scalar;
 // matrix types
 template <typename Derived>
 using MatrixBase = Eigen::MatrixBase<Derived>;
+
+template <typename Derived>
+using Reference = Eigen::Ref<Derived>;
 
 template <typename Derived>
 using Map = Eigen::Map<Derived>;

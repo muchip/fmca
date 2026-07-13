@@ -124,11 +124,13 @@ class CovarianceKernel {
     for (auto &chr : ktype_) chr = (char)toupper(chr);
 
     if (dist_type == "EUCLIDEAN") {
-      distance_ = [](const Vector &x, const Vector &y) {
+      distance_ = [](const Reference<const Vector> &x,
+                     const Reference<const Vector> &y) {
         return (x - y).norm();
       };
     } else if (dist_type == "GEODESIC") {
-      distance_ = [](const Vector &x, const Vector &y) {
+      distance_ = [](const Reference<const Vector> &x,
+                     const Reference<const Vector> &y) {
         return SphereClusterTree::geodesicDistance(x, y);
       };
     } else
@@ -164,7 +166,8 @@ class CovarianceKernel {
  private:
   // member variables
   std::function<Scalar(Scalar)> kernel_;
-  std::function<Scalar(const Vector &, const Vector &)> distance_;
+  std::function<Scalar(const Reference<const Vector> &,
+                       const Reference<const Vector> &)> distance_;
   std::string ktype_;
   Scalar l_;
   Scalar c_;
