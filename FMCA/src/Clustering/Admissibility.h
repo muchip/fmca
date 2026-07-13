@@ -37,14 +37,12 @@ struct CompareClusterStrict {
   static Admissibility compare(const ClusterTreeBase<Derived> &cluster1,
                                const ClusterTreeBase<otherDerived> &cluster2,
                                Scalar eta) {
-    const bool A =
-        (cluster1.bb().col(0).array() <= cluster2.bb().col(0).array()).all() &&
-        (cluster2.bb().col(1).array() <= cluster1.bb().col(1).array()).all();
-    const bool B =
-        (cluster2.bb().col(0).array() <= cluster1.bb().col(0).array()).all() &&
-        (cluster1.bb().col(1).array() <= cluster2.bb().col(1).array()).all();
-    if (A || B) {
-      // check if either cluster is a leaf in that case,
+    const Vector lo = cluster1.bb().col(0).cwiseMax(cluster2.bb().col(0));
+    const Vector hi = cluster1.bb().col(1).cwiseMin(cluster2.bb().col(1));
+    const Scalar volume = (hi - lo).cwiseMax(0).prod();
+
+    if (volume > FMCA_ZERO_TOLERANCE) {
+      // check if either cluster is a leaf. In that case,
       // compute the full matrix block
       if (!cluster1.nSons() || !cluster2.nSons())
         return Dense;
@@ -52,11 +50,6 @@ struct CompareClusterStrict {
         return Refine;
     } else
       return LowRank;
-  }
-  static Scalar geodesicDistance(const Vector &a, const Vector &b) {
-    const Scalar dot = a.dot(b);
-    const Scalar clamped_dot = std::min(1., std::max(-1., dot));
-    return std::acos(clamped_dot);
   }
 };
 
