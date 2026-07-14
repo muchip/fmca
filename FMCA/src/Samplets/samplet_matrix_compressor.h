@@ -44,6 +44,7 @@ class SampletMatrixCompressor {
     rta_.init(ST, ST.block_size());
     pattern_.resize(2 * rta_.max_level() + 1);
     max_size_ = 0;
+    std::vector<Index> block_sizes;
 #pragma omp parallel for schedule(dynamic)
     for (Index j = 0; j < rta_.nodes().size(); ++j) {
       const Derived *pc = rta_.nodes()[j];
@@ -72,8 +73,43 @@ class SampletMatrixCompressor {
                 {max_size_, pr->Q().rows(), pr->Q().cols(), pr->V().rows()});
             max_size_ = std::max<std::ptrdiff_t>(
                 {max_size_, pc->Q().rows(), pc->Q().cols(), pc->V().rows()});
+            block_sizes.push_back(pr->Q().cols() * pc->Q().cols());
           }
         }
+      }
+    }
+    std::sort(block_sizes.begin(), block_sizes.end());
+    std::cout << block_sizes.front() << "/" << block_sizes.back()
+              << " median: " << block_sizes[block_sizes.size() / 2]
+              << std::endl;
+    {
+      constexpr int kNumBins = 20;
+      const double lo = std::log2(
+          static_cast<double>(std::max<Index>(block_sizes.front(), 1)));
+      const double hi = std::log2(static_cast<double>(block_sizes.back()));
+      std::vector<std::size_t> bins(kNumBins, 0);
+      for (Index sz : block_sizes) {
+        const double t =
+            (hi > lo)
+                ? (std::log2(static_cast<double>(std::max<Index>(sz, 1))) -
+                   lo) /
+                      (hi - lo)
+                : 0.0;
+        const int b = std::min(kNumBins - 1, static_cast<int>(t * kNumBins));
+        ++bins[b];
+      }
+      const std::size_t max_count = *std::max_element(bins.begin(), bins.end());
+      constexpr int kBarWidth = 50;
+      for (int b = 0; b < kNumBins; ++b) {
+        const double lo_val = std::exp2(lo + b * (hi - lo) / kNumBins);
+        const int bar_len =
+            max_count
+                ? static_cast<int>(kBarWidth * static_cast<double>(bins[b]) /
+                                   max_count)
+                : 0;
+        std::cout << std::setw(8) << static_cast<Index>(lo_val) << " | "
+                  << std::string(bar_len, '#') << " (" << bins[b] << ")"
+                  << std::endl;
       }
     }
     std::cout << "determined maximum mem size:  " << max_size_ << std::endl;
@@ -82,7 +118,7 @@ class SampletMatrixCompressor {
 
   template <typename EntGenerator>
   void compress(const EntGenerator &e_gen) {
-    const Index max_threads = 1;//omp_get_max_threads();
+    const Index max_threads = 1;  // omp_get_max_threads();
     triplet_list_.clear();
     std::vector<std::vector<Triplet>> tlist(max_threads);
     mem_arena_.init(max_size_, max_threads);
@@ -96,7 +132,7 @@ class SampletMatrixCompressor {
       LevelBuffer::iterator it2 = pattern_[ll].begin();
 #pragma omp parallel shared(pos), firstprivate(it2)
       {
-        const Index tid = 0;// omp_get_thread_num();
+        const Index tid = 0;  // omp_get_thread_num();
         Index i = 0;
         Index prev_i = 0;
 #pragma omp atomic capture
@@ -196,7 +232,7 @@ class SampletMatrixCompressor {
         LevelBuffer::iterator it2 = pattern_[ll + 1].begin();
 #pragma omp parallel shared(pos), firstprivate(it2)
         {
-          const Index tid = 0;//omp_get_thread_num();
+          const Index tid = 0;  // omp_get_thread_num();
           Index i = 0;
           Index prev_i = 0;
 #pragma omp atomic capture
