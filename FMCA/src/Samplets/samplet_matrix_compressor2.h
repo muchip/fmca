@@ -12,7 +12,7 @@
 #ifndef FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_H_
 #define FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_H_
 
-#include "../util/MemoryPool.h"
+#include "../util/MemoryPool2.h"
 #include "../util/RandomTreeAccessor.h"
 
 namespace FMCA {
@@ -121,7 +121,7 @@ class SampletMatrixCompressor {
     const Index max_threads = omp_get_max_threads();
     triplet_list_.clear();
     std::vector<std::vector<Triplet>> tlist(max_threads);
-    mem_arena_.init(max_size_, max_threads);
+    mem_arena_.init(max_size_ * max_size_, max_threads);
     // the column cluster tree is traversed bottom up
     const auto &rclusters = rta_.nodes();
     const auto &cclusters = rta_.nodes();
@@ -152,14 +152,15 @@ class SampletMatrixCompressor {
           switch (the_case) {
             // (leaf,leaf), compute the block
             case 3: {
-              block = mem_arena_.acquire(tid);
+              block = mem_arena_.acquire(pr->Q().cols() * pc->Q().cols(), tid);
               recursivelyComputeBlock_noalloc(*pr, *pc, e_gen, block, tid);
               break;
             }
             // (noleaf,leaf), recycle from below
             case 1: {
-              block = mem_arena_.acquire(tid);
-              Scalar *buf_mem = mem_arena_.acquire(tid);
+              block = mem_arena_.acquire(pr->Q().cols() * pc->Q().cols(), tid);
+              Scalar *buf_mem =
+                  mem_arena_.acquire(pr->Q().rows() * pc->Q().cols(), tid);
               AMap<Matrix> buf(buf_mem, pr->Q().rows(), pc->Q().cols());
               for (auto k = 0; k < pr->nSons(); ++k) {
                 nscalfs = pr->sons(k).nscalfs();
@@ -172,25 +173,28 @@ class SampletMatrixCompressor {
                                    pc->Q().cols());
                   buf.middleRows(offset, nscalfs) = ret.topRows(nscalfs);
                 } else {
-                  Scalar *mem = mem_arena_.acquire(tid);
+                  Scalar *mem = mem_arena_.acquire(
+                      pr->sons(k).Q().cols() * pc->Q().cols(), tid);
                   recursivelyComputeBlock_noalloc(pr->sons(k), *pc, e_gen, mem,
                                                   tid);
                   AMap<Matrix> ret(mem, pr->sons(k).Q().cols(), pc->Q().cols());
                   buf.middleRows(offset, nscalfs) = ret.topRows(nscalfs);
-                  mem_arena_.release(mem, tid);
+                  mem_arena_.release(
+                      mem, pr->sons(k).Q().cols() * pc->Q().cols(), tid);
                 }
                 offset += nscalfs;
               }
               AMap<Matrix> retval(block, pr->Q().cols(), pc->Q().cols());
               retval.noalias() = pr->Q().transpose() * buf;
-              mem_arena_.release(buf_mem, tid);
+              mem_arena_.release(buf_mem, pr->Q().rows() * pc->Q().cols(), tid);
               break;
             }
               // (*,noleaf), recycle from right
             case 2:
             case 0: {
-              block = mem_arena_.acquire(tid);
-              Scalar *buf_mem = mem_arena_.acquire(tid);
+              block = mem_arena_.acquire(pr->Q().cols() * pc->Q().cols(), tid);
+              Scalar *buf_mem =
+                  mem_arena_.acquire(pr->Q().cols() * pc->Q().rows(), tid);
               AMap<Matrix> buf(buf_mem, pr->Q().cols(), pc->Q().rows());
               for (auto k = 0; k < pc->nSons(); ++k) {
                 nscalfs = pc->sons(k).nscalfs();
@@ -204,18 +208,20 @@ class SampletMatrixCompressor {
                                    pc->sons(k).Q().cols());
                   buf.middleCols(offset, nscalfs) = ret.leftCols(nscalfs);
                 } else {
-                  Scalar *mem = mem_arena_.acquire(tid);
+                  Scalar *mem = mem_arena_.acquire(
+                      pr->Q().cols() * pc->sons(k).Q().cols(), tid);
                   recursivelyComputeBlock_noalloc(*pr, pc->sons(k), e_gen, mem,
                                                   tid);
                   AMap<Matrix> ret(mem, pr->Q().cols(), pc->sons(k).Q().cols());
                   buf.middleCols(offset, nscalfs) = ret.leftCols(nscalfs);
-                  mem_arena_.release(mem, tid);
+                  mem_arena_.release(
+                      mem, pr->Q().cols() * pc->sons(k).Q().cols(), tid);
                 }
                 offset += nscalfs;
               }
               AMap<Matrix> retval(block, pr->Q().cols(), pc->Q().cols());
               retval.noalias() = buf * pc->Q();
-              mem_arena_.release(buf_mem, tid);
+              mem_arena_.release(buf_mem, pr->Q().cols() * pc->Q().rows(), tid);
               break;
             }
           }
@@ -255,7 +261,7 @@ class SampletMatrixCompressor {
             else if (pr->is_root() && pc->is_root())
               storeBlock(tlist[tid], pr->start_index(), pc->start_index(),
                          pr->Q().cols(), pc->Q().cols(), mat);
-            mem_arena_.release(block, tid);
+            mem_arena_.release(block, pr->Q().cols() * pc->Q().cols(), tid);
             block = nullptr;
             prev_i = i;
 #pragma omp atomic capture
@@ -290,7 +296,7 @@ class SampletMatrixCompressor {
           else if (pr->is_root() && pc->is_root())
             storeBlock(tlist[0], pr->start_index(), pc->start_index(),
                        pr->Q().cols(), pc->Q().cols(), mat);
-          mem_arena_.release(block, 0);
+          mem_arena_.release(block, pr->Q().cols() * pc->Q().cols(), 0);
           block = nullptr;
           prev_i = i;
           i = pos++;
@@ -436,30 +442,42 @@ class SampletMatrixCompressor {
                                        Index tid = 0) {
     // check for admissibility
     if (ClusterComparison::compare(TR, TC, eta_) == LowRank) {
-      Scalar *temp_mem = mem_arena_.acquire(tid);
-      e_gen.interpolate_kernel_noalloc(TR, TC, mem, temp_mem);
-      AMap<Matrix> buf(mem, TR.V().rows(), TC.V().rows());
-      AMap<Matrix> temp(temp_mem, TR.V().rows(), TC.V().cols());
+      Scalar *temp_mem1 =
+          mem_arena_.acquire(TR.V().rows() * TC.V().rows(), tid);
+      Scalar *temp_mem2 =
+          mem_arena_.acquire(TR.V().rows() * TC.V().rows(), tid);
+      Scalar *temp_mem3 =
+          mem_arena_.acquire(TR.V().rows() * TC.V().cols(), tid);
+      e_gen.interpolate_kernel_noalloc(TR, TC, temp_mem1, temp_mem2);
+      AMap<Matrix> buf(temp_mem1, TR.V().rows(), TC.V().rows());
+      AMap<Matrix> temp(temp_mem3, TR.V().rows(), TC.V().cols());
       temp.noalias() = buf * TC.V();
       AMap<Matrix> retval(mem, TR.Q().cols(), TC.Q().cols());
       retval.noalias() = TR.V().transpose() * temp;
-      mem_arena_.release(temp_mem, tid);
+      mem_arena_.release(temp_mem1, TR.V().rows() * TC.V().rows(), tid);
+      mem_arena_.release(temp_mem2, TR.V().rows() * TC.V().rows(), tid);
+      mem_arena_.release(temp_mem3, TR.V().rows() * TC.V().cols(), tid);
       return;
     } else {
       const char the_case = 2 * (!TR.nSons()) + !TC.nSons();
       switch (the_case) {
         case 3: {
           // both are leafs: compute the block and return
-          Scalar *temp_mem = mem_arena_.acquire(tid);
-          e_gen.compute_dense_block_noalloc(TR, TC, mem);
-          AMap<Matrix> buf(mem, TR.Q().rows(), TC.Q().rows());
-          AMap<Matrix> temp(temp_mem, TR.Q().rows(), TC.Q().cols());
+          Scalar *temp_mem1 =
+              mem_arena_.acquire(TR.Q().rows() * TC.Q().rows(), tid);
+          Scalar *temp_mem2 =
+              mem_arena_.acquire(TR.Q().rows() * TC.Q().cols(), tid);
+          e_gen.compute_dense_block_noalloc(TR, TC, temp_mem1);
+          AMap<Matrix> buf(temp_mem1, TR.Q().rows(), TC.Q().rows());
+          AMap<Matrix> temp(temp_mem2, TR.Q().rows(), TC.Q().cols());
           temp.noalias() = buf * TC.Q();
           AMap<Matrix> retval(mem, TR.Q().cols(), TC.Q().cols());
           retval.noalias() = TR.Q().transpose() * temp;
-          mem_arena_.release(temp_mem, tid);
+          mem_arena_.release(temp_mem1, TR.Q().rows() * TC.Q().rows(), tid);
+          mem_arena_.release(temp_mem2, R.Q().rows() * TC.Q().cols(), tid);
           return;
         }
+#if 0
         case 2: {
           Scalar *temp_mem = mem_arena_.acquire(tid);
           AMap<Matrix> buf(temp_mem, TR.Q().cols(), TC.Q().rows());
@@ -524,6 +542,9 @@ class SampletMatrixCompressor {
           mem_arena_.release(temp_mem, tid);
           return;
         }
+#endif
+        default:
+          assert(false && "You should not be here");
       }
     }
     return;

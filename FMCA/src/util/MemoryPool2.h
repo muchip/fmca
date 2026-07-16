@@ -204,5 +204,6 @@ class MemoryPool {
   Index align_elems_ = 0;
   mutable std::mutex mutex_;
 };
+
 }  // namespace FMCA
 #endif
