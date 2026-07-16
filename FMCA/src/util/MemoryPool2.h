@@ -26,24 +26,6 @@ class MemoryPool {
   static constexpr Index kLocalMax = 512;
   static constexpr Index kMaxAllocMB = 64;
 
-  struct AlignedAllocator {
-    T *operator()(Index n) const {
-      return static_cast<T *>(Eigen::internal::aligned_malloc(n * sizeof(T)));
-    }
-  };
-  struct AlignedDeleter {
-    void operator()(T *p) const { Eigen::internal::aligned_free(p); }
-  };
-  using ChunkPtr = std::unique_ptr<T[], AlignedDeleter>;
-
-  static constexpr Index alignment_bytes() {
-#ifdef EIGEN_MAX_ALIGN_BYTES
-    return static_cast<Index>(EIGEN_MAX_ALIGN_BYTES);
-#else
-    return static_cast<Index>(alignof(T));
-#endif
-  }
-
   static constexpr Index aligned_stride(Index n) {
     const Index elems = n * n;
     const Index bytes_per_chunk = elems * sizeof(T);
@@ -52,16 +34,34 @@ class MemoryPool {
     return padded_bytes / sizeof(T);
   }
 
-  MemoryPool() {}
-
-  MemoryPool(Index max_n, Index nthreads, Index max_alloc_mb = kMaxAllocMB) {
-    init(max_n, nthreads, max_alloc_mb);
+  static Index align_elems() {
+    Index a = alignment_bytes();
+    Index b = static_cast<Index>(sizeof(T));
+    while (b != 0) {
+      const Index t = a % b;
+      a = b;
+      b = t;
+    }
+    return alignment_bytes() / a;
   }
 
-  void init(Index max_n, Index nthreads, Index max_alloc_mb = kMaxAllocMB) {
+  inline Index align_up(Index elems) const {
+    return ((elems + align_elems_ - 1) / align_elems_) * align_elems_;
+  }
+
+  MemoryPool() {}
+
+  MemoryPool(Index max_elems, Index nthreads,
+             Index max_alloc_mb = kMaxAllocMB) {
+    init(max_elems, nthreads, max_alloc_mb);
+  }
+
+  void init(Index max_elems, Index nthreads, Index max_alloc_mb = kMaxAllocMB) {
     clear();
-    make_class_sizes(max_n);
+    align_elems_ = align_elems();
+    make_class_sizes(max_elems);
     chunk_blocks_ = blocks_per_chunk(max_alloc_mb);
+    //
     locals_.resize(nthreads);
     chunks_.resize(nthreads);
     bumps_.assign(nthreads, nullptr);
@@ -73,9 +73,8 @@ class MemoryPool {
     }
   }
 
-  T *acquire(Index n, Index tid = 0) {
-    eigen_assert(tid < locals_.size());
-    const Index cls = class_of(aligned_stride(n));
+  T *acquire(Index elems, Index tid = 0) {
+    const Index cls = class_of(align_up(elems));
     std::vector<T *> &local = locals_[tid][cls];
     if (!local.empty()) {
       T *p = local.back();
@@ -91,19 +90,16 @@ class MemoryPool {
     return bump_alloc(tid, cls);
   }
 
-  void release(T *p, Index n, Index tid = 0) {
-    eigen_assert(tid < locals_.size());
-    const Index cls = class_of(aligned_stride(n));
+  void release(T *p, Index elems, Index tid = 0) {
+    const Index cls = class_of(align_up(elems));
     std::vector<T *> &local = locals_[tid][cls];
     local.push_back(p);
     if (local.size() >= kLocalMax) spill(tid, cls);
   }
 
-  Index block_elems(Index n) const { return class_sizes_[class_of(aligned_stride(n))]; }
-
   void clear() {
     locals_.clear();
-    chunks_.clear();  // unique_ptr destructors call aligned_free
+    chunks_.clear();
     bumps_.clear();
     remaining_.clear();
     central_.clear();
@@ -112,37 +108,61 @@ class MemoryPool {
   }
 
  private:
-  // Power-of-two ladder from align_elems() up to the next power of two
-  // covering max_n. Every class size is thus a multiple of align_elems(),
-  // so every bump-carved block is automatically Eigen-aligned.
-  void make_class_sizes(Index max_n) {
-    const Index align = alignment_bytes();
-    const Index elem_bytes = static_cast<Index>(sizeof(T));
-    Index g_a = align, g_b = elem_bytes;
-    while (g_b != 0) {
-      const Index t = g_a % g_b;
-      g_a = g_b;
-      g_b = t;
+  struct AlignedAllocator {
+    T *operator()(Index n) const {
+      return static_cast<T *>(Eigen::internal::aligned_malloc(n * sizeof(T)));
     }
-    const Index align_elems = align / g_a;
+  };
+  struct AlignedDeleter {
+    void operator()(T *p) const { Eigen::internal::aligned_free(p); }
+  };
+  using ChunkPtr = std::unique_ptr<T[], AlignedDeleter>;
+
+  inline static constexpr Index alignment_bytes() {
+#ifdef EIGEN_MAX_ALIGN_BYTES
+    return static_cast<Index>(EIGEN_MAX_ALIGN_BYTES);
+#else
+    return static_cast<Index>(alignof(T));
+#endif
+  }
+
+  void make_class_sizes(Index max_elems) {
+    const Index needed = align_up(max_elems);
+    const Index align_elems2 = align_elems_ * align_elems_;
     Index hi = 1;
-    const Index needed = aligned_stride(max_n);
     while (hi < needed) hi <<= 1;
-    for (Index c = align_elems; c < hi; c <<= 1) class_sizes_.push_back(c);
+    // here is potential space for improvement due to granularity for small
+    // allocs
+    for (Index c = align_elems2; c < hi; c <<= 1) class_sizes_.push_back(c);
     class_sizes_.push_back(hi);
   }
 
-  // Plain integer scan over the small class_sizes_ list: no transcendental
-  // functions, no bit-count magic numbers, exact for any monotone ladder.
   Index class_of(Index elems) const {
+    const Index lo = class_sizes_.front();
+    const Index ratio = (elems + lo - 1) / lo;
+    if (ratio <= 1) return 0;
+    Index x = ratio - 1;
     Index i = 0;
-    const Index last = static_cast<Index>(class_sizes_.size()) - 1;
-    while (i < last && class_sizes_[i] < elems) ++i;
+    while (x != 0) {
+      x >>= 1;
+      ++i;
+    }
     return i;
   }
 
-  // Same one-time bulk/hysteresis semantics as the baseline, just indexed
-  // per (thread, class) instead of a single flat list.
+  Index blocks_per_chunk(Index max_alloc_mb) const {
+    constexpr Index mb = 1048576;
+    const Index bytes_per_block = class_sizes_.back() * sizeof(T);
+    const Index min_mb = (bytes_per_block + mb - 1) / mb;
+    if (max_alloc_mb < min_mb) {
+      std::cerr << "MemoryPool: max_alloc_mb=" << max_alloc_mb
+                << " too small for one largest-class block; rounding up to "
+                << min_mb << " MB.\n";
+      max_alloc_mb = min_mb;
+    }
+    return (max_alloc_mb * mb) / bytes_per_block;
+  }
+
   void refill(Index tid, Index cls) {
     std::lock_guard<std::mutex> lock(mutex_);
     std::vector<T *> &cen = central_[cls];
@@ -160,38 +180,14 @@ class MemoryPool {
     local.resize(local.size() - n);
   }
 
-  // chunk_blocks_ counts largest-class blocks per chunk, sized from
-  // kMaxAllocMB (or a caller-supplied override), matching the spirit of
-  // the baseline's kChunkBlocks but derived from a memory budget instead
-  // of a fixed block count.
-  Index blocks_per_chunk(Index max_alloc_mb) const {
-    const Index mb = Index(1024) * Index(1024);
-    const Index bytes_per_block = class_sizes_.back() * static_cast<Index>(sizeof(T));
-    Index bytes_budget = max_alloc_mb * mb;
-    if (bytes_budget < bytes_per_block) {
-      const Index min_mb = (bytes_per_block + mb - 1) / mb;
-      std::cerr << "MemoryPool: max_alloc_mb=" << max_alloc_mb
-                 << " too small for one largest-class block; rounding up to "
-                 << min_mb << " MB.\n";
-      bytes_budget = min_mb * mb;
-    }
-    const Index blocks = bytes_budget / bytes_per_block;
-    return blocks > 0 ? blocks : 1;
-  }
-
-  // Kept structurally identical to the baseline's bump_alloc: one raw
-  // aligned_malloc per chunk, bump pointer advances by the requested
-  // class's block size, remaining_ counts blocks (of the LARGEST class'
-  // worth of elements) left in the current chunk.
   T *bump_alloc(Index tid, Index cls) {
-    if (remaining_[tid] == 0) {
+    const Index sz = class_sizes_[cls];
+    if (remaining_[tid] < sz) {
       T *raw = AlignedAllocator{}(chunk_blocks_ * class_sizes_.back());
       chunks_[tid].emplace_back(raw);
       bumps_[tid] = raw;
       remaining_[tid] = chunk_blocks_ * class_sizes_.back();
     }
-    const Index sz = class_sizes_[cls];
-    eigen_assert(sz <= remaining_[tid]);
     T *p = bumps_[tid];
     bumps_[tid] += sz;
     remaining_[tid] -= sz;
@@ -199,14 +195,14 @@ class MemoryPool {
   }
 
   std::vector<Index> class_sizes_;
-  Index chunk_blocks_ = 0;
   std::vector<std::vector<std::vector<T *>>> locals_;
   std::vector<std::vector<ChunkPtr>> chunks_;
   std::vector<T *> bumps_;
   std::vector<Index> remaining_;
   std::vector<std::vector<T *>> central_;
+  Index chunk_blocks_ = 0;
+  Index align_elems_ = 0;
   mutable std::mutex mutex_;
 };
 }  // namespace FMCA
-#endif  // FMCA_UTIL_MEMORYPOOL_H_
-
+#endif
