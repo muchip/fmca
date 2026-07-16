@@ -15,16 +15,16 @@
 
 #include "../FMCA/CovarianceKernel"
 #include "../FMCA/Samplets"
-#include "../FMCA/src/Samplets/samplet_matrix_compressor.h"
+#include "../FMCA/src/Samplets/samplet_matrix_compressor2.h"
 #include "../FMCA/src/util/Tictoc.h"
 
 #define NPTS 100000
-#define DIM 2
+#define DIM 3
 
 using Interpolator = FMCA::TotalDegreeInterpolator;
 using SampletInterpolator = FMCA::MonomialInterpolator;
 using Moments = FMCA::NystromMoments<Interpolator>;
-using SampletMoments = FMCA::MinNystromSampletMoments<SampletInterpolator>;
+using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
 using MatrixEvaluator = FMCA::NystromEvaluator<Moments, FMCA::CovarianceKernel>;
 using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
@@ -32,8 +32,8 @@ int main() {
   FMCA::Tictoc T;
   const FMCA::CovarianceKernel function("EXPONENTIAL", 1.);
   const FMCA::Matrix P = 0.5 * (FMCA::Matrix::Random(DIM, NPTS).array() + 1);
-  const FMCA::Scalar threshold = 1e-3;
-  const FMCA::Scalar eta = 0.5;
+  const FMCA::Scalar threshold = 1e-6;
+  const FMCA::Scalar eta = 0.8;
 
   for (int dtilde = 2; dtilde <= 5; ++dtilde) {
     const FMCA::Index mpole_deg = 2 * (dtilde - 1);
@@ -44,11 +44,10 @@ int main() {
     std::cout << "eta:                          " << eta << std::endl;
     const SampletMoments samp_mom(P, dtilde - 1);
     H2SampletTree hst(mom, samp_mom, 0, P);
-    FMCA::clusterTreeStatistics(hst, P);
+    // FMCA::clusterTreeStatistics(hst, P);
     T.tic();
-    FMCA::internal::SampletMatrixCompressor<H2SampletTree, FMCA::CompareClusterStrict>
-        Scomp;
-    Scomp.init(hst, eta, 100 * FMCA_ZERO_TOLERANCE);
+    FMCA::internal::SampletMatrixCompressor<H2SampletTree> Scomp;
+    Scomp.init(hst, eta, 1e5 * FMCA_ZERO_TOLERANCE);
     T.toc("planner:                     ");
     T.tic();
     Scomp.compress(mat_eval);
