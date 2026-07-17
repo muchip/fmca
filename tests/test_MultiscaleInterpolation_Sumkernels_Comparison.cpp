@@ -188,21 +188,21 @@ void runSumKernelTest(MultiscaleInterpolator<KernelSolver>& MSI,
 
 ////////////////////////////// MAIN
 int main() {
-  const Scalar nu = 1.0;
+  const Scalar nu = 2.0;
   const std::string kernel_type = "matern32";
   const Scalar eta = 1. / DIM;
-  const Index dtilde = 5;
+  const Index dtilde = 4;
   const Scalar threshold = 1e-6;
   const Scalar ridgep = 0;
-  const bool preconditioner = true;
-  const Scalar cg_threshold = 1e-6;
+  const bool preconditioner = false;
+  const Scalar cg_threshold = 1e-8;
 
   ////////////////////////////// Points (built ONCE, reused for all weights)
   std::vector<int> gridSizes = {4,    9,     25,    81,     289,    1089,
                                 4225, 16641, 66049, 262145};
   std::vector<Matrix> P_levels;
   for (int size : gridSizes) P_levels.push_back(generateUniformGrid(size));
-  Matrix Peval = generateUniformGrid(40000);
+  Matrix Peval = generateUniformGrid(25000);
 
   ////////////////////////////// Multiscale interpolator (trees built ONCE)
   MultiscaleInterpolator<SampletKernelSolver<>> MSI;
@@ -210,9 +210,11 @@ int main() {
 
   ////////////////////////////// Weight sequences to compare
   std::vector<std::pair<std::string, WeightFun>> weights = {
-      {"1/(l+1)", [](int l) { return 1.0 / Scalar(l + 1); }},
+      // {"1/(l+1)", [](int l) { return 1.0 / Scalar(l + 1); }},
       {"1/(l+1)^2", [](int l) { return 1.0 / Scalar((l + 1) * (l + 1)); }},
+      {"(l+1)^2", [](int l) { return Scalar((l + 1) * (l + 1)); }},
       {"2^-l", [](int l) { return std::pow(2.0, -l); }},
+      {"2^l", [](int l) { return std::pow(2.0, l); }},
       {"1", [](int l) { return 1.0; }}};
 
   std::cout << "### Sum-kernel multiscale interpolation, nu = " << nu << " ###"
