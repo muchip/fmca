@@ -166,7 +166,7 @@ class MemoryPool {
   void refill(Index tid, Index cls) {
     std::lock_guard<std::mutex> lock(mutex_);
     std::vector<T *> &cen = central_[cls];
-    const Index n = std::min<Index>(kBulk, cen.size());
+    const Index n = std::min<Index>(Index(kBulk), cen.size());
     if (n == 0) return;
     locals_[tid][cls].insert(locals_[tid][cls].end(), cen.end() - n, cen.end());
     cen.resize(cen.size() - n);
@@ -174,7 +174,7 @@ class MemoryPool {
 
   void spill(Index tid, Index cls) {
     std::vector<T *> &local = locals_[tid][cls];
-    const Index n = std::min<Index>(kBulk, local.size());
+    const Index n = std::min<Index>(Index(kBulk), local.size());
     std::lock_guard<std::mutex> lock(mutex_);
     central_[cls].insert(central_[cls].end(), local.end() - n, local.end());
     local.resize(local.size() - n);

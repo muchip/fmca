@@ -124,9 +124,9 @@ class SampletMatrixCompressor {
     const Index max_threads = omp_get_max_threads();
     triplet_list_.clear();
     std::vector<std::vector<Triplet>> tlist(max_threads);
-    // mem_arena_.init(max_size_ * max_size_, max_threads);
-    mem_arena_.init(max_size_, max_threads);
-    // the column cluster tree is traversed bottom up
+    mem_arena_.init(max_size_ * max_size_, max_threads);
+    // mem_arena_.init(max_size_, max_threads);
+    //  the column cluster tree is traversed bottom up
     const auto &rclusters = rta_.nodes();
     const auto &cclusters = rta_.nodes();
     const auto nclusters = rta_.nodes().size();
