@@ -47,6 +47,7 @@ struct H2Matrix : public H2MatrixBase<H2Matrix<Derived, ClusterComparison>> {
   // make base class methods visible
   using Base::computeH2Matrix;
   using Base::node;
+  using Base::storeSymBlock = storeBlock;
   //////////////////////////////////////////////////////////////////////////////
   // constructors
   //////////////////////////////////////////////////////////////////////////////

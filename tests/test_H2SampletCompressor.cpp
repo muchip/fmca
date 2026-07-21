@@ -46,7 +46,7 @@ int main() {
     H2SampletTree hst(mom, samp_mom, 0, P);
     // FMCA::clusterTreeStatistics(hst, P);
     T.tic();
-    FMCA::internal::SampletMatrixCompressor<H2SampletTree> Scomp;
+    FMCA::SampletMatrixCompressor<H2SampletTree> Scomp;
     Scomp.init(hst, eta, 1e5 * FMCA_ZERO_TOLERANCE);
     T.toc("planner:                     ");
     T.tic();
