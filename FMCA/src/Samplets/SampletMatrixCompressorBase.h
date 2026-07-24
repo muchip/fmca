@@ -1,7 +1,7 @@
 // This file is part of FMCA, the Fast Multiresolution Covariance Analysis
 // package.
 //
-// Copyright (c) 206, Michael Multerer
+// Copyright (c) 2026, Michael Multerer
 //
 // All rights reserved.
 //
@@ -114,7 +114,7 @@ class SampletMatrixCompressorBase {
       --cut_off;
     }
     // keep at least the diagonal
-    cut_off = cut_off < npts_ ? npts_ : cut_off;
+    cut_off = std::max(cut_off, std::min(mpts_, npts_));
     idcs.resize(cut_off);
     triplets.resize(cut_off);
     for (Index i = 0; i < cut_off; ++i) triplets[i] = triplet_list_[idcs[i]];
@@ -133,13 +133,6 @@ class SampletMatrixCompressorBase {
   }
   void pushTriplet(Index r, Index c, Scalar v) {
     triplet_list_.emplace_back(r, c, v);
-  }
-  void setThreshold(Index m, Index n, Scalar threshold, Scalar eta) {
-    mpts_ = m;
-    npts_ = n;
-    threshold_ = threshold;
-    eta_ = eta;
-    return;
   }
 
   void setDimensions(Index m, Index n) {

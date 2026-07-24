@@ -36,7 +36,7 @@
 #include "src/Samplets/SampletAdaptiveClustering.h"
 #include "src/Samplets/samplet_transformer.h"
 #include "src/Samplets/SampletMatrixCompressorBase.h"
-#include "src/Samplets/samplet_matrix_compressor2.h"
+#include "src/Samplets/samplet_matrix_compressor3.h"
 #include "src/Samplets/samplet_matrix_compressor_unsymmetric.h"
 
 #endif
