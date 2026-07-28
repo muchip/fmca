@@ -73,11 +73,12 @@ class CompressorDAG {
                   std::make_pair(std::addressof(pc->sons(i)), this_ptr));
         }
       }
-      pattern_ = Pattern(n, n);
+      pattern = Pattern(n, n);
     } else {
       RandomTreeAccessor<H2STreeType> c_rta(TC, TC.block_size());
       const std::ptrdiff_t m = r_rta.nodes().size();
       const std::ptrdiff_t n = c_rta.nodes().size();
+      Pattern pattern;
       triplets.reserve(std::max(n, m) *
                        std::ceil(std::log(std::min(m, n) + 2)));
       for (Index j = 0; j < r_rta.nodes().size(); ++j) {
@@ -106,14 +107,12 @@ class CompressorDAG {
                   std::make_pair(std::addressof(pc->sons(i)), this_ptr));
         }
       }
-      pattern_ = Pattern(m, n);
+      pattern = Pattern(m, n);
     }
-    pattern_.setFromTriplets(triplets.begin(), triplets.end());
-    wire_rows(pattern_);
+    pattern.setFromTriplets(triplets.begin(), triplets.end());
+    wire_rows(pattern);
     return;
   }
-
-  const Pattern &pattern() const { return pattern_; }
 
   const std::deque<Node> &nodes() const { return node_storage_; }
 
@@ -141,7 +140,7 @@ class CompressorDAG {
         w[pr->block_id()] = node;
       }
   }
-  Pattern pattern_;
+
   std::deque<Node> node_storage_;
 };
 
