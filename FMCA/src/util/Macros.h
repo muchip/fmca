@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cassert>
+#include <deque>
 #include <iomanip>
 #include <iostream>
 #include <limits>
