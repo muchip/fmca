@@ -17,7 +17,8 @@
 namespace FMCA {
 namespace internal {
 
-template <typename H2STreeType, typename PayloadType>
+template <typename H2STreeType, typename PayloadType,
+          typename ClusterComparison = CompareCluster>
 class CompressorDAG {
  public:
   struct Node {
@@ -39,9 +40,11 @@ class CompressorDAG {
   using Pattern = Eigen::SparseMatrix<Node *, Eigen::ColMajor, std::ptrdiff_t>;
   using PatternTriplet = Eigen::Triplet<Node *>;
 
-  void init(const H2STreeType &TR, const H2STreeType &TC, bool sym = false) {
+  void init(const H2STreeType &TR, const H2STreeType &TC, Scalar eta,
+            bool sym = false) {
     sym &= (std::addressof(TR.derived()) == std::addressof(TC.derived()));
     RandomTreeAccessor<H2STreeType> r_rta(TR, TR.block_size());
+    Pattern pattern;
     std::vector<PatternTriplet> triplets;
     node_storage_.clear();
     if (sym) {
@@ -74,11 +77,12 @@ class CompressorDAG {
         }
       }
       pattern = Pattern(n, n);
+      block_rows_ = n;
+      block_cols_ = n;
     } else {
       RandomTreeAccessor<H2STreeType> c_rta(TC, TC.block_size());
       const std::ptrdiff_t m = r_rta.nodes().size();
       const std::ptrdiff_t n = c_rta.nodes().size();
-      Pattern pattern;
       triplets.reserve(std::max(n, m) *
                        std::ceil(std::log(std::min(m, n) + 2)));
       for (Index j = 0; j < r_rta.nodes().size(); ++j) {
@@ -108,8 +112,11 @@ class CompressorDAG {
         }
       }
       pattern = Pattern(m, n);
+      block_rows_ = m;
+      block_cols_ = n;
     }
-    pattern.setFromTriplets(triplets.begin(), triplets.end());
+    pattern.setFromTriplets(triplets.begin(), triplets.end(),
+                            [](Node *a, Node *b) { return b; });
     wire_rows(pattern);
     return;
   }
@@ -118,20 +125,24 @@ class CompressorDAG {
 
   std::deque<Node> &nodes() { return node_storage_; }
 
+  Index brows() const { return block_rows_; }
+  Index bcols() const { return block_cols_; }
+
  private:
   static void wire_rows(Pattern &pattern) {
     const std::ptrdiff_t *outer = pattern.outerIndexPtr();
+    const std::ptrdiff_t *inner = pattern.innerIndexPtr();
     Node *const *val = pattern.valuePtr();
     const std::ptrdiff_t n = pattern.cols();
     std::vector<Node *> w(pattern.rows(), nullptr);
 
-    for (std::ptrdiff_t col = 0; col < n; ++col)
+    for (std::ptrdiff_t col = 0; col < n; ++col) {
       for (std::ptrdiff_t k = outer[col]; k < outer[col + 1]; ++k) {
         Node *node = val[k];
         const H2STreeType *pr = node->pr;
 
-        if (pr->dad() != nullptr) {
-          Node *dad_node = w[pr->dad()->block_id()];
+        if (!pr->is_root()) {
+          Node *dad_node = w[pr->dad().block_id()];
           if (dad_node != nullptr) {
             node->row_dad = dad_node;
             dad_node->row_sons.push_back(node);
@@ -139,9 +150,16 @@ class CompressorDAG {
         }
         w[pr->block_id()] = node;
       }
+      // reset only the touched slots to avoid an O(rows) clear per column
+      for (std::ptrdiff_t k = outer[col]; k < outer[col + 1]; ++k)
+        w[inner[k]] = nullptr;
+    }
+    return;
   }
 
   std::deque<Node> node_storage_;
+  Index block_rows_;
+  Index block_cols_;
 };
 
 }  // namespace internal
