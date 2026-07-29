@@ -120,14 +120,14 @@ struct pySampletTree {
 struct pySampletTreeRP {
   pySampletTreeRP() {};
   pySampletTreeRP(const FMCA::Matrix &P, FMCA::Index dtilde,
-                  FMCA::Index seed = 0.) {
+                  FMCA::Index seed = 0) {
     dtilde_ = dtilde > 0 ? dtilde : 1;
     p_ = 2 * (dtilde_ - 1);
     const Moments mom(P, p_);
     const SampletMoments samp_mom(P, dtilde - 1);
     srand(seed);
     ST_.init(mom, samp_mom, 10, P);
-
+    cluster_map_.resize(P.cols());
     for (const auto &it : ST_)
       if (it.is_root())
         for (FMCA::Index i = 0; i < it.nscalfs() + it.nsamplets(); ++i)
@@ -367,7 +367,7 @@ PYBIND11_MODULE(FMCA, m) {
   pySampletTree_.def("toNaturalOrder", &pySampletTree::toNaturalOrder);
   pySampletTree_.def("toClusterOrder", &pySampletTree::toClusterOrder);
   pySampletTree_.def("levels", &pySampletTree::levels);
-  pySampletTree_.def("adpativeTreeLeafPartition",
+  pySampletTree_.def("adaptiveTreeLeafPartition",
                      &pySampletTree::adaptiveTreeLeafPartition);
   pySampletTree_.def("coeff2indices", &pySampletTree::coeff2indices);
   py::class_<pySampletTreeRP> pySampletTreeRP_(m, "SampletTreeRP");
@@ -378,7 +378,7 @@ PYBIND11_MODULE(FMCA, m) {
   pySampletTreeRP_.def("indices", &pySampletTreeRP::indices);
   pySampletTreeRP_.def("levels", &pySampletTreeRP::levels);
   pySampletTreeRP_.def("level_labels", &pySampletTreeRP::level_labels);
-  pySampletTreeRP_.def("adpativeTreeLeafPartition",
+  pySampletTreeRP_.def("adaptiveTreeLeafPartition",
                        &pySampletTreeRP::adaptiveTreeLeafPartition);
   pySampletTreeRP_.def("coeff2indices", &pySampletTreeRP::coeff2indices);
   m.def(
