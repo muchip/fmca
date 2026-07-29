@@ -361,7 +361,7 @@ class SampletMatrixCompressor
             }
             const Index r_nscalfs = TR.sons(i).nscalfs();
             temp1.middleRows(r_offset, r_nscalfs).noalias() =
-                (temp2 * TC.Q()).topRows(r_nscalfs);
+                temp2.topRows(r_nscalfs) * TC.Q();
             r_offset += r_nscalfs;
             releaseMap(temp2, tid);
           }
