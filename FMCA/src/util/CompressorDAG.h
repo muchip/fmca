@@ -65,9 +65,12 @@ class CompressorDAG {
             this_ptr = std::addressof(node_storage_.back());
             this_ptr->pr = pr;
             this_ptr->pc = pc;
+            this_ptr->col_sons.assign(pc->nSons(), nullptr);
+            this_ptr->row_sons.assign(pr->nSons(), nullptr);
             this_ptr->col_dad = col_dad_ptr;
             if (col_dad_ptr != nullptr)
-              col_dad_ptr->col_sons.push_back(this_ptr);
+              col_dad_ptr->col_sons[r_rta.child_pos()[pc->block_id()]] =
+                  this_ptr;
             triplets.emplace_back(pr->block_id(), pc->block_id(), this_ptr);
           }
           for (Index i = 0; i < pc->nSons(); ++i)
@@ -100,9 +103,12 @@ class CompressorDAG {
             this_ptr = std::addressof(node_storage_.back());
             this_ptr->pr = pr;
             this_ptr->pc = pc;
+            this_ptr->col_sons.assign(pc->nSons(), nullptr);
+            this_ptr->row_sons.assign(pr->nSons(), nullptr);
             this_ptr->col_dad = col_dad_ptr;
             if (col_dad_ptr != nullptr)
-              col_dad_ptr->col_sons.push_back(this_ptr);
+              col_dad_ptr->col_sons[c_rta.child_pos()[pc->block_id()]] =
+                  this_ptr;
             triplets.emplace_back(pr->block_id(), pc->block_id(), this_ptr);
           }
           for (Index i = 0; i < pc->nSons(); ++i)
@@ -117,7 +123,8 @@ class CompressorDAG {
     }
     pattern.setFromTriplets(triplets.begin(), triplets.end(),
                             [](Node *a, Node *b) { return b; });
-    wire_rows(pattern);
+    wire_rows(pattern, r_rta);
+
     return;
   }
 
@@ -129,7 +136,8 @@ class CompressorDAG {
   Index bcols() const { return block_cols_; }
 
  private:
-  static void wire_rows(Pattern &pattern) {
+  static void wire_rows(Pattern &pattern,
+                        const RandomTreeAccessor<H2STreeType> &r_rta) {
     const std::ptrdiff_t *outer = pattern.outerIndexPtr();
     const std::ptrdiff_t *inner = pattern.innerIndexPtr();
     Node *const *val = pattern.valuePtr();
@@ -145,7 +153,7 @@ class CompressorDAG {
           Node *dad_node = w[pr->dad().block_id()];
           if (dad_node != nullptr) {
             node->row_dad = dad_node;
-            dad_node->row_sons.push_back(node);
+            dad_node->row_sons[r_rta.child_pos()[pr->block_id()]] = node;
           }
         }
         w[pr->block_id()] = node;
