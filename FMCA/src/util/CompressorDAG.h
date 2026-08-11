@@ -34,7 +34,6 @@ class CompressorDAG {
     PayloadType block;
     std::atomic<Index> deps_remaining{0};
     std::atomic<Index> consumers_remaining{0};
-    std::atomic<bool> claimed{false};
   };
 
   using Pattern = Eigen::SparseMatrix<Node *, Eigen::ColMajor, std::ptrdiff_t>;

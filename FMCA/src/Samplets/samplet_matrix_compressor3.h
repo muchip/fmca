@@ -31,16 +31,12 @@ class SampletMatrixCompressor
   using Base::triplets;
 
   typedef AMap<Matrix> MMatrix;
-  typedef std::map<size_t, MMatrix, std::greater<size_t>> LevelBuffer;
+  typedef internal::CompressorDAG<H2STreeType, MMatrix, ClusterComparison> DAG;
   SampletMatrixCompressor() {}
   SampletMatrixCompressor(const SampletTreeBase<H2STreeType> &ST, Scalar eta,
                           Scalar threshold = 0) {
     init(ST, eta, threshold);
   }
-
-  const std::vector<LevelBuffer> &pattern() { return pattern_; };
-
-  const internal::RandomTreeAccessor<H2STreeType> &rta() { return rta_; };
 
   /**
    *  \brief creates the matrix pattern based on the cluster tree and the
@@ -49,216 +45,215 @@ class SampletMatrixCompressor
    **/
   void init(const SampletTreeBase<H2STreeType> &ST, Scalar eta,
             Scalar threshold = 0) {
+    typedef typename DAG::Node Node;
     std::cout << "using compressor 2" << std::endl;
     Base::setDimensions(ST.block_size(), ST.block_size());
     Base::setThreshold(threshold);
     Base::setEta(eta);
-    rta_.init(ST, ST.block_size());
-    pattern_.resize(2 * rta_.max_level() + 1);
+    dag_.init(ST.derived(), ST.derived(), eta, true);
     max_size_ = 0;
-    for (Index j = 0; j < rta_.nodes().size(); ++j) {
-      const H2STreeType *pc = rta_.nodes()[j];
-      /*
-       *  For the moment, the compression does not exploit inheritance
-       *  relations in the column clusters. Thus, to obtain an NlogN
-       *  algorithm, we have to exploit this at least in the row clusters.
-       *  This is facilitated by starting a DFS for each column cluster.
-       */
-      std::vector<const H2STreeType *> row_stack;
-      row_stack.push_back(std::addressof(ST.derived()));
-      while (row_stack.size()) {
-        const H2STreeType *pr = row_stack.back();
-        row_stack.pop_back();
-        // fill the stack with possible children
-        for (auto i = 0; i < pr->nSons(); ++i)
-          if (ClusterComparison::compare(pr->sons(i), *pc, eta) != LowRank)
-            row_stack.push_back(std::addressof(pr->sons(i)));
-        if (pc->block_id() >= pr->block_id()) {
-          const size_t id =
-              pr->block_id() + rta_.nodes().size() * pc->block_id();
-          pattern_[pc->level() + pr->level()].insert(
-              {id, MMatrix(nullptr, 0, 0)});
-          max_size_ = std::max<std::ptrdiff_t>(
-              {max_size_, pr->Q().rows(), pr->Q().cols(), pr->V().rows()});
-          max_size_ = std::max<std::ptrdiff_t>(
-              {max_size_, pc->Q().rows(), pc->Q().cols(), pc->V().rows()});
-        }
-      }
+
+    // sweep to fix strategy and maximum memory size
+    for (Node &v : dag_.nodes()) {
+      max_size_ = std::max<std::ptrdiff_t>(
+          {max_size_, v.pr->Q().rows(), v.pr->Q().cols(), v.pr->V().rows(),
+           v.pc->Q().rows(), v.pc->Q().cols(), v.pc->V().rows()});
+      Index nrow = 0;
+      Index ncol = 0;
+      for (const Node *s : v.row_sons) nrow += (s != nullptr);
+      for (const Node *s : v.col_sons) ncol += (s != nullptr);
+      if (nrow == 0 && ncol == 0)
+        v.strategy = Node::Leaf;
+      else
+        v.strategy = (ncol >= nrow) ? Node::Cols : Node::Rows;
+      v.deps_remaining.store(v.strategy == Node::Rows ? nrow : ncol,
+                             std::memory_order_relaxed);
+      v.consumers_remaining.store(0, std::memory_order_relaxed);
     }
+
+    // dependent on the strategy of the parent fix consumer count of children
+    for (Node &v : dag_.nodes()) {
+      if (v.strategy == Node::Leaf) continue;
+      for (Node *s : (v.strategy == Node::Rows ? v.row_sons : v.col_sons))
+        if (s != nullptr)
+          s->consumers_remaining.fetch_add(1, std::memory_order_relaxed);
+    }
+
     return;
   }
 
   template <typename EntGenerator>
   void compress(const EntGenerator &e_gen) {
-    const Index max_threads = omp_get_max_threads();
-    std::vector<std::vector<Triplet>> tlist(max_threads);
-    mem_arena_.init(max_size_ * max_size_, max_threads);
+    typedef typename DAG::Node Node;
+    const Index nthreads = omp_get_max_threads();
+    const std::ptrdiff_t nnodes = dag_.nodes().size();
+    std::vector<std::vector<Triplet>> tlist(nthreads);
+    std::vector<std::unique_ptr<WorkDeque>> queues(nthreads);
+    for (Index i = 0; i < nthreads; ++i) queues[i].reset(new WorkDeque);
+    mem_arena_.init(max_size_ * max_size_, nthreads);
     Base::clearTriplets();
-    // mem_arena_.init(max_size_, max_threads);
-    //  the column cluster tree is traversed bottom up
-    const auto &rclusters = rta_.nodes();
-    const auto &cclusters = rta_.nodes();
-    const auto nclusters = rta_.nodes().size();
-    for (int ll = pattern_.size() - 1; ll >= 0; --ll) {
-      Index pos = 0;
-      const size_t map_size = pattern_[ll].size();
-      LevelBuffer::iterator it2 = pattern_[ll].begin();
-#pragma omp parallel shared(pos), firstprivate(it2)
-      {
-        const Index tid = omp_get_thread_num();
-        Index i = 0;
-        Index prev_i = 0;
-#pragma omp atomic capture
-        i = pos++;
-        while (i < map_size) {
-          std::advance(it2, i - prev_i);
-          const H2STreeType *pr = rclusters[it2->first % nclusters];
-          const H2STreeType *pc = cclusters[it2->first / nclusters];
-          const Index col_id = pc->block_id();
-          const Index row_id = pr->block_id();
-          Index nscalfs = 0;
-          Index son_lvl = 0;
-          Index offset = 0;
-          size_t son_id = 0;
-          MMatrix &block = it2->second;
-          new (&block) MMatrix(acquireMap(pr->Q().cols(), pc->Q().cols(), tid));
-          const char the_case = 2 * (!pr->nSons()) + (!pc->nSons());
-          switch (the_case) {
-            // (leaf,leaf), compute the block
-            case 3: {
-              recursivelyComputeBlock_noalloc(*pr, *pc, e_gen, block, tid);
-              break;
-            }
-            // (noleaf,leaf), recycle from below
-            case 1: {
-              MMatrix buf = acquireMap(pr->Q().rows(), pc->Q().cols(), tid);
-              for (auto k = 0; k < pr->nSons(); ++k) {
-                nscalfs = pr->sons(k).nscalfs();
-                son_lvl = pr->sons(k).level() + pc->level();
-                son_id = pr->sons(k).block_id() + nclusters * col_id;
-                const auto it3 = pattern_[son_lvl].find(son_id);
-                // if so, reuse the matrix block, otherwise recompute it
-                if (it3 != pattern_[son_lvl].end()) {
-                  const MMatrix &ret = it3->second;
-                  buf.middleRows(offset, nscalfs) = ret.topRows(nscalfs);
-                } else {
-                  MMatrix temp =
-                      acquireMap(pr->sons(k).Q().cols(), pc->Q().cols(), tid);
-                  recursivelyComputeBlock_noalloc(pr->sons(k), *pc, e_gen, temp,
-                                                  tid);
-                  buf.middleRows(offset, nscalfs) = temp.topRows(nscalfs);
-                  releaseMap(temp, tid);
-                }
-                offset += nscalfs;
-              }
-              block.noalias() = pr->Q().transpose() * buf;
-              releaseMap(buf, tid);
-              break;
-            }
-              // (*,noleaf), recycle from right
-            case 2:
-            case 0: {
-              MMatrix buf = acquireMap(pr->Q().cols(), pc->Q().rows(), tid);
-              for (auto k = 0; k < pc->nSons(); ++k) {
-                nscalfs = pc->sons(k).nscalfs();
-                son_lvl = pc->sons(k).level() + pr->level();
-                son_id = pc->sons(k).block_id() * nclusters + row_id;
-                // check if pc's son is found in the row of pr
-                // if so, reuse the matrix block, otherwise recompute it
-                const auto it3 = pattern_[son_lvl].find(son_id);
-                if (it3 != pattern_[son_lvl].end()) {
-                  const MMatrix &ret = it3->second;
-                  buf.middleCols(offset, nscalfs) = ret.leftCols(nscalfs);
-                } else {
-                  MMatrix temp =
-                      acquireMap(pr->Q().cols(), pc->sons(k).Q().cols(), tid);
-                  recursivelyComputeBlock_noalloc(*pr, pc->sons(k), e_gen, temp,
-                                                  tid);
-                  buf.middleCols(offset, nscalfs) = temp.leftCols(nscalfs);
-                  releaseMap(temp, tid);
-                }
-                offset += nscalfs;
-              }
-              block.noalias() = buf * pc->Q();
-              releaseMap(buf, tid);
-              break;
-            }
-          }
-          // tag_[row_id].insert(col_id);
-          prev_i = i;
-#pragma omp atomic capture
-          i = pos++;
-        }
-      }
-      // garbage collector
-      if (ll < pattern_.size() - 1) {
-        Index pos = 0;
-        const size_t map_size = pattern_[ll + 1].size();
-        LevelBuffer::iterator it2 = pattern_[ll + 1].begin();
-#pragma omp parallel shared(pos), firstprivate(it2)
-        {
-          const Index tid = omp_get_thread_num();
-          Index i = 0;
-          Index prev_i = 0;
-#pragma omp atomic capture
-          i = pos++;
-          while (i < map_size) {
-            std::advance(it2, i - prev_i);
-            const H2STreeType *pr = rclusters[it2->first % nclusters];
-            const H2STreeType *pc = cclusters[it2->first / nclusters];
-            MMatrix &mat = it2->second;
-            if (!pr->is_root() && !pc->is_root())
-              storeSymBlock(
-                  tlist[tid], pr->start_index(), pc->start_index(),
-                  pr->nsamplets(), pc->nsamplets(),
-                  mat.bottomRightCorner(pr->nsamplets(), pc->nsamplets()));
-            else if (!pc->is_root())
-              storeSymBlock(tlist[tid], pr->start_index(), pc->start_index(),
-                            pr->Q().cols(), pc->nsamplets(),
-                            mat.rightCols(pc->nsamplets()));
-            else if (pr->is_root() && pc->is_root())
-              storeSymBlock(tlist[tid], pr->start_index(), pc->start_index(),
-                            pr->Q().cols(), pc->Q().cols(), mat);
-            releaseMap(mat, tid);
-            new (&mat) MMatrix(nullptr, 0, 0);
-            prev_i = i;
-#pragma omp atomic capture
-            i = pos++;
-          }
-        }
-      }
+
+    // the counters are consumed by the run, so rebuild them from the
+    // strategies fixed in init(). complete before any worker starts, or a node
+    // can reach zero while a consumer is still unregistered
+    for (Node &v : dag_.nodes()) {
+      const std::vector<Node *> &sons =
+          v.strategy == Node::Rows ? v.row_sons : v.col_sons;
+      Index deps = 0;
+      for (const Node *s : sons) deps += (s != nullptr);
+      v.deps_remaining.store(deps, std::memory_order_relaxed);
+      v.consumers_remaining.store(0, std::memory_order_relaxed);
     }
-    // garbage collector
+    for (Node &v : dag_.nodes()) {
+      const std::vector<Node *> &sons =
+          v.strategy == Node::Rows ? v.row_sons : v.col_sons;
+      for (Node *s : sons)
+        if (s != nullptr)
+          s->consumers_remaining.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    std::atomic<std::ptrdiff_t> remaining(nnodes);
+
+    auto push_local = [&](Index tid, Node *v) {
+      std::lock_guard<std::mutex> lock(queues[tid]->m);
+      queues[tid]->q.push_back(v);
+    };
+    // owner takes the back: the node just made ready is the one whose sons are
+    // still hot, so the walk climbs one branch at a time and their blocks free
+    // immediately
+    auto pop_local = [&](Index tid) -> Node * {
+      std::lock_guard<std::mutex> lock(queues[tid]->m);
+      if (queues[tid]->q.empty()) return nullptr;
+      Node *v = queues[tid]->q.back();
+      queues[tid]->q.pop_back();
+      return v;
+    };
+    // thieves take the front, i.e. the oldest and coarsest work, which keeps
+    // the victim's own branch intact
+    auto try_steal = [&](Index tid) -> Node * {
+      for (Index k = 1; k < nthreads; ++k) {
+        const Index victim = (tid + k) % nthreads;
+        std::lock_guard<std::mutex> lock(queues[victim]->m);
+        if (queues[victim]->q.empty()) continue;
+        Node *v = queues[victim]->q.front();
+        queues[victim]->q.pop_front();
+        return v;
+      }
+      return nullptr;
+    };
+
+#pragma omp parallel num_threads(nthreads)
     {
-      Index pos = 0;
-      const size_t map_size = pattern_[0].size();
-      LevelBuffer::iterator it2 = pattern_[0].begin();
-      {
-        Index i = 0;
-        Index prev_i = 0;
-        i = pos++;
-        while (i < map_size) {
-          std::advance(it2, i - prev_i);
-          const H2STreeType *pr = rclusters[it2->first % nclusters];
-          const H2STreeType *pc = cclusters[it2->first / nclusters];
-          MMatrix &mat = it2->second;
-          if (!pr->is_root() && !pc->is_root())
-            storeSymBlock(
-                tlist[0], pr->start_index(), pc->start_index(), pr->nsamplets(),
-                pc->nsamplets(),
-                mat.bottomRightCorner(pr->nsamplets(), pc->nsamplets()));
-          else if (!pc->is_root())
-            storeSymBlock(tlist[0], pr->start_index(), pc->start_index(),
-                          pr->Q().cols(), pc->nsamplets(),
-                          mat.rightCols(pc->nsamplets()));
-          else if (pr->is_root() && pc->is_root())
-            storeSymBlock(tlist[0], pr->start_index(), pc->start_index(),
-                          pr->Q().cols(), pc->Q().cols(), mat);
-          releaseMap(mat, 0);
-          new (&mat) MMatrix(nullptr, 0, 0);
-          prev_i = i;
-          i = pos++;
+      const Index tid = omp_get_thread_num();
+      // seed: contiguous slice, so each worker owns a region of the deque.
+      // CompressorDAG::init emits nodes grouped by row cluster, each group a
+      // DFS over the column tree, so siblings are already adjacent
+      const std::ptrdiff_t lo = tid * nnodes / nthreads;
+      const std::ptrdiff_t hi = (tid + 1) * nnodes / nthreads;
+      for (std::ptrdiff_t i = lo; i < hi; ++i) {
+        Node &v = dag_.nodes()[i];
+        if (v.deps_remaining.load(std::memory_order_relaxed) == 0)
+          queues[tid]->q.push_back(std::addressof(v));
+      }
+#pragma omp barrier
+
+      while (remaining.load(std::memory_order_acquire) > 0) {
+        Node *v = pop_local(tid);
+        if (v == nullptr) v = try_steal(tid);
+        if (v == nullptr) {
+          std::this_thread::yield();
+          continue;
         }
+        const H2STreeType *pr = v->pr;
+        const H2STreeType *pc = v->pc;
+        new (&v->block)
+            MMatrix(acquireMap(pr->Q().cols(), pc->Q().cols(), tid));
+
+        switch (v->strategy) {
+          case Node::Leaf: {
+            recursivelyComputeBlock_noalloc(*pr, *pc, e_gen, v->block, tid);
+            break;
+          }
+          case Node::Rows: {
+            MMatrix buf = acquireMap(pr->Q().rows(), pc->Q().cols(), tid);
+            Index offset = 0;
+            for (Index k = 0; k < pr->nSons(); ++k) {
+              const Index nscalfs = pr->sons(k).nscalfs();
+              if (v->row_sons[k] != nullptr) {
+                buf.middleRows(offset, nscalfs) =
+                    v->row_sons[k]->block.topRows(nscalfs);
+              } else {
+                MMatrix temp =
+                    acquireMap(pr->sons(k).Q().cols(), pc->Q().cols(), tid);
+                recursivelyComputeBlock_noalloc(pr->sons(k), *pc, e_gen, temp,
+                                                tid);
+                buf.middleRows(offset, nscalfs) = temp.topRows(nscalfs);
+                releaseMap(temp, tid);
+              }
+              offset += nscalfs;
+            }
+            v->block.noalias() = pr->Q().transpose() * buf;
+            releaseMap(buf, tid);
+            break;
+          }
+          case Node::Cols: {
+            MMatrix buf = acquireMap(pr->Q().cols(), pc->Q().rows(), tid);
+            Index offset = 0;
+            for (Index k = 0; k < pc->nSons(); ++k) {
+              const Index nscalfs = pc->sons(k).nscalfs();
+              if (v->col_sons[k] != nullptr) {
+                buf.middleCols(offset, nscalfs) =
+                    v->col_sons[k]->block.leftCols(nscalfs);
+              } else {
+                MMatrix temp =
+                    acquireMap(pr->Q().cols(), pc->sons(k).Q().cols(), tid);
+                recursivelyComputeBlock_noalloc(*pr, pc->sons(k), e_gen, temp,
+                                                tid);
+                buf.middleCols(offset, nscalfs) = temp.leftCols(nscalfs);
+                releaseMap(temp, tid);
+              }
+              offset += nscalfs;
+            }
+            v->block.noalias() = buf * pc->Q();
+            releaseMap(buf, tid);
+            break;
+          }
+        }
+
+        // the node's own contribution, no longer deferred to a gc sweep
+        if (!pr->is_root() && !pc->is_root())
+          storeSymBlock(
+              tlist[tid], pr->start_index(), pc->start_index(), pr->nsamplets(),
+              pc->nsamplets(),
+              v->block.bottomRightCorner(pr->nsamplets(), pc->nsamplets()));
+        else if (!pc->is_root())
+          storeSymBlock(tlist[tid], pr->start_index(), pc->start_index(),
+                        pr->Q().cols(), pc->nsamplets(),
+                        v->block.rightCols(pc->nsamplets()));
+        else if (pr->is_root() && pc->is_root())
+          storeSymBlock(tlist[tid], pr->start_index(), pc->start_index(),
+                        pr->Q().cols(), pc->Q().cols(), v->block);
+
+        // last reader of a son frees it
+        for (Node *s : (v->strategy == Node::Rows ? v->row_sons : v->col_sons))
+          if (s != nullptr && s->consumers_remaining.fetch_sub(
+                                  1, std::memory_order_acq_rel) == 1)
+            releaseMap(s->block, tid);
+
+        // nobody will ever decrement this one, so free it here or never
+        if (v->consumers_remaining.load(std::memory_order_acquire) == 0)
+          releaseMap(v->block, tid);
+
+        if (v->row_dad != nullptr && v->row_dad->strategy == Node::Rows &&
+            v->row_dad->deps_remaining.fetch_sub(
+                1, std::memory_order_acq_rel) == 1)
+          push_local(tid, v->row_dad);
+        if (v->col_dad != nullptr && v->col_dad->strategy == Node::Cols &&
+            v->col_dad->deps_remaining.fetch_sub(
+                1, std::memory_order_acq_rel) == 1)
+          push_local(tid, v->col_dad);
+
+        remaining.fetch_sub(1, std::memory_order_release);
       }
     }
     for (Index i = 0; i < tlist.size(); ++i)
@@ -387,8 +382,7 @@ class SampletMatrixCompressor
     // mem_arena_.release(map.data(), tid);
     new (&map) MMatrix(nullptr, 0, 0);
   }
-  std::vector<LevelBuffer> pattern_;
-  internal::RandomTreeAccessor<H2STreeType> rta_;
+  DAG dag_;
   std::ptrdiff_t max_size_;
 };
 }  // namespace FMCA
