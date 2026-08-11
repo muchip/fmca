@@ -31,7 +31,7 @@ class CompressorDAG {
     Node *col_dad = nullptr;
     // scheduling related fields
     RecyclingStrategy strategy = Leaf;
-    PayloadType block;
+    PayloadType block{nullptr, 0, 0};
     std::atomic<Index> deps_remaining{0};
     std::atomic<Index> consumers_remaining{0};
   };

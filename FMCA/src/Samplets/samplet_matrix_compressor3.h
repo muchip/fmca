@@ -13,7 +13,8 @@
 #define FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_H_
 
 #include "../util/MemoryPool2.h"
-#include "../util/RandomTreeAccessor.h"
+#include "../util/CompressorDAG.h"
+#include "../util/SplitDeque.h"
 
 namespace FMCA {
 template <typename H2STreeType, typename ClusterComparison = CompareCluster>
