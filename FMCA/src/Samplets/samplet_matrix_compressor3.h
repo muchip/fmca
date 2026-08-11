@@ -85,95 +85,56 @@ class SampletMatrixCompressor
   template <typename EntGenerator>
   void compress(const EntGenerator &e_gen) {
     typedef typename DAG::Node Node;
+    assert(dag_.nodes().size() && "compress: DAG empty, call init first");
     const Index nthreads = omp_get_max_threads();
     const std::ptrdiff_t nnodes = dag_.nodes().size();
     std::vector<std::vector<Triplet>> tlist(nthreads);
-    std::vector<std::unique_ptr<WorkDeque>> queues(nthreads);
-    for (Index i = 0; i < nthreads; ++i) queues[i].reset(new WorkDeque);
+    //  SplitDeque has no copy or move, so the vector is sized once here and
+    //  never resized. Capacity only has to hold the dynamically readied
+    //  frontier of one worker, not its share of the sources: those are
+    //  scanned lazily below
+    std::vector<SplitDeque<Node>> queues(nthreads);
     mem_arena_.init(max_size_ * max_size_, nthreads);
     Base::clearTriplets();
-
-    // the counters are consumed by the run, so rebuild them from the
-    // strategies fixed in init(). complete before any worker starts, or a node
-    // can reach zero while a consumer is still unregistered
-    for (Node &v : dag_.nodes()) {
-      const std::vector<Node *> &sons =
-          v.strategy == Node::Rows ? v.row_sons : v.col_sons;
-      Index deps = 0;
-      for (const Node *s : sons) deps += (s != nullptr);
-      v.deps_remaining.store(deps, std::memory_order_relaxed);
-      v.consumers_remaining.store(0, std::memory_order_relaxed);
-    }
-    for (Node &v : dag_.nodes()) {
-      const std::vector<Node *> &sons =
-          v.strategy == Node::Rows ? v.row_sons : v.col_sons;
-      for (Node *s : sons)
-        if (s != nullptr)
-          s->consumers_remaining.fetch_add(1, std::memory_order_relaxed);
-    }
-
     std::atomic<std::ptrdiff_t> remaining(nnodes);
-
-    auto push_local = [&](Index tid, Node *v) {
-      std::lock_guard<std::mutex> lock(queues[tid]->m);
-      queues[tid]->q.push_back(v);
-    };
-    // owner takes the back: the node just made ready is the one whose sons are
-    // still hot, so the walk climbs one branch at a time and their blocks free
-    // immediately
-    auto pop_local = [&](Index tid) -> Node * {
-      std::lock_guard<std::mutex> lock(queues[tid]->m);
-      if (queues[tid]->q.empty()) return nullptr;
-      Node *v = queues[tid]->q.back();
-      queues[tid]->q.pop_back();
-      return v;
-    };
-    // thieves take the front, i.e. the oldest and coarsest work, which keeps
-    // the victim's own branch intact
-    auto try_steal = [&](Index tid) -> Node * {
-      for (Index k = 1; k < nthreads; ++k) {
-        const Index victim = (tid + k) % nthreads;
-        std::lock_guard<std::mutex> lock(queues[victim]->m);
-        if (queues[victim]->q.empty()) continue;
-        Node *v = queues[victim]->q.front();
-        queues[victim]->q.pop_front();
-        return v;
-      }
-      return nullptr;
-    };
 
 #pragma omp parallel num_threads(nthreads)
     {
       const Index tid = omp_get_thread_num();
-      // seed: contiguous slice, so each worker owns a region of the deque.
-      // CompressorDAG::init emits nodes grouped by row cluster, each group a
-      // DFS over the column tree, so siblings are already adjacent
-      const std::ptrdiff_t lo = tid * nnodes / nthreads;
-      const std::ptrdiff_t hi = (tid + 1) * nnodes / nthreads;
-      for (std::ptrdiff_t i = lo; i < hi; ++i) {
-        Node &v = dag_.nodes()[i];
-        if (v.deps_remaining.load(std::memory_order_relaxed) == 0)
-          queues[tid]->q.push_back(std::addressof(v));
-      }
-#pragma omp barrier
+      SplitDeque<Node> &myq = queues[tid];
+      std::ptrdiff_t cursor = tid * nnodes / nthreads;
+      const std::ptrdiff_t stop = (tid + 1) * nnodes / nthreads;
 
       while (remaining.load(std::memory_order_acquire) > 0) {
-        Node *v = pop_local(tid);
-        if (v == nullptr) v = try_steal(tid);
-        if (v == nullptr) {
-          std::this_thread::yield();
-          continue;
+        Node *v = myq.pop();
+        //  own seeds, scanned lazily. The test recomputes the initial
+        //  dependency count from the son array rather than reading
+        //  deps_remaining: that counter is decremented concurrently, so a node
+        //  whose last son just finished could be pushed by that son's thread
+        //  and picked up here at the same time, and be computed twice. A node
+        //  with no sons present is never decremented by anyone, so it can only
+        //  enter through this scan
+        while (v == nullptr && cursor < stop) {
+          Node &c = dag_.nodes()[cursor++];
+          Index deps = 0;
+          for (const Node *s :
+               (c.strategy == Node::Rows ? c.row_sons : c.col_sons))
+            deps += (s != nullptr);
+          if (!deps) v = std::addressof(c);
         }
+        for (Index k = 1; v == nullptr && k < nthreads; ++k)
+          v = queues[(tid + k) % nthreads].steal();
+        if (v == nullptr) continue;
+
         const H2STreeType *pr = v->pr;
         const H2STreeType *pc = v->pc;
         new (&v->block)
             MMatrix(acquireMap(pr->Q().cols(), pc->Q().cols(), tid));
 
         switch (v->strategy) {
-          case Node::Leaf: {
+          case Node::Leaf:
             recursivelyComputeBlock_noalloc(*pr, *pc, e_gen, v->block, tid);
             break;
-          }
           case Node::Rows: {
             MMatrix buf = acquireMap(pr->Q().rows(), pc->Q().cols(), tid);
             Index offset = 0;
@@ -220,7 +181,8 @@ class SampletMatrixCompressor
           }
         }
 
-        // the node's own contribution, no longer deferred to a gc sweep
+        //  the node's own contribution. Only reads the block, so it never had
+        //  to wait for the consumers and no longer sits in a gc sweep
         if (!pr->is_root() && !pc->is_root())
           storeSymBlock(
               tlist[tid], pr->start_index(), pc->start_index(), pr->nsamplets(),
@@ -230,32 +192,37 @@ class SampletMatrixCompressor
           storeSymBlock(tlist[tid], pr->start_index(), pc->start_index(),
                         pr->Q().cols(), pc->nsamplets(),
                         v->block.rightCols(pc->nsamplets()));
-        else if (pr->is_root() && pc->is_root())
+        else
           storeSymBlock(tlist[tid], pr->start_index(), pc->start_index(),
                         pr->Q().cols(), pc->Q().cols(), v->block);
 
-        // last reader of a son frees it
+        //  fetch_sub returns the value before, so == 1 means we took it to
+        //  zero and exactly one thread sees it
         for (Node *s : (v->strategy == Node::Rows ? v->row_sons : v->col_sons))
           if (s != nullptr && s->consumers_remaining.fetch_sub(
                                   1, std::memory_order_acq_rel) == 1)
             releaseMap(s->block, tid);
-
-        // nobody will ever decrement this one, so free it here or never
-        if (v->consumers_remaining.load(std::memory_order_acquire) == 0)
+        //  nobody will ever decrement this one, so free it here or never
+        if (!v->consumers_remaining.load(std::memory_order_acquire))
           releaseMap(v->block, tid);
 
+        //  a parent only reads us if it chose our side. Pushed to our own
+        //  deque, so pop takes it next and the climb continues
         if (v->row_dad != nullptr && v->row_dad->strategy == Node::Rows &&
             v->row_dad->deps_remaining.fetch_sub(
                 1, std::memory_order_acq_rel) == 1)
-          push_local(tid, v->row_dad);
+          if (!myq.push(v->row_dad))
+            assert(false && "compress: deque overflow, raise capacity");
         if (v->col_dad != nullptr && v->col_dad->strategy == Node::Cols &&
             v->col_dad->deps_remaining.fetch_sub(
                 1, std::memory_order_acq_rel) == 1)
-          push_local(tid, v->col_dad);
+          if (!myq.push(v->col_dad))
+            assert(false && "compress: deque overflow, raise capacity");
 
         remaining.fetch_sub(1, std::memory_order_release);
       }
     }
+    dag_.nodes().clear();
     for (Index i = 0; i < tlist.size(); ++i)
       Base::appendTriplets(std::move(tlist[i]));
     return;
