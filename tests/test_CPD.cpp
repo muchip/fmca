@@ -1,7 +1,7 @@
 // This file is part of FMCA, the Fast Multiresolution Covariance Analysis
 // package.
 //
-// Copyright (c) 2022, Michael Multerer
+// Copyright (c) 2026, Michael Multerer
 //
 // All rights reserved.
 //
@@ -9,64 +9,16 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-// #define EIGEN_DONT_PARALLELIZE
-#include <iostream>
-#include <Eigen/CholmodSupport>
 #include <Eigen/Dense>
-#include <Eigen/IterativeLinearSolvers>
+#include <Eigen/Sparse>
+#include <iostream>
 
 #include "../FMCA/CovarianceKernel"
 #include "../FMCA/Samplets"
 #include "../FMCA/src/Samplets/samplet_matrix_compressor.h"
 #include "../FMCA/src/util/Tictoc.h"
 
-using Cholesky = Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<FMCA::Scalar>,
-                                             Eigen::Upper>;
-template <typename T>
-void PivotedCholesky(const T &K, FMCA::Matrix *L,
-                     std::vector<FMCA::Index> *idcs, FMCA::Scalar tol = 1e-3,
-                     FMCA::Index max_cols = 1000) {
-  FMCA::Vector D = K.diagonal();
-  FMCA::Index pivot = 0;
-  FMCA::Scalar tr = 0;
-  L->resize(K.rows(), max_cols);
-  idcs->resize(max_cols);
-  tr = D.sum();
-  // we guarantee the error tr(K-LL^T)/tr(K) < tol
-  tol *= tr;
-  // perform pivoted Cholesky decomposition
-  std::cout << "N: " << K.rows() << " max number of cols: " << max_cols
-            << std::endl
-            << "rel tol: " << tol << " initial trace: " << tr << std::endl;
-  FMCA::Index step = 0;
-  while ((step < max_cols) && (tol < tr)) {
-    D.maxCoeff(&pivot);
-    (*idcs)[step] = pivot;
-    // get new column from K
-    L->col(step) = K.col(pivot);
-    // update column with the current matrix Lmatrix_
-    L->col(step) -= L->leftCols(step) * L->row(pivot).head(step).transpose();
-    if ((*L)(pivot, step) <= 0) {
-      std::cout << "breaking with non positive pivot\n";
-      break;
-    }
-    L->col(step) /= sqrt((*L)(pivot, step));
-    // update the diagonal and the trace
-    D.array() -= L->col(step).array().square();
-    // compute the trace of the Schur complement
-    tr = D.sum();
-    ++step;
-  }
-  std::cout << "steps: " << step << " trace error: " << tr << std::endl;
-  // crop L, indices to their actual size
-  L->conservativeResize(L->rows(), step);
-  idcs->resize(step);
-  return;
-}
-
-
-#define NPTS 500000
-#define DIM 2
+#define NPTS 10000
 
 using Interpolator = FMCA::TotalDegreeInterpolator;
 using SampletInterpolator = FMCA::MonomialInterpolator;
@@ -77,126 +29,129 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
 int main() {
   FMCA::Tictoc T;
-  const FMCA::CovarianceKernel function("TPS2D", 1.);
-  const FMCA::Matrix P = 0.5 * (FMCA::Matrix::Random(DIM, NPTS).array() + 1);
-  const FMCA::Scalar threshold = 1e-9;
-  const FMCA::Scalar eta = 0.5;
-  const FMCA::Index dtilde = 8;
+  const std::string kernels[2] = {"TPS2D", "BIHARMONIC3D"};
+  const FMCA::Index dims[2] = {2, 3};
+  const FMCA::Index dtilde = 4;
   const FMCA::Index mpole_deg = 2 * (dtilde - 1);
-  const Moments mom(P, mpole_deg);
-  const Moments Pmom(P, 1);
-  const MatrixEvaluator mat_eval(mom, function);
-  std::cout << "dtilde:                       " << dtilde << std::endl;
-  std::cout << "mpole_deg:                    " << mpole_deg << std::endl;
-  std::cout << "eta:                          " << eta << std::endl;
-  const SampletMoments samp_mom(P, dtilde - 1);
-  H2SampletTree hst(mom, samp_mom, 0, P);
-  FMCA::clusterTreeStatistics(hst, P);
+  const FMCA::Scalar eta = 0.5;
+  const FMCA::Scalar threshold = 1e-8;
 
-  // P
-  const FMCA::Matrix Pol = Pmom.moment_matrix(hst);
-  std::cout << Pol.leftCols(10).transpose() << std::endl
-            << "--------" << std::endl;
-  // T*P
-  const FMCA::Matrix TPol = hst.sampletTransform(Pol.transpose());
-  std::cout << TPol.topRows(10) << std::endl << "--------" << std::endl;
+  for (FMCA::Index t = 0; t < 2; ++t) {
+    const FMCA::Index dim = dims[t];
+    const FMCA::Index mq = 1 + dim;  // monomials {1, x_1, ..., x_dim}
+    const FMCA::CovarianceKernel function(kernels[t], 1.);
+    const FMCA::Matrix P = 0.5 * (FMCA::Matrix::Random(dim, NPTS).array() + 1);
+    std::cout << "kernel:                       " << kernels[t] << std::endl;
+    std::cout << "dimension:                    " << dim << std::endl;
+    std::cout << "dtilde:                       " << dtilde << std::endl;
+    std::cout << "eta:                          " << eta << std::endl;
+    const Moments mom(P, mpole_deg);
+    const MatrixEvaluator mat_eval(mom, function);
+    const SampletMoments samp_mom(P, dtilde - 1);
+    H2SampletTree hst(mom, samp_mom, 0, P);
 
-  FMCA::Index mq = Pmom.interp().idcs().index_set().size();
-  std::cout << "mq= " << mq << std::endl;
-
-  // TPol.topRows(mq) is the scaling part, the S block in [S;0]
-  const FMCA::Matrix PTP = TPol.topRows(mq).transpose() * TPol.topRows(mq);
-  std::cout << "error= " << (PTP - TPol.transpose() * TPol).norm() / TPol.norm()
-            << std::endl;
-  const FMCA::Matrix invPTP = PTP.inverse();
-  std::cout << "inverse error= "
-            << (invPTP * PTP - FMCA::Matrix::Identity(mq, mq)).norm() /
-                   std::sqrt(mq)
-            << std::endl;
-  std::cout << TPol.topRows(mq) * invPTP * TPol.topRows(mq).transpose()
-            << std::endl;
-  
-  // compression
-  T.tic();
-  FMCA::internal::SampletMatrixCompressor<H2SampletTree> Scomp;
-  Scomp.init(hst, eta, 100 * FMCA_ZERO_TOLERANCE);
-  T.toc("planner:                     ");
-  T.tic();
-  Scomp.compress(mat_eval);
-  T.toc("compressor:                  ");
-  T.tic();
-  const auto &ap_trips = Scomp.triplets();
-  std::cout << "anz (a-priori):               "
-            << std::round(ap_trips.size() / FMCA::Scalar(NPTS)) << std::endl;
-  T.toc("triplets:                    ");
-
-  T.tic();
-  const auto &trips = Scomp.aposteriori_triplets_fast(threshold);
-  std::cout << "anz (a-posteriori):           "
-            << std::round(trips.size() / FMCA::Scalar(NPTS)) << std::endl;
-
-  T.toc("triplets:                    ");
-  FMCA::Vector x(NPTS), y1(NPTS), y2(NPTS);
-  FMCA::Scalar err = 0;
-  FMCA::Scalar nrm = 0;
-  for (auto i = 0; i < 10; ++i) {
-    FMCA::Index index = rand() % P.cols();
-    x.setZero();
-    x(index) = 1;
-    FMCA::Vector col = function.eval(P, P.col(hst.indices()[index]));
-    y1 = col(Eigen::Map<const FMCA::iVector>(hst.indices(), hst.block_size()));
-    x = hst.sampletTransform(x);
-    y2.setZero();
-    for (const auto &i : trips) {
-      y2(i.row()) += i.value() * x(i.col());
-      if (i.row() != i.col()) y2(i.col()) += i.value() * x(i.row());
+    // decoupling of the polynomial block:  T P = [R; 0]
+    FMCA::Matrix Pol(mq, NPTS);
+    for (FMCA::Index i = 0; i < NPTS; ++i) {
+      Pol(0, i) = 1.0;
+      Pol.block(1, i, dim, 1) = P.col(i);
     }
-    y2 = hst.inverseSampletTransform(y2);
-    err += (y1 - y2).squaredNorm();
-    nrm += y1.squaredNorm();
-  }
-  err = sqrt(err / nrm);
-  std::cout << "compression error:            " << err << std::endl
-            << std::flush;
-  Eigen::SparseMatrix<FMCA::Scalar> S(NPTS, NPTS);
-  S.setFromTriplets(trips.begin(), trips.end());
-  // the first mq correspond to the polynomial subspace, I then just take the K_{psi,psi}
-  Eigen::SparseMatrix<FMCA::Scalar> Sspd =
-      S.block(mq, mq, NPTS - mq, NPTS - mq);
-  Eigen::SparseMatrix<FMCA::Scalar> I(NPTS - mq, NPTS - mq);
-  I.setIdentity();
-#if 0
-  FMCA::Matrix L;
-  std::vector<FMCA::Index> idcs;
-  Eigen::SparseMatrix<FMCA::Scalar> Ssym = Sspd.selfadjointView<Eigen::Upper>();
-  PivotedCholesky(Ssym, &L, &idcs, 1e-3, 2000);
-  std::cout << L.cols() << std::endl;
-  FMCA::Matrix test(Ssym.rows(), 100);
-  test.setRandom();
-  FMCA::Matrix Y1 = Ssym * test;
-  FMCA::Matrix Y2 = L * (L.transpose() * test).eval();
-  std::cout << "error:" << (Y1 - Y2).norm() / test.norm() << std::endl;
-#endif
-  Sspd += I * 1e-8;
-  Cholesky llt;
-  llt.compute(Sspd);
-#if 0
-  Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Upper> cg;
-  cg.setTolerance(1e-6);
-  cg.setMaxIterations(1000);
+    const FMCA::Matrix TPol =
+        hst.sampletTransform(hst.toClusterOrder(Pol.transpose()));
+    const FMCA::Matrix R = TPol.topRows(mq);
+    const FMCA::Scalar dec_err = TPol.bottomRows(NPTS - mq).norm() / TPol.norm();
+    std::cout << "decoupling error TP=[R;0]:    " << dec_err << std::endl;
+    assert(dec_err < 1e-10 && "polynomial block not annihilated");
 
-  // Analyze and factorize pattern, then solve
-  cg.compute(Sspd);
-  Eigen::VectorXd sol = cg.solve(FMCA::Vector::Ones(Sspd.cols()));
-  // Access info about iterations/residual/error
-  int iters = cg.iterations();
-  err = cg.error();
-  std::cout << "  " << iters << " " << err << std::endl;
-#endif
-  FMCA::Matrix Sfull = S.block(0, 0, 10, 10);
-  std::cout << Sfull << std::endl;
-  Sfull = Sspd.block(0, 0, 10, 10);
-  std::cout << Sfull << std::endl;
-  std::cout << std::string(60, '-') << std::endl;
+    // samplet compression of the CPD kernel matrix
+    T.tic();
+    FMCA::internal::SampletMatrixCompressor<H2SampletTree> Scomp;
+    Scomp.init(hst, eta, 100 * FMCA_ZERO_TOLERANCE);
+    Scomp.compress(mat_eval);
+    Scomp.triplets();
+    const auto &trips = Scomp.aposteriori_triplets_fast(threshold);
+    T.toc("compression:                 ");
+    std::cout << "anz (a-posteriori):           "
+              << std::round(trips.size() / FMCA::Scalar(NPTS)) << std::endl;
+    Eigen::SparseMatrix<FMCA::Scalar> Smat(NPTS, NPTS);
+    Smat.setFromTriplets(trips.begin(), trips.end());
+    {
+      FMCA::Vector x(NPTS), y1(NPTS), y2(NPTS);
+      FMCA::Scalar err = 0, nrm = 0;
+      for (FMCA::Index i = 0; i < 10; ++i) {
+        const FMCA::Index index = rand() % NPTS;
+        x.setZero();
+        x(index) = 1;
+        const FMCA::Vector col = function.eval(P, P.col(hst.indices()[index]));
+        y1 = col(
+            Eigen::Map<const FMCA::iVector>(hst.indices(), hst.block_size()));
+        x = hst.sampletTransform(x);
+        y2.setZero();
+        for (const auto &it : trips) {
+          y2(it.row()) += it.value() * x(it.col());
+          if (it.row() != it.col()) y2(it.col()) += it.value() * x(it.row());
+        }
+        y2 = hst.inverseSampletTransform(y2);
+        err += (y1 - y2).squaredNorm();
+        nrm += y1.squaredNorm();
+      }
+      err = sqrt(err / nrm);
+      std::cout << "compression error:            " << err << std::endl;
+      assert(err < 1e-4 && "compression error too large");
+    }
+
+    // positive definiteness of the detail block K_PsiPsi
+    Eigen::SparseMatrix<FMCA::Scalar> Kpsi =
+        Smat.block(mq, mq, NPTS - mq, NPTS - mq);
+    const Eigen::SparseMatrix<FMCA::Scalar> K_PPsi =
+        Smat.block(0, mq, mq, NPTS - mq);
+    // add regularization to the detail block
+    {
+      Eigen::SparseMatrix<FMCA::Scalar> I(NPTS - mq, NPTS - mq);
+      I.setIdentity();
+      Kpsi += I * 1e-4;
+    }
+    Eigen::SimplicialLLT<Eigen::SparseMatrix<FMCA::Scalar>, Eigen::Upper> llt;
+    llt.compute(Kpsi);
+    std::cout << "Cholesky of K_PsiPsi:         "
+              << (llt.info() == Eigen::Success ? "SUCCESS" : "FAILED")
+              << std::endl;
+    assert(llt.info() == Eigen::Success && "Cholesky failed");
+
+    // null space solve of the saddle point system, c_P = 0
+    FMCA::Vector y(NPTS);
+    for (FMCA::Index i = 0; i < NPTS; ++i)
+      y(i) = std::sin(3 * P(0, i)) * std::exp(-P(dim - 1, i));
+    T.tic();
+    const FMCA::Vector Uy = hst.sampletTransform(hst.toClusterOrder(y));
+    const FMCA::Vector c_Psi = llt.solve(Uy.tail(NPTS - mq));
+    FMCA::Vector c_samplet = FMCA::Vector::Zero(NPTS);
+    c_samplet.tail(NPTS - mq) = c_Psi;
+    const FMCA::Vector c =
+        hst.toNaturalOrder(hst.inverseSampletTransform(c_samplet));
+    const FMCA::Vector d =
+        FMCA::Matrix(R).fullPivLu().solve(Uy.head(mq) - K_PPsi * c_Psi);
+    T.toc("null space solve:            ");
+    const FMCA::Scalar side_err = (Pol * c).norm() / c.norm();
+    std::cout << "side condition |P'c|:         " << side_err << std::endl;
+
+    // polynomial reproduction: for y in P_1 the kernel part has to vanish
+    {
+      FMCA::Vector beta(mq);
+      for (FMCA::Index i = 0; i < mq; ++i) beta(i) = 1.0 + i;
+      const FMCA::Vector yp = Pol.transpose() * beta;
+      const FMCA::Vector Uyp = hst.sampletTransform(hst.toClusterOrder(yp));
+      const FMCA::Vector cp_Psi = llt.solve(Uyp.tail(NPTS - mq));
+      const FMCA::Vector dp =
+          FMCA::Matrix(R).fullPivLu().solve(Uyp.head(mq) - K_PPsi * cp_Psi);
+      std::cout << "kernel part |c| for y in P_1: " << cp_Psi.norm() / yp.norm()
+                << std::endl;
+      std::cout << "drift error |d - beta|:       "
+                << (dp - beta).norm() / beta.norm() << std::endl;
+      assert(cp_Psi.norm() / yp.norm() < 1e-10 && "kernel part not vanishing");
+      assert((dp - beta).norm() / beta.norm() < 1e-10 && "drift not recovered");
+    }
+    std::cout << std::string(60, '-') << std::endl;
+  }
   return 0;
 }
