@@ -101,6 +101,10 @@ class SampletMatrixCompressor
     const Index nthreads = omp_get_max_threads();
     const std::ptrdiff_t nnodes = dag_.nodes().size();
     const std::ptrdiff_t nsources = sources_.size();
+    //  sources are handed out in runs of this many, so the shared cursor is
+    //  touched once per kChunk nodes instead of once per node. A single
+    //  contended fetch_add was serialising the run beyond ~32 threads
+    constexpr std::ptrdiff_t kChunk = 64;
     std::vector<std::vector<Triplet>> tlist(nthreads);
     //  SplitDeque has no copy or move, so the vector is sized once here and
     //  never resized. Capacity only has to hold the readied frontier of one
@@ -108,8 +112,14 @@ class SampletMatrixCompressor
     std::vector<SplitDeque<Node>> queues(nthreads);
     mem_arena_.init(max_size_ * max_size_, nthreads);
     Base::clearTriplets();
-    std::atomic<std::ptrdiff_t> remaining(nnodes);
     std::atomic<std::ptrdiff_t> next_source(0);
+    //  completion count, padded to a cache line each so that the per node
+    //  decrement does not bounce a shared line between all threads. Only
+    //  summed when a worker would otherwise have nothing to do
+    struct alignas(128) Counter {
+      std::ptrdiff_t n = 0;
+    };
+    std::vector<Counter> done(nthreads);
     //  diagnostics, thread local and folded in once at the end of the region
     std::atomic<std::ptrdiff_t> n_spin(0);
     std::atomic<std::ptrdiff_t> n_from_pop(0);
@@ -125,6 +135,10 @@ class SampletMatrixCompressor
     {
       const Index tid = omp_get_thread_num();
       SplitDeque<Node> &myq = queues[tid];
+      //  the chunk of sources this worker is currently working through
+      std::ptrdiff_t chunk_pos = 0;
+      std::ptrdiff_t chunk_end = 0;
+      std::ptrdiff_t l_done = 0;
       std::ptrdiff_t l_spin = 0;
       std::ptrdiff_t l_pop = 0;
       std::ptrdiff_t l_steal = 0;
@@ -135,20 +149,22 @@ class SampletMatrixCompressor
       std::ptrdiff_t l_recycled = 0;
       std::ptrdiff_t l_recomputed = 0;
 
-      while (remaining.load(std::memory_order_acquire) > 0) {
+      while (true) {
         //  own readied work first: pop takes the newest, which is the parent
         //  just made ready by the node we finished, so the worker climbs one
         //  branch and the sons' payloads are released as it goes
         Node *v = myq.pop();
         if (v != nullptr) ++l_pop;
-        //  then a source. One fetch_add hands each index to exactly one
-        //  thread, so there is no static partition to get unlucky with and no
-        //  rescan of the node array
-        if (v == nullptr &&
-            next_source.load(std::memory_order_relaxed) < nsources) {
-          const std::ptrdiff_t i =
-              next_source.fetch_add(1, std::memory_order_relaxed);
-          if (i < nsources) v = sources_[i];
+        //  then a source from our current chunk, refilling from the shared
+        //  cursor when it runs out
+        if (v == nullptr) {
+          if (chunk_pos >= chunk_end &&
+              next_source.load(std::memory_order_relaxed) < nsources) {
+            chunk_pos =
+                next_source.fetch_add(kChunk, std::memory_order_relaxed);
+            chunk_end = std::min(chunk_pos + kChunk, nsources);
+          }
+          if (chunk_pos < chunk_end) v = sources_[chunk_pos++];
         }
         //  then somebody else's oldest shared work
         if (v == nullptr) {
@@ -157,6 +173,14 @@ class SampletMatrixCompressor
           if (v != nullptr) ++l_steal;
         }
         if (v == nullptr) {
+          //  nothing anywhere for us. Publish our count and check whether the
+          //  whole DAG is finished, which is the only place the per thread
+          //  counters are read
+          done[tid].n = l_done;
+#pragma omp flush
+          std::ptrdiff_t total = 0;
+          for (Index k = 0; k < nthreads; ++k) total += done[k].n;
+          if (total >= nnodes) break;
           ++l_spin;
           continue;
         }
@@ -246,11 +270,11 @@ class SampletMatrixCompressor
                                   1, std::memory_order_acq_rel) == 1)
             releaseMap(s->block, tid);
 
-        //  our own count carries a +1 for the computing thread, added in
-        //  init(), so this decrement is uniform and needs no special case for
-        //  nodes with no consumers. Reading the counter here instead would be
-        //  wrong: a consumer running concurrently can have taken it to zero
-        //  and released the block already, and we would free it twice
+        //  our own count carries a +1 for the computing thread, set in init(),
+        //  so this decrement is uniform and needs no special case for nodes
+        //  with no consumers. Reading the counter here instead would be wrong:
+        //  a consumer running concurrently can have taken it to zero and freed
+        //  the block already
         if (v->consumers_remaining.fetch_sub(1, std::memory_order_acq_rel) == 1)
           releaseMap(v->block, tid);
 
@@ -267,7 +291,7 @@ class SampletMatrixCompressor
           if (!myq.push(v->col_dad))
             assert(false && "compress: deque overflow, raise capacity");
 
-        remaining.fetch_sub(1, std::memory_order_release);
+        ++l_done;
       }
       n_spin.fetch_add(l_spin, std::memory_order_relaxed);
       n_from_pop.fetch_add(l_pop, std::memory_order_relaxed);
