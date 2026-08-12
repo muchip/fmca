@@ -12,7 +12,7 @@
 #ifndef FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_H_
 #define FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_H_
 
-#include "../util/MemoryPool2.h"
+#include "../util/DummyMemoryPool.h"
 #include "../util/RandomTreeAccessor.h"
 
 namespace FMCA {
@@ -135,7 +135,6 @@ class SampletMatrixCompressor
     std::vector<std::vector<Triplet>> tlist(max_threads);
     mem_arena_.init(max_size_ * max_size_, max_threads);
     Base::clearTriplets();
-    // mem_arena_.init(max_size_, max_threads);
     //  the column cluster tree is traversed bottom up
     const auto &rclusters = rta_.nodes();
     const auto &cclusters = rta_.nodes();
@@ -248,18 +247,7 @@ class SampletMatrixCompressor
             const H2STreeType *pr = rclusters[it2->first % nclusters];
             const H2STreeType *pc = cclusters[it2->first / nclusters];
             MMatrix &mat = it2->second;
-            if (!pr->is_root() && !pc->is_root())
-              storeSymBlock(
-                  tlist[tid], pr->start_index(), pc->start_index(),
-                  pr->nsamplets(), pc->nsamplets(),
-                  mat.bottomRightCorner(pr->nsamplets(), pc->nsamplets()));
-            else if (!pc->is_root())
-              storeSymBlock(tlist[tid], pr->start_index(), pc->start_index(),
-                            pr->Q().cols(), pc->nsamplets(),
-                            mat.rightCols(pc->nsamplets()));
-            else if (pr->is_root() && pc->is_root())
-              storeSymBlock(tlist[tid], pr->start_index(), pc->start_index(),
-                            pr->Q().cols(), pc->Q().cols(), mat);
+            storeBlock(*pr, *pc, tlist[tid], mat);
             releaseMap(mat, tid);
             new (&mat) MMatrix(nullptr, 0, 0);
             prev_i = i;
@@ -283,18 +271,7 @@ class SampletMatrixCompressor
           const H2STreeType *pr = rclusters[it2->first % nclusters];
           const H2STreeType *pc = cclusters[it2->first / nclusters];
           MMatrix &mat = it2->second;
-          if (!pr->is_root() && !pc->is_root())
-            storeSymBlock(
-                tlist[0], pr->start_index(), pc->start_index(), pr->nsamplets(),
-                pc->nsamplets(),
-                mat.bottomRightCorner(pr->nsamplets(), pc->nsamplets()));
-          else if (!pc->is_root())
-            storeSymBlock(tlist[0], pr->start_index(), pc->start_index(),
-                          pr->Q().cols(), pc->nsamplets(),
-                          mat.rightCols(pc->nsamplets()));
-          else if (pr->is_root() && pc->is_root())
-            storeSymBlock(tlist[0], pr->start_index(), pc->start_index(),
-                          pr->Q().cols(), pc->Q().cols(), mat);
+          storeBlock(*pr, *pc, tlist[0], mat);
           releaseMap(mat, 0);
           new (&mat) MMatrix(nullptr, 0, 0);
           prev_i = i;
@@ -308,8 +285,13 @@ class SampletMatrixCompressor
   }
 
  private:
-  using Base::storeSymBlock;
-
+  inline void storeBlock(const H2STreeType &TR, const H2STreeType &TC,
+                         std::vector<Triplet> &triplet_buffer, MMatrix &block) {
+    const Index nrows = TR.is_root() ? TR.Q().cols() : TR.nsamplets();
+    const Index ncols = TC.is_root() ? TC.Q().cols() : TC.nsamplets();
+    Base::storeSymTriplets(triplet_buffer, TR.start_index(), TC.start_index(),
+                           nrows, ncols, block.bottomRightCorner(nrows, ncols));
+  }
   /**
    *  \brief recursively computes for a given pair of row and column
    *clusters the four blocks [A^PhiPhi, A^PhiSigma; A^SigmaPhi,
@@ -419,13 +401,11 @@ class SampletMatrixCompressor
   MemoryPool<Scalar> mem_arena_;
   MMatrix acquireMap(Index rows, Index cols, Index tid = 0) {
     return MMatrix(mem_arena_.acquire(rows * cols, tid), rows, cols);
-    // return MMatrix(mem_arena_.acquire(tid), rows, cols);
   }
 
   void releaseMap(MMatrix &map, Index tid = 0) {
     if (!map.data()) return;
     mem_arena_.release(map.data(), map.rows() * map.cols(), tid);
-    // mem_arena_.release(map.data(), tid);
     new (&map) MMatrix(nullptr, 0, 0);
   }
   std::vector<LevelBuffer> pattern_;

@@ -331,8 +331,6 @@ class SampletMatrixCompressor {
     return retval;
   }
 
-
-
  private:
   /**
    *  \brief recursively computes for a given pair of row and column

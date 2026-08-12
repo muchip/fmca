@@ -155,22 +155,22 @@ class SampletMatrixCompressorBase {
    *         triplet format
    **/
   template <typename otherDerived>
-  void storeBlock(std::vector<Triplet> &triplet_buffer, Index srow, Index scol,
-                  Index nrows, Index ncols,
-                  const MatrixBase<otherDerived> &block) {
+  void storeTriplets(std::vector<Triplet> &triplet_buffer, Index srow,
+                     Index scol, Index nrows, Index ncols,
+                     const MatrixBase<otherDerived> &block) {
     for (auto k = 0; k < ncols; ++k)
       for (auto j = 0; j < nrows; ++j)
         if ((std::abs(block(j, k)) > threshold_) || (srow == scol && j == k))
           triplet_buffer.push_back(Triplet(srow + j, scol + k, block(j, k)));
   }
   /**
-   *  \brief writes a given matrix block into a-posteriori thresholded
+   *  \brief writes matrix triplets of a block into a-posteriori thresholded
    *         triplet format
    **/
   template <typename otherDerived>
-  void storeSymBlock(std::vector<Triplet> &triplet_buffer, Index srow,
-                     Index scol, Index nrows, Index ncols,
-                     const MatrixBase<otherDerived> &block) {
+  void storeSymTriplets(std::vector<Triplet> &triplet_buffer, Index srow,
+                        Index scol, Index nrows, Index ncols,
+                        const MatrixBase<otherDerived> &block) {
     for (auto k = 0; k < ncols; ++k)
       for (auto j = 0; j < nrows; ++j)
         if ((srow + j <= scol + k && std::abs(block(j, k)) > threshold_) ||
@@ -178,15 +178,15 @@ class SampletMatrixCompressorBase {
           triplet_buffer.push_back(Triplet(srow + j, scol + k, block(j, k)));
   }
 
-  void storeEmptyBlock(std::vector<Triplet> &triplet_buffer, Index srow,
-                       Index scol, Index nrows, Index ncols) {
+  void storeEmptyTriplets(std::vector<Triplet> &triplet_buffer, Index srow,
+                          Index scol, Index nrows, Index ncols) {
     for (Index k = 0; k < ncols; ++k)
       for (Index j = 0; j < nrows; ++j)
         triplet_buffer.push_back(Triplet(srow + j, scol + k, 0));
   }
 
-  void storeSymEmptyBlock(std::vector<Triplet> &triplet_buffer, Index srow,
-                          Index scol, Index nrows, Index ncols) {
+  void storeSymEmptyTriplets(std::vector<Triplet> &triplet_buffer, Index srow,
+                             Index scol, Index nrows, Index ncols) {
     for (Index k = 0; k < ncols; ++k)
       for (Index j = 0; j < nrows; ++j)
         if (srow + j <= scol + k)
