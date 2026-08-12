@@ -13,7 +13,7 @@
 #define FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_H_
 
 #include "../util/CompressorDAG.h"
-#include "../util/MemoryPool2.h"
+#include "../util/MemoryPool3.h"
 #include "../util/SplitDeque.h"
 
 namespace FMCA {
@@ -54,7 +54,7 @@ class SampletMatrixCompressor
     dag_.init(ST.derived(), ST.derived(), eta, true);
     max_size_ = 0;
 
-    // sweep to fix strategy and maximum memory size
+    // sweep to fix strategy, dependency count and maximum memory size
     sources_.clear();
     for (Node &v : dag_.nodes()) {
       max_size_ = std::max<std::ptrdiff_t>(
@@ -64,12 +64,9 @@ class SampletMatrixCompressor
       Index ncol = 0;
       for (const Node *s : v.row_sons) nrow += (s != nullptr);
       for (const Node *s : v.col_sons) ncol += (s != nullptr);
-#if 0
-      if (nrow == 0 && ncol == 0)
-        v.strategy = Node::Leaf;
-      else
-        v.strategy = (ncol >= nrow) ? Node::Cols : Node::Rows;
-#endif
+      // columns whenever any column son is present. The count based rule
+      // ncol >= nrow disagrees on roughly 0.03% of the nodes, since the
+      // triangular filter protects column sons and cuts row sons
       if (ncol)
         v.strategy = Node::Cols;
       else if (nrow)
@@ -78,11 +75,15 @@ class SampletMatrixCompressor
         v.strategy = Node::Leaf;
       const Index deps = (v.strategy == Node::Rows ? nrow : ncol);
       v.deps_remaining.store(deps, std::memory_order_relaxed);
-      v.consumers_remaining.store(0, std::memory_order_relaxed);
+      // 1 for the computing thread itself, so that every node is released by
+      // exactly one decrement to zero and the no consumer case needs no
+      // special handling in compress
+      v.consumers_remaining.store(1, std::memory_order_relaxed);
       if (!deps) sources_.push_back(std::addressof(v));
     }
 
-    // dependent on the strategy of the parent fix consumer count of children
+    // dependent on the strategy of the parent fix consumer count of children.
+    // Written by the consumer onto its sons, so no node ever reads a parent
     for (Node &v : dag_.nodes()) {
       if (v.strategy == Node::Leaf) continue;
       for (Node *s : (v.strategy == Node::Rows ? v.row_sons : v.col_sons))
@@ -159,10 +160,6 @@ class SampletMatrixCompressor
           ++l_spin;
           continue;
         }
-        //  work done after the source reservoir is exhausted. If this is small
-        //  the DAG genuinely runs dry and the tail is its critical path, so no
-        //  scheduling change helps and the spin is pure waste. If it is large
-        //  there is parallel work the workers are failing to find
         if (next_source.load(std::memory_order_relaxed) >= nsources) ++l_tail;
 
         const H2STreeType *pr = v->pr;
@@ -242,14 +239,19 @@ class SampletMatrixCompressor
           storeSymBlock(tlist[tid], pr->start_index(), pc->start_index(),
                         pr->Q().cols(), pc->Q().cols(), v->block);
 
-        //  fetch_sub returns the value before, so == 1 means we took it to
-        //  zero and exactly one thread sees it
+        //  release the sons we just read. fetch_sub returns the value before,
+        //  so == 1 means we took it to zero and exactly one thread sees it
         for (Node *s : (v->strategy == Node::Rows ? v->row_sons : v->col_sons))
           if (s != nullptr && s->consumers_remaining.fetch_sub(
                                   1, std::memory_order_acq_rel) == 1)
             releaseMap(s->block, tid);
-        //  nobody will ever decrement this one, so free it here or never
-        if (!v->consumers_remaining.load(std::memory_order_acquire))
+
+        //  our own count carries a +1 for the computing thread, added in
+        //  init(), so this decrement is uniform and needs no special case for
+        //  nodes with no consumers. Reading the counter here instead would be
+        //  wrong: a consumer running concurrently can have taken it to zero
+        //  and released the block already, and we would free it twice
+        if (v->consumers_remaining.fetch_sub(1, std::memory_order_acq_rel) == 1)
           releaseMap(v->block, tid);
 
         //  a parent only reads us if it chose our side. Pushed to our own
@@ -417,14 +419,14 @@ class SampletMatrixCompressor
   //////////////////////////////////////////////////////////////////////////////
   MemoryPool<Scalar> mem_arena_;
   MMatrix acquireMap(Index rows, Index cols, Index tid = 0) {
-    return MMatrix(mem_arena_.acquire(rows * cols, tid), rows, cols);
-    // return MMatrix(mem_arena_.acquire(tid), rows, cols);
+    // return MMatrix(mem_arena_.acquire(rows * cols, tid), rows, cols);
+    return MMatrix(mem_arena_.acquire(tid), rows, cols);
   }
 
   void releaseMap(MMatrix &map, Index tid = 0) {
     if (!map.data()) return;
-    mem_arena_.release(map.data(), map.rows() * map.cols(), tid);
-    // mem_arena_.release(map.data(), tid);
+    // mem_arena_.release(map.data(), map.rows() * map.cols(), tid);
+    mem_arena_.release(map.data(), tid);
     new (&map) MMatrix(nullptr, 0, 0);
   }
   DAG dag_;
