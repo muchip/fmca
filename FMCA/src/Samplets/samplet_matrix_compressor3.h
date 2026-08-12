@@ -12,8 +12,8 @@
 #ifndef FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_H_
 #define FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_H_
 
-#include "../util/MemoryPool2.h"
 #include "../util/CompressorDAG.h"
+#include "../util/MemoryPool2.h"
 #include "../util/SplitDeque.h"
 
 namespace FMCA {
@@ -47,7 +47,7 @@ class SampletMatrixCompressor
   void init(const SampletTreeBase<H2STreeType> &ST, Scalar eta,
             Scalar threshold = 0) {
     typedef typename DAG::Node Node;
-    std::cout << "using compressor 2" << std::endl;
+    std::cout << "using compressor 3" << std::endl;
     Base::setDimensions(ST.block_size(), ST.block_size());
     Base::setThreshold(threshold);
     Base::setEta(eta);
@@ -55,6 +55,7 @@ class SampletMatrixCompressor
     max_size_ = 0;
 
     // sweep to fix strategy and maximum memory size
+    sources_.clear();
     for (Node &v : dag_.nodes()) {
       max_size_ = std::max<std::ptrdiff_t>(
           {max_size_, v.pr->Q().rows(), v.pr->Q().cols(), v.pr->V().rows(),
@@ -63,13 +64,22 @@ class SampletMatrixCompressor
       Index ncol = 0;
       for (const Node *s : v.row_sons) nrow += (s != nullptr);
       for (const Node *s : v.col_sons) ncol += (s != nullptr);
+#if 0
       if (nrow == 0 && ncol == 0)
         v.strategy = Node::Leaf;
       else
         v.strategy = (ncol >= nrow) ? Node::Cols : Node::Rows;
-      v.deps_remaining.store(v.strategy == Node::Rows ? nrow : ncol,
-                             std::memory_order_relaxed);
+#endif
+      if (ncol)
+        v.strategy = Node::Cols;
+      else if (nrow)
+        v.strategy = Node::Rows;
+      else
+        v.strategy = Node::Leaf;
+      const Index deps = (v.strategy == Node::Rows ? nrow : ncol);
+      v.deps_remaining.store(deps, std::memory_order_relaxed);
       v.consumers_remaining.store(0, std::memory_order_relaxed);
+      if (!deps) sources_.push_back(std::addressof(v));
     }
 
     // dependent on the strategy of the parent fix consumer count of children
@@ -89,43 +99,71 @@ class SampletMatrixCompressor
     assert(dag_.nodes().size() && "compress: DAG empty, call init first");
     const Index nthreads = omp_get_max_threads();
     const std::ptrdiff_t nnodes = dag_.nodes().size();
+    const std::ptrdiff_t nsources = sources_.size();
     std::vector<std::vector<Triplet>> tlist(nthreads);
     //  SplitDeque has no copy or move, so the vector is sized once here and
-    //  never resized. Capacity only has to hold the dynamically readied
-    //  frontier of one worker, not its share of the sources: those are
-    //  scanned lazily below
+    //  never resized. Capacity only has to hold the readied frontier of one
+    //  worker: the sources live in sources_ and are handed out below
     std::vector<SplitDeque<Node>> queues(nthreads);
     mem_arena_.init(max_size_ * max_size_, nthreads);
     Base::clearTriplets();
     std::atomic<std::ptrdiff_t> remaining(nnodes);
+    std::atomic<std::ptrdiff_t> next_source(0);
+    //  diagnostics, thread local and folded in once at the end of the region
+    std::atomic<std::ptrdiff_t> n_spin(0);
+    std::atomic<std::ptrdiff_t> n_from_pop(0);
+    std::atomic<std::ptrdiff_t> n_from_steal(0);
+    std::atomic<std::ptrdiff_t> n_tail(0);
+    std::atomic<std::ptrdiff_t> n_leaf(0);
+    std::atomic<std::ptrdiff_t> n_rows(0);
+    std::atomic<std::ptrdiff_t> n_cols(0);
+    std::atomic<std::ptrdiff_t> n_recycled(0);
+    std::atomic<std::ptrdiff_t> n_recomputed(0);
 
 #pragma omp parallel num_threads(nthreads)
     {
       const Index tid = omp_get_thread_num();
       SplitDeque<Node> &myq = queues[tid];
-      std::ptrdiff_t cursor = tid * nnodes / nthreads;
-      const std::ptrdiff_t stop = (tid + 1) * nnodes / nthreads;
+      std::ptrdiff_t l_spin = 0;
+      std::ptrdiff_t l_pop = 0;
+      std::ptrdiff_t l_steal = 0;
+      std::ptrdiff_t l_tail = 0;
+      std::ptrdiff_t l_leaf = 0;
+      std::ptrdiff_t l_rows = 0;
+      std::ptrdiff_t l_cols = 0;
+      std::ptrdiff_t l_recycled = 0;
+      std::ptrdiff_t l_recomputed = 0;
 
       while (remaining.load(std::memory_order_acquire) > 0) {
+        //  own readied work first: pop takes the newest, which is the parent
+        //  just made ready by the node we finished, so the worker climbs one
+        //  branch and the sons' payloads are released as it goes
         Node *v = myq.pop();
-        //  own seeds, scanned lazily. The test recomputes the initial
-        //  dependency count from the son array rather than reading
-        //  deps_remaining: that counter is decremented concurrently, so a node
-        //  whose last son just finished could be pushed by that son's thread
-        //  and picked up here at the same time, and be computed twice. A node
-        //  with no sons present is never decremented by anyone, so it can only
-        //  enter through this scan
-        while (v == nullptr && cursor < stop) {
-          Node &c = dag_.nodes()[cursor++];
-          Index deps = 0;
-          for (const Node *s :
-               (c.strategy == Node::Rows ? c.row_sons : c.col_sons))
-            deps += (s != nullptr);
-          if (!deps) v = std::addressof(c);
+        if (v != nullptr) ++l_pop;
+        //  then a source. One fetch_add hands each index to exactly one
+        //  thread, so there is no static partition to get unlucky with and no
+        //  rescan of the node array
+        if (v == nullptr &&
+            next_source.load(std::memory_order_relaxed) < nsources) {
+          const std::ptrdiff_t i =
+              next_source.fetch_add(1, std::memory_order_relaxed);
+          if (i < nsources) v = sources_[i];
         }
-        for (Index k = 1; v == nullptr && k < nthreads; ++k)
-          v = queues[(tid + k) % nthreads].steal();
-        if (v == nullptr) continue;
+        //  then somebody else's oldest shared work
+        if (v == nullptr) {
+          for (Index k = 1; v == nullptr && k < nthreads; ++k)
+            v = queues[(tid + k) % nthreads].steal();
+          if (v != nullptr) ++l_steal;
+        }
+        if (v == nullptr) {
+          ++l_spin;
+          continue;
+        }
+        //  work done after the source reservoir is exhausted. If this is small
+        //  the DAG genuinely runs dry and the tail is its critical path, so no
+        //  scheduling change helps and the spin is pure waste. If it is large
+        //  there is parallel work the workers are failing to find
+        if (next_source.load(std::memory_order_relaxed) >= nsources) ++l_tail;
 
         const H2STreeType *pr = v->pr;
         const H2STreeType *pc = v->pc;
@@ -134,17 +172,21 @@ class SampletMatrixCompressor
 
         switch (v->strategy) {
           case Node::Leaf:
+            ++l_leaf;
             recursivelyComputeBlock_noalloc(*pr, *pc, e_gen, v->block, tid);
             break;
           case Node::Rows: {
+            ++l_rows;
             MMatrix buf = acquireMap(pr->Q().rows(), pc->Q().cols(), tid);
             Index offset = 0;
             for (Index k = 0; k < pr->nSons(); ++k) {
               const Index nscalfs = pr->sons(k).nscalfs();
               if (v->row_sons[k] != nullptr) {
+                ++l_recycled;
                 buf.middleRows(offset, nscalfs) =
                     v->row_sons[k]->block.topRows(nscalfs);
               } else {
+                ++l_recomputed;
                 MMatrix temp =
                     acquireMap(pr->sons(k).Q().cols(), pc->Q().cols(), tid);
                 recursivelyComputeBlock_noalloc(pr->sons(k), *pc, e_gen, temp,
@@ -159,14 +201,17 @@ class SampletMatrixCompressor
             break;
           }
           case Node::Cols: {
+            ++l_cols;
             MMatrix buf = acquireMap(pr->Q().cols(), pc->Q().rows(), tid);
             Index offset = 0;
             for (Index k = 0; k < pc->nSons(); ++k) {
               const Index nscalfs = pc->sons(k).nscalfs();
               if (v->col_sons[k] != nullptr) {
+                ++l_recycled;
                 buf.middleCols(offset, nscalfs) =
                     v->col_sons[k]->block.leftCols(nscalfs);
               } else {
+                ++l_recomputed;
                 MMatrix temp =
                     acquireMap(pr->Q().cols(), pc->sons(k).Q().cols(), tid);
                 recursivelyComputeBlock_noalloc(*pr, pc->sons(k), e_gen, temp,
@@ -222,8 +267,40 @@ class SampletMatrixCompressor
 
         remaining.fetch_sub(1, std::memory_order_release);
       }
+      n_spin.fetch_add(l_spin, std::memory_order_relaxed);
+      n_from_pop.fetch_add(l_pop, std::memory_order_relaxed);
+      n_from_steal.fetch_add(l_steal, std::memory_order_relaxed);
+      n_tail.fetch_add(l_tail, std::memory_order_relaxed);
+      n_leaf.fetch_add(l_leaf, std::memory_order_relaxed);
+      n_rows.fetch_add(l_rows, std::memory_order_relaxed);
+      n_cols.fetch_add(l_cols, std::memory_order_relaxed);
+      n_recycled.fetch_add(l_recycled, std::memory_order_relaxed);
+      n_recomputed.fetch_add(l_recomputed, std::memory_order_relaxed);
+    }
+    {
+      const std::ptrdiff_t pop = n_from_pop.load();
+      const std::ptrdiff_t steal = n_from_steal.load();
+      const std::ptrdiff_t rec = n_recycled.load();
+      const std::ptrdiff_t rcp = n_recomputed.load();
+      const double d = nnodes ? 100.0 / double(nnodes) : 0.0;
+      const double s = (rec + rcp) ? 100.0 / double(rec + rcp) : 0.0;
+      std::cout << "nodes                         " << nnodes << "\n"
+                << "sources                       " << nsources << " ("
+                << nsources * d << "%)\n"
+                << "  from pop / source / steal   " << pop << " / "
+                << nnodes - pop - steal << " / " << steal << "\n"
+                << "  after sources exhausted     " << n_tail.load() << " ("
+                << n_tail.load() * d << "%)\n"
+                << "strategy rows / cols / leaf   " << n_rows.load() << " / "
+                << n_cols.load() << " / " << n_leaf.load() << "\n"
+                << "sons recycled / recomputed    " << rec << " (" << rec * s
+                << "%) / " << rcp << " (" << rcp * s << "%)\n"
+                << "idle spins                    " << n_spin.load() << " ("
+                << double(n_spin.load()) / double(nnodes ? nnodes : 1)
+                << " per node)" << std::endl;
     }
     dag_.nodes().clear();
+    sources_.clear();
     for (Index i = 0; i < tlist.size(); ++i)
       Base::appendTriplets(std::move(tlist[i]));
     return;
@@ -351,6 +428,7 @@ class SampletMatrixCompressor
     new (&map) MMatrix(nullptr, 0, 0);
   }
   DAG dag_;
+  std::vector<typename DAG::Node *> sources_;
   std::ptrdiff_t max_size_;
 };
 }  // namespace FMCA

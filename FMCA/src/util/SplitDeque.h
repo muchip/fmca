@@ -53,7 +53,7 @@ class SplitDeque {
   SplitDeque &operator=(const SplitDeque &) = delete;
 
   //  private entries beyond which the owner publishes
-  static constexpr std::ptrdiff_t kHighWater = 128;
+  static constexpr std::ptrdiff_t kHighWater = 4;
 
   SplitDeque() { init(1024); }
   explicit SplitDeque(std::ptrdiff_t capacity) { init(capacity); }

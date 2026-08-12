@@ -95,7 +95,7 @@ class SampletMatrixCompressor
     std::cout << block_sizes.front() << "/" << block_sizes.back()
               << " median: " << block_sizes[block_sizes.size() / 2]
               << std::endl;
-    {
+    if (false) {
       constexpr int kNumBins = 20;
       const double lo = std::log2(
           static_cast<double>(std::max<Index>(block_sizes.front(), 1)));
