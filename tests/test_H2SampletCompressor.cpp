@@ -19,7 +19,7 @@
 #include "../FMCA/src/util/Tictoc.h"
 
 #define NPTS 100000
-#define DIM 3
+#define DIM 2
 
 using Interpolator = FMCA::TotalDegreeInterpolator;
 using SampletInterpolator = FMCA::MonomialInterpolator;
@@ -109,8 +109,10 @@ int main() {
 #endif
     T.toc("triplets:                    ");
     FMCA::Vector x(NPTS), y1(NPTS), y2(NPTS);
+    FMCA::SparseMatrix S(NPTS, NPTS);
     FMCA::Scalar err = 0;
     FMCA::Scalar nrm = 0;
+    S.setFromTriplets(trips.begin(), trips.end());
     for (auto i = 0; i < 10; ++i) {
       FMCA::Index index = rand() % P.cols();
       x.setZero();
@@ -119,11 +121,7 @@ int main() {
       y1 =
           col(Eigen::Map<const FMCA::iVector>(hst.indices(), hst.block_size()));
       x = hst.sampletTransform(x);
-      y2.setZero();
-      for (const auto &i : trips) {
-        y2(i.row()) += i.value() * x(i.col());
-        if (i.row() != i.col()) y2(i.col()) += i.value() * x(i.row());
-      }
+      y2 = S.selfadjointView<FMCA::Upper>() * x;
       y2 = hst.inverseSampletTransform(y2);
       err += (y1 - y2).squaredNorm();
       nrm += y1.squaredNorm();
