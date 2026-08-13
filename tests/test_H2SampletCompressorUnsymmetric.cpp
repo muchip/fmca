@@ -46,7 +46,7 @@ int main() {
     const SampletMoments samp_mom(P, dtilde - 1);
     H2SampletTree hst(mom, samp_mom, 0, P);
     T.tic();
-    FMCA::internal::SampletMatrixCompressorUnsymmetric<H2SampletTree> Scomp;
+    FMCA::SampletMatrixCompressorUnsymmetric<H2SampletTree> Scomp;
     Scomp.init(hst, hst, eta, threshold);
     T.toc("unsymmetric planner:         ");
     T.tic();
@@ -58,7 +58,7 @@ int main() {
     std::cout << "anz:                          "
               << std::round(trips.size() / FMCA::Scalar(NPTS)) << std::endl;
     T.tic();
-    FMCA::internal::SampletMatrixCompressor<H2SampletTree> sScomp;
+    FMCA::SampletMatrixCompressor<H2SampletTree> sScomp;
     sScomp.init(hst, eta, threshold);
     T.toc("symmetric planner:           ");
     T.tic();

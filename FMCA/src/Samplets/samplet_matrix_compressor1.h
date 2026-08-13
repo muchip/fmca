@@ -85,6 +85,9 @@ class SampletMatrixCompressor
 
   template <typename EntGenerator>
   void compress(const EntGenerator &e_gen) {
+    const Index max_threads = omp_get_max_threads();
+    std::vector<std::vector<Triplet>> tlist(max_threads);
+    Base::clearTriplets();
     // the column cluster tree is traversed bottom up
     const auto &rclusters = rta_.nodes();
     const auto &cclusters = rta_.nodes();
@@ -173,6 +176,7 @@ class SampletMatrixCompressor
         LevelBuffer::iterator it2 = pattern_[ll + 1].begin();
 #pragma omp parallel shared(pos), firstprivate(it2)
         {
+          const Index tid = omp_get_thread_num();
           Index i = 0;
           Index prev_i = 0;
 #pragma omp atomic capture
@@ -181,10 +185,9 @@ class SampletMatrixCompressor
             std::advance(it2, i - prev_i);
             const H2STreeType *pr = rclusters[it2->first % nclusters];
             const H2STreeType *pc = cclusters[it2->first / nclusters];
-            Matrix &block = it2->second;
-            if (!pr->is_root() && !pc->is_root())
-              block = block.bottomRightCorner(pr->nsamplets(), pc->nsamplets())
-                          .eval();
+            Matrix &mat = it2->second;
+            storeBlock(*pr, *pc, tlist[tid], mat);
+            mat.resize(0, 0);
             prev_i = i;
 #pragma omp atomic capture
             i = pos++;
@@ -192,27 +195,30 @@ class SampletMatrixCompressor
         }
       }
     }
-    return;
-  }
-
-  const std::vector<Triplet> &triplets() {
-    if (pattern_.size()) {
-      Base::clearTriplets();
-#pragma omp parallel for schedule(dynamic)
-      for (Index i = 0; i < pattern_.size(); ++i) {
-        std::vector<Triplet> list;
-        for (auto &&it : pattern_[i]) {
-          const H2STreeType *pr = rta_.nodes()[it.first % rta_.nodes().size()];
-          const H2STreeType *pc = rta_.nodes()[it.first / rta_.nodes().size()];
-          storeBlock(*pr, *pc, list, it.second);
-          it.second.resize(0, 0);
+    // garbage collector
+    {
+      Index pos = 0;
+      const size_t map_size = pattern_[0].size();
+      LevelBuffer::iterator it2 = pattern_[0].begin();
+      {
+        Index i = 0;
+        Index prev_i = 0;
+        i = pos++;
+        while (i < map_size) {
+          std::advance(it2, i - prev_i);
+          const H2STreeType *pr = rclusters[it2->first % nclusters];
+          const H2STreeType *pc = cclusters[it2->first / nclusters];
+          Matrix &mat = it2->second;
+          storeBlock(*pr, *pc, tlist[0], mat);
+          mat.resize(0, 0);
+          prev_i = i;
+          i = pos++;
         }
-#pragma omp critical
-        Base::appendTriplets(std::move(list));
       }
-      pattern_.resize(0);
     }
-    return Base::triplets();
+    for (Index i = 0; i < tlist.size(); ++i)
+      Base::appendTriplets(std::move(tlist[i]));
+    return;
   }
 
  private:

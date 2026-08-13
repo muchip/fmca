@@ -12,47 +12,65 @@
 #ifndef FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_UNSYMMETRIC_H_
 #define FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_UNSYMMETRIC_H_
 
+#include "../util/DummyMemoryPool.h"
 #include "../util/RandomTreeAccessor.h"
 
 namespace FMCA {
-namespace internal {
-template <typename Derived, typename ClusterComparison = CompareCluster>
-class SampletMatrixCompressorUnsymmetric {
+template <typename H2STreeType, typename ClusterComparison = CompareCluster>
+class SampletMatrixCompressorUnsymmetric
+    : public SampletMatrixCompressorBase<
+          SampletMatrixCompressorUnsymmetric<H2STreeType, ClusterComparison>> {
  public:
+  typedef SampletMatrixCompressorBase<
+      SampletMatrixCompressorUnsymmetric<H2STreeType, ClusterComparison>>
+      Base;
+  using Base::aposteriori_triplets;
+  using Base::aposteriori_triplets_fast;
+  using Base::cols;
+  using Base::rows;
+  using Base::triplets;
+
+  typedef std::map<size_t, Matrix, std::greater<size_t>> LevelBuffer;
   SampletMatrixCompressorUnsymmetric() {}
-  SampletMatrixCompressorUnsymmetric(const SampletTreeBase<Derived> &TR,
-                                     const SampletTreeBase<Derived> &TC,
+  SampletMatrixCompressorUnsymmetric(const SampletTreeBase<H2STreeType> &TR,
+                                     const SampletTreeBase<H2STreeType> &TC,
                                      Scalar eta, Scalar threshold = 0) {
     init(TR, TC, eta, threshold);
   }
+  const std::vector<LevelBuffer> &pattern() { return pattern_; };
+
+  const internal::RandomTreeAccessor<H2STreeType> &crta() { return c_rta_; };
+  const internal::RandomTreeAccessor<H2STreeType> &rrta() { return r_rta_; };
 
   /**
    *  \brief creates the matrix pattern based on the cluster tree and the
    *         admissibility condition
    *
    **/
-  void init(const SampletTreeBase<Derived> &TR,
-            const SampletTreeBase<Derived> &TC, Scalar eta,
+  void init(const SampletTreeBase<H2STreeType> &TR,
+            const SampletTreeBase<H2STreeType> &TC, Scalar eta,
             Scalar threshold = 0) {
-    eta_ = eta;
-    threshold_ = threshold;
+    std::cout << "using unsymmetric compressor 1" << std::endl;
+    Base::setDimensions(TR.block_size(), TC.block_size());
+    Base::setThreshold(threshold);
+    Base::setEta(eta);
     r_rta_.init(TR, TR.block_size());
     c_rta_.init(TC, TC.block_size());
     pattern_.resize(c_rta_.nodes().size());
     queue_.resize(r_rta_.max_level() + c_rta_.max_level() + 1);
 #pragma omp parallel for
     for (Index j = 0; j < c_rta_.nodes().size(); ++j) {
-      const Derived *pc = c_rta_.nodes()[j];
+      const H2STreeType *pc = c_rta_.nodes()[j];
       /*
        *  For the moment, the compression does not exploit inheritance
        *  relations in the column clusters. Thus, to obtain an NlogN
        *  algorithm, we have to exploit this at least in the row clusters.
        *  This is facilitated by starting a DFS for each column cluster.
        */
-      std::vector<const Derived *> row_stack;
+      std::vector<const H2STreeType *> row_stack;
       row_stack.push_back(std::addressof(TR.derived()));
       while (row_stack.size()) {
-        const Derived *pr = row_stack.back();
+        const H2STreeType *pr = row_stack.back();
         row_stack.pop_back();
         // fill the stack with possible children
         for (auto i = 0; i < pr->nSons(); ++i)
@@ -71,14 +89,17 @@ class SampletMatrixCompressorUnsymmetric {
 
   template <typename EntGenerator>
   void compress(const EntGenerator &e_gen) {
+    const Index max_threads = omp_get_max_threads();
+    std::vector<std::vector<Triplet>> tlist(max_threads);
     // the column cluster tree is traversed bottom up
+    Base::clearTriplets();
     const auto &rclusters = r_rta_.nodes();
     const auto &cclusters = c_rta_.nodes();
     for (auto it = queue_.rbegin(); it != queue_.rend(); ++it) {
 #pragma omp parallel for schedule(dynamic)
       for (Index i = 0; i < it->size(); ++i) {
-        const Derived *pr = rclusters[(*it)[i].i];
-        const Derived *pc = cclusters[(*it)[i].j];
+        const H2STreeType *pr = rclusters[(*it)[i].i];
+        const H2STreeType *pc = cclusters[(*it)[i].j];
         Matrix &block = *((*it)[i].p);
         const Index col_id = pc->block_id();
         const Index row_id = pr->block_id();
@@ -133,70 +154,52 @@ class SampletMatrixCompressorUnsymmetric {
         --itm1;
 #pragma omp parallel for
         for (Index i = 0; i < itm1->size(); ++i) {
-          const Derived *pr = rclusters[(*itm1)[i].i];
-          const Derived *pc = cclusters[(*itm1)[i].j];
+          const Index tid = omp_get_thread_num();
+          const H2STreeType *pr = rclusters[(*itm1)[i].i];
+          const H2STreeType *pc = cclusters[(*itm1)[i].j];
           Matrix &block = *((*itm1)[i].p);
-          if (!pr->is_root() && !pc->is_root()) {
-            Matrix temp =
-                block.bottomRightCorner(pr->nsamplets(), pc->nsamplets());
-            block = temp;
-          }
+          storeBlock(*pr, *pc, tlist[tid], block);
+          block.resize(0, 0);
         }
       }
     }
+    // garbage collector
+    {
+      auto itm1 = queue_.begin();
+      for (Index i = 0; i < itm1->size(); ++i) {
+        const H2STreeType *pr = rclusters[(*itm1)[i].i];
+        const H2STreeType *pc = cclusters[(*itm1)[i].j];
+        Matrix &block = *((*itm1)[i].p);
+        storeBlock(*pr, *pc, tlist[0], block);
+        block.resize(0, 0);
+      }
+    }
+    for (Index i = 0; i < tlist.size(); ++i)
+      Base::appendTriplets(std::move(tlist[i]));
     return;
-  }
-  /**
-   *  \brief creates a posteriori thresholded triplets and stores them to in
-   *the triplet list
-   **/
-  const std::vector<Triplet> &triplets() {
-    if (pattern_.size()) {
-      triplet_list_.clear();
-      for (Index i = 0; i < pattern_.size(); ++i) {
-        const Derived *pc = c_rta_.nodes()[i];
-        for (auto &&it : pattern_[i]) {
-          const Derived *pr = r_rta_.nodes()[it.first];
-          if (!pr->is_root() && !pc->is_root())
-            storeBlock(
-                pr->start_index(), pc->start_index(), pr->nsamplets(),
-                pc->nsamplets(),
-                it.second.bottomRightCorner(pr->nsamplets(), pc->nsamplets()));
-          else if (pr->is_root() && pc->is_root())
-            storeBlock(pr->start_index(), pc->start_index(), pr->Q().cols(),
-                       pc->Q().cols(), it.second);
-          else if (!pr->is_root() && pc->is_root())
-            storeBlock(pr->start_index(), pc->start_index(), pr->nsamplets(),
-                       pc->Q().cols(), it.second.bottomRows(pr->nsamplets()));
-          else if (pr->is_root() && !pc->is_root())
-            storeBlock(pr->start_index(), pc->start_index(), pr->Q().cols(),
-                       pc->nsamplets(), it.second.rightCols(pc->nsamplets()));
-          it.second.resize(0, 0);
-        }
-      }
-      pattern_.resize(0);
-    }
-    return triplet_list_;
-  }
-
-  std::vector<Triplet> release_triplets() {
-    std::vector<Triplet> retval;
-    std::swap(triplet_list_, retval);
-    return retval;
   }
 
  private:
+  inline void storeBlock(const H2STreeType &TR, const H2STreeType &TC,
+                         std::vector<Triplet> &triplet_buffer, Matrix &block) {
+    const Index nrows = TR.is_root() ? TR.Q().cols() : TR.nsamplets();
+    const Index ncols = TC.is_root() ? TC.Q().cols() : TC.nsamplets();
+    Base::storeTriplets(triplet_buffer, TR.start_index(), TC.start_index(),
+                        nrows, ncols, block.bottomRightCorner(nrows, ncols));
+  }
   /**
    *  \brief recursively computes for a given pair of row and column
    *clusters the four blocks [A^PhiPhi, A^PhiSigma; A^SigmaPhi,
    *A^SigmaSigma]
    **/
   template <typename EntryGenerator>
-  Matrix recursivelyComputeBlock(const Derived &TR, const Derived &TC,
+  Matrix recursivelyComputeBlock(const H2STreeType &TR, const H2STreeType &TC,
                                  const EntryGenerator &e_gen) {
     Matrix buf(0, 0);
+    Index r_offset = 0;
+    Index c_offset = 0;
     // check for admissibility
-    if (ClusterComparison::compare(TR, TC, eta_) == LowRank) {
+    if (ClusterComparison::compare(TR, TC, Base::eta()) == LowRank) {
       e_gen.interpolate_kernel(TR, TC, &buf);
       return TR.V().transpose() * buf * TC.V();
     } else {
@@ -208,55 +211,49 @@ class SampletMatrixCompressorUnsymmetric {
           return TR.Q().transpose() * buf * TC.Q();
         case 2:
           // the row cluster is a leaf cluster: recursion on the col cluster
-          for (auto j = 0; j < TC.nSons(); ++j) {
+          buf.resize(TR.Q().cols(), TC.Q().rows());
+          c_offset = 0;
+          for (Index j = 0; j < TC.nSons(); ++j) {
             const Index nscalfs = TC.sons(j).nscalfs();
-            Matrix ret = recursivelyComputeBlock(TR, TC.sons(j), e_gen);
-            buf.conservativeResize(ret.rows(), buf.cols() + nscalfs);
-            buf.rightCols(nscalfs) = ret.leftCols(nscalfs);
+            const Matrix ret = recursivelyComputeBlock(TR, TC.sons(j), e_gen);
+            buf.middleCols(c_offset, nscalfs) = ret.leftCols(nscalfs);
+            c_offset += nscalfs;
           }
           return buf * TC.Q();
         case 1:
           // the col cluster is a leaf cluster: recursion on the row cluster
-          for (auto i = 0; i < TR.nSons(); ++i) {
+          buf.resize(TR.Q().rows(), TC.Q().cols());
+          r_offset = 0;
+          for (Index i = 0; i < TR.nSons(); ++i) {
             const Index nscalfs = TR.sons(i).nscalfs();
-            Matrix ret = recursivelyComputeBlock(TR.sons(i), TC, e_gen);
-            buf.conservativeResize(ret.cols(), buf.cols() + nscalfs);
-            buf.rightCols(nscalfs) = ret.transpose().leftCols(nscalfs);
+            const Matrix ret = recursivelyComputeBlock(TR.sons(i), TC, e_gen);
+            buf.middleRows(r_offset, nscalfs) = ret.topRows(nscalfs);
+            r_offset += nscalfs;
           }
-          return (buf * TR.Q()).transpose();
+          return TR.Q().transpose() * buf;
         case 0:
           // neither is a leaf, let recursion handle this
-          for (auto i = 0; i < TR.nSons(); ++i) {
-            Matrix ret1(0, 0);
+          buf.resize(TR.Q().rows(), TC.Q().cols());
+          r_offset = 0;
+          for (Index i = 0; i < TR.nSons(); ++i) {
+            Matrix buf2(TR.sons(i).Q().cols(), TC.Q().rows());
+            c_offset = 0;
             const Index r_nscalfs = TR.sons(i).nscalfs();
-            for (auto j = 0; j < TC.nSons(); ++j) {
+            for (Index j = 0; j < TC.nSons(); ++j) {
               const Index c_nscalfs = TC.sons(j).nscalfs();
-              Matrix ret2 =
+              const Matrix ret =
                   recursivelyComputeBlock(TR.sons(i), TC.sons(j), e_gen);
-              ret1.conservativeResize(ret2.rows(), ret1.cols() + c_nscalfs);
-              ret1.rightCols(c_nscalfs) = ret2.leftCols(c_nscalfs);
+              buf2.middleCols(c_offset, c_nscalfs) = ret.leftCols(c_nscalfs);
+              c_offset += c_nscalfs;
             }
-            ret1 = ret1 * TC.Q();
-            buf.conservativeResize(ret1.cols(), buf.cols() + r_nscalfs);
-            buf.rightCols(r_nscalfs) = ret1.transpose().leftCols(r_nscalfs);
+            buf.middleRows(r_offset, r_nscalfs).noalias() =
+                buf2.topRows(r_nscalfs) * TC.Q();
+            r_offset += r_nscalfs;
           }
-          return (buf * TR.Q()).transpose();
+          return TR.Q().transpose() * buf;
       }
     }
     return Matrix(0, 0);
-  }
-
-  /**
-   *  \brief writes a given matrix block into a-posteriori thresholded
-   *         triplet format
-   **/
-  template <typename otherDerived>
-  void storeBlock(Index srow, Index scol, Index nrows, Index ncols,
-                  const MatrixBase<otherDerived> &block) {
-    for (auto k = 0; k < ncols; ++k)
-      for (auto j = 0; j < nrows; ++j)
-        if ((std::abs(block(j, k)) > threshold_) || (srow == scol && j == k))
-          triplet_list_.push_back(Triplet(srow + j, scol + k, block(j, k)));
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -267,15 +264,10 @@ class SampletMatrixCompressorUnsymmetric {
     ijp(Index ii, Index jj, Matrix *pp) : i(ii), j(jj), p(pp) {};
   };
   std::vector<std::vector<ijp>> queue_;
-
-  std::vector<Triplet> triplet_list_;
-  std::vector<std::map<Index, Matrix, std::greater<Index>>> pattern_;
-  RandomTreeAccessor<Derived> r_rta_;
-  RandomTreeAccessor<Derived> c_rta_;
-  Scalar eta_;
-  Scalar threshold_;
+  std::vector<LevelBuffer> pattern_;
+  internal::RandomTreeAccessor<H2STreeType> r_rta_;
+  internal::RandomTreeAccessor<H2STreeType> c_rta_;
 };
-}  // namespace internal
 }  // namespace FMCA
 
 #endif
