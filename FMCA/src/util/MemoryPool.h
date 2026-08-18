@@ -12,6 +12,11 @@
 #ifndef FMCA_UTIL_MEMORYPOOL_H_
 #define FMCA_UTIL_MEMORYPOOL_H_
 
+#include <atomic>
+#include <memory>
+#include <mutex>
+#include <vector>
+
 #include "Macros.h"
 
 namespace FMCA {
@@ -19,61 +24,47 @@ namespace FMCA {
 template <typename T>
 class MemoryPool {
  public:
+  typedef std::ptrdiff_t difference_type;
+
   MemoryPool(const MemoryPool &) = delete;
   MemoryPool(MemoryPool &&) = delete;
+  MemoryPool &operator=(const MemoryPool &) = delete;
+  MemoryPool &operator=(MemoryPool &&) = delete;
 
-  static constexpr Index kBulk = 64;
-  static constexpr Index kLocalMax = 512;
-  static constexpr Index kMaxAllocMB = 64;
-
-  static constexpr Index aligned_stride(Index n) {
-    const Index elems = n * n;
-    const Index bytes_per_chunk = elems * sizeof(T);
-    const Index align = alignment_bytes();
-    const Index padded_bytes = ((bytes_per_chunk + align - 1) / align) * align;
-    return padded_bytes / sizeof(T);
-  }
-
-  static Index align_elems() {
-    Index a = alignment_bytes();
-    Index b = static_cast<Index>(sizeof(T));
-    while (b != 0) {
-      const Index t = a % b;
-      a = b;
-      b = t;
-    }
-    return alignment_bytes() / a;
-  }
-
-  inline Index align_up(Index elems) const {
-    return ((elems + align_elems_ - 1) / align_elems_) * align_elems_;
-  }
+  static constexpr difference_type kBulk = 64;
+  static constexpr difference_type kLocalMax = 512;
+  static constexpr difference_type kMaxAllocMB = 64;
 
   MemoryPool() {}
 
-  MemoryPool(Index max_elems, Index nthreads,
-             Index max_alloc_mb = kMaxAllocMB) {
+  MemoryPool(difference_type max_elems, Index nthreads,
+             difference_type max_alloc_mb = kMaxAllocMB) {
     init(max_elems, nthreads, max_alloc_mb);
   }
 
-  void init(Index max_elems, Index nthreads, Index max_alloc_mb = kMaxAllocMB) {
+  void init(difference_type max_elems, Index nthreads,
+            difference_type max_alloc_mb = kMaxAllocMB) {
     clear();
     align_elems_ = align_elems();
     make_class_sizes(max_elems);
     chunk_blocks_ = blocks_per_chunk(max_alloc_mb);
-    //
+    const std::size_t ncls = class_sizes_.size();
     locals_.resize(nthreads);
     chunks_.resize(nthreads);
     bumps_.assign(nthreads, nullptr);
     remaining_.assign(nthreads, 0);
-    central_.resize(class_sizes_.size());
+    central_.resize(ncls);
+    std::vector<std::mutex>(ncls).swap(class_mutex_);
+    std::vector<std::atomic<difference_type>>(ncls).swap(central_count_);
+    for (std::size_t c = 0; c < ncls; ++c)
+      central_count_[c].store(0, std::memory_order_relaxed);
     for (std::vector<std::vector<T *>> &t : locals_) {
-      t.resize(class_sizes_.size());
+      t.resize(ncls);
       for (std::vector<T *> &l : t) l.reserve(kLocalMax);
     }
   }
 
-  T *acquire(Index elems, Index tid = 0) {
+  T *acquire(difference_type elems, Index tid = 0) {
     const Index cls = class_of(align_up(elems));
     std::vector<T *> &local = locals_[tid][cls];
     if (!local.empty()) {
@@ -90,13 +81,15 @@ class MemoryPool {
     return bump_alloc(tid, cls);
   }
 
-  void release(T *p, Index elems, Index tid = 0) {
+  void release(T *p, difference_type elems, Index tid = 0) {
     const Index cls = class_of(align_up(elems));
     std::vector<T *> &local = locals_[tid][cls];
     local.push_back(p);
-    if (local.size() >= kLocalMax) spill(tid, cls);
+    if (static_cast<difference_type>(local.size()) >= kLocalMax)
+      spill(tid, cls);
   }
 
+ private:
   void clear() {
     locals_.clear();
     chunks_.clear();
@@ -104,13 +97,16 @@ class MemoryPool {
     remaining_.clear();
     central_.clear();
     class_sizes_.clear();
+    std::vector<std::mutex>().swap(class_mutex_);
+    std::vector<std::atomic<difference_type>>().swap(central_count_);
     chunk_blocks_ = 0;
+    align_elems_ = 0;
   }
 
- private:
   struct AlignedAllocator {
-    T *operator()(Index n) const {
-      return static_cast<T *>(Eigen::internal::aligned_malloc(n * sizeof(T)));
+    T *operator()(difference_type n) const {
+      return static_cast<T *>(
+          Eigen::internal::aligned_malloc(n * difference_type(sizeof(T))));
     }
   };
   struct AlignedDeleter {
@@ -118,30 +114,44 @@ class MemoryPool {
   };
   using ChunkPtr = std::unique_ptr<T[], AlignedDeleter>;
 
-  inline static constexpr Index alignment_bytes() {
+  inline static constexpr difference_type alignment_bytes() {
 #ifdef EIGEN_MAX_ALIGN_BYTES
-    return static_cast<Index>(EIGEN_MAX_ALIGN_BYTES);
+    return static_cast<difference_type>(EIGEN_MAX_ALIGN_BYTES);
 #else
-    return static_cast<Index>(alignof(T));
+    return static_cast<difference_type>(alignof(T));
 #endif
   }
 
-  void make_class_sizes(Index max_elems) {
-    const Index needed = align_up(max_elems);
-    const Index align_elems2 = align_elems_ * align_elems_;
-    Index hi = 1;
+  static difference_type align_elems() {
+    difference_type a = alignment_bytes();
+    difference_type b = static_cast<difference_type>(sizeof(T));
+    while (b != 0) {
+      const difference_type t = a % b;
+      a = b;
+      b = t;
+    }
+    return alignment_bytes() / a;
+  }
+
+  inline difference_type align_up(difference_type elems) const {
+    return ((elems + align_elems_ - 1) / align_elems_) * align_elems_;
+  }
+
+  void make_class_sizes(difference_type max_elems) {
+    const difference_type needed = align_up(max_elems);
+    const difference_type align_elems2 = align_elems_ * align_elems_;
+    difference_type hi = 1;
     while (hi < needed) hi <<= 1;
-    // here is potential space for improvement due to granularity for small
-    // allocs
-    for (Index c = align_elems2; c < hi; c <<= 1) class_sizes_.push_back(c);
+    for (difference_type c = align_elems2; c < hi; c <<= 1)
+      class_sizes_.push_back(c);
     class_sizes_.push_back(hi);
   }
 
-  Index class_of(Index elems) const {
-    const Index lo = class_sizes_.front();
-    const Index ratio = (elems + lo - 1) / lo;
+  Index class_of(difference_type elems) const {
+    const difference_type lo = class_sizes_.front();
+    const difference_type ratio = (elems + lo - 1) / lo;
     if (ratio <= 1) return 0;
-    Index x = ratio - 1;
+    difference_type x = ratio - 1;
     Index i = 0;
     while (x != 0) {
       x >>= 1;
@@ -150,10 +160,11 @@ class MemoryPool {
     return i;
   }
 
-  Index blocks_per_chunk(Index max_alloc_mb) const {
-    constexpr Index mb = 1048576;
-    const Index bytes_per_block = class_sizes_.back() * sizeof(T);
-    const Index min_mb = (bytes_per_block + mb - 1) / mb;
+  difference_type blocks_per_chunk(difference_type max_alloc_mb) const {
+    constexpr difference_type mb = 1048576;
+    const difference_type bytes_per_block =
+        class_sizes_.back() * difference_type(sizeof(T));
+    const difference_type min_mb = (bytes_per_block + mb - 1) / mb;
     if (max_alloc_mb < min_mb) {
       std::cerr << "MemoryPool: max_alloc_mb=" << max_alloc_mb
                 << " too small for one largest-class block; rounding up to "
@@ -164,29 +175,36 @@ class MemoryPool {
   }
 
   void refill(Index tid, Index cls) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    if (!central_count_[cls].load(std::memory_order_acquire)) return;
+    std::lock_guard<std::mutex> lock(class_mutex_[cls]);
     std::vector<T *> &cen = central_[cls];
-    const Index n = std::min<Index>(Index(kBulk), cen.size());
+    const difference_type n = std::min<difference_type>(kBulk, cen.size());
     if (n == 0) return;
     locals_[tid][cls].insert(locals_[tid][cls].end(), cen.end() - n, cen.end());
     cen.resize(cen.size() - n);
+    central_count_[cls].store(static_cast<difference_type>(cen.size()),
+                              std::memory_order_release);
   }
 
   void spill(Index tid, Index cls) {
     std::vector<T *> &local = locals_[tid][cls];
-    const Index n = std::min<Index>(Index(kBulk), local.size());
-    std::lock_guard<std::mutex> lock(mutex_);
-    central_[cls].insert(central_[cls].end(), local.end() - n, local.end());
+    const difference_type n = std::min<difference_type>(kBulk, local.size());
+    std::lock_guard<std::mutex> lock(class_mutex_[cls]);
+    std::vector<T *> &cen = central_[cls];
+    cen.insert(cen.end(), local.end() - n, local.end());
     local.resize(local.size() - n);
+    central_count_[cls].store(static_cast<difference_type>(cen.size()),
+                              std::memory_order_release);
   }
 
   T *bump_alloc(Index tid, Index cls) {
-    const Index sz = class_sizes_[cls];
+    const difference_type sz = class_sizes_[cls];
     if (remaining_[tid] < sz) {
-      T *raw = AlignedAllocator{}(chunk_blocks_ * class_sizes_.back());
+      const difference_type chunk_elems = chunk_blocks_ * class_sizes_.back();
+      T *raw = AlignedAllocator{}(chunk_elems);
       chunks_[tid].emplace_back(raw);
       bumps_[tid] = raw;
-      remaining_[tid] = chunk_blocks_ * class_sizes_.back();
+      remaining_[tid] = chunk_elems;
     }
     T *p = bumps_[tid];
     bumps_[tid] += sz;
@@ -194,15 +212,16 @@ class MemoryPool {
     return p;
   }
 
-  std::vector<Index> class_sizes_;
+  std::vector<difference_type> class_sizes_;
   std::vector<std::vector<std::vector<T *>>> locals_;
   std::vector<std::vector<ChunkPtr>> chunks_;
   std::vector<T *> bumps_;
-  std::vector<Index> remaining_;
+  std::vector<difference_type> remaining_;
   std::vector<std::vector<T *>> central_;
-  Index chunk_blocks_ = 0;
-  Index align_elems_ = 0;
-  mutable std::mutex mutex_;
+  std::vector<std::mutex> class_mutex_;
+  std::vector<std::atomic<difference_type>> central_count_;
+  difference_type chunk_blocks_ = 0;
+  difference_type align_elems_ = 0;
 };
 
 }  // namespace FMCA
