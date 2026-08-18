@@ -117,7 +117,8 @@ class SampletMatrixCompressor
           switch (the_case) {
             // (leaf,leaf), compute the block
             case 3:
-              block = recursivelyComputeBlock(*pr, *pc, e_gen);
+              block = internal::recursivelyComputeBlock(*pr, *pc, e_gen,
+                                                        Base::eta());
               break;
             // (noleaf,leaf), recycle from below
             case 1:
@@ -132,8 +133,8 @@ class SampletMatrixCompressor
                   const Matrix &ret = it3->second;
                   block.middleRows(offset, nscalfs) = ret.topRows(nscalfs);
                 } else {
-                  const Matrix ret =
-                      recursivelyComputeBlock(pr->sons(k), *pc, e_gen);
+                  const Matrix ret = internal::recursivelyComputeBlock(
+                      pr->sons(k), *pc, e_gen, Base::eta());
                   block.middleRows(offset, nscalfs) = ret.topRows(nscalfs);
                 }
                 offset += nscalfs;
@@ -155,8 +156,8 @@ class SampletMatrixCompressor
                   const Matrix &ret = it3->second;
                   block.middleCols(offset, nscalfs) = ret.leftCols(nscalfs);
                 } else {
-                  const Matrix ret =
-                      recursivelyComputeBlock(*pr, pc->sons(k), e_gen);
+                  const Matrix ret = internal::recursivelyComputeBlock(
+                      *pr, pc->sons(k), e_gen, Base::eta());
                   block.middleCols(offset, nscalfs) = ret.leftCols(nscalfs);
                 }
                 offset += nscalfs;
@@ -229,76 +230,6 @@ class SampletMatrixCompressor
     Base::storeSymTriplets(triplet_buffer, TR.start_index(), TC.start_index(),
                            nrows, ncols, block.bottomRightCorner(nrows, ncols));
   }
-  /**
-   *  \brief recursively computes for a given pair of row and column
-   *clusters the four blocks [A^PhiPhi, A^PhiSigma; A^SigmaPhi,
-   *A^SigmaSigma]
-   **/
-  template <typename EntryGenerator>
-  Matrix recursivelyComputeBlock(const H2STreeType &TR, const H2STreeType &TC,
-                                 const EntryGenerator &e_gen) {
-    Matrix buf(0, 0);
-    Index r_offset = 0;
-    Index c_offset = 0;
-    // check for admissibility
-    if (ClusterComparison::compare(TR, TC, Base::eta()) == LowRank) {
-      e_gen.interpolate_kernel(TR, TC, &buf);
-      return TR.V().transpose() * buf * TC.V();
-    } else {
-      const char the_case = 2 * (!TR.nSons()) + !TC.nSons();
-      switch (the_case) {
-        case 3:
-          // both are leafs: compute the block and return
-          e_gen.compute_dense_block(TR, TC, &buf);
-          return TR.Q().transpose() * buf * TC.Q();
-        case 2:
-          // the row cluster is a leaf cluster: recursion on the col cluster
-          buf.resize(TR.Q().cols(), TC.Q().rows());
-          c_offset = 0;
-          for (Index j = 0; j < TC.nSons(); ++j) {
-            const Index nscalfs = TC.sons(j).nscalfs();
-            const Matrix ret = recursivelyComputeBlock(TR, TC.sons(j), e_gen);
-            buf.middleCols(c_offset, nscalfs) = ret.leftCols(nscalfs);
-            c_offset += nscalfs;
-          }
-          return buf * TC.Q();
-        case 1:
-          // the col cluster is a leaf cluster: recursion on the row cluster
-          buf.resize(TR.Q().rows(), TC.Q().cols());
-          r_offset = 0;
-          for (Index i = 0; i < TR.nSons(); ++i) {
-            const Index nscalfs = TR.sons(i).nscalfs();
-            const Matrix ret = recursivelyComputeBlock(TR.sons(i), TC, e_gen);
-            buf.middleRows(r_offset, nscalfs) = ret.topRows(nscalfs);
-            r_offset += nscalfs;
-          }
-          return TR.Q().transpose() * buf;
-        case 0:
-          // neither is a leaf, let recursion handle this
-          buf.resize(TR.Q().rows(), TC.Q().cols());
-          r_offset = 0;
-          for (Index i = 0; i < TR.nSons(); ++i) {
-            Matrix buf2(TR.sons(i).Q().cols(), TC.Q().rows());
-            c_offset = 0;
-            const Index r_nscalfs = TR.sons(i).nscalfs();
-            for (Index j = 0; j < TC.nSons(); ++j) {
-              const Index c_nscalfs = TC.sons(j).nscalfs();
-              const Matrix ret =
-                  recursivelyComputeBlock(TR.sons(i), TC.sons(j), e_gen);
-              buf2.middleCols(c_offset, c_nscalfs) = ret.leftCols(c_nscalfs);
-              c_offset += c_nscalfs;
-            }
-            buf.middleRows(r_offset, r_nscalfs).noalias() =
-                buf2.topRows(r_nscalfs) * TC.Q();
-            r_offset += r_nscalfs;
-          }
-          return TR.Q().transpose() * buf;
-      }
-    }
-    return Matrix(0, 0);
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
   std::vector<LevelBuffer> pattern_;
   internal::RandomTreeAccessor<H2STreeType> rta_;
 };
