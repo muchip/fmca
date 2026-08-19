@@ -1,0 +1,39 @@
+// This file is part of FMCA, the Fast Multiresolution Covariance Analysis
+// package.
+//
+// Copyright (c) 2025, Michael Multerer
+//
+// All rights reserved.
+//
+// This source code is subject to the GNU Affero General Public License v3.0
+// license and without any warranty, see <https://github.com/muchip/FMCA>
+// for further information.
+//
+#ifndef FMCA_COLLOCATION_MODULE_
+#define FMCA_COLLOCATION_MODULE_
+
+/**
+ *  \ingroup Modules
+ *  \defgroup Collocation Collocation
+ *  \brief Module providing multiscale samplet-compressed kernel collocation
+ *         for elliptic boundary value problems, together with the
+ *         physics-informed kernel learning (PIKL) least-squares variant
+ **/
+
+#include "src/util/Macros.h"
+//
+#include <Eigen/Dense>
+#include <Eigen/IterativeLinearSolvers>
+#include <Eigen/Sparse>
+
+#include "CovarianceKernel"
+#include "H2Matrix"
+#include "Samplets"
+
+#include "src/Collocation/CollocationMatrix.h"
+#include "src/Collocation/SchurSolver.h"
+#include "src/Collocation/PIKLSolver.h"
+#include "src/Collocation/MultiscaleEvaluator.h"
+#include "src/Collocation/MultiscaleCollocation.h"
+
+#endif
