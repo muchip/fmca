@@ -20,7 +20,7 @@
 #include "../FMCA/src/util/Graph.h"
 #include "../FMCA/src/util/Tictoc.h"
 
-#define NPTS 500
+#define NPTS 1000
 #define DIM 2
 
 using Interpolator = FMCA::TotalDegreeInterpolator;
@@ -315,7 +315,7 @@ int main() {
   H2SampletTree hst2(mom2, samp_mom2, 0, P2, 3);
   T.tic();
   CompressorDag dag;
-  dag.init(hst1, hst2, eta);
+  dag.init(hst1, hst1, eta, false);
   T.toc("dag init: ");
   std::cout << dag.brows() << "x" << dag.bcols() << std::endl;
   T.toc();
