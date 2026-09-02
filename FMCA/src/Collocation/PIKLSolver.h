@@ -25,9 +25,6 @@ namespace FMCA {
  *
  *  solved through its normal equations (G^T W G + lambda2 I) z = G^T W b.
  *
- *
- *  \note compute() keeps pointers to the blocks handed to it. They must stay
- *        alive for as long as the solver is used.
  **/
 class PIKLSolver {
  public:
@@ -85,7 +82,7 @@ class PIKLSolver {
     nB_ = D.rows();
     w1s_ = 1. / Scalar(nI_);
     w2s_ = lambda1_ / Scalar(nB_);
-    schur_.compute(A, B, C, D, true);
+    schur_.compute(A, B, C, D);
     return;
   }
 
@@ -125,6 +122,7 @@ class PIKLSolver {
   // Getters
   const Index iterations() const { return iterations_; }
   const Scalar residual() const { return residual_; }
+  const Index interiorIterations() const { return schur_.interiorIterations(); }
   Scalar conditionEstimate(Index k = 100) const {
     return schur_.conditionEstimate(k);
   }

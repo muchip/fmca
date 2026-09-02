@@ -21,12 +21,7 @@ namespace FMCA {
  *
  *      [ A  B ] [ zI ]   [ fI ]
  *      [ C  D ] [ zB ] = [ fB ].
- *
- *  The block -A is symmetric positive definite, so the conjugate gradient
- *  method applies to it.  Eliminating zI leaves the small boundary system
- *  (D - C A^{-1} B) zB = fB - C A^{-1} fI, which is factorised densely.  Both
- *  A^{-1}B and that factorisation are computed ONCE in compute(), so every
- *  later solve() costs a single interior CG solve.
+ 
  *
  *  \note compute() keeps pointers to the blocks handed to it. They must stay
  *        alive for as long as the solver is used.
@@ -53,29 +48,24 @@ class SchurSolver {
   //////////////////////////////////////////////////////////////////////////////
   /**
    *  \brief Sets up the interior CG on -A + nugget * I, computes A^{-1}B and
-   *         factorises the boundary Schur complement.
+   *         factorises the boundary Schur complement S = D - C A^{-1} B.
    **/
   void compute(const SparseMatrix& A, const SparseMatrix& B,
-               const SparseMatrix& C, const SparseMatrix& D,
-               bool with_transpose = false) {
+               const SparseMatrix& C, const SparseMatrix& D) {
     B_ = &B;
     C_ = &C;
     nI_ = A.rows();
     nB_ = D.rows();
-    Aspd_ = -A;  // -A is symmetric positive definite, the nugget guards the CG
-    SparseMatrix Id(nI_, nI_);
-    Id.setIdentity();
-    Aspd_ += nugget_ * Id;
+    // -A is symmetric positive definite; the nugget guards the CG.  The
+    // diagonal is written in place: a sparse += would hold a second copy of a
+    // block that is already the largest object in the level.
+    Aspd_ = -A;
+    for (Index k = 0; k < nI_; ++k) Aspd_.coeffRef(k, k) += nugget_;
     cg_.setTolerance(tol_);
     cg_.setMaxIterations(maxit_);
     cg_.compute(Aspd_);
     YB_ = interiorSolve(Matrix(B));
-    lu_.compute(Matrix(D) - Matrix(C) * YB_);
-    if (with_transpose) {
-      YC_ = interiorSolve(Matrix(C.transpose()));
-      luT_.compute(Matrix(D.transpose()) - Matrix(B.transpose()) * YC_);
-    }
-    iterations_ = Index(cg_.iterations());
+    lu_.compute(Matrix(D) - C * YB_);  // C stays sparse in this product
     return;
   }
 
@@ -89,29 +79,25 @@ class SchurSolver {
     Vector x(nI_ + nB_);
     x.head(nI_) = z - YB_ * zB;
     x.tail(nB_) = zB;
-    iterations_ = Index(cg_.iterations());
     return x;
   }
 
   /**
-   *  \brief Solves G^T z = [fI; fB].  Requires compute(..., true).
+   *  \brief Solves G^T z = [fI; fB], at the cost of two interior CG solves.
+   *         Uses the transpose of the factorisation of S, A being symmetric.
    **/
   Vector solveTransposed(const Vector& fI, const Vector& fB) {
     const Vector z = interiorSolve(fI);
-    const Vector zB = luT_.solve(fB - B_->transpose() * z);
+    const Vector zB = lu_.transpose().solve(Vector(fB - B_->transpose() * z));
     Vector x(nI_ + nB_);
-    x.head(nI_) = z - YC_ * zB;
+    x.head(nI_) = z - interiorSolve(Vector(C_->transpose() * zB));
     x.tail(nB_) = zB;
     return x;
   }
 
   //////////////////////////////////////////////////////////////////////////////
   /**
-   *  \brief 2-norm condition number of the interior block, from the extreme
-   *         Ritz values of k Lanczos steps with full reorthogonalisation.  Only
-   *         products with the block are used.  This is an estimate meant for a
-   *         condition-versus-N plot, not a certified bound, and it costs k
-   *         matrix-vector products.
+   *  \brief 2-norm condition number of the interior block, Lanczos steps 
    **/
   Scalar conditionEstimate(Index k = 100) const {
     const Index n = Aspd_.rows();
@@ -155,20 +141,44 @@ class SchurSolver {
   //////////////////////////////////////////////////////////////////////////////
   // Getters
   const Index iterations() const { return iterations_; }
+  const Index interiorIterations() const { return iterations_; }
+  const Scalar residual() const { return cg_.error(); }
 
  private:
   //////////////////////////////////////////////////////////////////////////////
   /**
-   *  \brief A^{-1}V.  Since Aspd_ = -A + nugget * I, this solves Aspd_ X = -V.
+   *  \brief A^{-1}V.  Since Aspd_ = -A + nugget * I, we have A^{-1} = -Aspd_^{-1}
+   *         up to the nugget
    **/
-  Matrix interiorSolve(const Matrix& V) { return cg_.solve(Matrix(-V)); }
+  Matrix interiorSolve(const Matrix& V) {
+    Matrix X = cg_.solve(V);
+    X = -X;
+    iterations_ = Index(cg_.iterations());
+    if (iterations_ >= maxit_) warnCap();
+    return X;
+  }
+
+  Vector interiorSolve(const Vector& v) {
+    Vector x = cg_.solve(v);
+    x = -x;
+    iterations_ = Index(cg_.iterations());
+    if (iterations_ >= maxit_) warnCap();
+    return x;
+  }
+
+  //  A capped interior CG did not converge: for PIKL it also means that the
+  //  P is not a fixed linear operator, so the outer iteration
+  //  cannot be expected to converge either.
+  void warnCap() const {
+    std::cout << "  [warning] interior CG hit the cap of " << maxit_
+              << " iterations\n";
+    return;
+  }
 
   CG cg_;
   SparseMatrix Aspd_;
   Matrix YB_;
-  Matrix YC_;
   Eigen::PartialPivLU<Matrix> lu_;
-  Eigen::PartialPivLU<Matrix> luT_;
   const SparseMatrix* B_;
   const SparseMatrix* C_;
   Scalar tol_;

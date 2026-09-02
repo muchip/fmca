@@ -23,23 +23,8 @@ namespace FMCA {
  *
  *  The template parameter selects how a level is solved: SchurSolver for
  *  classical collocation, PIKLSolver for the regularised least-squares
- *  formulation.  Both are configured through solver() before solving.  The
- *  aliases MultiscaleCollocationSolver and MultiscalePIKLSolver are defined at
- *  the end of this file.
+ *  formulation.
  *
- *
- *  \code
- *    MultiscaleCollocationSolver mc;
- *    mc.init(PI_levels, PB_levels, nu, "MATERN52",
- *            "MATERN52_SECOND_DERIVATIVE");
- *    mc.solver().setParameters(1e-6, 200);
- *    MultiscaleEvaluator evaluator(P_eval);
- *    Vector u = Vector::Zero(P_eval.cols());
- *    for (Index l = 0; l < mc.numLevels(); ++l) {
- *      mc.solveLevel(l, f_levels[l], g_levels[l]);
- *      u += mc.evaluateLevel(evaluator, l);
- *    }
- *  \endcode
  **/
 template <typename LevelSolver>
 class MultiscaleCollocation {
