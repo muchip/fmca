@@ -20,7 +20,29 @@ class PivotedCholesky {
     B_.resize(0, 0);
     indices_.resize(0);
     tol_ = 0;
+    dim_ = 0;
+    max_cols_ = 0;
+    info_ = 0;
+    return;
   }
+  struct KernelMatrixWrapper {
+    KernelMatrixWrapper(const CovarianceKernel &ker, Matrix &&P) = delete;
+    KernelMatrixWrapper(const CovarianceKernel &ker, const Matrix &P)
+        : ker_(ker), P_(P) {}
+    Vector diagonal() const {
+      Vector retval(P_.cols());
+      for (Index i = 0; i < retval.size(); ++i)
+        retval(i) = (ker_.eval(P_.col(i), P_.col(i)))(0, 0);
+      return retval;
+    }
+    Vector col(Index i) const { return ker_.eval(P_, P_.col(i)); }
+
+    Index rows() const { return P_.cols(); }
+    Index cols() const { return P_.cols(); }
+    // members
+    const CovarianceKernel &ker_;
+    const Matrix &P_;
+  };
 
   PivotedCholesky(const CovarianceKernel &ker, const Matrix &P,
                   Scalar tol = 1e-3)
@@ -28,14 +50,59 @@ class PivotedCholesky {
     L_.resize(0, 0);
     B_.resize(0, 0);
     indices_.resize(0);
+    dim_ = P.cols();
+    max_cols_ = max_size_ / dim_ > dim_ ? dim_ : max_size_ / dim_;
     compute(ker, P, tol);
+    return;
   }
 
+  // Classical variant of the diagonally pivoted Cholesky decomposition
   template <typename T>
-  static void pivotedCholeskyQR(const T &K, Matrix *Q, Matrix *R,
-                                std::vector<Index> *idcs, Scalar tol = 1e-3,
-                                Index max_cols = 1000) {
+  static int PgreedyPCD(const T &K, Matrix *L, iVector *idcs, Scalar tol = 1e-3,
+                        Index max_cols = 1000) {
     Vector D = K.diagonal();
+    Scalar tr = D.sum();
+    Index pivot = 0;
+    Index step = 0;
+    if (D.minCoeff() < 0) return 1;
+    ////////////////////////////////////////////////////////////////////////////
+    max_cols = max_cols > K.cols() ? K.cols() : max_cols;
+    L->resize(K.rows(), max_cols);
+    idcs->resize(max_cols);
+    // we guarantee the error tr(K-LL^T)/tr(K) < tol
+    tol *= tr;
+    while ((step < max_cols) && (tol < tr)) {
+      D.maxCoeff(&pivot);
+      (*idcs)[step] = pivot;
+      const Vector col =
+          1. / std::sqrt(D(pivot)) *
+          (K.col(pivot) -
+           L->leftCols(step) * L->row(pivot).head(step).transpose());
+      L->col(step) = col;
+      D.array() -= col.array().square();
+      if (D.minCoeff() < -FMCA_ZERO_TOLERANCE) {
+        L->conservativeResize(L->rows(), step);
+        idcs->conservativeResize(step);
+        return 2;
+      }
+      D = D.cwiseMax(0);
+      // compute the trace of the Schur complement
+      tr = D.sum();
+      ++step;
+    }
+    // crop L, indices to their actual size
+    L->conservativeResize(L->rows(), step);
+    idcs->conservativeResize(step);
+    return 0;
+  }
+
+  // Online QR variant of the diagonally pivoted Cholesky decomposition
+  template <typename T>
+  static int PgreedyPCDQR(const T &K, Matrix *Q, Matrix *R, iVector *idcs,
+                          Scalar tol = 1e-3, Index max_cols = 1000) {
+    Vector D = K.diagonal();
+    if (D.minCoeff() < 0) return 1;
+    max_cols = max_cols > K.cols() ? K.cols() : max_cols;
     Index pivot = 0;
     Scalar tr = 0;
     Q->resize(K.rows(), max_cols);
@@ -47,9 +114,6 @@ class PivotedCholesky {
     // we guarantee the error tr(K-LL^T)/tr(K) < tol
     tol *= tr;
     // perform pivoted Cholesky decomposition
-    std::cout << "N: " << K.rows() << " max number of cols: " << max_cols
-              << std::endl
-              << "rel tol: " << tol << " initial trace: " << tr << std::endl;
     Index step = 0;
     Index qstep = 0;
     while ((step < max_cols) && (tol < tr)) {
@@ -72,7 +136,7 @@ class PivotedCholesky {
           r += cc;
         }
       const Scalar rho = q.norm();
-      if (rho > 1e4 * FMCA_ZERO_TOLERANCE) {
+      if (rho > 1e-4 * l.norm()) {
         Q->col(qstep) = (1. / rho) * q;
         R->col(step).head(qstep) = r;
         (*R)(qstep, step) = rho;
@@ -82,186 +146,91 @@ class PivotedCholesky {
       }
 
       D.array() -= l.array().square();
-      const Scalar minD = D.minCoeff();
-      if (minD < -1e-10) {
-        std::cout << minD << " breaking with non spd matrix\n";
-        break;
+      if (D.minCoeff() < -FMCA_ZERO_TOLERANCE) {
+        Q->conservativeResize(Q->rows(), std::min(qstep, step));
+        R->conservativeResize(std::min(qstep, step), step);
+        idcs->conservativeResize(step);
+        return 2;
       }
       D = D.cwiseMax(0);
       // compute the trace of the Schur complement
       tr = D.sum();
       ++step;
     }
-    std::cout << "steps: " << step << " trace error: " << tr << std::endl;
-    std::cout << "qstep: " << qstep << std::endl;
     // crop L, indices to their actual size
     Q->conservativeResize(Q->rows(), std::min(qstep, step));
     R->conservativeResize(std::min(qstep, step), step);
-    idcs->resize(step);
-    return;
+    idcs->conservativeResize(step);
+    return 0;
   }
 
+  // f-greedy variant of the pivoted Cholesky decomposition
   template <typename T>
-  static void pivotedCholesky(const T &K, Matrix *L,
-                              std::vector<FMCA::Index> *idcs, Scalar tol = 1e-3,
-                              Index max_cols = 1000) {
+  static int fgreedyPCD(const T &K, const Vector &f, Matrix *L, Matrix *B,
+                        iVector *idcs, Scalar tol = 1e-3,
+                        Index max_cols = 1000) {
     Vector D = K.diagonal();
+    if (D.minCoeff() < 0) return 1;
     Index pivot = 0;
-    Scalar tr = 0;
+    Index step = 0;
+    Vector r = f;
+    Scalar resnorm = r.norm();
+    ////////////////////////////////////////////////////////////////////////////
+    max_cols = max_cols > K.cols() ? K.cols() : max_cols;
     L->resize(K.rows(), max_cols);
+    B->resize(K.rows(), max_cols);
     idcs->resize(max_cols);
-    tr = D.sum();
     // we guarantee the error tr(K-LL^T)/tr(K) < tol
-    tol *= tr;
-    // perform pivoted Cholesky decomposition
-    std::cout << "N: " << K.rows() << " max number of cols: " << max_cols
-              << std::endl
-              << "rel tol: " << tol << " initial trace: " << tr << std::endl;
-    FMCA::Index step = 0;
-    while ((step < max_cols) && (tol < tr)) {
-      D.maxCoeff(&pivot);
+    tol *= resnorm;
+    while ((step < max_cols) && (resnorm > tol)) {
+      r.cwiseAbs().maxCoeff(&pivot);
       (*idcs)[step] = pivot;
-      const Vector col =
-          1. / std::sqrt(D(pivot)) *
-          (K.col(pivot) -
-           L->leftCols(step) * L->row(pivot).head(step).transpose());
-      L->col(step) = col;
-      D.array() -= L->col(step).array().square();
-      const Scalar minD = D.minCoeff();
-      if (minD < -1e-10) {
-        std::cout << minD << " breaking with non spd matrix\n";
-        break;
+      if (D.minCoeff() < -FMCA_ZERO_TOLERANCE ||
+          D(pivot) < FMCA_ZERO_TOLERANCE) {
+        L->conservativeResize(L->rows(), step);
+        B->conservativeResize(B->rows(), step);
+        idcs->conservativeResize(step);
+        return 2;
       }
+      const Vector updL =
+          L->leftCols(step) * L->row(pivot).head(step).transpose();
+      const Vector updB =
+          B->leftCols(step) * L->row(pivot).head(step).transpose();
+      L->col(step) = 1. / std::sqrt(D(pivot)) * (K.col(pivot) - updL);
+      B->col(step) =
+          1. / std::sqrt(D(pivot)) * (Vector::Unit(K.rows(), pivot) - updB);
+      D.array() -= L->col(step).array().square();
+      r -= r.dot(B->col(step)) * L->col(step);
+      // compute the residual
+      resnorm = r.norm();
       D = D.cwiseMax(0);
-      // compute the trace of the Schur complement
-      tr = D.sum();
       ++step;
     }
-    std::cout << "steps: " << step << " trace error: " << tr << std::endl;
     // crop L, indices to their actual size
     L->conservativeResize(L->rows(), step);
-    idcs->resize(step);
-    return;
+    B->conservativeResize(B->rows(), step);
+    idcs->conservativeResize(step);
+    return 0;
   }
 
   void compute(const CovarianceKernel &ker, const Matrix &P,
                Scalar tol = 1e-3) {
-    const Index dim = P.cols();
-    const Index max_cols = max_size_ / dim > dim ? dim : max_size_ / dim;
-    Vector D(dim);
-    Index pivot = 0;
-    Scalar tr = 0;
-    L_.resize(dim, max_cols);
-    indices_.resize(max_cols);
+    B_.resize(0, 0);
+    dim_ = P.cols();
+    max_cols_ = max_size_ / dim_ > dim_ ? dim_ : max_size_ / dim_;
     tol_ = tol;
-    // compute the diagonal and the trace
-    for (auto i = 0; i < dim; ++i) {
-      const Matrix wtf = ker.eval(P.col(i), P.col(i));
-      D(i) = wtf(0, 0);
-      if (D(i) < 0) {
-        info_ = 1;
-        return;
-      }
-    }
-    tr = D.sum();
-    // we guarantee the error tr(A-LL^T)/tr(A) < tol
-    tol *= tr;
-    // perform pivoted Cholesky decomposition
-    std::cout << "N: " << dim << " max number of cols: " << max_cols
-              << std::endl
-              << "rel tol: " << tol << " initial trace: " << tr << std::endl;
-    Index step = 0;
-    while ((step < max_cols) && (tol < tr)) {
-      D.maxCoeff(&pivot);
-      indices_(step) = pivot;
-      // get new column from C
-      L_.col(step) = ker.eval(P, P.col(pivot));
-      // update column with the current matrix Lmatrix_
-      L_.col(step) -= L_.leftCols(step) * L_.row(pivot).head(step).transpose();
-      if (L_(pivot, step) <= 0) {
-        info_ = 2;
-        std::cout << "breaking with non positive pivot\n";
-        break;
-      }
-      L_.col(step) /= sqrt(L_(pivot, step));
-      // update the diagonal and the trace
-      D.array() -= L_.col(step).array().square();
-      // compute the trace of the Schur complement
-      tr = D.sum();
-      ++step;
-    }
-    std::cout << "steps: " << step << " trace error: " << tr << std::endl;
-    if (tr < 0)
-      info_ = 2;
-    else
-      info_ = 0;
-    // crop L, indices to their actual size
-    L_.conservativeResize(dim, step);
-    indices_.conservativeResize(step);
+    info_ =
+        PgreedyPCD(KernelMatrixWrapper(ker, P), &L_, &indices_, tol, max_cols_);
     return;
   }
 
   void computeOMP(const CovarianceKernel &ker, const Matrix &P, const Vector &f,
                   Scalar tol = 1e-3) {
-    const Index dim = P.cols();
-    const Index max_cols = max_size_ / dim > dim ? dim : max_size_ / dim;
-    Vector D(dim);
-    Vector r = f;
-    Index pivot = 0;
-    Scalar resnorm = 0;
-    L_.resize(dim, max_cols);
-    indices_.resize(max_cols);
+    dim_ = P.cols();
+    max_cols_ = max_size_ / dim_ > dim_ ? dim_ : max_size_ / dim_;
     tol_ = tol;
-    // compute the diagonal and the trace
-    for (auto i = 0; i < dim; ++i) {
-      const Matrix wtf = ker.eval(P.col(i), P.col(i));
-      D(i) = wtf(0, 0);
-      if (D(i) < 0) {
-        info_ = 1;
-        return;
-      }
-    }
-    resnorm = r.norm();
-    tol *= resnorm;
-    // perform pivoted Cholesky decomposition
-    std::cout << "N: " << dim << " max number of cols: " << max_cols
-              << std::endl
-              << "rel tol: " << tol << " initial residual: " << resnorm
-              << std::endl;
-    Index step = 0;
-    while ((step < max_cols) && resnorm > tol) {
-      r.cwiseAbs().maxCoeff(&pivot);
-      indices_(step) = pivot;
-      // get new column from C
-      L_.col(step) = ker.eval(P, P.col(pivot));
-      B_.col(step).setZero();
-      B_(pivot, step) = 1;
-      // update column with the current matrix Lmatrix_
-      L_.col(step) -= L_.leftCols(step) * L_.row(pivot).head(step).transpose();
-      B_.col(step) -= B_.leftCols(step) * L_.row(pivot).head(step).transpose();
-      if (L_(pivot, step) <= 0) {
-        info_ = 2;
-        std::cout << "breaking with non positive pivot\n";
-        break;
-      }
-      L_.col(step) /= sqrt(D(pivot));
-      B_.col(step) /= sqrt(D(pivot));
-      // update the diagonal and the trace
-      D.array() -= L_.col(step).array().square();
-      r -= r.dot(B_.col(step)) * L_.col(step);
-      // compute the trace of the Schur complement
-      resnorm = r.norm();
-      ++step;
-    }
-    std::cout << "steps: " << step << " residual: " << resnorm << std::endl;
-    if (D.sum() < 0)
-      info_ = 2;
-    else
-      info_ = 0;
-    // crop L, indices to their actual size
-    L_.conservativeResize(dim, step);
-    B_.conservativeResize(dim, step);
-    indices_.conservativeResize(step);
+    info_ = fgreedyPCD(KernelMatrixWrapper(ker, P), f, &L_, &B_, &indices_, tol,
+                       max_cols_);
     return;
   }
 
@@ -338,7 +307,7 @@ class PivotedCholesky {
 
   Matrix matrixU() const {
     Matrix U(B_.cols(), B_.cols());
-    for (Index i = 0; i < indices_.size(); ++i) U.row(i) = B_.row(indices_(i));
+    for (Index i = 0; i < U.rows(); ++i) U.row(i) = B_.row(indices_(i));
     return U;
   }
 
@@ -357,9 +326,11 @@ class PivotedCholesky {
   Vector eigenvalues_;
   iVector indices_;
   Scalar tol_;
-  Index info_;
-  // we cap the maximum matrix size at 8GB
   const Index max_size_ = Index(1e9);
+  Index info_;
+  Index dim_;
+  Index max_cols_;
+  // we cap the maximum matrix size at 8GB
 };
 }  // namespace FMCA
 #endif
