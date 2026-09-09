@@ -22,7 +22,7 @@
 
 using SampletInterpolator = FMCA::MonomialInterpolator;
 using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
-using SampletTree = FMCA::SampletTree<FMCA::UnitKDTree>;
+using SampletTree = FMCA::SampletTree<FMCA::UnitBinaryTree>;
 
 int main() {
   FMCA::Tictoc T;

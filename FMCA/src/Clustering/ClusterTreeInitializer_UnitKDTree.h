@@ -42,24 +42,15 @@ struct ClusterTreeInitializer<UnitKDTree> {
     }
   }
 
-  // leaf id in tree order: per level, the d-bit son index (bit j = upper half
-  // in dimension j), root level most significant
-  template <typename Derived>
-  static Index leafId(const Derived &x, int n, int n_levels) {
-    Index id = 0;
-    for (int l = n_levels - 1; l >= 0; --l) {
-      int digit = 0;
-      for (int j = 0; j < x.rows(); ++j) {
-        const int c = std::max(0, std::min(n - 1, int(n * x(j))));
-        digit |= ((c >> l) & 1) << j;
-      }
-      id = (id << x.rows()) | digit;
-    }
-    return id;
-  }
   //////////////////////////////////////////////////////////////////////////////
   /** \ingroup internal
    *  \brief perform cluster refinement given a Splitter class
+   *
+   *  The leaf id is the row-major cell index and serves only as a key for
+   *  O(1) point-to-leaf assignment. The index array is laid out in the order
+   *  in which the DFS visits the leaves (sons in increasing order), so that
+   *  every subtree owns one contiguous slice and the post-order pass
+   *  (begin = min over sons, size = sum over sons) is exact for any d.
    **/
   template <typename Derived>
   static void init_ClusterTree_impl(ClusterTreeBase<Derived> &CT,
@@ -69,7 +60,8 @@ struct ClusterTreeInitializer<UnitKDTree> {
     const Index n = 1 << n_levels;
     std::vector<Derived *> queue;
     std::vector<Derived *> dfs_order;
-    std::vector<Derived *> leaves(1 << (d * n_levels));
+    std::vector<Derived *> leaf_nodes;  // leaves in DFS (son) order
+    std::vector<Index> leaf_ids;        // their row-major cell ids
     if (n_levels > 0) queue.push_back(std::addressof(CT.derived()));
     while (queue.size()) {
       // get node from the queue and remember it for reverse dfs
@@ -99,28 +91,52 @@ struct ClusterTreeInitializer<UnitKDTree> {
         node.sons(i).node().block_size_ = 0;
         node.sons(i).node().indices_begin_ = 0;
       }
-      if (node.level() < n_levels - 1)
-        for (Index i = 0; i < k; ++i)
+      if (node.level() < n_levels - 1) {
+        // push in reverse so that the stack pops the sons in order 0..k-1
+        for (int i = k - 1; i >= 0; --i)
           queue.push_back(std::addressof(node.sons(i)));
-      else
-        for (Index i = 0; i < k; ++i)
-          leaves[leafId(node.sons(i).node().bb_.col(0), n, n_levels)] =
-              std::addressof(node.sons(i));
+      } else {
+        for (Index i = 0; i < k; ++i) {
+          Index coord = n * node.sons(i).node().bb_(0, 0);
+          coord = std::max<Index>(0, std::min<Index>(n - 1, coord));
+          Index id = coord;
+
+          for (Index j = 1; j < d; ++j) {
+            coord = Index(n * node.sons(i).node().bb_(j, 0));
+            coord = std::max<Index>(0, std::min<Index>(n - 1, coord));
+            id = n * id + coord;
+          }
+          leaf_nodes.push_back(std::addressof(node.sons(i)));
+          leaf_ids.push_back(id);
+        }
+      }
     }
     // now perform point assignment to each leave and determine leave size
     std::vector<Index> leaf_id(P.cols());
-    std::vector<Index> leaf_count(leaves.size(), 0);
+    std::vector<Index> leaf_count(1 << (d * n_levels), 0);
     for (Index i = 0; i < P.cols(); ++i) {
-      leaf_id[i] = leafId(P.col(i), n, n_levels);
-      ++(leaf_count[leaf_id[i]]);
+      Index coord = n * P(0, i);
+      coord = std::max<Index>(0, std::min<Index>(n - 1, coord));
+      Index id = coord;
+      for (Index j = 1; j < P.rows(); ++j) {
+        coord = n * P(j, i);
+        coord = std::max<Index>(0, std::min<Index>(n - 1, coord));
+        id = n * id + coord;
+      }
+      leaf_id[i] = id;
+      ++(leaf_count[id]);
+    }
+    // hand out slices in DFS (son) order, remember the offset per cell id
+    std::vector<Index> leaf_offset(leaf_count.size(), 0);
+    Index offset = 0;
+    for (Index l = 0; l < leaf_nodes.size(); ++l) {
+      const Index id = leaf_ids[l];
+      leaf_nodes[l]->node().block_size_ = leaf_count[id];
+      leaf_nodes[l]->node().indices_begin_ = offset;
+      leaf_offset[id] = offset;
+      offset += leaf_count[id];
     }
     // copy everything in place
-    std::vector<Index> leaf_offset(leaves.size() + 1, 0);
-    for (Index i = 0; i < leaves.size(); ++i) {
-      (leaves[i])->node().block_size_ = leaf_count[i];
-      (leaves[i])->node().indices_begin_ = leaf_offset[i];
-      leaf_offset[i + 1] = leaf_offset[i] + leaf_count[i];
-    }
     for (Index i = 0; i < leaf_id.size(); ++i)
       CT.node().indices_.get()[(leaf_offset[leaf_id[i]])++] = i;
     // finally traverse tree in post order to set parents
