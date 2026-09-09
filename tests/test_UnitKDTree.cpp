@@ -14,12 +14,11 @@
 
 #include "../FMCA/Clustering"
 #include "../FMCA/Samplets"
-
 #include "../FMCA/src/util/IO.h"
 #include "../FMCA/src/util/Tictoc.h"
 
-#define DIM 1
-#define NPTS 100
+#define DIM 2
+#define NPTS 1000
 
 using SampletInterpolator = FMCA::MonomialInterpolator;
 using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
@@ -40,6 +39,7 @@ int main() {
   FMCA::iVector index_hits(P.cols());
   index_hits.setZero();
   FMCA::UnitKDTree CT(P, 3);
+  T.toc("tree computation:");
   for (FMCA::Index i = 0; i < P.cols(); ++i) index_hits(CT.indices()[i]) = 1;
   assert(index_hits.sum() == P.cols() && "CT lost indices");
 
@@ -52,6 +52,21 @@ int main() {
       bbvec.push_back(it.bb());
     }
   }
+  std::vector<const FMCA::UnitKDTree *> stack{&CT};
+  while (stack.size()) {
+    const auto &node = *stack.back();
+    stack.pop_back();
+    std::set<FMCA::Index> pidx(node.indices(),
+                               node.indices() + node.block_size());
+    std::set<FMCA::Index> cidx;
+    for (auto i = 0; i < node.nSons(); ++i) {
+      cidx.insert(node.sons(i).indices(),
+                  node.sons(i).indices() + node.sons(i).block_size());
+      stack.push_back(&node.sons(i));
+    }
+    assert((!node.nSons() || pidx == cidx) &&
+           "parent indices != union of sons");
+  }
 #if 0
   FMCA::IO::plotBoxes2D("boxes.vtk", bbvec);
   FMCA::Matrix P3(3, P.cols());
@@ -63,5 +78,5 @@ int main() {
   SampletTree hst(samp_mom, 0, P, 10);
   std::cout << hst.block_size() << std::endl;
   FMCA::clusterTreeStatistics(hst, P);
-    return 0;
+  return 0;
 }

@@ -42,6 +42,18 @@ struct ClusterTreeInitializer<UnitBinaryTree> {
     }
   }
 
+  // leaf id in tree order: one bit per level, axes cycling x, y, z, ...,
+  // root level most significant
+ template <typename Derived>
+  static Index leafId(const Derived &x, int n, int n_levels) {
+    Index id = 0;
+    for (int l = n_levels - 1; l >= 0; --l)
+      for (int j = 0; j < x.rows(); ++j) {
+        const int c = std::max(0, std::min(n - 1, int(n * x(j))));
+        id = (id << 1) | ((c >> l) & 1);
+      }
+    return id;
+  }
   //////////////////////////////////////////////////////////////////////////////
   /** \ingroup internal
    *  \brief perform cluster refinement given a Splitter class
@@ -85,33 +97,16 @@ struct ClusterTreeInitializer<UnitBinaryTree> {
         for (Index i = 0; i < k; ++i)
           queue.push_back(std::addressof(node.sons(i)));
       else
-        for (Index i = 0; i < k; ++i) {
-          Index coord = n * node.sons(i).node().bb_(0, 0);
-          coord = std::max<Index>(0, std::min<Index>(n - 1, coord));
-          Index id = coord;
-
-          for (Index j = 1; j < d; ++j) {
-            coord = Index(n * node.sons(i).node().bb_(j, 0));
-            coord = std::max<Index>(0, std::min<Index>(n - 1, coord));
-            id = n * id + coord;
-          }
-          leaves[id] = std::addressof(node.sons(i));
-        }
+        for (Index i = 0; i < k; ++i)
+          leaves[leafId(node.sons(i).node().bb_.col(0), n, n_levels)] =
+              std::addressof(node.sons(i));
     }
     // now perform point assignment to each leave and determine leave size
     std::vector<Index> leaf_id(P.cols());
     std::vector<Index> leaf_count(leaves.size(), 0);
     for (Index i = 0; i < P.cols(); ++i) {
-      Index coord = n * P(0, i);
-      coord = std::max<Index>(0, std::min<Index>(n - 1, coord));
-      Index id = coord;
-      for (Index j = 1; j < P.rows(); ++j) {
-        coord = n * P(j, i);
-        coord = std::max<Index>(0, std::min<Index>(n - 1, coord));
-        id = n * id + coord;
-      }
-      leaf_id[i] = id;
-      ++(leaf_count[id]);
+      leaf_id[i] = leafId(P.col(i), n, n_levels);
+      ++(leaf_count[leaf_id[i]]);
     }
     // copy everything in place
     std::vector<Index> leaf_offset(leaves.size() + 1, 0);
