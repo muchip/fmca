@@ -28,6 +28,16 @@ int main() {
   std::cout << std::string(60, '-') << std::endl;
   std::cout << "Pivoted Cholesky decomposition" << std::endl;
   pivChol.compute(kernel, P, 1. / NPTS);
+  const FMCA::PivotedCholesky::KernelMatrixWrapper kmat(kernel, P);
+  FMCA::Matrix LL;
+  FMCA::iVector idcs;
+  FMCA::PivotedCholesky::PgreedyPCD(kmat, &LL, &idcs, 1. / NPTS);
+  std::cout << "error: "
+            << ((LL * LL.transpose()) -
+                pivChol.matrixL() * pivChol.matrixL().transpose())
+                       .norm() /
+                   (pivChol.matrixL() * pivChol.matrixL().transpose()).norm()
+            << std::endl;
   pivChol.computeBiorthogonalBasis();
   T.toc("elapsed time:                ");
   std::cout << "rank:                         " << pivChol.matrixL().cols()
@@ -111,8 +121,8 @@ int main() {
   FMCA::Matrix K = kernel.eval(P, P);
   FMCA::Matrix Q;
   FMCA::Matrix R;
-  std::vector<FMCA::Index> ids;
-  FMCA::PivotedCholesky::pivotedCholeskyQR(K, &Q, &R, &ids, 1e-14);
+  FMCA::iVector ids;
+  FMCA::PivotedCholesky::PgreedyPCDQR(K, &Q, &R, &ids, 1e-14);
   FMCA::Matrix L = Q * R;
   std::cout << (Q.transpose() * Q - FMCA::Matrix::Identity(Q.cols(), Q.cols()))
                        .norm() /
@@ -120,7 +130,7 @@ int main() {
             << std::endl;
   std::cout << "QR error: " << (K - L * L.transpose()).norm() / K.norm()
             << std::endl;
-  FMCA::PivotedCholesky::pivotedCholesky(K, &L, &ids, 1e-14);
+  FMCA::PivotedCholesky::PgreedyPCD(K, &L, &ids, 1e-14);
   std::cout << "PCD error: " << (K - L * L.transpose()).norm() / K.norm()
             << std::endl;
 
