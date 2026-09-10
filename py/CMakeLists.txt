@@ -18,22 +18,25 @@ set_target_properties(FMCA PROPERTIES
   SUFFIX "${FMCA_SUFFIX}"
 )
 
-# Copy notebooks next to the built module
+# Copy the example notebooks next to the built module
 foreach(nb
-    FMCA_Samplets.ipynb
     FMCA_Cholesky.ipynb
     FMCA_GP.ipynb
     FMCA_H2Matrix.ipynb
+    FMCA_LowRankBenchmarks.ipynb
+    FMCA_SampletAdaptiveClustering.ipynb
+    FMCA_SampletBasics.ipynb
+    FMCA_SampletCompression1D.ipynb
+    FMCA_SampletDenoising1D.ipynb
+    FMCA_SampletImageDenoising.ipynb
+    FMCA_SampletKernelCompression.ipynb
     FMCA_Samplet_GP_Filtering.ipynb
     FMCA_Samplet_KRR.ipynb
-    FMCA_SampletAdaptiveClustering.ipynb
+    FMCA_Samplets.ipynb
 )
   add_custom_command(TARGET FMCA POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy
-            ${CMAKE_SOURCE_DIR}/py/${nb}
+            ${CMAKE_CURRENT_SOURCE_DIR}/${nb}
             ${CMAKE_CURRENT_BINARY_DIR}/${nb}
   )
 endforeach()
-
-
-

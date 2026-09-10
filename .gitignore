@@ -6,3 +6,5 @@ html/
 build/
 *.vtk
 *.h5
+*.egg-info/
+__pycache__/
