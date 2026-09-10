@@ -46,18 +46,13 @@ The example above can be found and modified in the jupyter notebook FMCA_Samplet
 
 Since samplets have vanishing moments, a smooth signal is represented by very few large
 coefficients, whereas white noise is spread evenly over all of them. Discarding the small
-coefficients thus removes most of the noise and almost none of the signal. For a signal sampled at
-10000 points and perturbed by Gaussian noise of standard deviation 0.15, thresholding at the
-universal level, i.e. sigma*sqrt(2*log(N)), retains 39 coefficients and reduces the relative error
-from 1.7e-1 to 1.8e-2.
-![What is this](assets/denoising.png)
-
+coefficients thus removes most of the noise and almost none of the signal. 
 Edges survive this procedure, as a kink is encoded by a few *large* coefficients, which are never
 discarded. Nothing in the construction requires the points to be equispaced, so the very same steps
 denoise an image, here 600x512 pixels, of which 13278 samplet coefficients survive the threshold.
 ![What is this](assets/denoising_image.png)
 
-These examples can be found and modified in the jupyter notebooks
+The denoising can be found and modified in the jupyter notebooks
 [FMCA_SampletDenoising1D](https://github.com/muchip/fmca/blob/master/py/FMCA_SampletDenoising1D.ipynb)
 and [FMCA_SampletImageDenoising](https://github.com/muchip/fmca/blob/master/py/FMCA_SampletImageDenoising.ipynb).
 
