@@ -47,9 +47,9 @@ The example above can be found and modified in the jupyter notebook FMCA_Samplet
 Since samplets have vanishing moments, a smooth signal is represented by very few large
 coefficients, whereas white noise is spread evenly over all of them. Discarding the small
 coefficients thus removes most of the noise and almost none of the signal. 
-Edges survive this procedure, as a kink is encoded by a few *large* coefficients, which are never
-discarded. Nothing in the construction requires the points to be equispaced, so the very same steps
-denoise an image, here 600x512 pixels, of which 13278 samplet coefficients survive the threshold.
+
+Here 600x512 pixels, of which 13278 samplet coefficients survive the threshold.
+
 ![What is this](assets/denoising_image.png)
 
 The denoising can be found and modified in the jupyter notebooks
@@ -61,13 +61,17 @@ and [FMCA_SampletImageDenoising](https://github.com/muchip/fmca/blob/master/py/F
 The samplet coefficients moreover indicate *where* a function fails to be smooth, which can be fed
 back into the cluster tree. Refining the tree uniformly splits every cluster, no matter whether the
 data require it or not.
+
 ![What is this](assets/uniform_clusters.png)
 
-The second Binev-DeVore algorithm instead activates the clusters carrying the largest amount of
+The Binev-DeVore algorithm instead activates the clusters carrying the largest amount of
 energy, until the energy left outside the tree drops below a prescribed tolerance. The leaves of the
 resulting adaptive tree form a partition of the point cloud which is fine only where the function
-varies. In the example below, 100000 scattered points are partitioned into 128 clusters, while
+varies. 
+
+In the example below, 100000 scattered points are partitioned into 128 clusters, while
 resolving the whole domain at the same finest scale would require 2048 uniform ones.
+
 ![What is this](assets/adaptive_clusters.png)
 
 The tolerance is measured relative to the energy of the data and is therefore scale free. The
