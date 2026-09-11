@@ -25,7 +25,6 @@ foreach(nb
     FMCA_H2Matrix.ipynb
     FMCA_LowRankBenchmarks.ipynb
     FMCA_SampletAdaptiveClustering.ipynb
-    FMCA_SampletBasics.ipynb
     FMCA_SampletCompression1D.ipynb
     FMCA_SampletDenoising1D.ipynb
     FMCA_SampletImageDenoising.ipynb

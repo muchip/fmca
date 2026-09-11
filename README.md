@@ -31,6 +31,23 @@ make
 ```
 example files and the compiled library are then located in build/py
 
+## Python interface
+
+Points are passed as a `dim x N` array, one point per column, and data as an `N x k` array, one
+row per point. The samplet transform works on data in the order of the cluster tree, which
+`toClusterOrder` and `toNaturalOrder` take care of:
+```python
+import numpy as np
+import FMCA
+
+pts = np.random.rand(2, 10000)          # 10000 points in 2D, one per column
+ST = FMCA.SampletTree(pts, 3)           # samplet tree with 3 vanishing moments
+f = np.sin(4 * pts[0]).reshape(-1, 1)   # data, one row per point
+
+c = ST.sampletTransform(ST.toClusterOrder(f))           # samplet coefficients
+g = ST.toNaturalOrder(ST.inverseSampletTransform(c))    # back to the data
+```
+
 ## Samplets
 
 FMCA features a samplet basis, which can be used to localize a given signal in the frequency domain. Given for example a
@@ -48,7 +65,10 @@ Since samplets have vanishing moments, a smooth signal is represented by very fe
 coefficients, whereas white noise is spread evenly over all of them. Discarding the small
 coefficients thus removes most of the noise and almost none of the signal. 
 
-Here 600x512 pixels, of which 13278 samplet coefficients survive the threshold.
+For an image, the samplet transform is applied to its columns and then to its rows, and every
+band of coefficients is thresholded on its own (BayesShrink), with the noise level estimated
+from the data. For the 600x512 image below, perturbed by Gaussian noise of standard deviation
+0.1, on par with standard wavelet denoising.
 
 ![What is this](assets/denoising_image.png)
 
@@ -114,11 +134,10 @@ signals, images and kernel matrices, and the data driven refinement of the clust
 
 | notebook | what it shows |
 | --- | --- |
-| [FMCA_Samplets](https://github.com/muchip/fmca/blob/master/py/FMCA_Samplets.ipynb) | the samplet transform of a signal sampled at scattered locations |
-| [FMCA_SampletBasics](https://github.com/muchip/fmca/blob/master/py/FMCA_SampletBasics.ipynb) | samplet trees, what a samplet looks like in 1D and 2D, vanishing moments, orthogonality and sparsity of the transform |
+| [FMCA_Samplets](https://github.com/muchip/fmca/blob/master/py/FMCA_Samplets.ipynb) | samplet trees, what a samplet looks like in 1D and 2D, vanishing moments, orthogonality and sparsity of the transform, a signal in the samplet basis, and the compression of a kernel matrix |
 | [FMCA_SampletCompression1D](https://github.com/muchip/fmca/blob/master/py/FMCA_SampletCompression1D.ipynb) | a signal in the natural basis versus the samplet basis, coefficient decay and best N-term approximation |
 | [FMCA_SampletDenoising1D](https://github.com/muchip/fmca/blob/master/py/FMCA_SampletDenoising1D.ipynb) | hard and soft thresholding of samplet coefficients, and the universal threshold |
-| [FMCA_SampletImageDenoising](https://github.com/muchip/fmca/blob/master/py/FMCA_SampletImageDenoising.ipynb) | compression and denoising of an image, and of the same image sampled at scattered points |
+| [FMCA_SampletImageDenoising](https://github.com/muchip/fmca/blob/master/py/FMCA_SampletImageDenoising.ipynb) | compression and denoising of an image with the separable samplet transform, compared with standard wavelets |
 | [FMCA_SampletKernelCompression](https://github.com/muchip/fmca/blob/master/py/FMCA_SampletKernelCompression.ipynb) | the dense kernel matrix versus its samplet compression, accuracy against cost, and the scaling in N |
 | [FMCA_SampletAdaptiveClustering](https://github.com/muchip/fmca/blob/master/py/FMCA_SampletAdaptiveClustering.ipynb) | adaptive partitions of a point cloud obtained from the samplet coefficients |
 | [FMCA_Samplet_GP_Filtering](https://github.com/muchip/fmca/blob/master/py/FMCA_Samplet_GP_Filtering.ipynb) | filtering of the compressed kernel matrix for Gaussian process regression |
