@@ -13,8 +13,6 @@
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
 ////////////////////////////////////////////////////////////////////////////////
-#include <Eigen/Dense>
-#include <Eigen/Sparse>
 #include <functional>
 #include <iostream>
 ////////////////////////////////////////////////////////////////////////////////
@@ -27,6 +25,9 @@
 #include <FMCA/Samplets>
 ////////////////////////////////////////////////////////////////////////////////
 namespace py = pybind11;
+
+namespace FMCA {
+namespace python {
 // Samplets
 using SampletInterpolator = FMCA::MonomialInterpolator;
 using SampletMoments = FMCA::MinNystromSampletMoments<SampletInterpolator>;
@@ -87,13 +88,14 @@ std::vector<const Derived *> levelClusters(const Derived &ST,
 
 /**
  *  \brief labels each point by the index of the cluster in clusters it
- *         belongs to. Points in none of the clusters are labelled -1.
+ *         belongs to. Points in none of the clusters are labelled
+ *         FMCA_MAXINDEX.
  **/
 template <typename Derived>
-Eigen::VectorXi clusterLabels(const std::vector<const Derived *> &clusters,
+FMCA::iVector clusterLabels(const std::vector<const Derived *> &clusters,
                               const FMCA::Index npts) {
-  Eigen::VectorXi retval(npts);
-  retval.setConstant(-1);
+  FMCA::iVector retval(npts);
+  retval.setConstant(FMCA_MAXINDEX);
   for (FMCA::Index c = 0; c < clusters.size(); ++c)
     for (FMCA::Index i = 0; i < clusters[c]->block_size(); ++i)
       retval(clusters[c]->indices()[i]) = int(c);
@@ -121,10 +123,10 @@ FMCA::Matrix clusterBoxes(const std::vector<const Derived *> &clusters) {
  *         T * data equals sampletTransform(data) for cluster ordered data
  **/
 template <typename Derived>
-Eigen::SparseMatrix<FMCA::Scalar> sampletTransformationMatrix(
+FMCA::SparseMatrix sampletTransformationMatrix(
     const Derived &ST) {
   const std::vector<FMCA::Triplet> trips = ST.transformationMatrixTriplets2();
-  Eigen::SparseMatrix<FMCA::Scalar> retval(ST.block_size(), ST.block_size());
+  FMCA::SparseMatrix retval(ST.block_size(), ST.block_size());
   retval.setFromTriplets(trips.begin(), trips.end());
   return retval;
 }
@@ -139,7 +141,7 @@ struct pySampletTree {
     dtilde_ = dtilde > 0 ? dtilde : 1;
     p_ = 2 * (dtilde_ - 1);
     const Moments mom(P, p_);
-    const SampletMoments samp_mom(P, dtilde - 1);
+    const SampletMoments samp_mom(P, dtilde_ - 1);
     ST_.init(mom, samp_mom, 0, P);
     cluster_map_.resize(P.cols());
 
@@ -153,16 +155,16 @@ struct pySampletTree {
   };
 
   FMCA::iVector indices() {
-    return Eigen::Map<const FMCA::iVector>(ST_.indices(), ST_.block_size());
+    return FMCA::Map<const FMCA::iVector>(ST_.indices(), ST_.block_size());
   }
   FMCA::iVector levels() {
     std::vector<FMCA::Index> lvl = FMCA::internal::sampletLevelMapper(ST_);
-    return Eigen::Map<const FMCA::iVector>(lvl.data(), lvl.size());
+    return FMCA::Map<const FMCA::iVector>(lvl.data(), lvl.size());
   }
 
   FMCA::iVector coeff2indices(FMCA::Index i) {
     const H2SampletTree &node = *(cluster_map_[i]);
-    return Eigen::Map<const FMCA::iVector>(node.indices(), node.block_size());
+    return FMCA::Map<const FMCA::iVector>(node.indices(), node.block_size());
   }
 
   FMCA::Matrix toClusterOrder(const FMCA::Matrix &mat) const {
@@ -191,11 +193,11 @@ struct pySampletTree {
     return ST_.inverseSampletTransform(buf.transpose()).transpose();
   }
 
-  Eigen::SparseMatrix<FMCA::Scalar> transformationMatrix() const {
+  FMCA::SparseMatrix transformationMatrix() const {
     return sampletTransformationMatrix(ST_);
   }
 
-  Eigen::VectorXi adaptiveTreeLeafPartition(const FMCA::Vector &data,
+  FMCA::iVector adaptiveTreeLeafPartition(const FMCA::Vector &data,
                                             FMCA::Scalar thres) const {
     return clusterLabels(adaptiveTreeLeafs(ST_, data, thres), ST_.block_size());
   }
@@ -205,7 +207,7 @@ struct pySampletTree {
     return clusterBoxes(adaptiveTreeLeafs(ST_, data, thres));
   }
 
-  Eigen::VectorXi levelLabels(FMCA::Index lvl) const {
+  FMCA::iVector levelLabels(FMCA::Index lvl) const {
     return clusterLabels(levelClusters(ST_, lvl), ST_.block_size());
   }
 
@@ -240,7 +242,7 @@ struct pySampletTreeRP {
     dtilde_ = dtilde > 0 ? dtilde : 1;
     p_ = 2 * (dtilde_ - 1);
     const Moments mom(P, p_);
-    const SampletMoments samp_mom(P, dtilde - 1);
+    const SampletMoments samp_mom(P, dtilde_ - 1);
     srand(seed);
     ST_.init(mom, samp_mom, 10, P);
     cluster_map_.resize(P.cols());
@@ -254,11 +256,11 @@ struct pySampletTreeRP {
   };
 
   FMCA::iVector indices() {
-    return Eigen::Map<const FMCA::iVector>(ST_.indices(), ST_.block_size());
+    return FMCA::Map<const FMCA::iVector>(ST_.indices(), ST_.block_size());
   }
   FMCA::iVector levels() {
     std::vector<FMCA::Index> lvl = FMCA::internal::sampletLevelMapper(ST_);
-    return Eigen::Map<const FMCA::iVector>(lvl.data(), lvl.size());
+    return FMCA::Map<const FMCA::iVector>(lvl.data(), lvl.size());
   }
 
   FMCA::Matrix toClusterOrder(const FMCA::Matrix &mat) const {
@@ -271,7 +273,7 @@ struct pySampletTreeRP {
 
   FMCA::iVector coeff2indices(FMCA::Index i) {
     const H2SampletTreeRP &node = *(cluster_map_[i]);
-    return Eigen::Map<const FMCA::iVector>(node.indices(), node.block_size());
+    return FMCA::Map<const FMCA::iVector>(node.indices(), node.block_size());
   }
 
   FMCA::Matrix sampletTransform(const FMCA::Matrix &data) const {
@@ -292,11 +294,11 @@ struct pySampletTreeRP {
     return ST_.inverseSampletTransform(buf.transpose()).transpose();
   }
 
-  Eigen::SparseMatrix<FMCA::Scalar> transformationMatrix() const {
+  FMCA::SparseMatrix transformationMatrix() const {
     return sampletTransformationMatrix(ST_);
   }
 
-  Eigen::VectorXi adaptiveTreeLeafPartition(const FMCA::Vector &data,
+  FMCA::iVector adaptiveTreeLeafPartition(const FMCA::Vector &data,
                                             FMCA::Scalar thres) const {
     return clusterLabels(adaptiveTreeLeafs(ST_, data, thres), ST_.block_size());
   }
@@ -306,7 +308,7 @@ struct pySampletTreeRP {
     return clusterBoxes(adaptiveTreeLeafs(ST_, data, thres));
   }
 
-  Eigen::VectorXi levelLabels(FMCA::Index lvl) const {
+  FMCA::iVector levelLabels(FMCA::Index lvl) const {
     return clusterLabels(levelClusters(ST_, lvl), ST_.block_size());
   }
 
@@ -334,10 +336,10 @@ struct pySampletTreeRP {
  *
  **/
 struct pyH2Matrix {
-  pyH2Matrix(const FMCA::CovarianceKernel &ker, const FMCA::Matrix &Pr,
-             const FMCA::Matrix &Pc, const FMCA::Index p = 3,
+  pyH2Matrix(const FMCA::CovarianceKernel &ker, FMCA::Matrix Pr,
+             FMCA::Matrix Pc, const FMCA::Index p = 3,
              const FMCA::Scalar eta = 0.8)
-      : Pr_(Pr), Pc_(Pc), p_(p), eta_(eta) {
+      : Pr_(std::move(Pr)), Pc_(std::move(Pc)), p_(p), eta_(eta) {
     ker_ = ker;
     const Moments rmom(Pr_, p_);
     const Moments cmom(Pc_, p_);
@@ -349,21 +351,18 @@ struct pyH2Matrix {
   FMCA::Matrix statistics() const { return hmat_.statistics(); }
 
   FMCA::iVector rindices() const {
-    return Eigen::Map<const FMCA::iVector>(rct_.indices(), rct_.block_size());
+    return FMCA::Map<const FMCA::iVector>(rct_.indices(), rct_.block_size());
   }
   FMCA::iVector cindices() const {
-    return Eigen::Map<const FMCA::iVector>(cct_.indices(), cct_.block_size());
+    return FMCA::Map<const FMCA::iVector>(cct_.indices(), cct_.block_size());
   }
   FMCA::Matrix action(const FMCA::Matrix &rhs) const {
-    using Permutation =
-        Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic>;
     const Moments rmom(Pr_, p_);
     const Moments cmom(Pc_, p_);
     const usMatrixEvaluator mat_eval(rmom, cmom, ker_);
-    const FMCA::Matrix srhs =
-        Permutation(cindices().cast<int>()).transpose() * rhs;
+    const FMCA::Matrix srhs = cct_.toClusterOrder(rhs);
     const FMCA::Matrix res = hmat_.action(mat_eval, srhs);
-    return Permutation(rindices().cast<int>()) * res;
+    return rct_.toNaturalOrder(res);
   }
   // member variables
   FMCA::CovarianceKernel ker_;
@@ -445,8 +444,8 @@ struct pySampletKernelCompressor {
     std::cout << "compression error:            " << err << std::endl;
   }
 
-  Eigen::SparseMatrix<FMCA::Scalar> matrix() {
-    Eigen::SparseMatrix<FMCA::Scalar> retval(n_, n_);
+  FMCA::SparseMatrix matrix() {
+    FMCA::SparseMatrix retval(n_, n_);
     retval.setFromTriplets(trips_.begin(), trips_.end());
     return retval;
   }
@@ -456,7 +455,7 @@ struct pySampletKernelCompressor {
   FMCA::Scalar error() const { return err_; }
 
   // member variables
-  std::vector<Eigen::Triplet<FMCA::Scalar>> trips_;
+  std::vector<FMCA::Triplet> trips_;
   FMCA::Scalar eta_;
   FMCA::Scalar thres_;
   FMCA::Scalar err_;
@@ -467,8 +466,11 @@ struct pySampletKernelCompressor {
  *  \brief class providing Cholesky kernel approximations
  *
  **/
+}  // namespace python
+}  // namespace FMCA
 ////////////////////////////////////////////////////////////////////////////////
 PYBIND11_MODULE(FMCA, m) {
+  using namespace FMCA::python;
   m.doc() = "pybind11 FMCA plugin";  // optional module docstring
   //////////////////////////////////////////////////////////////////////////////
   // ClusterTree
@@ -537,7 +539,7 @@ PYBIND11_MODULE(FMCA, m) {
   pySampletTree_.def("npts", &pySampletTree::npts);
   pySampletTree_.def("dtilde", &pySampletTree::dtilde);
   pySampletTree_.def("nscalfs", &pySampletTree::nscalfs,
-      "number of leading scaling function coefficients");
+                     "number of leading scaling function coefficients");
   pySampletTree_.def("nclusters", &pySampletTree::nclusters);
   pySampletTree_.def("coeff2indices", &pySampletTree::coeff2indices);
   py::class_<pySampletTreeRP> pySampletTreeRP_(m, "SampletTreeRP");
@@ -555,8 +557,8 @@ PYBIND11_MODULE(FMCA, m) {
                        "labels each point by the leaf of the adaptive tree it "
                        "belongs to. thres is relative to the data energy");
   pySampletTreeRP_.def("adaptiveTreeLeafBoxes",
-                       &pySampletTreeRP::adaptiveTreeLeafBoxes,
-                       py::arg("data"), py::arg("thres"),
+                       &pySampletTreeRP::adaptiveTreeLeafBoxes, py::arg("data"),
+                       py::arg("thres"),
                        "bounding boxes of the leaves of the adaptive tree");
   pySampletTreeRP_.def("levelLabels", &pySampletTreeRP::levelLabels,
                        py::arg("lvl"),
@@ -588,7 +590,7 @@ PYBIND11_MODULE(FMCA, m) {
   pySampletTreeRP_.def("npts", &pySampletTreeRP::npts);
   pySampletTreeRP_.def("dtilde", &pySampletTreeRP::dtilde);
   pySampletTreeRP_.def("nscalfs", &pySampletTreeRP::nscalfs,
-      "number of leading scaling function coefficients");
+                       "number of leading scaling function coefficients");
   pySampletTreeRP_.def("nclusters", &pySampletTreeRP::nclusters);
   pySampletTreeRP_.def("coeff2indices", &pySampletTreeRP::coeff2indices);
   m.def(
@@ -671,8 +673,8 @@ PYBIND11_MODULE(FMCA, m) {
   //////////////////////////////////////////////////////////////////////////////
   py::class_<pyH2Matrix> pyH2Matrix_(m, "H2Matrix");
   pyH2Matrix_.def(
-      py::init<const FMCA::CovarianceKernel &, const FMCA::Matrix &,
-               const FMCA::Matrix &, const FMCA::Index, const FMCA::Scalar>());
+      py::init<const FMCA::CovarianceKernel &, FMCA::Matrix, FMCA::Matrix,
+               const FMCA::Index, const FMCA::Scalar>());
   pyH2Matrix_.def("statistics", &pyH2Matrix::statistics);
   pyH2Matrix_.def("action", &pyH2Matrix::action, py::arg().noconvert(),
                   "computes the matrix-vector product");
