@@ -93,7 +93,7 @@ std::vector<const Derived *> levelClusters(const Derived &ST,
  **/
 template <typename Derived>
 FMCA::iVector clusterLabels(const std::vector<const Derived *> &clusters,
-                              const FMCA::Index npts) {
+                            const FMCA::Index npts) {
   FMCA::iVector retval(npts);
   retval.setConstant(FMCA_MAXINDEX);
   for (FMCA::Index c = 0; c < clusters.size(); ++c)
@@ -123,8 +123,7 @@ FMCA::Matrix clusterBoxes(const std::vector<const Derived *> &clusters) {
  *         T * data equals sampletTransform(data) for cluster ordered data
  **/
 template <typename Derived>
-FMCA::SparseMatrix sampletTransformationMatrix(
-    const Derived &ST) {
+FMCA::SparseMatrix sampletTransformationMatrix(const Derived &ST) {
   const std::vector<FMCA::Triplet> trips = ST.transformationMatrixTriplets2();
   FMCA::SparseMatrix retval(ST.block_size(), ST.block_size());
   retval.setFromTriplets(trips.begin(), trips.end());
@@ -137,6 +136,7 @@ FMCA::SparseMatrix sampletTransformationMatrix(
  **/
 struct pySampletTree {
   pySampletTree() {};
+  pySampletTree(pySampletTree &&) = delete;
   pySampletTree(const FMCA::Matrix &P, FMCA::Index dtilde) {
     dtilde_ = dtilde > 0 ? dtilde : 1;
     p_ = 2 * (dtilde_ - 1);
@@ -198,7 +198,7 @@ struct pySampletTree {
   }
 
   FMCA::iVector adaptiveTreeLeafPartition(const FMCA::Vector &data,
-                                            FMCA::Scalar thres) const {
+                                          FMCA::Scalar thres) const {
     return clusterLabels(adaptiveTreeLeafs(ST_, data, thres), ST_.block_size());
   }
 
@@ -237,6 +237,7 @@ struct pySampletTree {
  **/
 struct pySampletTreeRP {
   pySampletTreeRP() {};
+  pySampletTreeRP(pySampletTreeRP &&) = delete;
   pySampletTreeRP(const FMCA::Matrix &P, FMCA::Index dtilde,
                   FMCA::Index seed = 0) {
     dtilde_ = dtilde > 0 ? dtilde : 1;
@@ -299,7 +300,7 @@ struct pySampletTreeRP {
   }
 
   FMCA::iVector adaptiveTreeLeafPartition(const FMCA::Vector &data,
-                                            FMCA::Scalar thres) const {
+                                          FMCA::Scalar thres) const {
     return clusterLabels(adaptiveTreeLeafs(ST_, data, thres), ST_.block_size());
   }
 
