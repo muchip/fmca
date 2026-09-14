@@ -29,18 +29,29 @@ FMCA_BUILD_TESTS = "OFF"
 
 [tool.cibuildwheel]
 build-verbosity = 1
-skip = ["pp*", "*-musllinux_*", "*_i686", "*-win32", "*t-*"]   # no PyPy, musl, 32-bit, free-threaded
+skip = ["*-musllinux_*", "*_i686", "*-win32", "*t-*"]   # no musl, 32-bit, free-threaded
 test-command = "python -c \"import FMCA\""
 build-frontend = "build"
- 
+
 [tool.cibuildwheel.linux]
-# gcc in manylinux_2_28 ships libgomp; auditwheel bundles it. Eigen comes via FetchContent.
+# gcc in manylinux ships libgomp; auditwheel bundles it. Eigen comes via FetchContent.
 environment = { CMAKE_BUILD_PARALLEL_LEVEL = "4" }
- 
+
 [tool.cibuildwheel.macos]
 before-all = "brew install libomp"
-environment = { MACOSX_DEPLOYMENT_TARGET = "11.0", OpenMP_ROOT = "$(brew --prefix libomp)", CMAKE_BUILD_PARALLEL_LEVEL = "4" }
-# delocate bundles libomp.dylib into the wheel
- 
+environment = { OpenMP_ROOT = "$(brew --prefix libomp)", CMAKE_BUILD_PARALLEL_LEVEL = "4" }
+# delocate bundles libomp.dylib into the wheel; the deployment target must match
+# the Homebrew bottle, see overrides below
+
 [tool.cibuildwheel.windows]
 environment = { CMAKE_BUILD_PARALLEL_LEVEL = "4" }
+
+[[tool.cibuildwheel.overrides]]
+select = "*-macosx_arm64"
+inherit.environment = "append"
+environment = { MACOSX_DEPLOYMENT_TARGET = "14.0" }
+
+[[tool.cibuildwheel.overrides]]
+select = "*-macosx_x86_64"
+inherit.environment = "append"
+environment = { MACOSX_DEPLOYMENT_TARGET = "15.0" }
