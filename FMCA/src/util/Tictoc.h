@@ -12,33 +12,29 @@
 #ifndef FMCA_UTIL_TICTOC__
 #define FMCA_UTIL_TICTOC__
 
+#include <chrono>
 #include <iostream>
 #include <string>
-#include <sys/time.h>
 
 #include "Macros.h"
 
 namespace FMCA {
 class Tictoc {
-public:
-  void tic(void) { gettimeofday(&start, NULL); }
+ public:
+  void tic(void) { start_ = Clock::now(); }
   Scalar toc(void) {
-    gettimeofday(&stop, NULL);
-    Scalar dtime =
-        stop.tv_sec - start.tv_sec + 1e-6 * (stop.tv_usec - start.tv_usec);
-    return dtime;
+    const std::chrono::duration<Scalar> dtime = Clock::now() - start_;
+    return dtime.count();
   }
   Scalar toc(const std::string &message) {
-    gettimeofday(&stop, NULL);
-    Scalar dtime =
-        stop.tv_sec - start.tv_sec + 1e-6 * (stop.tv_usec - start.tv_usec);
+    const Scalar dtime = toc();
     std::cout << message << " " << dtime << "sec.\n";
     return dtime;
   }
 
-private:
-  struct timeval start; /* variables for timing */
-  struct timeval stop;
+ private:
+  using Clock = std::chrono::steady_clock;
+  Clock::time_point start_;
 };
-} // namespace FMCA
+}  // namespace FMCA
 #endif

@@ -80,7 +80,7 @@ struct CombiIndexSetInitializer<Generic> {
     std::vector<Index> indexP1(set.dim(), 1);
     std::ptrdiff_t cw = 0;
     if (set.is_element()(index)) {
-      if (not set.is_element()(indexP1))
+      if (!set.is_element()(indexP1))
         cw = combinationWeight(set, 0, 1, 1, index);
       if (cw) set.index_set().insert(std::make_pair(index, cw));
       // compute all other indices in the set recursively
@@ -98,7 +98,7 @@ struct CombiIndexSetInitializer<Generic> {
       index[i] += 1;
       indexP1[i] += 1;
       if (set.is_element()(index)) {
-        if (not set.is_element()(indexP1))
+        if (!set.is_element()(indexP1))
           cw = combinationWeight(set, 0, 1, 1, index);
         if (cw) set.index_set().insert(std::make_pair(index, cw));
         // check child indices only if father index is contained in set.
