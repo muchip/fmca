@@ -46,7 +46,6 @@ struct ClusterTreeInitializer<MortonClusterTree> {
   template <typename Derived>
   static void init_ClusterTree_impl(ClusterTreeBase<Derived> &CT,
                                     Index min_csize, const Matrix &P) {
-    typename traits<Derived>::Splitter split;
     const Index split_threshold = min_csize >= 1 ? (2 * min_csize - 1) : 1;
     const Index split_size = CT.node().block_size_ / 2;
     if (CT.node().block_size_ > split_threshold) {
