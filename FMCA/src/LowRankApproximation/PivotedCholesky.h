@@ -80,6 +80,8 @@ class PivotedCholesky {
            L->leftCols(step) * L->row(pivot).head(step).transpose());
       L->col(step) = col;
       D.array() -= col.array().square();
+      // fix roundoff
+      D(pivot) = 0;
       if (D.minCoeff() < -FMCA_ZERO_TOLERANCE) {
         L->conservativeResize(L->rows(), step);
         idcs->conservativeResize(step);
@@ -146,6 +148,8 @@ class PivotedCholesky {
       }
 
       D.array() -= l.array().square();
+      // fix roundoff
+      D(pivot) = 0;
       if (D.minCoeff() < -FMCA_ZERO_TOLERANCE) {
         Q->conservativeResize(Q->rows(), std::min(qstep, step));
         R->conservativeResize(std::min(qstep, step), step);
