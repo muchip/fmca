@@ -30,8 +30,6 @@ struct GeometricBisection {
     c1.bb_(longest, 1) -= c1.bb_(longest, 2);
     c2.bb_(longest, 2) = c1.bb_(longest, 2);
     c2.bb_(longest, 0) = c1.bb_(longest, 1);
-    c1.c_ = Vector::Unit(P.rows(), longest);
-    c1.r_ = pivot;
     const Scalar pivot = c1.bb_(longest, 1);
     Index *first = c1.indices_.get() + c1.indices_begin_;
     Index *last = first + c1.block_size_;
@@ -41,6 +39,8 @@ struct GeometricBisection {
     c1.block_size_ = low;
     c2.block_size_ -= low;
     c2.indices_begin_ += low;
+    c1.c_ = Vector::Unit(P.rows(), longest);
+    c1.r_ = pivot;
   }
 };
 
