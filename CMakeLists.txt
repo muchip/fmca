@@ -60,16 +60,17 @@ if(NOT TARGET Eigen3::Eigen)
 endif()
 
 # OpenMP: optional, consumed as a target rather than via global flags
-find_package(OpenMP COMPONENTS CXX)
-if(MSVC AND OpenMP_CXX_FOUND)
-  # MSVC's default OpenMP 2.0 forbids unsigned loop indices; the LLVM runtime
-  # does not
-  set_property(TARGET OpenMP::OpenMP_CXX PROPERTY INTERFACE_COMPILE_OPTIONS
-    "-openmp:llvm")
-endif()
-if(NOT OpenMP_CXX_FOUND)
-  message(WARNING "OpenMP not found; FMCA will run single-threaded. "
-    "Pass an OpenMP-capable compiler via -DCMAKE_CXX_COMPILER=... in a fresh build directory.")
+if(MSVC)
+  # MSVC's OpenMP dialect rejects several loop forms used in FMCA; Windows
+  # builds are single-threaded for now
+  set(OpenMP_CXX_FOUND FALSE)
+  message(STATUS "OpenMP disabled on MSVC; FMCA will run single-threaded")
+else()
+  find_package(OpenMP COMPONENTS CXX)
+  if(NOT OpenMP_CXX_FOUND)
+    message(WARNING "OpenMP not found; FMCA will run single-threaded. "
+      "Pass an OpenMP-capable compiler via -DCMAKE_CXX_COMPILER=... in a fresh build directory.")
+  endif()
 endif()
 
 # FMCA: header-only interface target carrying all usage requirements
