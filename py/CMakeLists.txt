@@ -1,6 +1,3 @@
-# Dependencies (Eigen3, Python, pybind11, OpenMP) are resolved at top level
-# and carried by FMCA::FMCA.
-
 pybind11_add_module(FMCA MODULE FMCA.cpp)
 target_link_libraries(FMCA PRIVATE FMCA::FMCA)
 

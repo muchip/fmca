@@ -26,3 +26,21 @@ metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
 FMCA_BUILD_TESTS = "OFF"
 
 [tool.setuptools_scm]
+
+[tool.cibuildwheel]
+build-verbosity = 1
+skip = ["pp*", "*-musllinux_*", "*_i686", "*-win32", "*t-*"]   # no PyPy, musl, 32-bit, free-threaded
+test-command = "python -c \"import FMCA\""
+build-frontend = "build"
+ 
+[tool.cibuildwheel.linux]
+# gcc in manylinux_2_28 ships libgomp; auditwheel bundles it. Eigen comes via FetchContent.
+environment = { CMAKE_BUILD_PARALLEL_LEVEL = "4" }
+ 
+[tool.cibuildwheel.macos]
+before-all = "brew install libomp"
+environment = { MACOSX_DEPLOYMENT_TARGET = "11.0", OpenMP_ROOT = "$(brew --prefix libomp)", CMAKE_BUILD_PARALLEL_LEVEL = "4" }
+# delocate bundles libomp.dylib into the wheel
+ 
+[tool.cibuildwheel.windows]
+environment = { CMAKE_BUILD_PARALLEL_LEVEL = "4" }
