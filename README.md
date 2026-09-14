@@ -1,7 +1,8 @@
+# FMCA
+
 [![CI](https://github.com/muchip/fmca/actions/workflows/ci.yml/badge.svg)](https://github.com/muchip/fmca/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/fmca.svg)](https://pypi.org/project/fmca/)
 
-# FMCA
 **Fast multiresolution covariance analysis**
 
 FMCA is a header only library for the multiresolution analysis of scattered data and kernel matrices. It is developed
