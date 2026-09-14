@@ -30,7 +30,12 @@ whenever the compiler supports it.
 ### Python module via pip
 
 Thanks to [pybind11](https://github.com/pybind/pybind11), FMCA may be compiled
-into a Python module. The easiest way is to install it directly from GitHub
+into a Python module. Prebuilt wheels for Linux, macOS and Windows are on
+[PyPI](https://pypi.org/project/fmca/), so the easiest way is
+
+    python3 -m pip install fmca
+
+To get the latest development version instead, install directly from GitHub
 (requires CMake ≥ 3.21, a C++17 compiler and Python ≥ 3.9):
 
     python3 -m pip install git+https://github.com/muchip/fmca@master
