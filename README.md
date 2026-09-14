@@ -18,18 +18,43 @@ The left panel shows the kernel matrix, the middle panel the reordered matrix an
 
 
 ## Installation
-FMCA is header only. It depends on [Eigen](https://eigen.tuxfamily.org),
-which has to be installed in advance.
 
-Moreover, thanks to [pybind11](https://github.com/pybind/pybind11), FMCA may be compiled into a python module.
-To this end, pybind11 needs to be installed as well. Afterwards, the module can simply be compiled using cmake:
-```
-mkdir build
-cd build
-cmake -DCMAKE_BUILD_TYPE=Release ../
-make
-```
-example files and the compiled library are then located in build/py
+FMCA is header only and depends on [Eigen](https://eigen.tuxfamily.org).
+If Eigen is not installed, the build downloads it automatically. OpenMP is used
+whenever the compiler supports it.
+
+### Python module via pip
+
+Thanks to [pybind11](https://github.com/pybind/pybind11), FMCA may be compiled
+into a Python module. The easiest way is to install it directly from GitHub
+(requires CMake ≥ 3.21, a C++17 compiler and Python ≥ 3.9):
+
+    python3 -m pip install git+https://github.com/muchip/fmca@master
+
+To select a compiler, e.g. an OpenMP-capable GCC on macOS where Apple clang
+lacks OpenMP, set `CXX` before installing:
+
+    CXX=g++-15 python3 -m pip install git+https://github.com/muchip/fmca@master
+
+Afterwards `import FMCA` works in that Python environment. Update to the latest
+commit with
+
+    python3 -m pip install --upgrade --no-cache-dir git+https://github.com/muchip/fmca@master
+
+### Building with CMake
+
+For development, or to build the C++ tests, pybind11 needs to be installed
+(`python3 -m pip install pybind11`). Then
+
+    mkdir build
+    cd build
+    cmake -DCMAKE_BUILD_TYPE=Release ../
+    make
+
+The compiled module and the example notebooks are located in `build/py`, the
+tests in `build/tests`. Add `-DCMAKE_CXX_COMPILER=...` to the cmake call to
+select a compiler; `-DFMCA_BUILD_TESTS=OFF` or `-DFMCA_BUILD_PYTHON=OFF` skip
+the respective parts.
 
 ## Python interface
 
