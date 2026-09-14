@@ -142,7 +142,7 @@ struct pySampletTree {
     p_ = 2 * (dtilde_ - 1);
     const Moments mom(P, p_);
     const SampletMoments samp_mom(P, dtilde_ - 1);
-    ST_.init(mom, samp_mom, 0, P);
+    ST_.init(mom, samp_mom, 2, P);
     cluster_map_.resize(P.cols());
 
     for (const auto &it : ST_)
