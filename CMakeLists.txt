@@ -42,15 +42,15 @@ endif()
 option(FMCA_BUILD_TESTS  "Build the C++ tests"       ${_fmca_default_tests})
 option(FMCA_BUILD_PYTHON "Build the pybind11 module" ON)
 
-# Eigen: system package, otherwise fetch the sources and expose them as a
-# header-only target (Eigen's own build system is deliberately not entered)
-find_package(Eigen3 CONFIG QUIET)
+# Eigen >= 5.0 (new SVD API): system package, otherwise fetch the sources and
+# expose them as a header-only target (Eigen's own build system is
+# deliberately not entered)
+find_package(Eigen3 5.0 CONFIG QUIET)
 if(NOT TARGET Eigen3::Eigen)
-  message(STATUS "Eigen3 not found, fetching Eigen 3.4.0")
+  message(STATUS "Eigen3 >= 5.0 not found, fetching Eigen 5.0.1")
   include(FetchContent)
   FetchContent_Declare(eigen
-    URL      https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
-    URL_HASH SHA256=8586084f71f9bde545ee7fa6d00288b264a2b7ac3607b974e54d13e7162c1c72
+    URL      https://gitlab.com/libeigen/eigen/-/archive/5.0.1/eigen-5.0.1.tar.gz
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
     SOURCE_SUBDIR cmake_disabled)
   FetchContent_MakeAvailable(eigen)
