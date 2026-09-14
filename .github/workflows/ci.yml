@@ -36,7 +36,11 @@ jobs:
 
       - name: Build
         run: cmake --build build --parallel
-
+   - name: Backtrace of failing test (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y gdb
+          gdb -batch -ex run -ex bt --args build/tests/test_SampletBasis.out || true
       - name: Test
         run: ctest --test-dir build --output-on-failure --parallel
 
