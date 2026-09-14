@@ -1,7 +1,7 @@
 # FMCA
 
 [![CI](https://github.com/muchip/fmca/actions/workflows/ci.yml/badge.svg)](https://github.com/muchip/fmca/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/fmca.svg?cacheSeconds=300)](https://pypi.org/project/fmca/)
+[![PyPI](https://img.shields.io/pypi/v/fmca.svg?&color=blue)](https://pypi.org/project/fmca/)
 
 **Fast multiresolution covariance analysis**
 
