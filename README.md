@@ -13,11 +13,11 @@ as well as the fast samplet covariance compression introduced in
 [Samplets: Construction and scattered data compression](https://doi.org/10.1016/j.jcp.2022.111616).
 
 Different scaling distributions and samplets on a Sigma shaped point cloud may look for example like depicted below.
-![What is this](assets/samplets.png)
+![What is this](https://raw.githubusercontent.com/muchip/fmca/master/assets/samplets.png)
 
 Representing an exponential covariance kernel with respect to this basis and truncating small entries leads to a sparse matrix
 which can be factorized using nested dissection
-![What is this](assets/compressed_kernel.png)
+![What is this](https://raw.githubusercontent.com/muchip/fmca/master/assets/compressed_kernel.png)
 The left panel shows the kernel matrix, the middle panel the reordered matrix and the right panel the Cholesky factor.
 
 
@@ -81,10 +81,10 @@ g = ST.toNaturalOrder(ST.inverseSampletTransform(c))    # back to the data
 
 FMCA features a samplet basis, which can be used to localize a given signal in the frequency domain. Given for example a
 signal sampled at 100000 random locations, e.g.,
-![What is this](assets/signal.png)
+![What is this](https://raw.githubusercontent.com/muchip/fmca/master/assets/signal.png)
 
 the first 500 coefficients of the transformed signal looks like this
-![What is this](assets/Tsignal.png)
+![What is this](https://raw.githubusercontent.com/muchip/fmca/master/assets/Tsignal.png)
 
 The example above can be found and modified in the jupyter notebook FMCA_Samplets
 
@@ -97,9 +97,9 @@ coefficients thus removes most of the noise and almost none of the signal.
 For an image, the samplet transform is applied to its columns and then to its rows, and every
 band of coefficients is thresholded on its own (BayesShrink), with the noise level estimated
 from the data. For the 600x512 image below, perturbed by Gaussian noise of standard deviation
-0.1, on par with standard wavelet denoising.
+0.1, the result is on par with standard wavelet denoising.
 
-![What is this](assets/denoising_image.png)
+![What is this](https://raw.githubusercontent.com/muchip/fmca/master/assets/denoising_image.png)
 
 The denoising can be found and modified in the jupyter notebooks
 [FMCA_SampletDenoising1D](https://github.com/muchip/fmca/blob/master/py/FMCA_SampletDenoising1D.ipynb)
@@ -111,7 +111,7 @@ The samplet coefficients moreover indicate *where* a function fails to be smooth
 back into the cluster tree. Refining the tree uniformly splits every cluster, no matter whether the
 data require it or not.
 
-![What is this](assets/uniform_clusters.png)
+![What is this](https://raw.githubusercontent.com/muchip/fmca/master/assets/uniform_clusters.png)
 
 The Binev-DeVore algorithm instead activates the clusters carrying the largest amount of
 energy, until the energy left outside the tree drops below a prescribed tolerance. The leaves of the
@@ -121,7 +121,7 @@ varies.
 In the example below, 100000 scattered points are partitioned into 128 clusters, while
 resolving the whole domain at the same finest scale would require 2048 uniform ones.
 
-![What is this](assets/adaptive_clusters.png)
+![What is this](https://raw.githubusercontent.com/muchip/fmca/master/assets/adaptive_clusters.png)
 
 The tolerance is measured relative to the energy of the data and is therefore scale free. The
 example above can be found and modified in the jupyter notebook
@@ -133,8 +133,8 @@ FMCA provides different variants of the pivoted (truncated) Cholesky decompositi
 [On the low-rank approximation by the pivoted Cholesky decomposition](https://www.sciencedirect.com/science/article/pii/S0168927411001814)
 and the references therein, that can be used for Gaussian process learning.
 
-posterior mean (read) and posterior standard deviation (green) conditioned on the blue dots
-![What is this](assets/gaussian_process.png)
+posterior mean (red) and posterior standard deviation (green) conditioned on the blue dots
+![What is this](https://raw.githubusercontent.com/muchip/fmca/master/assets/gaussian_process.png)
 
 The example above can be found and modified in the jupyter notebook [FMCA_GP](https://github.com/muchip/fmca/blob/master/py/FMCA_GP.ipynb).
 
@@ -143,13 +143,13 @@ The example above can be found and modified in the jupyter notebook [FMCA_GP](ht
 A samplet matrix compression based approach is also available. It particular allows for filtering of the (compressed) kernel
 matrix, thus mitigating the very ill-conditioning of the kernel matrix. 
 
-![What is this](assets/kernel.png)![What is this](assets/filteredKernel.png)
+![What is this](https://raw.githubusercontent.com/muchip/fmca/master/assets/kernel.png)![What is this](https://raw.githubusercontent.com/muchip/fmca/master/assets/filteredKernel.png)
 
 For the Matern-3/2 kernel shown on the left, just considering the diagonal block associated to the 40 largest entries, shown on the right,
 leads to a relative approximation error of about 3e-5 of the kernel matrix in the Frobenius norm. Solving the associated system for the noisy
 data set shown below, leads to an effective denoising. The corresponding expectation is shown in orange.
 
-![What is this](assets/filteredGP.png)
+![What is this](https://raw.githubusercontent.com/muchip/fmca/master/assets/filteredGP.png)
 
 This example
 can be found [FMCA_Samplet_GP_Filtering](https://github.com/muchip/fmca/blob/master/py/FMCA_Samplet_GP_Filtering.ipynb).
