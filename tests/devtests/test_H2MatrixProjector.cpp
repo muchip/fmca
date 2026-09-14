@@ -9,9 +9,12 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-//
+#include <Eigen/Dense>
+#include <iostream>
+
 #include <FMCA/CovarianceKernel>
 #include <FMCA/H2Matrix>
+#include <FMCA/src/H2Matrix/H2MatrixProjector.h>
 #include <FMCA/src/util/Tictoc.h>
 
 #define NPTS 10000
@@ -23,15 +26,14 @@ using Moments = FMCA::NystromMoments<Interpolator>;
 using MatrixEvaluator = FMCA::NystromEvaluator<Moments, FMCA::CovarianceKernel>;
 using MatrixEvaluatorUS =
     FMCA::unsymmetricNystromEvaluator<Moments, FMCA::CovarianceKernel>;
-using H2ClusterTree = FMCA::H2ClusterTree<FMCA::UnitKDTree>;
+using H2ClusterTree = FMCA::H2ClusterTree<FMCA::ClusterTree>;
 using H2Matrix = FMCA::H2Matrix<H2ClusterTree, FMCA::CompareCluster>;
 
 int main() {
   FMCA::Tictoc T;
   const FMCA::CovarianceKernel function("EXPONENTIAL", 2.);
-  const FMCA::Matrix Pr =
-      0.5 * FMCA::Matrix::Random(DIM, 2 * NPTS).array() + 0.5;
-  const FMCA::Matrix Pc = 0.5 * FMCA::Matrix::Random(DIM, NPTS).array() + 0.5;
+  const FMCA::Matrix Pr = FMCA::Matrix::Random(DIM, 2 * NPTS);
+  const FMCA::Matrix Pc = FMCA::Matrix::Random(DIM, NPTS);
 
   const Moments momr(Pr, MPOLE_DEG);
   const Moments momc(Pc, MPOLE_DEG);
@@ -41,9 +43,9 @@ int main() {
       << FMCA::internal::traits<FMCA::ClusterTree>::Splitter::splitterName()
       << std::endl;
   T.tic();
-  H2ClusterTree ctr(momr, 0, Pr, 4);
-  H2ClusterTree ctc(momc, 0, Pc, 4);
-  T.toc("H2 cluster tree:");
+  H2ClusterTree ctr(momr, 0, Pr);
+  H2ClusterTree ctc(momc, 0, Pc);
+  T.toc("H2 cluster tree:             ");
   FMCA::internal::compute_cluster_bases_impl::check_transfer_matrices(ctr,
                                                                       momr);
   FMCA::internal::compute_cluster_bases_impl::check_transfer_matrices(ctc,
@@ -53,29 +55,20 @@ int main() {
     std::cout << "eta:                          " << eta << std::endl;
     T.tic();
     H2Matrix hmat;
-    hmat.computePattern(ctr, ctc, eta);
-    T.toc("elapsed time:                ");
+    hmat.computeH2Matrix(ctr, ctc, mat_eval, eta);
+    T.toc("elapsed time H2 assembly:    ");
     hmat.statistics();
+    FMCA::Matrix fmat = hmat.full();
+    T.tic();
+    FMCA::H2MatrixProjector<H2Matrix> proj(hmat);
+    T.toc("elapsed time proj assembly:  ");
+    T.tic();
 
-    {
-      FMCA::Matrix X(NPTS, 10), Y1(2 * NPTS, 10), Y2(2 * NPTS, 10);
-      X.setZero();
-      X.setZero();
-      for (auto i = 0; i < 10; ++i) {
-        FMCA::Index index = rand() % Pc.cols();
-        FMCA::Vector col = function.eval(Pr, Pc.col(ctc.indices()[index]));
-        Y1.col(i) = col(
-            Eigen::Map<const FMCA::iVector>(ctr.indices(), ctr.block_size()));
-        X(index, i) = 1;
-      }
-      std::cout << "set test data" << std::endl;
-      T.tic();
-      Y2 = hmat.action(mat_eval, X);
-      FMCA::Scalar err = (Y1 - Y2).norm() / Y1.norm();
-      std::cout << "compression error:            " << err << std::endl;
-    }
-    T.toc("elapsed time:                ");
-    std::cout << std::string(60, '-') << std::endl;
+    H2Matrix hmat2 = proj.project(fmat);
+    T.toc("elapsed time projection:     ");
+    FMCA::Matrix fmat2 = hmat2.full();
+    std::cout << "error:                        "
+              << (fmat - fmat2).norm() / fmat.norm() << std::endl;
   }
   return 0;
 }

@@ -12,7 +12,7 @@
 #include <Eigen/Dense>
 #include <iostream>
 
-#include "../FMCA/Samplets"
+#include <FMCA/Samplets>
 
 #define DIM 2
 #define NPTS 1000

@@ -14,13 +14,14 @@
 
 #include <FMCA/Clustering>
 #include <FMCA/src/util/Tictoc.h>
+#include <FMCA/src/util/RandomTreeAccessor.h>
 
-#define DIM 100
-#define NPTS 1000000
+#define DIM 10
+#define NPTS 10000000
 
 int main() {
   FMCA::Tictoc T;
-  const FMCA::Matrix P = FMCA::Matrix::Random(DIM, NPTS);
+  const FMCA::Matrix P = Eigen::MatrixXd::Random(DIM, NPTS);
   std::cout
       << "Cluster splitter:             "
       << FMCA::internal::traits<FMCA::ClusterTree>::Splitter::splitterName()
@@ -28,11 +29,15 @@ int main() {
   T.tic();
   const FMCA::ClusterTree CT(P, 10);
   T.toc("Tree setup: ");
+  T.tic();
+  const FMCA::internal::RandomTreeAccessor<FMCA::ClusterTree> rta(CT);
+  T.toc("Accessor setup: ");
   FMCA::Index max_level = 0;
   for (auto &&node : CT) {
     max_level = node.level() < max_level ? max_level : node.level();
   }
-  std::cout << max_level << std::endl;
-
+  std::cout << max_level << " " << rta.max_level() << std::endl;
+  std::cout << rta.nodes().size() << std::endl;
+  for (auto &&it : rta.levels()) std::cout << it << std::endl;
   return 0;
 }

@@ -12,9 +12,9 @@
 #include <Eigen/Dense>
 #include <iostream>
 
-#include "../FMCA/CovarianceKernel"
-#include "../FMCA/src/LowRankApproximation/PivotedCholesky.h"
-#include "../FMCA/src/util/Tictoc.h"
+#include <FMCA/CovarianceKernel>
+#include <FMCA/src/LowRankApproximation/PivotedCholesky.h>
+#include <FMCA/src/util/Tictoc.h>
 
 #define NPTS 10000
 #define DIM 3
