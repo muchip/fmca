@@ -49,13 +49,13 @@ class Graph {
       ValueType max = 0;
       // look for maximally distant node
       for (IndexType i = 0; i < min_dists.size(); ++i)
-        if (not is_member[i] && min_dists[i] > max) {
+        if (!is_member[i] && min_dists[i] > max) {
           max_id = i;
           max = min_dists[i];
         }
       if (is_member[max_id]) {
         for (IndexType i = 0; i < is_member.size(); ++i) {
-          if (not is_member[i]) {
+          if (!is_member[i]) {
             max_id = i;
             break;
           }
@@ -139,7 +139,7 @@ class Graph {
     std::vector<bool> settled(nnodes(), false);
     dists[node] = 0;
     pqueue.push(std::make_pair(0., node));
-    while (not pqueue.empty()) {
+    while (!pqueue.empty()) {
       const ValueType du = pqueue.top().first;
       const IndexType u = pqueue.top().second;
       pqueue.pop();

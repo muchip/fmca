@@ -7,4 +7,5 @@ build/
 *.vtk
 *.h5
 *.dSYM
-
+*.egg-info/
+__pycache__/

@@ -13,10 +13,10 @@
 #include <Eigen/Dense>
 #include <iostream>
 
-#include "../FMCA/CovarianceKernel"
-#include "../FMCA/Samplets"
-#include "../FMCA/src/Samplets/samplet_matrix_compressor3.h"
-#include "../FMCA/src/util/Tictoc.h"
+#include <FMCA/CovarianceKernel>
+#include <FMCA/Samplets>
+#include <FMCA/src/Samplets/samplet_matrix_compressor.h>
+#include <FMCA/src/util/Tictoc.h>
 
 #define NPTS 100000
 #define DIM 2
@@ -24,7 +24,7 @@
 using Interpolator = FMCA::TotalDegreeInterpolator;
 using SampletInterpolator = FMCA::MonomialInterpolator;
 using Moments = FMCA::NystromMoments<Interpolator>;
-using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
+using SampletMoments = FMCA::MinNystromSampletMoments<SampletInterpolator>;
 using MatrixEvaluator = FMCA::NystromEvaluator<Moments, FMCA::CovarianceKernel>;
 using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
@@ -32,10 +32,10 @@ int main() {
   FMCA::Tictoc T;
   const FMCA::CovarianceKernel function("EXPONENTIAL", 1.);
   const FMCA::Matrix P = 0.5 * (FMCA::Matrix::Random(DIM, NPTS).array() + 1);
-  const FMCA::Scalar threshold = 1e-6;
-  const FMCA::Scalar eta = 0.8;
+  const FMCA::Scalar threshold = 1e-8;
+  const FMCA::Scalar eta = 0.5;
 
-  for (int dtilde = 2; dtilde <= 5; ++dtilde) {
+  for (int dtilde = 1; dtilde <= 5; ++dtilde) {
     const FMCA::Index mpole_deg = 2 * (dtilde - 1);
     const Moments mom(P, mpole_deg);
     const MatrixEvaluator mat_eval(mom, function);
@@ -43,11 +43,11 @@ int main() {
     std::cout << "mpole_deg:                    " << mpole_deg << std::endl;
     std::cout << "eta:                          " << eta << std::endl;
     const SampletMoments samp_mom(P, dtilde - 1);
-    H2SampletTree hst(mom, samp_mom, 0, P);
-    // FMCA::clusterTreeStatistics(hst, P);
+    H2SampletTree hst(mom, samp_mom, 2, P);
     T.tic();
-    FMCA::SampletMatrixCompressor<H2SampletTree> Scomp;
-    Scomp.init(hst, eta, 1e5 * FMCA_ZERO_TOLERANCE);
+    FMCA::internal::SampletMatrixCompressor<H2SampletTree>
+        Scomp;
+    Scomp.init(hst, eta, 100 * FMCA_ZERO_TOLERANCE);
     T.toc("planner:                     ");
     T.tic();
     Scomp.compress(mat_eval);
@@ -109,10 +109,8 @@ int main() {
 #endif
     T.toc("triplets:                    ");
     FMCA::Vector x(NPTS), y1(NPTS), y2(NPTS);
-    FMCA::SparseMatrix S(NPTS, NPTS);
     FMCA::Scalar err = 0;
     FMCA::Scalar nrm = 0;
-    S.setFromTriplets(trips.begin(), trips.end());
     for (auto i = 0; i < 10; ++i) {
       FMCA::Index index = rand() % P.cols();
       x.setZero();
@@ -121,7 +119,11 @@ int main() {
       y1 =
           col(Eigen::Map<const FMCA::iVector>(hst.indices(), hst.block_size()));
       x = hst.sampletTransform(x);
-      y2 = S.selfadjointView<FMCA::Upper>() * x;
+      y2.setZero();
+      for (const auto &i : trips) {
+        y2(i.row()) += i.value() * x(i.col());
+        if (i.row() != i.col()) y2(i.col()) += i.value() * x(i.row());
+      }
       y2 = hst.inverseSampletTransform(y2);
       err += (y1 - y2).squaredNorm();
       nrm += y1.squaredNorm();

@@ -45,6 +45,12 @@ struct ClusterTreeInitializer<UnitBinaryTree> {
   //////////////////////////////////////////////////////////////////////////////
   /** \ingroup internal
    *  \brief perform cluster refinement given a Splitter class
+   *
+   *  The leaf id is the row-major cell index and serves only as a key for
+   *  O(1) point-to-leaf assignment. The index array is laid out in the order
+   *  in which the DFS visits the leaves (sons in increasing order), so that
+   *  every subtree owns one contiguous slice and the post-order pass
+   *  (begin = min over sons, size = sum over sons) is exact for any d.
    **/
   template <typename Derived>
   static void init_ClusterTree_impl(ClusterTreeBase<Derived> &CT,
@@ -54,7 +60,8 @@ struct ClusterTreeInitializer<UnitBinaryTree> {
     const Index n = 1 << n_levels;
     std::vector<Derived *> queue;
     std::vector<Derived *> dfs_order;
-    std::vector<Derived *> leaves(1 << (d * n_levels));
+    std::vector<Derived *> leaf_nodes;  // leaves in DFS (son) order
+    std::vector<Index> leaf_ids;        // their row-major cell ids
     if (n_levels > 0) queue.push_back(std::addressof(CT.derived()));
     while (queue.size()) {
       // get node from the queue and remember it for reverse dfs
@@ -81,10 +88,11 @@ struct ClusterTreeInitializer<UnitBinaryTree> {
         node.sons(i).node().block_size_ = 0;
         node.sons(i).node().indices_begin_ = 0;
       }
-      if (node.level() < d * n_levels - 1)
-        for (Index i = 0; i < k; ++i)
+      if (node.level() < d * n_levels - 1) {
+        // push in reverse so that the stack pops the sons in order 0..k-1
+        for (int i = k - 1; i >= 0; --i)
           queue.push_back(std::addressof(node.sons(i)));
-      else
+      } else {
         for (Index i = 0; i < k; ++i) {
           Index coord = n * node.sons(i).node().bb_(0, 0);
           coord = std::max<Index>(0, std::min<Index>(n - 1, coord));
@@ -95,12 +103,14 @@ struct ClusterTreeInitializer<UnitBinaryTree> {
             coord = std::max<Index>(0, std::min<Index>(n - 1, coord));
             id = n * id + coord;
           }
-          leaves[id] = std::addressof(node.sons(i));
+          leaf_nodes.push_back(std::addressof(node.sons(i)));
+          leaf_ids.push_back(id);
         }
+      }
     }
     // now perform point assignment to each leave and determine leave size
     std::vector<Index> leaf_id(P.cols());
-    std::vector<Index> leaf_count(leaves.size(), 0);
+    std::vector<Index> leaf_count(1 << (d * n_levels), 0);
     for (Index i = 0; i < P.cols(); ++i) {
       Index coord = n * P(0, i);
       coord = std::max<Index>(0, std::min<Index>(n - 1, coord));
@@ -113,13 +123,17 @@ struct ClusterTreeInitializer<UnitBinaryTree> {
       leaf_id[i] = id;
       ++(leaf_count[id]);
     }
-    // copy everything in place
-    std::vector<Index> leaf_offset(leaves.size() + 1, 0);
-    for (Index i = 0; i < leaves.size(); ++i) {
-      (leaves[i])->node().block_size_ = leaf_count[i];
-      (leaves[i])->node().indices_begin_ = leaf_offset[i];
-      leaf_offset[i + 1] = leaf_offset[i] + leaf_count[i];
+    // hand out slices in DFS (son) order, remember the offset per cell id
+    std::vector<Index> leaf_offset(leaf_count.size(), 0);
+    Index offset = 0;
+    for (Index l = 0; l < leaf_nodes.size(); ++l) {
+      const Index id = leaf_ids[l];
+      leaf_nodes[l]->node().block_size_ = leaf_count[id];
+      leaf_nodes[l]->node().indices_begin_ = offset;
+      leaf_offset[id] = offset;
+      offset += leaf_count[id];
     }
+    // copy everything in place
     for (Index i = 0; i < leaf_id.size(); ++i)
       CT.node().indices_.get()[(leaf_offset[leaf_id[i]])++] = i;
     // finally traverse tree in post order to set parents
