@@ -10,13 +10,12 @@
 // for further information.
 //
 // #define EIGEN_DONT_PARALLELIZE
-#include <Eigen/Dense>
-#include <iostream>
+#include <FMCA/src/util/Tictoc.h>
 
+#include <Eigen/Dense>
 #include <FMCA/CovarianceKernel>
 #include <FMCA/Samplets>
-#include <FMCA/src/Samplets/samplet_matrix_compressor.h>
-#include <FMCA/src/util/Tictoc.h>
+#include <iostream>
 
 #define NPTS 100000
 #define DIM 2
@@ -43,10 +42,9 @@ int main() {
     std::cout << "mpole_deg:                    " << mpole_deg << std::endl;
     std::cout << "eta:                          " << eta << std::endl;
     const SampletMoments samp_mom(P, dtilde - 1);
-    H2SampletTree hst(mom, samp_mom, 2, P);
+    H2SampletTree hst(mom, samp_mom, 10, P);
     T.tic();
-    FMCA::internal::SampletMatrixCompressor<H2SampletTree>
-        Scomp;
+    FMCA::SampletMatrixCompressor<H2SampletTree> Scomp;
     Scomp.init(hst, eta, 100 * FMCA_ZERO_TOLERANCE);
     T.toc("planner:                     ");
     T.tic();

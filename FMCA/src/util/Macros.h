@@ -13,12 +13,17 @@
 #define FMCA_UTIL_MACROS_H_
 
 #include <algorithm>
+#include <atomic>
 #include <cassert>
+#include <climits>
+#include <cstddef>
+#include <deque>
 #include <iomanip>
 #include <iostream>
 #include <limits>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <numeric>
 #include <queue>
 #include <random>
@@ -42,6 +47,15 @@
 #include <Eigen/MetisSupport>
 #endif
 //
+
+#ifdef _OPENMP
+#include <omp.h>
+#else
+inline int omp_get_thread_num() { return 0; }
+inline int omp_get_num_threads() { return 1; }
+inline int omp_get_max_threads() { return 1; }
+#endif
+
 namespace FMCA {
 #ifndef M_PI
 #define FMCA_PI 3.14159265358979323846264338327950288
@@ -68,7 +82,13 @@ template <typename Derived>
 using MatrixBase = Eigen::MatrixBase<Derived>;
 
 template <typename Derived>
+using Reference = Eigen::Ref<Derived>;
+
+template <typename Derived>
 using Map = Eigen::Map<Derived>;
+
+template <typename Derived>
+using AMap = Eigen::Map<Derived, Eigen::Aligned>;
 
 using Matrix = Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>;
 

@@ -12,21 +12,25 @@
 #ifndef FMCA_UTIL_RANDOMTREEACCESSOR_H_
 #define FMCA_UTIL_RANDOMTREEACCESSOR_H_
 
+#include <cstddef>
 #include <vector>
 
 #include "TreeBase.h"
 
 namespace FMCA {
 namespace internal {
-template <typename Derived> class RandomTreeAccessor {
-public:
-  RandomTreeAccessor(){};
+template <typename Derived>
+class RandomTreeAccessor {
+ public:
+  RandomTreeAccessor() {};
   RandomTreeAccessor(const TreeBase<Derived> &T, const Index res_mem = 1000) {
     init(T, res_mem);
   };
 
   void init(const TreeBase<Derived> &T, const Index res_mem = 1000) {
     Index cur_level = 0;
+    nodes_.clear();
+    levels_.clear();
     nodes_.reserve(res_mem);
     levels_.reserve(res_mem);
     max_level_ = 0;
@@ -42,17 +46,30 @@ public:
     levels_.push_back(nodes_.size());
     nodes_.shrink_to_fit();
     levels_.shrink_to_fit();
+    child_pos_.assign(nodes_.size(), -1);
+    dad_.assign(nodes_.size(), -1);
+
+    for (const Derived *node : nodes_)
+      for (Index i = 0; i < node->nSons(); ++i) {
+        child_pos_[node->sons(i).block_id()] = i;
+        dad_[node->sons(i).block_id()] = node->block_id();
+      }
+    return;
   }
 
   Index max_level() const { return max_level_; }
   const std::vector<const Derived *> &nodes() const { return nodes_; }
   const std::vector<Index> &levels() const { return levels_; }
+  const std::vector<std::ptrdiff_t> &child_pos() const { return child_pos_; }
+  const std::vector<std::ptrdiff_t> &dad() const { return dad_; }
 
-private:
+ private:
   std::vector<const Derived *> nodes_;
   std::vector<Index> levels_;
-  Index max_level_;
+  std::vector<std::ptrdiff_t> child_pos_;
+  std::vector<std::ptrdiff_t> dad_;
+  Index max_level_ = 0;
 };
-} // namespace internal
-} // namespace FMCA
+}  // namespace internal
+}  // namespace FMCA
 #endif

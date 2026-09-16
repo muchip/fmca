@@ -142,7 +142,7 @@ struct pySampletTree {
     p_ = 2 * (dtilde_ - 1);
     const Moments mom(P, p_);
     const SampletMoments samp_mom(P, dtilde_ - 1);
-    ST_.init(mom, samp_mom, 2, P);
+    ST_.init(mom, samp_mom, 10, P);
     cluster_map_.resize(P.cols());
 
     for (const auto &it : ST_)
@@ -414,7 +414,7 @@ struct pySampletKernelCompressor {
     std::cout << "eta:                          " << eta << std::endl;
     std::cout << "thres:                        " << thres << std::endl;
     {
-      FMCA::internal::SampletMatrixCompressor<H2SampletTree> scomp;
+      FMCA::SampletMatrixCompressor<H2SampletTree> scomp;
       scomp.init(hst.ST_, eta, thres);
       scomp.compress(mat_eval);
       trips_ = scomp.triplets();
