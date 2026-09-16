@@ -42,7 +42,7 @@ int main() {
     std::cout << "mpole_deg:                    " << mpole_deg << std::endl;
     std::cout << "eta:                          " << eta << std::endl;
     const SampletMoments samp_mom(P, dtilde - 1);
-    H2SampletTree hst(mom, samp_mom, 2, P);
+    H2SampletTree hst(mom, samp_mom, 10, P);
     T.tic();
     FMCA::SampletMatrixCompressor<H2SampletTree> Scomp;
     Scomp.init(hst, eta, 100 * FMCA_ZERO_TOLERANCE);
