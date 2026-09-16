@@ -114,7 +114,7 @@ class SampletMatrixCompressor
           switch (the_case) {
             // (leaf,leaf), compute the block
             case 3:
-              block = computeBlock(*pr, *pc, e_gen, Base::eta());
+              block = computeBlock(*pr, *pc, e_gen);
               break;
             // (noleaf,leaf), recycle from below
             case 1:
@@ -129,8 +129,7 @@ class SampletMatrixCompressor
                   const Matrix &ret = it3->second;
                   block.middleRows(offset, nscalfs) = ret.topRows(nscalfs);
                 } else {
-                  const Matrix ret =
-                      computeBlock(pr->sons(k), *pc, e_gen, Base::eta());
+                  const Matrix ret = computeBlock(pr->sons(k), *pc, e_gen);
                   block.middleRows(offset, nscalfs) = ret.topRows(nscalfs);
                 }
                 offset += nscalfs;
@@ -152,8 +151,7 @@ class SampletMatrixCompressor
                   const Matrix &ret = it3->second;
                   block.middleCols(offset, nscalfs) = ret.leftCols(nscalfs);
                 } else {
-                  const Matrix ret =
-                      computeBlock(*pr, pc->sons(k), e_gen, Base::eta());
+                  const Matrix ret = computeBlock(*pr, pc->sons(k), e_gen);
                   block.middleCols(offset, nscalfs) = ret.leftCols(nscalfs);
                 }
                 offset += nscalfs;
