@@ -29,6 +29,8 @@ class RandomTreeAccessor {
 
   void init(const TreeBase<Derived> &T, const Index res_mem = 1000) {
     Index cur_level = 0;
+    nodes_.clear();
+    levels_.clear();
     nodes_.reserve(res_mem);
     levels_.reserve(res_mem);
     max_level_ = 0;

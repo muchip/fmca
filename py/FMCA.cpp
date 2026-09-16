@@ -414,7 +414,7 @@ struct pySampletKernelCompressor {
     std::cout << "eta:                          " << eta << std::endl;
     std::cout << "thres:                        " << thres << std::endl;
     {
-      FMCA::internal::SampletMatrixCompressor<H2SampletTree> scomp;
+      FMCA::SampletMatrixCompressor<H2SampletTree> scomp;
       scomp.init(hst.ST_, eta, thres);
       scomp.compress(mat_eval);
       trips_ = scomp.triplets();

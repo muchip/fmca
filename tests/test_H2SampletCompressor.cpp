@@ -10,12 +10,12 @@
 // for further information.
 //
 // #define EIGEN_DONT_PARALLELIZE
-#include <Eigen/Dense>
-#include <iostream>
+#include <FMCA/src/util/Tictoc.h>
 
+#include <Eigen/Dense>
 #include <FMCA/CovarianceKernel>
 #include <FMCA/Samplets>
-#include <FMCA/src/util/Tictoc.h>
+#include <iostream>
 
 #define NPTS 100000
 #define DIM 2
@@ -44,8 +44,7 @@ int main() {
     const SampletMoments samp_mom(P, dtilde - 1);
     H2SampletTree hst(mom, samp_mom, 2, P);
     T.tic();
-    FMCA::internal::SampletMatrixCompressor<H2SampletTree>
-        Scomp;
+    FMCA::SampletMatrixCompressor<H2SampletTree> Scomp;
     Scomp.init(hst, eta, 100 * FMCA_ZERO_TOLERANCE);
     T.toc("planner:                     ");
     T.tic();

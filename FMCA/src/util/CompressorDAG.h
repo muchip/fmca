@@ -77,6 +77,7 @@ class CompressorDAG {
               col_stack.emplace_back(std::addressof(pc->sons(i)), self);
         }
       }
+      Pattern().swap(pattern_);
       pattern_.resize(m, n);
       // the DFS visits each (pr, pc) at most once, so no duplicates are ever
       // merged and pattern.nonZeros() == k. The functor only documents this
