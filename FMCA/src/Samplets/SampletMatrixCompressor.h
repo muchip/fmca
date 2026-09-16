@@ -48,7 +48,6 @@ class SampletMatrixCompressor
    **/
   void init(const SampletTreeBase<H2STreeType> &ST, Scalar eta,
             Scalar threshold = 0) {
-    std::cout << "using compressor 1" << std::endl;
     Base::setDimensions(ST.block_size(), ST.block_size());
     Base::setThreshold(threshold);
     Base::setEta(eta);

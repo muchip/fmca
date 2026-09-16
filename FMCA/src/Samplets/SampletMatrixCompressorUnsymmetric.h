@@ -50,7 +50,6 @@ class SampletMatrixCompressorUnsymmetric
   void init(const SampletTreeBase<H2STreeType> &TR,
             const SampletTreeBase<H2STreeType> &TC, Scalar eta,
             Scalar threshold = 0) {
-    std::cout << "using unsymmetric compressor 1" << std::endl;
     Base::setDimensions(TR.block_size(), TC.block_size());
     Base::setThreshold(threshold);
     Base::setEta(eta);
