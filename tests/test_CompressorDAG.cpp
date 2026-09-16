@@ -82,7 +82,8 @@ bool check_dag(const DAG<Comparison> &dag, const H2SampletTree &TR,
     for (const H2SampletTree *pr : r_rta.nodes()) {
       for (const H2SampletTree *pc : c_rta.nodes()) {
         const FMCA::Index c = pc->block_id();
-        reach[c] = (pc->is_root() || reach[pc->dad().block_id()]) &&
+        reach[c] = pr->Q().size() && pc->Q().size() &&
+                   (pc->is_root() || reach[pc->dad().block_id()]) &&
                    Comparison::compare(*pr, *pc, eta) != FMCA::LowRank;
         const bool present = reach[c] && (!sym || c >= pr->block_id());
         expected += present;

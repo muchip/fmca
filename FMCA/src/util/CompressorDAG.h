@@ -59,24 +59,26 @@ class CompressorDAG {
       col_dads.reserve(triplets.capacity());
       std::vector<std::pair<const H2STreeType *, PatternIdx>> col_stack;
       PatternIdx k = 0;
-      for (const H2STreeType *pr : r_rta.nodes()) {
-        col_stack.assign(
-            1, std::make_pair(std::addressof(TC.derived()), PatternIdx(-1)));
-        while (!col_stack.empty()) {
-          const H2STreeType *pc = col_stack.back().first;
-          const PatternIdx col_dad = col_stack.back().second;
-          col_stack.pop_back();
-          PatternIdx self = -1;
-          if (!sym || pc->block_id() >= pr->block_id()) {
-            self = k++;
-            triplets.emplace_back(pr->block_id(), pc->block_id(), self);
-            col_dads.push_back(col_dad);
+      for (const H2STreeType *pr : r_rta.nodes())
+        if (pr->Q().size()) {
+          col_stack.assign(
+              1, std::make_pair(std::addressof(TC.derived()), PatternIdx(-1)));
+          while (!col_stack.empty()) {
+            const H2STreeType *pc = col_stack.back().first;
+            const PatternIdx col_dad = col_stack.back().second;
+            col_stack.pop_back();
+            PatternIdx self = -1;
+            if (!sym || pc->block_id() >= pr->block_id()) {
+              self = k++;
+              triplets.emplace_back(pr->block_id(), pc->block_id(), self);
+              col_dads.push_back(col_dad);
+            }
+            for (Index i = 0; i < pc->nSons(); ++i)
+              if (ClusterComparison::compare(*pr, pc->sons(i), eta) != LowRank)
+                if (pc->sons(i).Q().size())
+                  col_stack.emplace_back(std::addressof(pc->sons(i)), self);
           }
-          for (Index i = 0; i < pc->nSons(); ++i)
-            if (ClusterComparison::compare(*pr, pc->sons(i), eta) != LowRank)
-              col_stack.emplace_back(std::addressof(pc->sons(i)), self);
         }
-      }
       Pattern().swap(pattern_);
       pattern_.resize(m, n);
       // the DFS visits each (pr, pc) at most once, so no duplicates are ever
