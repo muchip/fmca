@@ -12,8 +12,8 @@
 #ifndef FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_UNSYMMETRIC_H_
 #define FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_UNSYMMETRIC_H_
 
-#include "../util/DummyMemoryPool.h"
 #include "../util/RandomTreeAccessor.h"
+#include "recursivelyComputeBlock.h"
 
 namespace FMCA {
 template <typename H2STreeType, typename ClusterComparison = CompareCluster>
@@ -58,7 +58,6 @@ class SampletMatrixCompressorUnsymmetric
     c_rta_.init(TC, TC.block_size());
     pattern_.resize(c_rta_.nodes().size());
     queue_.resize(r_rta_.max_level() + c_rta_.max_level() + 1);
-#pragma omp parallel for
     for (Index j = 0; j < c_rta_.nodes().size(); ++j) {
       const H2STreeType *pc = c_rta_.nodes()[j];
       /*
@@ -78,7 +77,6 @@ class SampletMatrixCompressorUnsymmetric
             row_stack.push_back(std::addressof(pr->sons(i)));
         auto it =
             pattern_[pc->block_id()].insert({pr->block_id(), Matrix(0, 0)});
-#pragma omp critical
         queue_[pc->level() + pr->level()].push_back(
             ijp(pr->block_id(), pc->block_id(),
                 std::addressof((it.first)->second)));
@@ -117,8 +115,7 @@ class SampletMatrixCompressorUnsymmetric
               block.conservativeResize(ret.rows(), block.cols() + nscalfs);
               block.rightCols(nscalfs) = ret.leftCols(nscalfs);
             } else {
-              const Matrix ret =
-                  recursivelyComputeBlock(*pr, pc->sons(k), e_gen);
+              const Matrix ret = computeBlock(*pr, pc->sons(k), e_gen);
               block.conservativeResize(ret.rows(), block.cols() + nscalfs);
               block.rightCols(nscalfs) = ret.leftCols(nscalfs);
             }
@@ -126,7 +123,7 @@ class SampletMatrixCompressorUnsymmetric
           block = block * pc->Q();
         } else {
           if (!pr->nSons()) {
-            block = recursivelyComputeBlock(*pr, *pc, e_gen);
+            block = computeBlock(*pr, *pc, e_gen);
           } else {
             for (auto k = 0; k < pr->nSons(); ++k) {
               const Index nscalfs = pr->sons(k).nscalfs();
@@ -138,8 +135,7 @@ class SampletMatrixCompressorUnsymmetric
                 block.conservativeResize(ret.cols(), block.cols() + nscalfs);
                 block.rightCols(nscalfs) = ret.transpose().leftCols(nscalfs);
               } else {
-                const Matrix ret =
-                    recursivelyComputeBlock(pr->sons(k), *pc, e_gen);
+                const Matrix ret = computeBlock(pr->sons(k), *pc, e_gen);
                 block.conservativeResize(ret.cols(), block.cols() + nscalfs);
                 block.rightCols(nscalfs) = ret.transpose().leftCols(nscalfs);
               }
@@ -187,73 +183,12 @@ class SampletMatrixCompressorUnsymmetric
     Base::storeTriplets(triplet_buffer, TR.start_index(), TC.start_index(),
                         nrows, ncols, block.bottomRightCorner(nrows, ncols));
   }
-  /**
-   *  \brief recursively computes for a given pair of row and column
-   *clusters the four blocks [A^PhiPhi, A^PhiSigma; A^SigmaPhi,
-   *A^SigmaSigma]
-   **/
-  template <typename EntryGenerator>
-  Matrix recursivelyComputeBlock(const H2STreeType &TR, const H2STreeType &TC,
-                                 const EntryGenerator &e_gen) {
-    Matrix buf(0, 0);
-    Index r_offset = 0;
-    Index c_offset = 0;
-    // check for admissibility
-    if (ClusterComparison::compare(TR, TC, Base::eta()) == LowRank) {
-      e_gen.interpolate_kernel(TR, TC, &buf);
-      return TR.V().transpose() * buf * TC.V();
-    } else {
-      const char the_case = 2 * (!TR.nSons()) + !TC.nSons();
-      switch (the_case) {
-        case 3:
-          // both are leafs: compute the block and return
-          e_gen.compute_dense_block(TR, TC, &buf);
-          return TR.Q().transpose() * buf * TC.Q();
-        case 2:
-          // the row cluster is a leaf cluster: recursion on the col cluster
-          buf.resize(TR.Q().cols(), TC.Q().rows());
-          c_offset = 0;
-          for (Index j = 0; j < TC.nSons(); ++j) {
-            const Index nscalfs = TC.sons(j).nscalfs();
-            const Matrix ret = recursivelyComputeBlock(TR, TC.sons(j), e_gen);
-            buf.middleCols(c_offset, nscalfs) = ret.leftCols(nscalfs);
-            c_offset += nscalfs;
-          }
-          return buf * TC.Q();
-        case 1:
-          // the col cluster is a leaf cluster: recursion on the row cluster
-          buf.resize(TR.Q().rows(), TC.Q().cols());
-          r_offset = 0;
-          for (Index i = 0; i < TR.nSons(); ++i) {
-            const Index nscalfs = TR.sons(i).nscalfs();
-            const Matrix ret = recursivelyComputeBlock(TR.sons(i), TC, e_gen);
-            buf.middleRows(r_offset, nscalfs) = ret.topRows(nscalfs);
-            r_offset += nscalfs;
-          }
-          return TR.Q().transpose() * buf;
-        case 0:
-          // neither is a leaf, let recursion handle this
-          buf.resize(TR.Q().rows(), TC.Q().cols());
-          r_offset = 0;
-          for (Index i = 0; i < TR.nSons(); ++i) {
-            Matrix buf2(TR.sons(i).Q().cols(), TC.Q().rows());
-            c_offset = 0;
-            const Index r_nscalfs = TR.sons(i).nscalfs();
-            for (Index j = 0; j < TC.nSons(); ++j) {
-              const Index c_nscalfs = TC.sons(j).nscalfs();
-              const Matrix ret =
-                  recursivelyComputeBlock(TR.sons(i), TC.sons(j), e_gen);
-              buf2.middleCols(c_offset, c_nscalfs) = ret.leftCols(c_nscalfs);
-              c_offset += c_nscalfs;
-            }
-            buf.middleRows(r_offset, r_nscalfs).noalias() =
-                buf2.topRows(r_nscalfs) * TC.Q();
-            r_offset += r_nscalfs;
-          }
-          return TR.Q().transpose() * buf;
-      }
-    }
-    return Matrix(0, 0);
+  template <typename EntGen>
+  Matrix computeBlock(const H2STreeType &TR, const H2STreeType &TC,
+                      const EntGen &e_gen) const {
+    return internal::recursivelyComputeBlock<H2STreeType, EntGen,
+                                             ClusterComparison>(TR, TC, e_gen,
+                                                                Base::eta());
   }
 
   //////////////////////////////////////////////////////////////////////////////

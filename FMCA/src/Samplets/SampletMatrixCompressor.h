@@ -12,8 +12,8 @@
 #ifndef FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_H_
 #define FMCA_SAMPLETS_SAMPLETMATRIXCOMPRESSOR_H_
 
-#include "../util/DummyMemoryPool.h"
 #include "../util/RandomTreeAccessor.h"
+#include "recursivelyComputeBlock.h"
 
 namespace FMCA {
 template <typename H2STreeType, typename ClusterComparison = CompareCluster>
@@ -54,7 +54,6 @@ class SampletMatrixCompressor
     Base::setEta(eta);
     rta_.init(ST, ST.block_size());
     pattern_.resize(2 * rta_.max_level() + 1);
-#pragma omp parallel for schedule(dynamic)
     for (Index j = 0; j < rta_.nodes().size(); ++j) {
       const H2STreeType *pc = rta_.nodes()[j];
       /*
@@ -75,7 +74,6 @@ class SampletMatrixCompressor
         if (pc->block_id() >= pr->block_id()) {
           const size_t id =
               pr->block_id() + rta_.nodes().size() * pc->block_id();
-#pragma omp critical
           pattern_[pc->level() + pr->level()].insert({id, Matrix(0, 0)});
         }
       }
@@ -117,8 +115,7 @@ class SampletMatrixCompressor
           switch (the_case) {
             // (leaf,leaf), compute the block
             case 3:
-              block = internal::recursivelyComputeBlock(*pr, *pc, e_gen,
-                                                        Base::eta());
+              block = computeBlock(*pr, *pc, e_gen, Base::eta());
               break;
             // (noleaf,leaf), recycle from below
             case 1:
@@ -133,8 +130,8 @@ class SampletMatrixCompressor
                   const Matrix &ret = it3->second;
                   block.middleRows(offset, nscalfs) = ret.topRows(nscalfs);
                 } else {
-                  const Matrix ret = internal::recursivelyComputeBlock(
-                      pr->sons(k), *pc, e_gen, Base::eta());
+                  const Matrix ret =
+                      computeBlock(pr->sons(k), *pc, e_gen, Base::eta());
                   block.middleRows(offset, nscalfs) = ret.topRows(nscalfs);
                 }
                 offset += nscalfs;
@@ -156,8 +153,8 @@ class SampletMatrixCompressor
                   const Matrix &ret = it3->second;
                   block.middleCols(offset, nscalfs) = ret.leftCols(nscalfs);
                 } else {
-                  const Matrix ret = internal::recursivelyComputeBlock(
-                      *pr, pc->sons(k), e_gen, Base::eta());
+                  const Matrix ret =
+                      computeBlock(*pr, pc->sons(k), e_gen, Base::eta());
                   block.middleCols(offset, nscalfs) = ret.leftCols(nscalfs);
                 }
                 offset += nscalfs;
@@ -230,6 +227,15 @@ class SampletMatrixCompressor
     Base::storeSymTriplets(triplet_buffer, TR.start_index(), TC.start_index(),
                            nrows, ncols, block.bottomRightCorner(nrows, ncols));
   }
+
+  template <typename EntGen>
+  Matrix computeBlock(const H2STreeType &TR, const H2STreeType &TC,
+                      const EntGen &e_gen) const {
+    return internal::recursivelyComputeBlock<H2STreeType, EntGen,
+                                             ClusterComparison>(TR, TC, e_gen,
+                                                                Base::eta());
+  }
+
   std::vector<LevelBuffer> pattern_;
   internal::RandomTreeAccessor<H2STreeType> rta_;
 };
