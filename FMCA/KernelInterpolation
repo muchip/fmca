@@ -27,5 +27,6 @@
 #include "H2Matrix"
 
 #include "src/KernelInterpolation/SampletKernelSolver.h"
+#include "src/KernelInterpolation/H2MatrixKernelSolver.h"
 #include "src/KernelInterpolation/MultipoleFunctionEvaluator.h"
 #endif
