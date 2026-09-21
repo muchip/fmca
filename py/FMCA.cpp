@@ -385,9 +385,17 @@ struct pySampletKernelCompressor {
   pySampletKernelCompressor(const pySampletTree &hst,
                             const FMCA::CovarianceKernel &ker,
                             const FMCA::Matrix &P, const FMCA::Scalar eta = 0.8,
-                            const FMCA::Scalar thres = 0)
-      : eta_(eta), thres_(thres), n_(P.cols()) {
+                            const FMCA::Scalar thres = 0) {
     init(hst, ker, P, eta, thres);
+  }
+
+  pySampletKernelCompressor(const pySampletTree &hst1,
+                            const pySampletTree &hst2,
+                            const FMCA::CovarianceKernel &ker,
+                            const FMCA::Matrix &P1, const FMCA::Matrix &P2,
+                            const FMCA::Scalar eta = 0.8,
+                            const FMCA::Scalar thres = 0) {
+    init(hst1, hst2, ker, P1, P2, eta, thres, false);
   }
 
   template <typename Functor>
@@ -401,42 +409,83 @@ struct pySampletKernelCompressor {
     return retval;
   }
 
+  template <typename Functor>
+  FMCA::Vector matrixColumnGetter(const FMCA::Matrix &P1,
+                                  const FMCA::Matrix &P2,
+                                  const FMCA::Index *idcs1,
+                                  const FMCA::Index *idcs2, const Functor &fun,
+                                  FMCA::Index colID) {
+    FMCA::Vector retval(P1.cols());
+    retval.setZero();
+    for (auto i = 0; i < retval.size(); ++i)
+      retval(i) = fun(P1.col(idcs1[i]), P2.col(idcs2[colID]));
+    return retval;
+  }
   void init(const pySampletTree &hst, const FMCA::CovarianceKernel &ker,
             const FMCA::Matrix &P, const FMCA::Scalar eta = 0.8,
             const FMCA::Scalar thres = 0) {
-    const Moments mom(P, hst.p_);
-    const MatrixEvaluator mat_eval(mom, ker);
-    n_ = P.cols();
+    init(hst, hst, ker, P, P, eta, thres, true);
+    return;
+  }
+  void init(const pySampletTree &hst1, const pySampletTree &hst2,
+            const FMCA::CovarianceKernel &ker, const FMCA::Matrix &P1,
+            const FMCA::Matrix &P2, const FMCA::Scalar eta = 0.8,
+            const FMCA::Scalar thres = 0, const bool sym = false) {
     eta_ = eta;
     thres_ = thres;
-    std::cout << "mpole deg:                    " << hst.p_ << std::endl;
-    std::cout << "dtilde:                       " << hst.dtilde_ << std::endl;
+    m_ = P1.cols();
+    n_ = P2.cols();
+    if (sym)
+      std::cout << "using symmetric compressor    " << std::endl;
+    else
+      std::cout << "using unsymmetric compressor  " << std::endl;
+    std::cout << "mpole deg:                    " << hst1.p_ << std::endl;
+    std::cout << "mpole deg:                    " << hst2.p_ << std::endl;
+    std::cout << "dtilde:                       " << hst1.dtilde_ << std::endl;
+    std::cout << "dtilde:                       " << hst2.dtilde_ << std::endl;
     std::cout << "eta:                          " << eta << std::endl;
     std::cout << "thres:                        " << thres << std::endl;
     {
       FMCA::SampletMatrixCompressor<H2SampletTree> scomp;
-      scomp.init(hst.ST_, eta, thres);
-      scomp.compress(mat_eval);
+      if (sym) {
+        const Moments mom(P1, hst1.p_);
+        const MatrixEvaluator mat_eval(mom, ker);
+        scomp.init(hst1.ST_, eta, thres);
+        scomp.compress(mat_eval);
+      } else {
+        const Moments mom1(P1, hst1.p_);
+        const Moments mom2(P2, hst2.p_);
+        const usMatrixEvaluator mat_eval(mom1, mom2, ker);
+        scomp.init(hst1.ST_, hst2.ST_, eta, thres);
+        scomp.compress(mat_eval);
+      }
       trips_ = scomp.triplets();
     }
     std::cout << "anz:                          "
-              << std::round(trips_.size() / FMCA::Scalar(P.cols()))
+              << std::round(trips_.size() / FMCA::Scalar(P1.cols()))
               << std::endl;
-    FMCA::Vector x(P.cols()), y1(P.cols()), y2(P.cols());
+    FMCA::Vector x(P2.cols()), y1(P1.cols()), y2(P1.cols());
     FMCA::Scalar err = 0;
     FMCA::Scalar nrm = 0;
     for (auto i = 0; i < 10; ++i) {
-      FMCA::Index index = rand() % P.cols();
+      FMCA::Index index = rand() % P2.cols();
       x.setZero();
       x(index) = 1;
-      y1 = matrixColumnGetter(P, hst.ST_.indices(), ker, index);
-      x = hst.ST_.sampletTransform(x);
+      y1 = matrixColumnGetter(P1, P2, hst1.ST_.indices(), hst2.ST_.indices(),
+                              ker, index);
+      x = hst2.ST_.sampletTransform(x);
       y2.setZero();
-      for (const auto &i : trips_) {
-        y2(i.row()) += i.value() * x(i.col());
-        if (i.row() != i.col()) y2(i.col()) += i.value() * x(i.row());
-      }
-      y2 = hst.ST_.inverseSampletTransform(y2);
+      if (sym)
+        for (const auto &i : trips_) {
+          y2(i.row()) += i.value() * x(i.col());
+          if (i.row() != i.col()) y2(i.col()) += i.value() * x(i.row());
+        }
+      else
+        for (const auto &i : trips_) {
+          y2(i.row()) += i.value() * x(i.col());
+        }
+
+      y2 = hst1.ST_.inverseSampletTransform(y2);
       err += (y1 - y2).squaredNorm();
       nrm += y1.squaredNorm();
     }
@@ -446,7 +495,7 @@ struct pySampletKernelCompressor {
   }
 
   FMCA::SparseMatrix matrix() {
-    FMCA::SparseMatrix retval(n_, n_);
+    FMCA::SparseMatrix retval(m_, n_);
     retval.setFromTriplets(trips_.begin(), trips_.end());
     return retval;
   }
@@ -460,6 +509,7 @@ struct pySampletKernelCompressor {
   FMCA::Scalar eta_;
   FMCA::Scalar thres_;
   FMCA::Scalar err_;
+  FMCA::Index m_;
   FMCA::Index n_;
 };
 ////////////////////////////////////////////////////////////////////////////////
@@ -687,14 +737,40 @@ PYBIND11_MODULE(FMCA, m) {
   pySampletKernelCompressor_.def(py::init<>());
   pySampletKernelCompressor_.def(
       py::init<const pySampletTree &, const FMCA::CovarianceKernel &,
-               const FMCA::Matrix &, const FMCA::Scalar, const FMCA::Scalar>());
-  pySampletKernelCompressor_.def("compute", &pySampletKernelCompressor::init,
-                                 py::arg().noconvert(), py::arg().noconvert(),
-                                 py::arg().noconvert(), py::arg(), py::arg(),
-                                 "computes the compressed kernel");
+               const FMCA::Matrix &, const FMCA::Scalar, const FMCA::Scalar>(),
+      py::arg("hst").noconvert(), py::arg("ker").noconvert(),
+      py::arg("P").noconvert(), py::arg("eta") = 0.8, py::arg("thres") = 0.);
+  pySampletKernelCompressor_.def(
+      py::init<const pySampletTree &, const pySampletTree &,
+               const FMCA::CovarianceKernel &, const FMCA::Matrix &,
+               const FMCA::Matrix &, const FMCA::Scalar, const FMCA::Scalar>(),
+      py::arg("hst1").noconvert(), py::arg("hst2").noconvert(),
+      py::arg("ker").noconvert(), py::arg("P1").noconvert(),
+      py::arg("P2").noconvert(), py::arg("eta") = 0.8, py::arg("thres") = 0.);
+  pySampletKernelCompressor_.def(
+      "compute",
+      [](pySampletKernelCompressor &self, const pySampletTree &hst,
+         const FMCA::CovarianceKernel &ker, const FMCA::Matrix &P,
+         FMCA::Scalar eta,
+         FMCA::Scalar thres) { self.init(hst, ker, P, eta, thres); },
+      py::arg("hst").noconvert(), py::arg("ker").noconvert(),
+      py::arg("P").noconvert(), py::arg("eta") = 0.8, py::arg("thres") = 0.,
+      "computes the compressed kernel");
+  pySampletKernelCompressor_.def(
+      "compute",
+      [](pySampletKernelCompressor &self, const pySampletTree &hst1,
+         const pySampletTree &hst2, const FMCA::CovarianceKernel &ker,
+         const FMCA::Matrix &P1, const FMCA::Matrix &P2, FMCA::Scalar eta,
+         FMCA::Scalar thres,
+         bool sym) { self.init(hst1, hst2, ker, P1, P2, eta, thres, sym); },
+      py::arg("hst1").noconvert(), py::arg("hst2").noconvert(),
+      py::arg("ker").noconvert(), py::arg("P1").noconvert(),
+      py::arg("P2").noconvert(), py::arg("eta") = 0.8, py::arg("thres") = 0.,
+      py::arg("sym") = false, "computes the compressed kernel");
   pySampletKernelCompressor_.def("matrix", &pySampletKernelCompressor::matrix,
                                  "returns the compressed kernel matrix, "
-                                 "stored as upper triangular part");
+                                 "stored as upper triangular part "
+                                 "in the symmetric case");
   pySampletKernelCompressor_.def("nnz", &pySampletKernelCompressor::nnz,
                                  "number of stored matrix entries");
   pySampletKernelCompressor_.def("anz", &pySampletKernelCompressor::anz,
