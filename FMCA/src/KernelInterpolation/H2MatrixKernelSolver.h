@@ -109,10 +109,6 @@ class H2MatrixKernelSolver {
   using CG = Eigen::ConjugateGradient<EigenWrapper<H2Matrix>,
                                       Eigen::Lower | Eigen::Upper,
                                       Eigen::IdentityPreconditioner>;
-  using PreconditionedCG = Eigen::ConjugateGradient<EigenWrapper<H2Matrix>,
-                                      Eigen::Lower | Eigen::Upper,
-                                      Eigen::IdentityPreconditioner>;
-
   H2MatrixKernelSolver() noexcept {}
 
   H2MatrixKernelSolver(const H2MatrixKernelSolver& other) = delete;
@@ -122,17 +118,19 @@ class H2MatrixKernelSolver {
     // std::vector
   }
 
-  H2MatrixKernelSolver(const Matrix& P,
+  H2MatrixKernelSolver(const CovarianceKernel& kernel, const Matrix& P,
                        Index dtilde, Scalar eta = 0., Scalar threshold = 0.,
                        Scalar ridgep = 0.) noexcept {
-    init(P, dtilde, eta, threshold, ridgep);
+    init(kernel, P, dtilde, eta, threshold, ridgep);
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
-  void init(const Matrix& P, Index mpole_deg,
+  void init(const CovarianceKernel& kernel, const Matrix& P, Index dtilde,
             Scalar eta = 0., Scalar threshold = 0., Scalar ridgep = 0.) {
     // set parameters
-    mpole_deg_ = mpole_deg;
+    kernel_ = kernel;
+    dtilde_ = dtilde > 0 ? dtilde : 1;
+    mpole_deg_ = dtilde_ > 1 ? (2 * (dtilde_ - 1)) : 1;
     eta_ = eta >= 0 ? eta : 0;
     threshold_ = threshold >= 0 ? threshold : 0;
     ridgep_ = ridgep >= 0 ? ridgep : 0;
@@ -142,20 +140,17 @@ class H2MatrixKernelSolver {
     const Vector minvec = minDistanceVector(hct_, P);
     fill_distance_ = minvec.maxCoeff();
     separation_radius_ = minvec.minCoeff();
-    solver_iterations_ = 1;
     return;
   }
 
-  void compress(const Matrix& P, const CovarianceKernel& kernel) {
-    kernel_ = kernel;
+  void compress(const Matrix& P) {
     const Moments mom(P, mpole_deg_);
     const MatrixEvaluator mat_eval(mom, kernel_);
     K_.computeH2Matrix(hct_, hct_, mat_eval, eta_);
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
-  Scalar compressionError(const Matrix& P, 
-                          const CovarianceKernel& kernel) {
+  Scalar compressionError(const Matrix& P) {
     Vector x(K_.cols()), y1(K_.rows()), y2(K_.rows());
     Scalar err = 0;
     Scalar nrm = 0;
@@ -180,40 +175,28 @@ class H2MatrixKernelSolver {
   const Index solver_iterations() const { return solver_iterations_; }
   //////////////////////////////////////////////////////////////////////////////
   Vector solveIteratively(const Vector& rhs, bool CGwithPreconditioner = true,
-                        Scalar threshold_CG = 1e-6) {
+                          Scalar threshold_CG = 1e-6) {
     Vector rhs_copy = rhs;
     rhs_copy = hct_.toClusterOrder(rhs_copy);
     Vector sol;
 
-    if (!CGwithPreconditioner) {
-      CG solver;
-      EigenWrapper<H2Matrix> EigenH2(K_, ridgep_);
-      solver.setTolerance(threshold_CG);
-      solver.compute(EigenH2);
-      sol = solver.solve(rhs_copy);
-      solver_iterations_ = solver.iterations();
-    } else {
-      PreconditionedCG solver;
-      EigenWrapper<H2Matrix> EigenH2(K_, ridgep_);
-      solver.setTolerance(threshold_CG);
-      solver.compute(EigenH2);
-      sol = solver.solve(rhs_copy);
-      solver_iterations_ = solver.iterations();
-    }
+    CG solver;
+    EigenWrapper<H2Matrix> EigenH2(K_, ridgep_);
+    solver.setTolerance(threshold_CG);
+    solver.compute(EigenH2);
+    sol = solver.solve(rhs_copy);
+    solver_iterations_ = solver.iterations();
     sol = hct_.toNaturalOrder(sol);
     return sol;
   }
   //////////////////////////////////////////////////////////////////////////////
-  Matrix solveDirectly(const Matrix& rhs) {
-    Matrix sol = hct_.toClusterOrder(rhs);
-    sol = hct_.toNaturalOrder(sol);
-    return sol;
-  }
+  Matrix solveDirectly(const Matrix& rhs) { return rhs; }
 
  private:
   H2Matrix K_;
   H2ClusterTree hct_;
   CovarianceKernel kernel_;
+  Scalar dtilde_;
   Scalar mpole_deg_;
   Scalar eta_;
   Scalar threshold_;

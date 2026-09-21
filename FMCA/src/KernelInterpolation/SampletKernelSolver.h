@@ -112,7 +112,6 @@ class SampletKernelSolver {
     solver_iterations_ = 1;
     return sol;
   }
-#endif
 
   //////////////////////////////////////////////////////////////////////////////
   Vector solveIteratively(const Vector& rhs, bool CGwithPreconditioner = true,
@@ -125,13 +124,13 @@ class SampletKernelSolver {
     if (!CGwithPreconditioner) {
       SparseCG solver;
       solver.setTolerance(threshold_CG);
-      solver.compute(K_sym);
+      solver.compute(K_);
       sol = solver.solve(rhs_copy);
       solver_iterations_ = solver.iterations();
     } else {
       SparsePCG solver;
       solver.setTolerance(threshold_CG);
-      solver.compute(K_sym);
+      solver.compute(K_);
       sol = solver.solve(rhs_copy);
       solver_iterations_ = solver.iterations();
     }
@@ -144,6 +143,7 @@ class SampletKernelSolver {
   const SparseMatrix& K() const { return K_; }
   const Scalar fill_distance() const { return fill_distance_; }
   const Scalar separation_radius() const { return separation_radius_; }
+  const Index solver_iterations() const { return solver_iterations_; }
   //////////////////////////////////////////////////////////////////////////////
   Matrix solve(const Matrix& rhs) {
     Matrix sol = hst_.toClusterOrder(rhs);
@@ -167,6 +167,7 @@ class SampletKernelSolver {
   Scalar ridgep_;
   Scalar fill_distance_;
   Scalar separation_radius_;
+  Index solver_iterations_;
 };
 }  // namespace FMCA
 
