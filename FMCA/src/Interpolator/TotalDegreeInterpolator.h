@@ -56,7 +56,7 @@ class TotalDegreeInterpolator {
   const MultiIndexSet<TotalDegree> &idcs() const { return idcs_; }
 
   template <typename Derived>
-  Matrix evalPolynomials(const Eigen::MatrixBase<Derived> &pt) const {
+  Matrix evalPolynomials(const MatrixBase<Derived> &pt) const {
     return internal::evalPolynomials(idcs_, pt);
   }
 

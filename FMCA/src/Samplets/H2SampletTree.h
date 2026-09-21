@@ -34,6 +34,7 @@ struct traits<H2SampletTree<ClusterTreeType>>
 template <typename ClusterTreeType>
 class H2SampletTree : public H2SampletTreeBase<H2SampletTree<ClusterTreeType>> {
  public:
+  typedef ClusterTreeType ClusterTree;
   typedef typename internal::traits<H2SampletTree>::Node Node;
   typedef H2SampletTreeBase<H2SampletTree<ClusterTreeType>> Base;
   // make base class methods visible
@@ -78,8 +79,7 @@ class H2SampletTree : public H2SampletTreeBase<H2SampletTree<ClusterTreeType>> {
                                        std::forward<Ts>(ts)...);
     // init hierarchical cluster basis
     internal::compute_cluster_bases_impl::compute(*this, mom);
-    // internal::compute_cluster_bases_impl::check_transfer_matrices(*this,
-    // mom);
+    internal::compute_cluster_bases_impl::check_transfer_matrices(*this, mom);
     // init samplet basis
     computeSamplets(smom);
     internal::sampletMapper<H2SampletTree>(*this);
@@ -114,14 +114,14 @@ class H2SampletTree : public H2SampletTreeBase<H2SampletTree<ClusterTreeType>> {
       node().mom_buffer_ = mom.moment_matrix(*this);
     // are there samplets?
     if (mom.mdtilde() < node().mom_buffer_.cols()) {
-      Eigen::HouseholderQR<Matrix> qr(node().mom_buffer_.transpose());
+      HouseholderQR qr(node().mom_buffer_.transpose());
       node().Q_ = qr.householderQ();
       node().nscalfs_ = mom.mdtilde();
       node().nsamplets_ = node().Q_.cols() - node().nscalfs_;
       // this is the moment for the dad cluster
       node().mom_buffer_ = qr.matrixQR()
                                .block(0, 0, mom.mdtilde(), mom.mdtilde2())
-                               .template triangularView<Eigen::Upper>()
+                               .template triangularView<Upper>()
                                .transpose();
     } else {
       node().Q_ = Matrix::Identity(node().mom_buffer_.cols(),

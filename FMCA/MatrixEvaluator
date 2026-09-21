@@ -12,6 +12,9 @@
 #ifndef FMCA_MATRIXEVALUATORS_MODULE_
 #define FMCA_MATRIXEVALUATORS_MODULE_
 
+#include "src/util/Macros.h"
+//
+
 #include "Moments"
 
 #include "src/MatrixEvaluator/NystromEvaluator.h"

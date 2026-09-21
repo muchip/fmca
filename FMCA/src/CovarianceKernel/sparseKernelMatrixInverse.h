@@ -15,9 +15,10 @@
 namespace FMCA {
 
 template <typename Derived>
-Eigen::SparseMatrix<Scalar> sparseKernelMatrixInverse(
-    const CovarianceKernel &K, const ClusterTreeBase<Derived> &CT,
-    const Matrix &P, const Scalar fps = 1., const Scalar ridge_parameter = 0) {
+SparseMatrix sparseKernelMatrixInverse(const CovarianceKernel &K,
+                                       const ClusterTreeBase<Derived> &CT,
+                                       const Matrix &P, const Scalar fps = 1.,
+                                       const Scalar ridge_parameter = 0) {
   const Vector mdv = minDistanceVector(CT, P);
   const Scalar fill_distance = mdv.maxCoeff();
   const Scalar sep_distance = mdv.minCoeff();
@@ -48,12 +49,12 @@ Eigen::SparseMatrix<Scalar> sparseKernelMatrixInverse(
   std::cout << "average footprint:            " << mean_fp / epsnn.size()
             << std::endl;
   // evaluate localized inverse
-  std::vector<Eigen::Triplet<Scalar>> triplets;
+  std::vector<Triplet> triplets;
   // compute permutation from original order to cluster order
   std::vector<Index> inv_idcs(P.cols());
   for (FMCA::Index i = 0; i < inv_idcs.size(); ++i)
     inv_idcs[CT.indices()[i]] = i;
-    // actually compute the localized inverse
+  // actually compute the localized inverse
 #pragma omp parallel for
   for (Index i = 0; i < epsnn.size(); ++i) {
     const Index locN = epsnn[i].size();
@@ -69,16 +70,16 @@ Eigen::SparseMatrix<Scalar> sparseKernelMatrixInverse(
     rhs.setZero();
     rhs(pos) = 1;
     Vector col = Kloc.ldlt().solve(rhs);
-    std::vector<Eigen::Triplet<Scalar>> local_triplets;
+    std::vector<Triplet> local_triplets;
     for (Index j = 0; j < locN; ++j)
       if (std::abs(col(j)) > FMCA_ZERO_TOLERANCE)
         local_triplets.push_back(
-            Eigen::Triplet<Scalar>(inv_idcs[i], inv_idcs[epsnn[i][j]], col(j)));
+            Triplet(inv_idcs[i], inv_idcs[epsnn[i][j]], col(j)));
 #pragma omp critical
     triplets.insert(triplets.end(), local_triplets.begin(),
                     local_triplets.end());
   }
-  Eigen::SparseMatrix<FMCA::Scalar> invK(P.cols(), P.cols());
+  SparseMatrix invK(P.cols(), P.cols());
   invK.setFromTriplets(triplets.begin(), triplets.end());
   return invK;
 }

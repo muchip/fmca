@@ -9,12 +9,10 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#include <Eigen/Dense>
-#include <iostream>
-
-#include "../FMCA/CovarianceKernel"
-#include "../FMCA/H2Matrix"
-#include "../FMCA/src/util/Tictoc.h"
+//
+#include <FMCA/CovarianceKernel>
+#include <FMCA/H2Matrix>
+#include <FMCA/src/util/Tictoc.h>
 
 #define NPTS 10000
 #define DIM 3
@@ -25,14 +23,15 @@ using Moments = FMCA::NystromMoments<Interpolator>;
 using MatrixEvaluator = FMCA::NystromEvaluator<Moments, FMCA::CovarianceKernel>;
 using MatrixEvaluatorUS =
     FMCA::unsymmetricNystromEvaluator<Moments, FMCA::CovarianceKernel>;
-using H2ClusterTree = FMCA::H2ClusterTree<FMCA::ClusterTree>;
+using H2ClusterTree = FMCA::H2ClusterTree<FMCA::UnitKDTree>;
 using H2Matrix = FMCA::H2Matrix<H2ClusterTree, FMCA::CompareCluster>;
 
 int main() {
   FMCA::Tictoc T;
   const FMCA::CovarianceKernel function("EXPONENTIAL", 2.);
-  const FMCA::Matrix Pr = FMCA::Matrix::Random(DIM, 2 * NPTS);
-  const FMCA::Matrix Pc = FMCA::Matrix::Random(DIM, NPTS);
+  const FMCA::Matrix Pr =
+      0.5 * FMCA::Matrix::Random(DIM, 2 * NPTS).array() + 0.5;
+  const FMCA::Matrix Pc = 0.5 * FMCA::Matrix::Random(DIM, NPTS).array() + 0.5;
 
   const Moments momr(Pr, MPOLE_DEG);
   const Moments momc(Pc, MPOLE_DEG);
@@ -42,8 +41,8 @@ int main() {
       << FMCA::internal::traits<FMCA::ClusterTree>::Splitter::splitterName()
       << std::endl;
   T.tic();
-  H2ClusterTree ctr(momr, 0, Pr);
-  H2ClusterTree ctc(momc, 0, Pc);
+  H2ClusterTree ctr(momr, 0, Pr, 4);
+  H2ClusterTree ctc(momc, 0, Pc, 4);
   T.toc("H2 cluster tree:");
   FMCA::internal::compute_cluster_bases_impl::check_transfer_matrices(ctr,
                                                                       momr);

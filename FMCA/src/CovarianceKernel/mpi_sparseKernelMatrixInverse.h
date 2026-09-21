@@ -15,7 +15,7 @@
 namespace FMCA {
 
 template <typename Derived>
-std::vector<Eigen::Triplet<Scalar>> mpi_sparseKernelMatrixInverse(
+std::vector<Triplet> mpi_sparseKernelMatrixInverse(
     const CovarianceKernel &K, const ClusterTreeBase<Derived> &CT,
     const Matrix &P, const Index fps = 1, const Scalar ridge_parameter = 0,
     const Index my_id = 0, const Index nprocs = 1) {
@@ -54,10 +54,10 @@ std::vector<Eigen::Triplet<Scalar>> mpi_sparseKernelMatrixInverse(
               << std::endl;
   }
   // evaluate localized inverse
-  std::vector<Eigen::Triplet<Scalar>> triplets;
+  std::vector<Triplet> triplets;
   // compute permutation from original order to cluster order
   std::vector<Index> inv_idcs(P.cols());
-  for (FMCA::Index i = 0; i < inv_idcs.size(); ++i)
+  for (Index i = 0; i < inv_idcs.size(); ++i)
     inv_idcs[CT.indices()[i]] = i;
     // actually compute the localized inverse
 #pragma omp parallel for
@@ -76,10 +76,10 @@ std::vector<Eigen::Triplet<Scalar>> mpi_sparseKernelMatrixInverse(
       rhs.setZero();
       rhs(pos) = 1;
       Vector col = Kloc.ldlt().solve(rhs);
-      std::vector<Eigen::Triplet<Scalar>> local_triplets;
+      std::vector<Triplet> local_triplets;
       for (Index j = 0; j < locN; ++j)
         local_triplets.push_back(
-            Eigen::Triplet<Scalar>(inv_idcs[i], inv_idcs[epsnn[i][j]], col(j)));
+            Triplet(inv_idcs[i], inv_idcs[epsnn[i][j]], col(j)));
 #pragma omp critical
       triplets.insert(triplets.end(), local_triplets.begin(),
                       local_triplets.end());

@@ -17,7 +17,7 @@ namespace FMCA {
 namespace internal {
 template <typename T>
 struct CompIndexSort {
-  CompIndexSort(const T &field) : field_(field){};
+  CompIndexSort(const T &field) : field_(field) {};
 
   template <typename R, typename S>
   bool operator()(const R &i, const S &j) {
@@ -35,14 +35,15 @@ struct CompIndexSort {
 
 template <typename Derived>
 std::vector<const Derived *> adaptiveTreeSearch(
-    const SampletTreeBase<Derived> &st, const Vector tdata,
-    const Scalar thres) {
+    const SampletTreeBase<Derived> &st, const Vector &tdata, const Scalar thres,
+    const Vector *w = nullptr) {
   const Index nclusters = std::distance(st.begin(), st.end());
   std::vector<const Derived *> retval(nclusters);
   std::vector<const Derived *> cluster_map(nclusters);
   Vector e(nclusters);
   Vector q(nclusters);
   Vector etilde(nclusters);
+  const Vector D = (w == nullptr) ? Vector::Ones(tdata.size()) : *w;
   e.setZero();
   q.setZero();
   etilde.setZero();
@@ -53,7 +54,10 @@ std::vector<const Derived *> adaptiveTreeSearch(
   for (auto it = cluster_map.rbegin(); it != cluster_map.rend(); ++it) {
     const Derived &node = **it;
     const Index ndist = node.is_root() ? node.Q().cols() : node.nsamplets();
-    e(node.block_id()) = tdata.segment(node.start_index(), ndist).squaredNorm();
+    e(node.block_id()) =
+        (tdata.segment(node.start_index(), ndist).array().square() *
+         D.segment(node.start_index(), ndist).array())
+            .sum();
     if (node.nSons()) {
       // set up q as the sum of the children's energies. proper scaling is
       // performed in the next traversal
@@ -92,9 +96,11 @@ std::vector<const Derived *> adaptiveTreeSearch(
     retval[block_ids[nnz]] = cluster_map[block_ids[nnz]];
     ++nnz;
   }
+#ifdef FMCA_VERBOSE
   std::cout << "total energy in tree:         " << total_Etilde << std::endl;
   std::cout << "total number of clusters:     " << nclusters << std::endl;
   std::cout << "clusters in adaptive tree:    " << nnz << std::endl;
+#endif
   // add also non present children
   for (Index i = 0; i < retval.size(); ++i)
     if (retval[i] != nullptr) {

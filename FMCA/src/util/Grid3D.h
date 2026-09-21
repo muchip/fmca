@@ -17,7 +17,7 @@
 namespace FMCA {
 class Grid3D {
  public:
-  Grid3D(){};
+  Grid3D() {};
   Grid3D(const Vector &pts_min, const Vector &pts_max, Index nx, Index ny,
          Index nz) {
     init(pts_min, pts_max, nx, ny, nz);
@@ -42,7 +42,7 @@ class Grid3D {
   }
   const Matrix &P() const { return P_; }
 
-  void plotFunction(const std::string &fileName, const Eigen::VectorXd &color) {
+  void plotFunction(const std::string &fileName, const Vector &color) {
     std::ofstream myfile;
     myfile.open(fileName);
     myfile << "# vtk DataFile Version 3.1\n";

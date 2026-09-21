@@ -12,10 +12,8 @@
 #ifndef FMCA_SAMPLETS_MODULE_
 #define FMCA_SAMPLETS_MODULE_
 
-#include <Eigen/Dense>
-#include <Eigen/QR>
-#include <Eigen/SVD>
-#include <Eigen/Sparse>
+#include "src/util/Macros.h"
+//
 
 #include "Clustering"
 #include "Moments"
@@ -24,16 +22,22 @@
 
 #include "src/util/ForwardDeclarations.h"
 #include "src/util/Macros.h"
+#include "src/util/Graph.h"
+#include "src/util/LIsomap.h"
 
 #include "src/Samplets/SampletTreeBase.h"
 #include "src/Samplets/H2SampletTreeBase.h"
+#include "src/Samplets/adaptiveTreeSearch.h"
 #include "src/Samplets/SampletMapper.h"
 #include "src/Samplets/SampletTree.h"
 #include "src/Samplets/H2SampletTree.h"
-#include "src/Samplets/adaptiveTreeSearch.h"
+#include "src/Samplets/GraphSampletForest.h"
+
 #include "src/Samplets/SampletAdaptiveClustering.h"
 #include "src/Samplets/samplet_transformer.h"
-#include "src/Samplets/samplet_matrix_compressor.h"
-#include "src/Samplets/samplet_matrix_compressor_unsymmetric.h"
+#include "src/Samplets/SampletMatrixCompressorBase.h"
+#include "src/Samplets/recursivelyComputeBlock.h"
+#include "src/Samplets/SampletMatrixCompressor_DAG.h"
+#include "src/Samplets/SampletMatrixCompressorUnsymmetric.h"
 
 #endif

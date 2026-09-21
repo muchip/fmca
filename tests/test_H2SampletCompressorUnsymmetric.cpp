@@ -10,22 +10,17 @@
 // for further information.
 //
 // #define EIGEN_DONT_PARALLELIZE
+#include <FMCA/src/util/Tictoc.h>
+
 #include <Eigen/Dense>
+#include <FMCA/CovarianceKernel>
+#include <FMCA/Samplets>
 #include <iostream>
-
-#include "../FMCA/CovarianceKernel"
-#include "../FMCA/Samplets"
-#include "../FMCA/src/util/Tictoc.h"
-
-#define NPTS 10000
-#define DIM 2
-#define MPOLE_DEG 6
 
 using Interpolator = FMCA::TotalDegreeInterpolator;
 using SampletInterpolator = FMCA::MonomialInterpolator;
 using Moments = FMCA::NystromMoments<Interpolator>;
 using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
-using MatrixEvaluator = FMCA::NystromEvaluator<Moments, FMCA::CovarianceKernel>;
 using usMatrixEvaluator =
     FMCA::unsymmetricNystromEvaluator<Moments, FMCA::CovarianceKernel>;
 using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
@@ -33,20 +28,34 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 int main() {
   FMCA::Tictoc T;
   const FMCA::CovarianceKernel function("EXPONENTIAL", 1);
-  const FMCA::Matrix P = 0.5 * (FMCA::Matrix::Random(DIM, NPTS).array() + 1);
+  const FMCA::Index m = 7896;
+  const FMCA::Index n = 9896;
+  const FMCA::Index dim = 2;
+  const FMCA::Matrix P1 = 0.5 * (FMCA::Matrix::Random(dim, m).array() + 1);
+  const FMCA::Matrix P2 = 0.5 * (FMCA::Matrix::Random(dim, n).array() + 1);
   const FMCA::Scalar threshold = 1e-10;
-  const FMCA::Index dtilde = 4;
-  const Moments mom(P, MPOLE_DEG);
-  const usMatrixEvaluator mat_eval(mom, mom, function);
-  const MatrixEvaluator smat_eval(mom, function);
+  const FMCA::Index dtilde = 6;
+  const FMCA::Index mpole_deg = 2 * (dtilde - 1);
+  const Moments mom1(P1, mpole_deg);
+  const Moments mom2(P2, mpole_deg);
+  const usMatrixEvaluator mat_eval(mom1, mom2, function);
+  const SampletMoments samp_mom1(P1, dtilde - 1);
+  const SampletMoments samp_mom2(P2, dtilde - 1);
+  H2SampletTree hst1(mom1, samp_mom1, 0, P1);
+  H2SampletTree hst2(mom2, samp_mom2, 0, P2);
+  std::cout
+      << "This tests the old unsymmetric compressor against the new dag based. "
+         "As a different scheduling is used, the results vary and difference "
+         "gets smaller for eta->0. Higher similarity is achieved for "
+         "increasing dtilde. The use of SampletMatrixCompressorUnsymmetric is "
+         "discouraged and it will vanish in a future version"
+      << std::endl;
   for (double eta = 1.2; eta >= 0.0; eta -= 0.2) {
     std::cout << "dtilde:                       " << dtilde << std::endl;
     std::cout << "eta:                          " << eta << std::endl;
-    const SampletMoments samp_mom(P, dtilde - 1);
-    H2SampletTree hst(mom, samp_mom, 0, P);
     T.tic();
-    FMCA::internal::SampletMatrixCompressorUnsymmetric<H2SampletTree> Scomp;
-    Scomp.init(hst, hst, eta, threshold);
+    FMCA::SampletMatrixCompressorUnsymmetric<H2SampletTree> Scomp;
+    Scomp.init(hst1, hst2, eta, threshold);
     T.toc("unsymmetric planner:         ");
     T.tic();
     Scomp.compress(mat_eval);
@@ -55,45 +64,25 @@ int main() {
     const auto &trips = Scomp.triplets();
     T.toc("triplets:                    ");
     std::cout << "anz:                          "
-              << std::round(trips.size() / FMCA::Scalar(NPTS)) << std::endl;
+              << std::round(trips.size() / FMCA::Scalar(m)) << std::endl;
     T.tic();
-    FMCA::internal::SampletMatrixCompressor<H2SampletTree> sScomp;
-    sScomp.init(hst, eta, threshold);
-    T.toc("symmetric planner:           ");
+    FMCA::SparseMatrix S1(m, n);
+    S1.setFromTriplets(trips.begin(), trips.end());
+    FMCA::SampletMatrixCompressor<H2SampletTree> sScomp;
+    sScomp.init(hst1, hst2, eta, threshold);
+    T.toc("dag planner:                 ");
     T.tic();
-    sScomp.compress(smat_eval);
-    T.toc("symmetric compressor:        ");
+    sScomp.compress(mat_eval);
+    T.toc("dag compressor:              ");
     T.tic();
     const auto &strips = sScomp.triplets();
     T.toc("triplets:                    ");
     std::cout << "anz:                          "
-              << std::round(strips.size() / FMCA::Scalar(NPTS)) << std::endl;
-    // error computation
-    FMCA::Vector x(NPTS), y1(NPTS), y2(NPTS);
-    FMCA::Scalar err = 0;
-    FMCA::Scalar nrm = 0;
-    for (auto i = 0; i < 10; ++i) {
-      FMCA::Index index = rand() % P.cols();
-      x.setZero();
-      x(index) = 1;
-      FMCA::Vector col = function.eval(P, P.col(hst.indices()[index]));
-      y1 =
-          col(Eigen::Map<const FMCA::iVector>(hst.indices(), hst.block_size()));
-      x = hst.sampletTransform(x);
-      y2.setZero();
-      y1.setZero();
-      for (const auto &i : strips) {
-        y1(i.row()) += i.value() * x(i.col());
-        if (i.row() != i.col()) y1(i.col()) += i.value() * x(i.row());
-      }
-      for (const auto &i : trips) {
-        y2(i.row()) += i.value() * x(i.col());
-      }
-      err += (y1 - y2).squaredNorm();
-      nrm += y1.squaredNorm();
-    }
-    err = sqrt(err / nrm);
-    std::cout << "compression error:            " << err << std::endl
+              << std::round(strips.size() / FMCA::Scalar(m)) << std::endl;
+    FMCA::SparseMatrix S2(m, n);
+    S2.setFromTriplets(strips.begin(), strips.end());
+    std::cout << "compression error:            "
+              << (S1 - S2).norm() / S1.norm() << std::endl
               << std::flush;
     std::cout << std::string(60, '-') << std::endl;
   }

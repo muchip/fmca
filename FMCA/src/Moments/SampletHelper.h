@@ -34,12 +34,12 @@ inline Index internal_q(Index q, Index dim) {
 
 /**
  *  \ingroup Moments
- *  \brief 
+ *  \brief
  **/
 template <typename Derived, typename MultiIndexSet, typename Derived2>
-inline Matrix monomialMomentShifter(
-    const Eigen::MatrixBase<Derived> &shift, const MultiIndexSet &idcs,
-    const Eigen::MatrixBase<Derived2> &mult_coeffs) {
+inline Matrix monomialMomentShifter(const MatrixBase<Derived> &shift,
+                                    const MultiIndexSet &idcs,
+                                    const MatrixBase<Derived2> &mult_coeffs) {
   Matrix retval = mult_coeffs;
   if (shift.norm() < FMCA_ZERO_TOLERANCE)
     return Matrix::Identity(retval.rows(), retval.cols());

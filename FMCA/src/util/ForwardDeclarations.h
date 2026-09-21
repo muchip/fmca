@@ -33,12 +33,22 @@ struct ClusterTreeInitializer;
 
 class ClusterTree;
 
+class UnitKDTree;
+
+class UnitBinaryTree;
+
+class MetisClusterTree;
+
+class SphereClusterTree;
+
 class MortonClusterTree;
 
 class RandomProjectionTree;
 
 template <typename ClusterTreeType>
 class SampletTree;
+
+class GraphSampletTree;
 
 template <typename ClusterTreeType>
 class H2ClusterTree;
@@ -53,6 +63,8 @@ template <typename Derived, typename ClusterComparison>
 struct HMatrix;
 
 struct ClusterTreeNode;
+
+struct SphereClusterTreeNode;
 
 struct SampletTreeNode;
 

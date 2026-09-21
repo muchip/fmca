@@ -9,12 +9,12 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#include <Eigen/Dense>
-#include <iostream>
+#include <FMCA/src/util/IO.h>
+#include <FMCA/src/util/Tictoc.h>
 
-#include "../FMCA/Clustering"
-#include "../FMCA/src/util/IO.h"
-#include "../FMCA/src/util/Tictoc.h"
+#include <Eigen/Dense>
+#include <FMCA/Clustering>
+#include <iostream>
 
 #define DIM 2
 #define NPTS 100000
@@ -22,34 +22,54 @@
 int main() {
   FMCA::Tictoc T;
   FMCA::Matrix P = Eigen::MatrixXd::Random(DIM, NPTS);
-  FMCA::Vector colr(NPTS);
-  std::vector<FMCA::Scalar> colr2;
   T.tic();
-  FMCA::RandomProjectionTree ct(P, 1000);
+  FMCA::RandomProjectionTree ct(P, 100);
   T.toc("tree computation: ");
-  std::vector<FMCA::Matrix> bbvec;
-  for (const auto &it : ct) {
-    if (!it.nSons()) {
-      const FMCA::Index rdm = std::rand() % 256;
-      for (FMCA::Index i = 0; i < it.block_size(); ++i) {
-        colr(it.indices()[i]) = rdm;
-      }
-      if (it.block_size()) {
-        bbvec.push_back(it.bb());
-        colr2.push_back(rdm);
-      }
-    }
-  }
+
+  FMCA::clusterTreeStatistics(ct, P);
   std::vector<FMCA::Index> found(NPTS);
   for (FMCA::Index i = 0; i < ct.block_size(); ++i) ++(found[ct.indices()[i]]);
   for (FMCA::Index i = 0; i < found.size(); ++i)
     assert(found[i] == 1 && "index mismatch");
-  FMCA::Matrix P3D(3, NPTS);
-  P3D.setZero();
-  P3D.topRows(2) = P;
-  FMCA::IO::plotPointsColor("clusters.vtk", P3D, colr);
-  FMCA::IO::plotBoxes2D("boxes.vtk", bbvec, colr2);
-
+  std::vector<const FMCA::RandomProjectionTree *> stack{&ct};
+  while (stack.size()) {
+    const auto &node = *stack.back();
+    stack.pop_back();
+    std::set<FMCA::Index> pidx(node.indices(),
+                               node.indices() + node.block_size());
+    std::set<FMCA::Index> cidx;
+    for (auto i = 0; i < node.nSons(); ++i) {
+      cidx.insert(node.sons(i).indices(),
+                  node.sons(i).indices() + node.sons(i).block_size());
+      stack.push_back(&node.sons(i));
+    }
+    assert((!node.nSons() || pidx == cidx) &&
+           "parent indices != union of sons");
+  }
+#ifdef FMCA_TEST_VTK_OUTPUT
+  {
+    FMCA::Vector colr(NPTS);
+    std::vector<FMCA::Scalar> colr2;
+    std::vector<FMCA::Matrix> bbvec;
+    for (const auto &it : ct) {
+      if (!it.nSons()) {
+        const FMCA::Index rdm = std::rand() % 256;
+        for (FMCA::Index i = 0; i < it.block_size(); ++i) {
+          colr(it.indices()[i]) = rdm;
+        }
+        if (it.block_size()) {
+          bbvec.push_back(it.bb());
+          colr2.push_back(rdm);
+        }
+      }
+    }
+    FMCA::Matrix P3D(3, NPTS);
+    P3D.setZero();
+    P3D.topRows(2) = P;
+    FMCA::IO::plotPointsColor("clusters.vtk", P3D, colr);
+    FMCA::IO::plotBoxes2D("boxes.vtk", bbvec, colr2);
+  }
+#endif
   std::cout << "testing fill distance and separation radius\n";
   {
     FMCA::Matrix P = Eigen::MatrixXd::Random(20, 100000);

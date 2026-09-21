@@ -14,9 +14,6 @@
 #define FMCA_KERNELINTERPOLATION_SAMPLETKERNELSOLVER_H_
 
 namespace FMCA {
-
-//////////////////////////////////////////////////////////////////////////////
-template <typename SparseMatrix = Eigen::SparseMatrix<FMCA::Scalar>>
 class SampletKernelSolver {
  public:
   using Interpolator = TotalDegreeInterpolator;
@@ -25,18 +22,6 @@ class SampletKernelSolver {
   using SampletMoments = NystromSampletMoments<SampletInterpolator>;
   using MatrixEvaluator = NystromEvaluator<Moments, FMCA::CovarianceKernel>;
   using SampletTree = H2SampletTree<ClusterTree>;
-  using CG = Eigen::ConjugateGradient<SparseMatrix, Eigen::Lower | Eigen::Upper,
-                                      Eigen::IdentityPreconditioner>;
-  using PreconditionedCG =
-      Eigen::ConjugateGradient<SparseMatrix, Eigen::Lower | Eigen::Upper>;
-#ifdef CHOLMOD_SUPPORT
-  using Cholesky = Eigen::CholmodSupernodalLLT<SparseMatrix, Eigen::Upper>;
-#elif METIS_SUPPORT
-  using Cholesky = Eigen::SimplicialLDLT<SparseMatrix, Eigen::Upper,
-                                         Eigen::MetisOrdering<int>>;
-#else
-  using Cholesky = Eigen::SimplicialLDLT<SparseMatrix, Eigen::Upper>;
-#endif
 
   SampletKernelSolver() noexcept {}
 
@@ -47,15 +32,17 @@ class SampletKernelSolver {
     // std::vector
   }
 
-  SampletKernelSolver(const Matrix& P, Index dtilde, Scalar eta = 0.,
-                      Scalar threshold = 0., Scalar ridgep = 0.) noexcept {
-    init(P, dtilde, eta, threshold, ridgep);
+  SampletKernelSolver(const CovarianceKernel& kernel, const Matrix& P,
+                      Index dtilde, Scalar eta = 0., Scalar threshold = 0.,
+                      Scalar ridgep = 0.) noexcept {
+    init(kernel, P, dtilde, eta, threshold, ridgep);
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
-  void init(const Matrix& P, Index dtilde, Scalar eta = 0.,
-            Scalar threshold = 0., Scalar ridgep = 0.) {
+  void init(const CovarianceKernel& kernel, const Matrix& P, Index dtilde,
+            Scalar eta = 0., Scalar threshold = 0., Scalar ridgep = 0.) {
     // set parameters
+    kernel_ = kernel;
     dtilde_ = dtilde > 0 ? dtilde : 1;
     mpole_deg_ = dtilde_ > 1 ? (2 * (dtilde_ - 1)) : 1;
     eta_ = eta >= 0 ? eta : 0;
@@ -68,36 +55,26 @@ class SampletKernelSolver {
     const Vector minvec = minDistanceVector(hst_, P);
     fill_distance_ = minvec.maxCoeff();
     separation_radius_ = minvec.minCoeff();
-    // reset iteration counter
-    solver_iterations_ = 1;
+    // compress kernel
+
     return;
   }
 
-  //////////////////////////////////////////////////////////////////////////////
-  void compress(const Matrix& P, const CovarianceKernel& kernel) {
-    kernel_ = kernel;
+  void compress(const Matrix& P) {
     const Moments mom(P, mpole_deg_);
     compressor_.init(hst_, eta_, FMCA_ZERO_TOLERANCE);
     const MatrixEvaluator mat_eval(mom, kernel_);
     compressor_.compress(mat_eval);
-    compressor_.triplets();  // a priori compression
-    const auto& trips = compressor_.aposteriori_triplets_fast(
-        threshold_);  // a posteriori compression
-    anz_ = std::round(trips.size() / double(P.cols()));
+    compressor_.triplets();
+    const auto& trips = compressor_.aposteriori_triplets_fast(threshold_);
     K_.resize(hst_.block_size(), hst_.block_size());
     K_.setFromTriplets(trips.begin(), trips.end());
-    if (ridgep_ > 0) {
-      for (int i = 0; i < K_.rows(); ++i) {
-        K_.coeffRef(i, i) += ridgep_;
-      }
-    }
+    if (ridgep_ > 0) K_.diagonal() = K_.diagonal().array() + ridgep_;
     K_.makeCompressed();
     return;
   }
   //////////////////////////////////////////////////////////////////////////////
-  Scalar compressionError(const Matrix& P,
-                          const CovarianceKernel& kernel) {
-    kernel_ = kernel;
+  Scalar compressionError(const Matrix& P) const {
     Vector x(K_.cols()), y1(K_.rows()), y2(K_.rows());
     Scalar err = 0;
     Scalar nrm = 0;
@@ -108,7 +85,7 @@ class SampletKernelSolver {
       Vector col = kernel_.eval(P, P.col(hst_.indices()[index]));
       y1 = hst_.toClusterOrder(col);
       x = hst_.sampletTransform(x);
-      y2 = K_.template selfadjointView<Eigen::Upper>() * x;
+      y2 = K_.selfadjointView<Upper>() * x;
       y2 = hst_.inverseSampletTransform(y2);
       err += (y1 - y2).squaredNorm();
       nrm += y1.squaredNorm();
@@ -117,18 +94,22 @@ class SampletKernelSolver {
   }
 
   //////////////////////////////////////////////////////////////////////////////
-#if defined(CHOLMOD_SUPPORT) || defined(METIS_SUPPORT)
-  //////////////////////////////////////////////////////////////////////////////
-  void factorize() { llt_.compute(K_); }
+  void factorize() {
+    llt_.compute(K_);
+    if (llt_.info() != Success) {
+      std::cout << "factorization failed" << std::endl;
+      return;
+    }
+  }
 
   //////////////////////////////////////////////////////////////////////////////
   Matrix solveDirectly(const Matrix& rhs) {
     Matrix sol = hst_.toClusterOrder(rhs);
-    sol = hst_.sampletTransform(sol);
-    sol = llt_.solve(sol);
+    const Matrix trhs = hst_.sampletTransform(sol);
+    sol = llt_.solve(trhs);
     sol = hst_.inverseSampletTransform(sol);
     sol = hst_.toNaturalOrder(sol);
-    solver_iterations_ = 1;  // Direct solver has no iterations
+    solver_iterations_ = 1;
     return sol;
   }
 #endif
@@ -140,16 +121,15 @@ class SampletKernelSolver {
     rhs_copy = hst_.toClusterOrder(rhs_copy);
     rhs_copy = hst_.sampletTransform(rhs_copy);
     Vector sol;
-    SparseMatrix K_sym = K_.template selfadjointView<Eigen::Upper>();
 
     if (!CGwithPreconditioner) {
-      CG solver;
+      SparseCG solver;
       solver.setTolerance(threshold_CG);
       solver.compute(K_sym);
       sol = solver.solve(rhs_copy);
       solver_iterations_ = solver.iterations();
     } else {
-      PreconditionedCG solver;
+      SparsePCG solver;
       solver.setTolerance(threshold_CG);
       solver.compute(K_sym);
       sol = solver.solve(rhs_copy);
@@ -159,34 +139,34 @@ class SampletKernelSolver {
     sol = hst_.toNaturalOrder(sol);
     return sol;
   }
-
   //////////////////////////////////////////////////////////////////////////////
-  // Getters
+  // getter
   const SparseMatrix& K() const { return K_; }
-  const SampletTree& getSampletTree() const { return hst_; }
   const Scalar fill_distance() const { return fill_distance_; }
   const Scalar separation_radius() const { return separation_radius_; }
-  const size_t anz() const { return anz_; }
-  const Index solver_iterations() const { return solver_iterations_; }
+  //////////////////////////////////////////////////////////////////////////////
+  Matrix solve(const Matrix& rhs) {
+    Matrix sol = hst_.toClusterOrder(rhs);
+    const Matrix trhs = hst_.sampletTransform(sol);
+    sol = llt_.solve(trhs);
+    sol = hst_.inverseSampletTransform(sol);
+    sol = hst_.toNaturalOrder(sol);
+    return sol;
+  }
 
  private:
-  internal::SampletMatrixCompressor<SampletTree> compressor_;
+  SampletMatrixCompressor<SampletTree> compressor_;
   SampletTree hst_;
   CovarianceKernel kernel_;
-#if defined(CHOLMOD_SUPPORT) || defined(METIS_SUPPORT)
-  Cholesky llt_;
-#endif
+  SparseCholesky llt_;
   SparseMatrix K_;
   Scalar dtilde_;
   Scalar mpole_deg_;
   Scalar eta_;
-  Scalar nu_;
   Scalar threshold_;
   Scalar ridgep_;
   Scalar fill_distance_;
   Scalar separation_radius_;
-  size_t anz_;
-  Index solver_iterations_;
 };
 }  // namespace FMCA
 

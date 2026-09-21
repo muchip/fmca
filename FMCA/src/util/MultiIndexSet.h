@@ -20,36 +20,46 @@
 
 namespace FMCA {
 
-enum IndexSetType { Generic, TotalDegree, TensorProduct, WeightedTotalDegree };
+enum IndexSetType {
+  Generic,
+  TotalDegree,
+  TensorProduct,
+  WeightedTotalDegree,
+};
 
-template <IndexSetType T> class MultiIndexSet;
+template <IndexSetType T>
+class MultiIndexSet;
 
-template <IndexSetType T> struct MultiIndexSetInitializer;
+template <IndexSetType T>
+struct MultiIndexSetInitializer;
 
-template <IndexSetType T> struct IndexSetCriterion {};
+template <IndexSetType T>
+struct IndexSetCriterion {};
 
-template <> struct IndexSetCriterion<TotalDegree> {
-  IndexSetCriterion(){};
+template <>
+struct IndexSetCriterion<TotalDegree> {
+  IndexSetCriterion() {};
   IndexSetCriterion(Index max_degree) : max_degree_(max_degree) {}
-  template <typename T> bool operator()(const T &index) {
+  template <typename T>
+  bool operator()(const T &index) {
     Index sum = 0;
-    for (auto i : index)
-      sum += i;
+    for (auto i : index) sum += i;
     return sum <= max_degree_;
   }
   Index max_degree_;
 };
 
-template <> struct IndexSetCriterion<WeightedTotalDegree> {
-  IndexSetCriterion(){};
+template <>
+struct IndexSetCriterion<WeightedTotalDegree> {
+  IndexSetCriterion() {};
   IndexSetCriterion(Index max_degree, const std::vector<Scalar> &weights)
       : max_degree_(max_degree), weights_(weights) {}
 
-  template <typename T> bool operator()(const T &index) {
+  template <typename T>
+  bool operator()(const T &index) {
     assert(index.size() == weights_.size() && "dimension mismatch");
     Scalar sum = 0;
-    for (auto i = 0; i < index.size(); ++i)
-      sum += index[i] * weights_[i];
+    for (auto i = 0; i < index.size(); ++i) sum += index[i] * weights_[i];
     return sum <= max_degree_;
   }
 
@@ -57,13 +67,14 @@ template <> struct IndexSetCriterion<WeightedTotalDegree> {
   std::vector<Scalar> weights_;
 };
 
-template <> struct IndexSetCriterion<TensorProduct> {
-  IndexSetCriterion(){};
+template <>
+struct IndexSetCriterion<TensorProduct> {
+  IndexSetCriterion() {};
   IndexSetCriterion(Index max_degree) : max_degree_(max_degree) {}
-  template <typename T> bool operator()(const T &index) {
+  template <typename T>
+  bool operator()(const T &index) {
     Index max = 0;
-    for (auto i : index)
-      max = max > i ? max : i;
+    for (auto i : index) max = max > i ? max : i;
     return max <= max_degree_;
   }
   Index max_degree_;
@@ -73,14 +84,13 @@ template <> struct IndexSetCriterion<TensorProduct> {
  *  \brief in order to obtain hierarchies in the index set, we employ
  *  a normwise ordering combined with the lexicographical one
  **/
-template <typename Array> struct FMCA_Compare {
+template <typename Array>
+struct FMCA_Compare {
   bool operator()(const Array &a, const Array &b) const {
     typename Array::value_type nrma = 0;
     typename Array::value_type nrmb = 0;
-    for (auto i = 0; i < a.size(); ++i)
-      nrma += std::abs(Scalar(a[i]));
-    for (auto i = 0; i < b.size(); ++i)
-      nrmb += std::abs(Scalar(b[i]));
+    for (auto i = 0; i < a.size(); ++i) nrma += std::abs(Scalar(a[i]));
+    for (auto i = 0; i < b.size(); ++i) nrmb += std::abs(Scalar(b[i]));
     if (nrma != nrmb)
       return nrma < nrmb;
     else
@@ -92,18 +102,21 @@ template <typename Array> struct FMCA_Compare {
 /**
  *  \brief specialization for index sets with a general boolean criterion
  **/
-template <IndexSetType T = TotalDegree> class MultiIndexSet {
+template <IndexSetType T = TotalDegree>
+class MultiIndexSet {
   friend struct MultiIndexSetInitializer<T>;
 
-public:
+ public:
   typedef std::set<std::vector<Index>, FMCA_Compare<std::vector<Index>>>
       multi_index_set;
-  MultiIndexSet(){};
-  template <typename... Ts> MultiIndexSet(Ts &&...ts) {
+  MultiIndexSet() {};
+  template <typename... Ts>
+  MultiIndexSet(Ts &&...ts) {
     init(std::forward<Ts>(ts)...);
   }
 
-  template <typename... Ts> void init(Ts &&...ts) {
+  template <typename... Ts>
+  void init(Ts &&...ts) {
     MultiIndexSetInitializer<T>::init(*this, std::forward<Ts>(ts)...);
   }
 
@@ -120,7 +133,7 @@ public:
   IndexSetCriterion<T> &is_element() { return is_element_; }
   const IndexSetCriterion<T> &is_element() const { return is_element_; }
   //////////////////////////////////////////////////////////////////////////////
-private:
+ private:
   multi_index_set s_data_;
   IndexSetCriterion<T> is_element_;
   Index max_degree_;
@@ -131,8 +144,10 @@ private:
  *  \brief provide the different initializers for the different index sets
  *
  **/
-template <> struct MultiIndexSetInitializer<Generic> {
-  template <typename T> static void init(T &set, Index dim, Index max_degree) {
+template <>
+struct MultiIndexSetInitializer<Generic> {
+  template <typename T>
+  static void init(T &set, Index dim, Index max_degree) {
     set.dim() = dim;
     set.max_degree() = max_degree;
     set.is_element().max_degree_ = max_degree;
@@ -171,7 +186,8 @@ template <>
 struct MultiIndexSetInitializer<TensorProduct>
     : public MultiIndexSetInitializer<Generic> {};
 
-template <> struct MultiIndexSetInitializer<WeightedTotalDegree> {
+template <>
+struct MultiIndexSetInitializer<WeightedTotalDegree> {
   template <typename T>
   static void init(T &set, Index dim, Index max_degree,
                    const std::vector<Scalar> &weights) {
@@ -214,6 +230,6 @@ template <> struct MultiIndexSetInitializer<WeightedTotalDegree> {
     return;
   }
 };
-} // namespace FMCA
+}  // namespace FMCA
 
 #endif

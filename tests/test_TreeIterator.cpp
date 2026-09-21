@@ -12,15 +12,15 @@
 #include <Eigen/Dense>
 #include <iostream>
 
-#include "../FMCA/Clustering"
-#include "../FMCA/src/util/Tictoc.h"
+#include <FMCA/Clustering>
+#include <FMCA/src/util/Tictoc.h>
 
 #define DIM 100
 #define NPTS 1000000
 
 int main() {
   FMCA::Tictoc T;
-  const FMCA::Matrix P = Eigen::MatrixXd::Random(DIM, NPTS);
+  const FMCA::Matrix P = FMCA::Matrix::Random(DIM, NPTS);
   std::cout
       << "Cluster splitter:             "
       << FMCA::internal::traits<FMCA::ClusterTree>::Splitter::splitterName()

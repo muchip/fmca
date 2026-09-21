@@ -12,10 +12,6 @@
 #ifndef FMCA_UTIL_COMBIINDEXSET_H_
 #define FMCA_UTIL_COMBIINDEXSET_H_
 
-#include <algorithm>
-#include <set>
-#include <vector>
-
 #include "Macros.h"
 #include "MultiIndexSet.h"
 namespace FMCA {
@@ -37,7 +33,7 @@ class CombiIndexSet {
   typedef std::map<std::vector<Index>, std::ptrdiff_t,
                    FMCA_Compare<std::vector<Index>>>
       combi_index_set;
-  CombiIndexSet(){};
+  CombiIndexSet() {};
   template <typename... Ts>
   CombiIndexSet(Ts &&...ts) {
     init(std::forward<Ts>(ts)...);
@@ -84,7 +80,7 @@ struct CombiIndexSetInitializer<Generic> {
     std::vector<Index> indexP1(set.dim(), 1);
     std::ptrdiff_t cw = 0;
     if (set.is_element()(index)) {
-      if (not set.is_element()(indexP1))
+      if (!set.is_element()(indexP1))
         cw = combinationWeight(set, 0, 1, 1, index);
       if (cw) set.index_set().insert(std::make_pair(index, cw));
       // compute all other indices in the set recursively
@@ -102,7 +98,7 @@ struct CombiIndexSetInitializer<Generic> {
       index[i] += 1;
       indexP1[i] += 1;
       if (set.is_element()(index)) {
-        if (not set.is_element()(indexP1))
+        if (!set.is_element()(indexP1))
           cw = combinationWeight(set, 0, 1, 1, index);
         if (cw) set.index_set().insert(std::make_pair(index, cw));
         // check child indices only if father index is contained in set.

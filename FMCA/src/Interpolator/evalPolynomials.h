@@ -18,7 +18,7 @@ namespace internal {
 //////////////////////////////////////////////////////////////////////////////
 struct LegendrePolynomials {
   template <typename Derived>
-  static Matrix eval(Index deg, const Eigen::MatrixBase<Derived> &pt) {
+  static Matrix eval(Index deg, const MatrixBase<Derived> &pt) {
     Matrix retval(pt.rows(), deg + 1);
     Vector P0, P1;
     P0.resize(pt.rows());
@@ -42,7 +42,7 @@ struct LegendrePolynomials {
 //////////////////////////////////////////////////////////////////////////////
 struct Monomials {
   template <typename Derived>
-  static Matrix eval(Index deg, const Eigen::MatrixBase<Derived> &pt) {
+  static Matrix eval(Index deg, const MatrixBase<Derived> &pt) {
     Matrix retval(pt.rows(), deg + 1);
     for (Index i = 0; i <= deg; ++i) retval.col(i) = pt.array().pow(i);
     return retval;
@@ -53,7 +53,7 @@ struct Monomials {
 template <typename Polynomials = LegendrePolynomials, typename MultiIndexSet,
           typename Derived>
 Matrix evalPolynomials(const MultiIndexSet &idcs,
-                       const Eigen::MatrixBase<Derived> &pt) {
+                       const MatrixBase<Derived> &pt) {
   Vector retval(idcs.index_set().size());
   Matrix p_values = Polynomials::eval(idcs.max_degree(), pt);
   retval.setOnes();

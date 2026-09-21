@@ -12,9 +12,6 @@
 #ifndef FMCA_INTERPOLATOR_DEMARCHIPOINTS_H_
 #define FMCA_INTERPOLATOR_DEMARCHIPOINTS_H_
 
-#include <Eigen/QR>
-#include <Eigen/SVD>
-
 #include "../util/HaltonSet.h"
 #include "evalPolynomials.h"
 
@@ -33,12 +30,12 @@ Matrix DeMarchiPoints(const MultiIndexSet &idcs,
   Matrix Halton_pts(dim, oversmplng_factor * n);
   HaltonSet<100> hs(dim);
   for (Index i = 0; i < Halton_pts.cols(); ++i) {
-    Halton_pts.col(i) = hs.EigenHaltonVector();
+    Halton_pts.col(i) = hs.MapHaltonVector();
     hs.next();
   }
   for (Index i = 0; i < Halton_pts.cols(); ++i)
     VT.col(i) = internal::evalPolynomials(idcs, Halton_pts.col(i));
-  Eigen::ColPivHouseholderQR<Matrix> qr;
+  ColPivHouseholderQR qr;
   qr.compute(VT);
   const auto &pt_idcs = qr.colsPermutation().indices();
   for (Index i = 0; i < n; ++i) retval.col(i) = Halton_pts.col(pt_idcs(i));
@@ -46,7 +43,7 @@ Matrix DeMarchiPoints(const MultiIndexSet &idcs,
   VT.resize(n, n);
   for (Index i = 0; i < retval.cols(); ++i)
     VT.col(i) = internal::evalPolynomials(idcs, retval.col(i));
-  Eigen::JacobiSVD<Matrix> svd;
+  JacobiSVD svd;
   svd.compute(VT);
   if (svd.singularValues().maxCoeff() / svd.singularValues().minCoeff() > 1e6)
     std::cout << "Ill-conditioned DeMarchi points ("

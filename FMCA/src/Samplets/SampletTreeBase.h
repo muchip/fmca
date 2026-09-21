@@ -12,6 +12,8 @@
 #ifndef FMCA_SAMPLETS_SAMPLETTREEBASE_H_
 #define FMCA_SAMPLETS_SAMPLETTREEBASE_H_
 
+#include "../util/RandomTreeAccessor.h"
+
 namespace FMCA {
 
 /**
@@ -19,7 +21,8 @@ namespace FMCA {
  *  \brief SampletTreeNodeBase defines the basic fields required for an
  *         abstract SampletTree, i.e. the transformation matrices
  **/
-template <typename Derived> struct SampletTreeNodeDataFields {
+template <typename Derived>
+struct SampletTreeNodeDataFields {
   Matrix Q_;
   Matrix mom_buffer_;
   Index nscalfs_;
@@ -42,17 +45,17 @@ struct SampletTreeBase : public ClusterTreeBase<Derived> {
   using Base::appendSons;
   using Base::bb;
   using Base::block_id;
+  using Base::block_size;
+  using Base::dad;
   using Base::derived;
   using Base::indices;
   using Base::indices_begin;
-  using Base::block_size;
   using Base::init;
   using Base::is_root;
   using Base::level;
   using Base::node;
   using Base::nSons;
   using Base::sons;
-  using Base::dad;
   //////////////////////////////////////////////////////////////////////////////
   void sampletTransformMatrix(Matrix &M) {
     M = sampletTransform(M);
@@ -82,11 +85,11 @@ struct SampletTreeBase : public ClusterTreeBase<Derived> {
     return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
-  std::vector<Eigen::Triplet<Scalar>> transformationMatrixTriplets() const {
+  std::vector<Triplet> transformationMatrixTriplets() const {
     const Index n = block_size();
     Matrix buffer(n, 1);
     Matrix unit(n, 1);
-    std::vector<Eigen::Triplet<Scalar>> triplet_list;
+    std::vector<Triplet> triplet_list;
     for (auto j = 0; j < n; ++j) {
       buffer.setZero();
       unit.setZero();
@@ -94,10 +97,53 @@ struct SampletTreeBase : public ClusterTreeBase<Derived> {
       buffer = sampletTransform(unit);
       for (auto i = 0; i < buffer.size(); ++i)
         if (abs(buffer(i)) > 1e-14)
-          triplet_list.emplace_back(Eigen::Triplet<Scalar>(i, j, buffer(i)));
+          triplet_list.emplace_back(Triplet(i, j, buffer(i)));
     }
     return triplet_list;
   }
+
+  std::vector<Triplet> transformationMatrixTriplets2() const {
+    std::vector<Triplet> triplet_list;
+    std::vector<Index> inv_ids(this->derived().block_size());
+    for (Index i = 0; i < inv_ids.size(); ++i)
+      inv_ids[this->derived().indices()[i]] = i;
+    std::vector<const Derived *> leaves;
+    // get leaves of the tree
+    for (const auto &it : this->derived())
+      if (!it.nSons() && it.block_size()) leaves.push_back(std::addressof(it));
+    // we spawn a transform from each leaf
+    for (Index l = 0; l < leaves.size(); ++l) {
+      const Derived *cluster = leaves[l];
+      const Index *indices = cluster->indices();
+      const Index nindices = cluster->block_size();
+      Matrix buf = (cluster->Q()).transpose();
+      Matrix buf2;
+      while (!(cluster->is_root())) {
+        for (Index j = 0; j < nindices; ++j)
+          for (Index i = 0; i < cluster->nsamplets(); ++i)
+            triplet_list.push_back(Triplet(cluster->start_index() + i,
+                                           inv_ids[indices[j]],
+                                           buf(i + cluster->nscalfs(), j)));
+        buf2 = Matrix::Zero(cluster->dad().Q().cols(), buf.cols());
+        Index row_offset = 0;
+        for (Index s = 0; s < cluster->dad().nSons(); ++s) {
+          if (std::addressof(cluster->dad().sons(s)) == cluster) break;
+          row_offset += cluster->dad().sons(s).nscalfs();
+        }
+        buf2.middleRows(row_offset, cluster->nscalfs()) =
+            buf.topRows(cluster->nscalfs());
+        cluster = std::addressof(cluster->dad());
+        buf = (cluster->Q()).transpose() * buf2;
+      }
+      // root level now
+      for (Index j = 0; j < nindices; ++j)
+        for (Index i = 0; i < (cluster->Q()).cols(); ++i)
+          triplet_list.push_back(Triplet(cluster->start_index() + i,
+                                         inv_ids[indices[j]], buf(i, j)));
+    }
+    return triplet_list;
+  }
+
   //////////////////////////////////////////////////////////////////////////////
   Index nscalfs() const { return node().nscalfs_; }
   Index nsamplets() const { return node().nsamplets_; }
@@ -106,15 +152,14 @@ struct SampletTreeBase : public ClusterTreeBase<Derived> {
   //////////////////////////////////////////////////////////////////////////////
   const Matrix &Q() const { return node().Q_; }
 
-private:
+ private:
   //////////////////////////////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////////
   Matrix sampletTransformRecursion(const Matrix &data, Matrix *svec) const {
     Matrix retval(0, 0);
     Index scalf_shift = 0;
-    if (is_root())
-      scalf_shift = nscalfs();
+    if (is_root()) scalf_shift = nscalfs();
     if (nSons()) {
       for (auto i = 0; i < nSons(); ++i) {
         Matrix scalf = sons(i).sampletTransformRecursion(data, svec);
@@ -129,8 +174,7 @@ private:
           Q().rightCols(nsamplets()).transpose() * retval;
       retval = Q().leftCols(nscalfs()).transpose() * retval;
     }
-    if (is_root())
-      svec->middleRows(start_index(), nscalfs()) = retval;
+    if (is_root()) svec->middleRows(start_index(), nscalfs()) = retval;
     return retval;
   }
   //////////////////////////////////////////////////////////////////////////////
@@ -163,5 +207,5 @@ private:
     return;
   }
 };
-} // namespace FMCA
+}  // namespace FMCA
 #endif
