@@ -9,8 +9,8 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#ifndef FMCA_COVARIANCEKERNEL_RADIALFUNCTIONS_H_
-#define FMCA_COVARIANCEKERNEL_RADIALFUNCTIONS_H_
+#ifndef FMCA_KERNEL_RADIALFUNCTIONS_H_
+#define FMCA_KERNEL_RADIALFUNCTIONS_H_
 
 #include "../util/Macros.h"
 
@@ -19,16 +19,12 @@ namespace FMCA {
  *  \brief Radial functions in the squared-distance convention
  *         \psi(s) := \phi(\sqrt{s}), s = ||x - y||^2.
  *
- *         Since x -> ||x - y||^2 is smooth, the kernel
- *         k(x, y) = \psi(||x - y||^2) is m-times differentiable across
- *         the diagonal if and only if \psi is C^m at s = 0.
- *
  *         Chain rule for the assembler (Delta = x - y):
  *           d/dx_d k          =  2 dpsi(s) Delta_d
  *           d^2/dx_d dy_e k   = -4 d2psi(s) Delta_d Delta_e
  *                               -2 dpsi(s) delta_{de}
+ *          for stationary kernels d/dy_d = -d/dx_d,
  **/
-
 namespace RadialFunctions {
 struct Matern12 {
   static constexpr int cpd_order = 0;
@@ -180,8 +176,9 @@ struct TPS2D {
   static constexpr int cpd_order = 2;
   static constexpr bool has_dpsi = false;
   static constexpr bool has_d2psi = false;
-  static Scalar psi(Scalar s, Scalar, Scalar) {
-    return s > 0. ? 0.5 * s * std::log(s) : 0.;
+  static Scalar psi(Scalar s, Scalar l, Scalar) {
+    const Scalar t = s / (l * l);
+    return s > 0. ? 0.5 * t * std::log(t) : 0.;
   }
 };
 
@@ -192,6 +189,42 @@ struct TPS3D {
   static Scalar psi(Scalar s, Scalar l, Scalar) { return -std::sqrt(s) / l; }
 };
 
+/**
+ *  \brief tag for the first derivative kernel of a radial function:
+ *           d/dx_D psi(s) = 2 psi'(s) ds_D,
+ *         ds_D := (d/dx_D) s / 2 (Euclidean: x_D - y_D).
+ *         not radial in s; realized by a RadialAdapter specialization
+ *         (currently Euclidean only). requires bounded psi'.
+ **/
+template <typename RF, int D>
+struct GradientOf {
+  typedef RF RadialFunction;
+  static constexpr bool has_dpsi = false;
+  static constexpr bool has_d2psi = false;
+  static_assert(RF::has_dpsi, "GradientOf requires bounded psi'");
+};
+
+/**
+ *  \brief negative Laplacian of a radial function as a radial function:
+ *         -Delta_x psi(s) = -Delta_x psi(||x - y||^2)
+ *                    = -(2 DIM psi'(s) + 4 s psi''(s)).
+ *         Elliptic sign: the resulting kernel is PD for admissible RF.
+ *         cpd_order drops by one, requires bounded psi''
+ **/
+template <typename RF, int DIM>
+struct LaplacianOf {
+  static constexpr int cpd_order = RF::cpd_order > 0 ? RF::cpd_order - 1 : 0;
+  static constexpr bool has_dpsi = false;
+  static constexpr bool has_d2psi = false;
+  static_assert(RF::has_d2psi,
+                "LaplacianOf requires bounded psi''; Matern12/32 and TPS "
+                "are not admissible");
+  static_assert(RF::cpd_order <= 1,
+                "LaplacianOf of cpd_order >= 2 is not positive definite");
+  static Scalar psi(Scalar s, Scalar l, Scalar c) {
+    return -(2. * DIM * RF::dpsi(s, l, c) + 4. * s * RF::d2psi(s, l, c));
+  }
+};
 }  // namespace RadialFunctions
 }  // namespace FMCA
 #endif

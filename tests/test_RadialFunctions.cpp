@@ -9,7 +9,7 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 
-#include "../FMCA/src/CovarianceKernel/RadialFunctions.h"
+#include "../FMCA/src/Kernel/RadialFunctions.h"
 
 template <typename RadialFun>
 bool checkRF(FMCA::Scalar l = 0.7, FMCA::Scalar c = 1.3) {

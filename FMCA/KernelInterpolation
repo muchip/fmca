@@ -22,7 +22,7 @@
 #include "src/util/Macros.h"
 //
 
-#include "CovarianceKernel"
+#include "Kernel"
 #include "Samplets"
 #include "H2Matrix"
 

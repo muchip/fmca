@@ -19,8 +19,8 @@
 #include <FMCA/src/util/Tictoc.h>
 
 #include <FMCA/Clustering>
-#include <FMCA/CovarianceKernel>
 #include <FMCA/H2Matrix>
+#include <FMCA/Kernel>
 #include <FMCA/LowRankApproximation>
 #include <FMCA/Samplets>
 ////////////////////////////////////////////////////////////////////////////////
@@ -710,12 +710,9 @@ PYBIND11_MODULE(FMCA, m) {
   //////////////////////////////////////////////////////////////////////////////
   py::class_<FMCA::CovarianceKernel> pyCovarianceKernel_(m, "CovarianceKernel");
   pyCovarianceKernel_.def(py::init<>());
-  pyCovarianceKernel_.def(py::init<const std::string &>());
-  pyCovarianceKernel_.def(py::init<const std::string &, FMCA::Scalar>());
   pyCovarianceKernel_.def(
-      py::init<const std::string &, FMCA::Scalar, FMCA::Scalar>());
-  pyCovarianceKernel_.def(py::init<const std::string &, FMCA::Scalar,
-                                   FMCA::Scalar, FMCA::Scalar>());
+      py::init<const std::string &, FMCA::Scalar, FMCA::Scalar>(),
+      py::arg("ktype"), py::arg("l") = 1., py::arg("c") = 1.);
   pyCovarianceKernel_.def("kernelType", &FMCA::CovarianceKernel::kernelType);
   pyCovarianceKernel_.def("eval", &FMCA::CovarianceKernel::eval,
                           py::arg().noconvert(), py::arg().noconvert());

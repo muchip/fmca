@@ -21,7 +21,7 @@
 
 #include "src/util/Macros.h"
 
-#include "CovarianceKernel"
+#include "Kernel"
 #include "src/LowRankApproximation/FALKON.h"
 #include "src/LowRankApproximation/NystromApproximation.h"
 #include "src/LowRankApproximation/PivotedCholesky.h"

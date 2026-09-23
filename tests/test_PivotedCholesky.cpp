@@ -12,7 +12,7 @@
 #include <Eigen/Dense>
 #include <iostream>
 
-#include <FMCA/CovarianceKernel>
+#include <FMCA/Kernel>
 #include <FMCA/src/LowRankApproximation/PivotedCholesky.h>
 #include <FMCA/src/util/Tictoc.h>
 
