@@ -1,0 +1,37 @@
+// This file is part of FMCA, the Fast Multiresolution Covariance Analysis
+// package.
+//
+// Copyright (c) 2026, Michael Multerer
+//
+// All rights reserved.
+//
+// This source code is subject to the GNU Affero General Public License v3.0
+// license and without any warranty, see <https://github.com/muchip/FMCA>
+// for further information.
+//
+#ifndef FMCA_KERNEL_MODULE_
+#define FMCA_KERNEL_MODULE_
+
+/**
+ *  \ingroup Modules
+ *  \defgroup Kernel Kernel
+ *  \brief Module providing a kernel functions
+ *
+ **/
+ 
+#include "src/util/Macros.h"
+//
+#include "Clustering"
+
+#include "src/Kernel/RadialFunctions.h"
+#include "src/Kernel/RadialAdapter.h"
+#include "src/Kernel/KernelBase.h"
+#include "src/Kernel/SymmetricKernelBase.h"
+#include "src/Kernel/CPDKernelBase.h"
+#include "src/Kernel/PDKernelBase.h"
+#include "src/Kernel/PDKernel.h"
+#include "src/Kernel/CPDKernel.h"
+#include "src/Kernel/KernelGradient.h"
+#include "src/Kernel/KernelLaplacian.h"
+
+#endif

@@ -10,7 +10,7 @@
 // for further information.
 //
 //
-#include <FMCA/CovarianceKernel>
+#include <FMCA/Kernel>
 #include <FMCA/H2Matrix>
 #include <FMCA/src/util/Tictoc.h>
 

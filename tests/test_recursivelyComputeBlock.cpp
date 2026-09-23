@@ -13,7 +13,7 @@
 #define FMCA_VERBOSE
 #include "../FMCA/src/util/Macros.h"
 //
-#include "../FMCA/CovarianceKernel"
+#include "../FMCA/Kernel"
 #include "../FMCA/Samplets"
 #include "../FMCA/src/Samplets/recursivelyComputeBlock.h"
 #include "../FMCA/src/util/Tictoc.h"

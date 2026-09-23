@@ -13,7 +13,7 @@
 #include <FMCA/src/util/Tictoc.h>
 
 #include <Eigen/Dense>
-#include <FMCA/CovarianceKernel>
+#include <FMCA/Kernel>
 #include <FMCA/Samplets>
 #include <iostream>
 
