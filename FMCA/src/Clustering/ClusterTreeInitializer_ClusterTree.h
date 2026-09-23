@@ -74,6 +74,9 @@ struct ClusterTreeInitializer<ClusterTree> {
       }
       // split index set and set sons bounding boxes
       split(P, CT.sons(0).node(), CT.sons(1).node());
+      // steal projection hyperplane
+      CT.node().c_ = std::move(CT.sons(0).node().c_);
+      CT.node().r_ = CT.sons(0).node().r_;
       // let recursion handle the rest
       for (Index i = 0; i < CT.nSons(); ++i)
         init_ClusterTree_impl<Derived>(CT.sons(i), min_csize, P);

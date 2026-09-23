@@ -55,6 +55,29 @@ struct NystromEvaluator {
     return;
   }
   /**
+   *  \brief provides the kernel evaluation for the H2-matrix, in principle
+   *         this method could also be used to return the desired block from
+   *         a precomputed H2-matrix! The variant below computes entries
+   *         on the fly
+   **/
+  template <typename Derived>
+  void interpolate_kernel_noalloc(const ClusterTreeBase<Derived> &TR,
+                                  const ClusterTreeBase<Derived> &TC,
+                                  Scalar *mem, Scalar *temp_mem) const {
+    AMap<Matrix> mat(mem, mom_.interp().Xi().cols(), mom_.interp().Xi().cols());
+    for (Index j = 0; j < mat.cols(); ++j)
+      for (Index i = 0; i < mat.rows(); ++i)
+        mat(i, j) =
+            kernel_(mom_.interp().Xi().col(i).cwiseProduct(TR.bb().col(2)) +
+                        TR.bb().col(0),
+                    mom_.interp().Xi().col(j).cwiseProduct(TC.bb().col(2)) +
+                        TC.bb().col(0));
+    AMap<Matrix> temp(temp_mem, mom_.interp().Xi().cols(),
+                      mom_.interp().Xi().cols());
+    temp.noalias() = mat * mom_.interp().invV().transpose();
+    mat.noalias() = mom_.interp().invV() * temp;
+  }
+  /**
    *  \brief provides the evaluaton of a dense matrix block for a given
    *         cluster pair
    **/
@@ -69,7 +92,21 @@ struct NystromEvaluator {
                                   mom_.P().col(TC.indices()[j]));
     return;
   }
-
+  /**
+   *  \brief provides the evaluaton of a dense matrix block for a given
+   *         cluster pair
+   **/
+  template <typename Derived>
+  void compute_dense_block_noalloc(const ClusterTreeBase<Derived> &TR,
+                                   const ClusterTreeBase<Derived> &TC,
+                                   Scalar *mem) const {
+    AMap<Matrix> retval(mem, TR.block_size(), TC.block_size());
+    for (Index j = 0; j < TC.block_size(); ++j)
+      for (Index i = 0; i < TR.block_size(); ++i)
+        retval(i, j) = kernel_(mom_.P().col(TR.indices()[i]),
+                               mom_.P().col(TC.indices()[j]));
+    return;
+  }
   /**
    *  \brief provides the evaluaton of a matrix entry given
    *         an index pair

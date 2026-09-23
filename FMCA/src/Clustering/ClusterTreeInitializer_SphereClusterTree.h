@@ -38,6 +38,7 @@ struct ClusterTreeInitializer<SphereClusterTree> {
       it.node().block_id_ = i;
       ++i;
     }
+    // this needs to be done last, as c_,r_ are written by the splitters now.
     computeCR(P, CT);
   }
   //////////////////////////////////////////////////////////////////////////////

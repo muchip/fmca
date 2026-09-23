@@ -34,7 +34,7 @@
 
 #include "src/util/Tictoc.h"
 
-#include "CovarianceKernel"
+#include "Kernel"
 #include "Samplets"
 #include "H2Matrix"
 

@@ -1,0 +1,230 @@
+// This file is part of FMCA, the Fast Multiresolution Covariance Analysis
+// package.
+//
+// Copyright (c) 2026, Michael Multerer
+//
+// All rights reserved.
+//
+// This source code is subject to the GNU Affero General Public License v3.0
+// license and without any warranty, see <https://github.com/muchip/FMCA>
+// for further information.
+//
+#ifndef FMCA_KERNEL_RADIALFUNCTIONS_H_
+#define FMCA_KERNEL_RADIALFUNCTIONS_H_
+
+#include "../util/Macros.h"
+
+namespace FMCA {
+/**
+ *  \brief Radial functions in the squared-distance convention
+ *         \psi(s) := \phi(\sqrt{s}), s = ||x - y||^2.
+ *
+ *         Chain rule for the assembler (Delta = x - y):
+ *           d/dx_d k          =  2 dpsi(s) Delta_d
+ *           d^2/dx_d dy_e k   = -4 d2psi(s) Delta_d Delta_e
+ *                               -2 dpsi(s) delta_{de}
+ *          for stationary kernels d/dy_d = -d/dx_d,
+ **/
+namespace RadialFunctions {
+struct Matern12 {
+  static constexpr int cpd_order = 0;
+  static constexpr bool has_dpsi = false;
+  static constexpr bool has_d2psi = false;
+  static Scalar psi(Scalar s, Scalar l, Scalar) {
+    const Scalar arg = std::sqrt(s) / l;
+    return std::exp(-arg);
+  }
+};
+
+struct Matern32 {
+  static constexpr int cpd_order = 0;
+  static constexpr bool has_dpsi = true;
+  static constexpr bool has_d2psi = false;
+  static Scalar psi(Scalar s, Scalar l, Scalar) {
+    const Scalar arg = std::sqrt(3. * s) / l;
+    return (1. + arg) * std::exp(-arg);
+  }
+  static Scalar dpsi(Scalar s, Scalar l, Scalar) {
+    const Scalar arg = std::sqrt(3. * s) / l;
+    return -1.5 / (l * l) * std::exp(-arg);
+  }
+};
+
+struct Matern52 {
+  static constexpr int cpd_order = 0;
+  static constexpr bool has_dpsi = true;
+  static constexpr bool has_d2psi = true;
+  static Scalar psi(Scalar s, Scalar l, Scalar) {
+    const Scalar arg = std::sqrt(5. * s) / l;
+    return (1. + (1. + (1. / 3) * arg) * arg) * std::exp(-arg);
+  }
+  static Scalar dpsi(Scalar s, Scalar l, Scalar) {
+    const Scalar arg = std::sqrt(5. * s) / l;
+    return -5. / (6. * l * l) * (1. + arg) * std::exp(-arg);
+  }
+  static Scalar d2psi(Scalar s, Scalar l, Scalar) {
+    const Scalar arg = std::sqrt(5. * s) / l;
+    return 25. / (12. * l * l * l * l) * std::exp(-arg);
+  }
+};
+
+struct Matern72 {
+  static constexpr int cpd_order = 0;
+  static constexpr bool has_dpsi = true;
+  static constexpr bool has_d2psi = true;
+  static Scalar psi(Scalar s, Scalar l, Scalar) {
+    const Scalar arg = std::sqrt(7. * s) / l;
+    return (1. + (1. + (0.4 + 1. / 15 * arg) * arg) * arg) * std::exp(-arg);
+  }
+  static Scalar dpsi(Scalar s, Scalar l, Scalar) {
+    const Scalar arg = std::sqrt(7. * s) / l;
+    return -0.7 / (l * l) * (1. + (1. + (1. / 3) * arg) * arg) * std::exp(-arg);
+  }
+  static Scalar d2psi(Scalar s, Scalar l, Scalar) {
+    const Scalar arg = std::sqrt(7. * s) / l;
+    return 49. / (60. * l * l * l * l) * (1. + arg) * std::exp(-arg);
+  }
+};
+
+struct Matern92 {
+  static constexpr int cpd_order = 0;
+  static constexpr bool has_dpsi = true;
+  static constexpr bool has_d2psi = true;
+  static Scalar psi(Scalar s, Scalar l, Scalar) {
+    const Scalar arg = 3. * std::sqrt(s) / l;
+    return (1. +
+            (1. + (3. / 7 + (2. / 21 + 1. / 105 * arg) * arg) * arg) * arg) *
+           std::exp(-arg);
+  }
+  static Scalar dpsi(Scalar s, Scalar l, Scalar) {
+    const Scalar arg = 3. * std::sqrt(s) / l;
+    return -9. / (14. * l * l) *
+           (1. + (1. + (0.4 + 1. / 15 * arg) * arg) * arg) * std::exp(-arg);
+  }
+  static Scalar d2psi(Scalar s, Scalar l, Scalar) {
+    const Scalar arg = 3. * std::sqrt(s) / l;
+    return 81. / (140. * l * l * l * l) * (1. + (1. + (1. / 3) * arg) * arg) *
+           std::exp(-arg);
+  }
+};
+
+struct MaternInf {
+  static constexpr int cpd_order = 0;
+  static constexpr bool has_dpsi = true;
+  static constexpr bool has_d2psi = true;
+  static Scalar psi(Scalar s, Scalar l, Scalar) {
+    const Scalar arg = 0.5 * s / (l * l);
+    return std::exp(-arg);
+  }
+  static Scalar dpsi(Scalar s, Scalar l, Scalar) {
+    const Scalar arg = 0.5 * s / (l * l);
+    return -0.5 / (l * l) * std::exp(-arg);
+  }
+  static Scalar d2psi(Scalar s, Scalar l, Scalar) {
+    const Scalar arg = 0.5 * s / (l * l);
+    return 0.25 / (l * l * l * l) * std::exp(-arg);
+  }
+};
+
+struct Multiquadric {
+  static constexpr int cpd_order = 1;
+  static constexpr bool has_dpsi = true;
+  static constexpr bool has_d2psi = true;
+  static Scalar psi(Scalar s, Scalar l, Scalar c) {
+    return -std::sqrt(s / (l * l) + c * c);
+  }
+  static Scalar dpsi(Scalar s, Scalar l, Scalar c) {
+    return -0.5 / (l * l * std::sqrt(s / (l * l) + c * c));
+  }
+  static Scalar d2psi(Scalar s, Scalar l, Scalar c) {
+    const Scalar t = s / (l * l) + c * c;
+    return 0.25 / (l * l * l * l * t * std::sqrt(t));
+  }
+};
+
+struct InvMultiquadric {
+  static constexpr int cpd_order = 0;
+  static constexpr bool has_dpsi = true;
+  static constexpr bool has_d2psi = true;
+  static Scalar psi(Scalar s, Scalar l, Scalar c) {
+    return 1. / std::sqrt(s / (l * l) + c * c);
+  }
+  static Scalar dpsi(Scalar s, Scalar l, Scalar c) {
+    const Scalar t = s / (l * l) + c * c;
+    return -0.5 / (l * l * t * std::sqrt(t));
+  }
+  static Scalar d2psi(Scalar s, Scalar l, Scalar c) {
+    const Scalar t = s / (l * l) + c * c;
+    return 0.75 / (l * l * l * l * t * t * std::sqrt(t));
+  }
+};
+
+struct TPS1D {
+  static constexpr int cpd_order = 2;
+  static constexpr bool has_dpsi = true;
+  static constexpr bool has_d2psi = false;
+  static Scalar psi(Scalar s, Scalar l, Scalar) {
+    const Scalar t = s / (l * l);
+    return t * std::sqrt(t);
+  }
+  static Scalar dpsi(Scalar s, Scalar l, Scalar) {
+    return 1.5 * std::sqrt(s) / (l * l * l);
+  }
+};
+
+struct TPS2D {
+  static constexpr int cpd_order = 2;
+  static constexpr bool has_dpsi = false;
+  static constexpr bool has_d2psi = false;
+  static Scalar psi(Scalar s, Scalar l, Scalar) {
+    const Scalar t = s / (l * l);
+    return s > 0. ? 0.5 * t * std::log(t) : 0.;
+  }
+};
+
+struct TPS3D {
+  static constexpr int cpd_order = 1;
+  static constexpr bool has_dpsi = false;
+  static constexpr bool has_d2psi = false;
+  static Scalar psi(Scalar s, Scalar l, Scalar) { return -std::sqrt(s) / l; }
+};
+
+/**
+ *  \brief tag for the first derivative kernel of a radial function:
+ *           d/dx_D psi(s) = 2 psi'(s) ds_D,
+ *         ds_D := (d/dx_D) s / 2 (Euclidean: x_D - y_D).
+ *         not radial in s; realized by a RadialAdapter specialization
+ *         (currently Euclidean only). requires bounded psi'.
+ **/
+template <typename RF, int D>
+struct GradientOf {
+  typedef RF RadialFunction;
+  static constexpr bool has_dpsi = false;
+  static constexpr bool has_d2psi = false;
+  static_assert(RF::has_dpsi, "GradientOf requires bounded psi'");
+};
+
+/**
+ *  \brief negative Laplacian of a radial function as a radial function:
+ *         -Delta_x psi(s) = -Delta_x psi(||x - y||^2)
+ *                    = -(2 DIM psi'(s) + 4 s psi''(s)).
+ *         Elliptic sign: the resulting kernel is PD for admissible RF.
+ *         cpd_order drops by one, requires bounded psi''
+ **/
+template <typename RF, int DIM>
+struct LaplacianOf {
+  static constexpr int cpd_order = RF::cpd_order > 0 ? RF::cpd_order - 1 : 0;
+  static constexpr bool has_dpsi = false;
+  static constexpr bool has_d2psi = false;
+  static_assert(RF::has_d2psi,
+                "LaplacianOf requires bounded psi''; Matern12/32 and TPS "
+                "are not admissible");
+  static_assert(RF::cpd_order <= 1,
+                "LaplacianOf of cpd_order >= 2 is not positive definite");
+  static Scalar psi(Scalar s, Scalar l, Scalar c) {
+    return -(2. * DIM * RF::dpsi(s, l, c) + 4. * s * RF::d2psi(s, l, c));
+  }
+};
+}  // namespace RadialFunctions
+}  // namespace FMCA
+#endif
