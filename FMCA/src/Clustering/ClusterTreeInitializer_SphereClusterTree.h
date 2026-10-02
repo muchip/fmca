@@ -132,11 +132,7 @@ struct ClusterTreeInitializer<SphereClusterTree> {
     CT.node().bb_ = bbmat;
     return;
   }
-  static Scalar geodesicDistance(const Vector &a, const Vector &b) {
-    const Scalar dot = a.dot(b);
-    const Scalar clamped_dot = std::min(1., std::max(-1., dot));
-    return std::acos(clamped_dot);
-  }
+
   /**
    *  \brief implements [K. Aftab, R. Hartley, J. Trumpf: Generalized Weiszfeld
    *                     Algorithms for Lq Optimization] for the special case

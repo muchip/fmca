@@ -20,9 +20,8 @@
  **/
  
 #include "src/util/Macros.h"
+#include "src/util/Metric.h"
 //
-#include "Clustering"
-
 #include "src/Kernel/RadialFunctions.h"
 #include "src/Kernel/RadialAdapter.h"
 #include "src/Kernel/KernelBase.h"
