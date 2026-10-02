@@ -116,7 +116,6 @@ struct CompareSphericalCluster {
   static Admissibility compare(const ClusterTreeBase<Derived> &cluster1,
                                const ClusterTreeBase<otherDerived> &cluster2,
                                Scalar eta) {
-    // for now, we use an ugly typecast here
     Scalar dist =
         Metric::GeodesicSphere::d(cluster1.node().c_, cluster2.node().c_);
     const Scalar row_radius = cluster1.node().r_;
