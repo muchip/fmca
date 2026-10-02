@@ -103,10 +103,47 @@ class SampletKernelSolver {
   }
 
   //////////////////////////////////////////////////////////////////////////////
+  Matrix solveDirectly(const Matrix& rhs) {
+    Matrix sol = hst_.toClusterOrder(rhs);
+    const Matrix trhs = hst_.sampletTransform(sol);
+    sol = llt_.solve(trhs);
+    sol = hst_.inverseSampletTransform(sol);
+    sol = hst_.toNaturalOrder(sol);
+    solver_iterations_ = 1;
+    return sol;
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  Vector solveIteratively(const Vector& rhs, bool CGwithPreconditioner = true,
+                          Scalar threshold_CG = 1e-6) {
+    Vector rhs_copy = rhs;
+    rhs_copy = hst_.toClusterOrder(rhs_copy);
+    rhs_copy = hst_.sampletTransform(rhs_copy);
+    Vector sol;
+
+    if (!CGwithPreconditioner) {
+      SparseCG solver;
+      solver.setTolerance(threshold_CG);
+      solver.compute(K_);
+      sol = solver.solve(rhs_copy);
+      solver_iterations_ = solver.iterations();
+    } else {
+      SparsePCG solver;
+      solver.setTolerance(threshold_CG);
+      solver.compute(K_);
+      sol = solver.solve(rhs_copy);
+      solver_iterations_ = solver.iterations();
+    }
+    sol = hst_.inverseSampletTransform(sol);
+    sol = hst_.toNaturalOrder(sol);
+    return sol;
+  }
+  //////////////////////////////////////////////////////////////////////////////
   // getter
   const SparseMatrix& K() const { return K_; }
   const Scalar fill_distance() const { return fill_distance_; }
   const Scalar separation_radius() const { return separation_radius_; }
+  const Index solver_iterations() const { return solver_iterations_; }
   //////////////////////////////////////////////////////////////////////////////
   Matrix solve(const Matrix& rhs) {
     Matrix sol = hst_.toClusterOrder(rhs);
@@ -118,7 +155,7 @@ class SampletKernelSolver {
   }
 
  private:
-  internal::SampletMatrixCompressor<SampletTree> compressor_;
+  SampletMatrixCompressor<SampletTree> compressor_;
   SampletTree hst_;
   CovarianceKernel kernel_;
   SparseCholesky llt_;
@@ -130,6 +167,7 @@ class SampletKernelSolver {
   Scalar ridgep_;
   Scalar fill_distance_;
   Scalar separation_radius_;
+  Index solver_iterations_;
 };
 }  // namespace FMCA
 

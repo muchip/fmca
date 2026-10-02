@@ -74,6 +74,9 @@ struct ClusterTreeInitializer<ClusterTree> {
       }
       // split index set and set sons bounding boxes
       split(P, CT.sons(0).node(), CT.sons(1).node());
+      // steal projection hyperplane
+      CT.node().c_ = std::move(CT.sons(0).node().c_);
+      CT.node().r_ = CT.sons(0).node().r_;
       // let recursion handle the rest
       for (Index i = 0; i < CT.nSons(); ++i)
         init_ClusterTree_impl<Derived>(CT.sons(i), min_csize, P);
@@ -121,7 +124,7 @@ struct ClusterTreeInitializer<ClusterTree> {
     bbmat.col(2) = bbmat.col(1) - bbmat.col(0);
     // fix potential flat bounding boxes
     for (Index i = 0; i < bbmat.rows(); ++i)
-      if (bbmat(i, 1) - bbmat(i, 0) < 2e2 * FMCA_ZERO_TOLERANCE) {
+      if (bbmat(i, 1) - bbmat(i, 0) < 0e2 * FMCA_ZERO_TOLERANCE) {
         bbmat(i, 1) += 1e2 * FMCA_BBOX_THREASHOLD;
         bbmat(i, 0) -= 1e2 * FMCA_BBOX_THREASHOLD;
         bbmat(i, 2) = bbmat(i, 1) - bbmat(i, 0);

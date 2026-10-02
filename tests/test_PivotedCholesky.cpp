@@ -12,22 +12,32 @@
 #include <Eigen/Dense>
 #include <iostream>
 
-#include "../FMCA/CovarianceKernel"
-#include "../FMCA/src/LowRankApproximation/PivotedCholesky.h"
-#include "../FMCA/src/util/Tictoc.h"
+#include <FMCA/Kernel>
+#include <FMCA/src/LowRankApproximation/PivotedCholesky.h>
+#include <FMCA/src/util/Tictoc.h>
 
-#define NPTS 1000000
+#define NPTS 10000
 #define DIM 3
 
 int main() {
   FMCA::Tictoc T;
-  const FMCA::CovarianceKernel kernel("GAUSSIAN", 2.);
+  const FMCA::CovarianceKernel kernel("GAUSSIAN", 20.);
   const FMCA::Matrix P = FMCA::Matrix::Random(DIM, NPTS);
   T.tic();
   FMCA::PivotedCholesky pivChol;
   std::cout << std::string(60, '-') << std::endl;
   std::cout << "Pivoted Cholesky decomposition" << std::endl;
   pivChol.compute(kernel, P, 1. / NPTS);
+  const FMCA::PivotedCholesky::KernelMatrixWrapper kmat(kernel, P);
+  FMCA::Matrix LL;
+  FMCA::iVector idcs;
+  FMCA::PivotedCholesky::PgreedyPCD(kmat, &LL, &idcs, 1. / NPTS);
+  std::cout << "error: "
+            << ((LL * LL.transpose()) -
+                pivChol.matrixL() * pivChol.matrixL().transpose())
+                       .norm() /
+                   (pivChol.matrixL() * pivChol.matrixL().transpose()).norm()
+            << std::endl;
   pivChol.computeBiorthogonalBasis();
   T.toc("elapsed time:                ");
   std::cout << "rank:                         " << pivChol.matrixL().cols()
@@ -108,5 +118,21 @@ int main() {
               << std::endl;
   }
   std::cout << std::string(60, '-') << std::endl;
+  FMCA::Matrix K = kernel.eval(P, P);
+  FMCA::Matrix Q;
+  FMCA::Matrix R;
+  FMCA::iVector ids;
+  FMCA::PivotedCholesky::PgreedyPCDQR(K, &Q, &R, &ids, 1e-14);
+  FMCA::Matrix L = Q * R;
+  std::cout << (Q.transpose() * Q - FMCA::Matrix::Identity(Q.cols(), Q.cols()))
+                       .norm() /
+                   std::sqrt(Q.cols())
+            << std::endl;
+  std::cout << "QR error: " << (K - L * L.transpose()).norm() / K.norm()
+            << std::endl;
+  FMCA::PivotedCholesky::PgreedyPCD(K, &L, &ids, 1e-14);
+  std::cout << "PCD error: " << (K - L * L.transpose()).norm() / K.norm()
+            << std::endl;
+
   return 0;
 }

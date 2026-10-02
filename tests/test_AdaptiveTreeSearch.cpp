@@ -9,10 +9,10 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#include "../FMCA/Samplets"
+#include <FMCA/Samplets>
 
 #define DIM 2
-#define NPTS 1000000
+#define NPTS 100000
 
 using SampletInterpolator = FMCA::MonomialInterpolator;
 using SampletMoments = FMCA::MinNystromSampletMoments<SampletInterpolator>;

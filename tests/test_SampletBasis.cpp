@@ -12,7 +12,7 @@
 #include <Eigen/Dense>
 #include <iostream>
 
-#include "../FMCA/Samplets"
+#include <FMCA/Samplets>
 
 #define DIM 2
 #define NPTS 1000
@@ -33,7 +33,7 @@ int main() {
     Pol = Pol.topRows(samp_mom.mdtilde());
     FMCA::Scalar err = 0;
     Pol = st.sampletTransform(Pol.transpose());
-    err = Pol.bottomRows(Pol.cols() - st.nscalfs()).colwise().norm().sum();
+    err = Pol.bottomRows(Pol.rows() - st.nscalfs()).colwise().norm().sum();
     std::cout << "average vanishing error:      " << err / Pol.rows()
               << std::endl;
     FMCA::Matrix Q =

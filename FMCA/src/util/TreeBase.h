@@ -64,7 +64,7 @@ class TreeBase {
     while (stack.size()) {
       TreeBase *node = stack.back();
       stack.pop_back();
-      for (TreeBase &s : sons_) {
+      for (TreeBase &s : node->sons_) {
         s.dad_ = node;
         s.level_ = node->level_ + 1;
         stack.push_back(std::addressof(s));

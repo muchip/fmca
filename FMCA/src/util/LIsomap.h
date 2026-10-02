@@ -69,7 +69,7 @@ Matrix LIsomap(const Graph &G, const Index M, const Index emb_dim,
   Vector mean = (Dlm.array().square().matrix()).colwise().mean();
 #pragma omp parallel for schedule(dynamic)
   for (Index i = 0; i < P.cols(); ++i)
-    if (not is_lm[i]) {
+    if (!is_lm[i]) {
       Vector dist2(M);
       for (Index j = 0; j < M; ++j) dist2(j) = D[j][i] * D[j][i];
       P.col(i) = 0.5 * invS * E * (mean - dist2);

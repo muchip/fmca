@@ -22,10 +22,11 @@
 #include "src/util/Macros.h"
 //
 
-#include "CovarianceKernel"
+#include "Kernel"
 #include "Samplets"
 #include "H2Matrix"
 
 #include "src/KernelInterpolation/SampletKernelSolver.h"
+#include "src/KernelInterpolation/H2MatrixKernelSolver.h"
 #include "src/KernelInterpolation/MultipoleFunctionEvaluator.h"
 #endif

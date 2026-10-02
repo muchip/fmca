@@ -67,13 +67,7 @@ struct SampletTree : public SampletTreeBase<SampletTree<ClusterTreeType>> {
                                : mom.interp().Xi().cols();
     ClusterTreeType::initializer::init(*this, mincsize,
                                        std::forward<Ts>(ts)...);
-#pragma omp parallel
-    {
-#pragma omp single
-      {
-        computeSamplets(mom);
-      }
-    }
+    computeSamplets(mom);
     internal::sampletMapper<SampletTree>(*this);
     return;
   }
@@ -84,10 +78,7 @@ struct SampletTree : public SampletTreeBase<SampletTree<ClusterTreeType>> {
     if (nSons()) {
       Index offset = 0;
       for (auto i = 0; i < nSons(); ++i) {
-#pragma omp task
-        {
-          sons(i).computeSamplets(mom);
-        }
+        sons(i).computeSamplets(mom);
         // the son now has moments, lets grep them...
         Matrix shift = 0.5 * (sons(i).bb().col(0) - bb().col(0) +
                               sons(i).bb().col(1) - bb().col(1));

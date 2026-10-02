@@ -64,7 +64,7 @@ void getActiveLeafs(std::vector<const Derived *> &active_leafs,
     // there is at least one active child
     else if (scounter < st.nSons())
       for (FMCA::Index i = 0; i < st.nSons(); ++i)
-        if (not active[st.sons(i).block_id()] && st.sons(i).block_size())
+        if (!active[st.sons(i).block_id()] && st.sons(i).block_size())
           active_leafs.push_back(std::addressof(st.sons(i).derived()));
   } else if (active[st.block_id()] && st.block_size())
     active_leafs.push_back(std::addressof(st.derived()));

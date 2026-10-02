@@ -12,8 +12,8 @@
 #include <Eigen/Dense>
 #include <iostream>
 
-#include "../FMCA/Samplets"
-#include "../FMCA/src/Samplets/samplet_transformer.h"
+#include <FMCA/Samplets>
+#include <FMCA/src/Samplets/samplet_transformer.h>
 #define DIM 2
 #define NPTS 100000
 

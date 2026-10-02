@@ -9,9 +9,9 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#include "../FMCA/Clustering"
-#include "../FMCA/src/util/IO.h"
-#include "../FMCA/src/util/Tictoc.h"
+#include <FMCA/Clustering>
+#include <FMCA/src/util/IO.h>
+#include <FMCA/src/util/Tictoc.h>
 
 #define DIM 3
 #define NPTS 10000
