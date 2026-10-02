@@ -117,7 +117,8 @@ struct CompareSphericalCluster {
                                const ClusterTreeBase<otherDerived> &cluster2,
                                Scalar eta) {
     // for now, we use an ugly typecast here
-    Scalar dist = geodesicDistance(cluster1.node().c_, cluster2.node().c_);
+    Scalar dist =
+        Metric::GeodesicSphere::d(cluster1.node().c_, cluster2.node().c_);
     const Scalar row_radius = cluster1.node().r_;
     const Scalar col_radius = cluster2.node().r_;
     dist = dist - row_radius - col_radius;
@@ -133,11 +134,6 @@ struct CompareSphericalCluster {
         return Refine;
     } else
       return LowRank;
-  }
-  static Scalar geodesicDistance(const Vector &a, const Vector &b) {
-    const Scalar dot = a.dot(b);
-    const Scalar clamped_dot = std::min(1., std::max(-1., dot));
-    return std::acos(clamped_dot);
   }
 };
 /**

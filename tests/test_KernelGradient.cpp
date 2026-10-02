@@ -48,8 +48,8 @@ int main() {
     ok &= checkGradient<FMCA::PDKernel<>>("MATERN92", dim);
     ok &= checkGradient<FMCA::PDKernel<>>("GAUSSIAN", dim);
     ok &= checkGradient<FMCA::PDKernel<>>("INVMULTIQUADRIC", dim);
-    ok &= checkGradient<FMCA::CPDKernel<>>("MULTIQUADRIC", dim);
-    ok &= checkGradient<FMCA::CPDKernel<>>("TPS1D", dim);
+    ok &= checkGradient<FMCA::CPDKernel>("MULTIQUADRIC", dim);
+    ok &= checkGradient<FMCA::CPDKernel>("TPS1D", dim);
   }
   if (ok) std::cout << "PASSED" << std::endl;
   return ok ? 0 : 1;

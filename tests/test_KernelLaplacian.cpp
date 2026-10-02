@@ -50,7 +50,7 @@ int main() {
     ok &= checkLaplacian<FMCA::PDKernel<>>("MATERN92", dim);
     ok &= checkLaplacian<FMCA::PDKernel<>>("GAUSSIAN", dim);
     ok &= checkLaplacian<FMCA::PDKernel<>>("INVMULTIQUADRIC", dim);
-    ok &= checkLaplacian<FMCA::CPDKernel<>>("MULTIQUADRIC", dim);
+    ok &= checkLaplacian<FMCA::CPDKernel>("MULTIQUADRIC", dim);
   }
   if (ok) std::cout << "PASSED" << std::endl;
   return ok ? 0 : 1;
