@@ -10,9 +10,10 @@
 // for further information.
 //
 //
-#include <FMCA/Kernel>
-#include <FMCA/H2Matrix>
 #include <FMCA/src/util/Tictoc.h>
+
+#include <FMCA/H2Matrix>
+#include <FMCA/Kernel>
 
 #define NPTS 10000
 #define DIM 3
@@ -24,7 +25,7 @@ using MatrixEvaluator = FMCA::NystromEvaluator<Moments, FMCA::CovarianceKernel>;
 using MatrixEvaluatorUS =
     FMCA::unsymmetricNystromEvaluator<Moments, FMCA::CovarianceKernel>;
 using H2ClusterTree = FMCA::H2ClusterTree<FMCA::UnitKDTree>;
-using H2Matrix = FMCA::H2Matrix<H2ClusterTree, FMCA::CompareCluster>;
+using H2Matrix = FMCA::H2Matrix<H2ClusterTree, FMCA::CompareClusterBB>;
 
 int main() {
   FMCA::Tictoc T;

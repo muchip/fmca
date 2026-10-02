@@ -66,7 +66,7 @@ struct CompareClusterBB {
         (cluster1.bb().col(0) - cluster2.bb().col(1)).cwiseMax(0);
     const FMCA::Vector v =
         (cluster2.bb().col(0) - cluster1.bb().col(1)).cwiseMax(0);
-    const Scalar dist = sqrt(u.squaredNorm() + v.squaredNorm());
+    const Scalar dist = std::sqrt(u.squaredNorm() + v.squaredNorm());
     const Scalar row_radius = 0.5 * cluster1.bb().col(2).norm();
     const Scalar col_radius = 0.5 * cluster2.bb().col(2).norm();
     const Scalar radius = row_radius > col_radius ? row_radius : col_radius;
