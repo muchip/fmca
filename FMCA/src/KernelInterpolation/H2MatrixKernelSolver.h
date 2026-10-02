@@ -105,7 +105,7 @@ class H2MatrixKernelSolver {
   using Moments = NystromMoments<Interpolator>;
   using MatrixEvaluator = NystromEvaluator<Moments, CovarianceKernel>;
   using H2ClusterTree = FMCA::H2ClusterTree<FMCA::ClusterTree>;
-  using H2Matrix = FMCA::H2Matrix<H2ClusterTree, CompareCluster>;
+  using H2Matrix = FMCA::H2Matrix<H2ClusterTree, CompareClusterBB>;
   using CG = Eigen::ConjugateGradient<EigenWrapper<H2Matrix>,
                                       Eigen::Lower | Eigen::Upper,
                                       Eigen::IdentityPreconditioner>;

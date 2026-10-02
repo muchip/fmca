@@ -16,7 +16,7 @@
 #include "recursivelyComputeBlock.h"
 
 namespace FMCA {
-template <typename H2STreeType, typename ClusterComparison = CompareCluster>
+template <typename H2STreeType, typename ClusterComparison = CompareClusterBB>
 class SampletMatrixCompressorUnsymmetric
     : public SampletMatrixCompressorBase<
           SampletMatrixCompressorUnsymmetric<H2STreeType, ClusterComparison>> {

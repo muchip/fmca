@@ -40,7 +40,7 @@ struct traits<HMatrix<ClusterTreeType, ClusterComparison>>
  *         ClusterTree.
 
  */
-template <typename Derived, typename ClusterComparison = CompareCluster>
+template <typename Derived, typename ClusterComparison = CompareClusterBB>
 struct HMatrix : public HMatrixBase<HMatrix<Derived, ClusterComparison>> {
   typedef HMatrixBase<HMatrix<Derived, ClusterComparison>> Base;
   typedef ClusterComparison CC;
