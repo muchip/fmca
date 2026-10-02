@@ -45,11 +45,11 @@ bool checkLaplacian(const std::string &ktype, FMCA::Index dim,
 int main() {
   bool ok = true;
   for (FMCA::Index dim : {1u, 2u, 3u}) {
-    ok &= checkLaplacian<FMCA::PDKernel>("MATERN52", dim);
-    ok &= checkLaplacian<FMCA::PDKernel>("MATERN72", dim);
-    ok &= checkLaplacian<FMCA::PDKernel>("MATERN92", dim);
-    ok &= checkLaplacian<FMCA::PDKernel>("GAUSSIAN", dim);
-    ok &= checkLaplacian<FMCA::PDKernel>("INVMULTIQUADRIC", dim);
+    ok &= checkLaplacian<FMCA::PDKernel<>>("MATERN52", dim);
+    ok &= checkLaplacian<FMCA::PDKernel<>>("MATERN72", dim);
+    ok &= checkLaplacian<FMCA::PDKernel<>>("MATERN92", dim);
+    ok &= checkLaplacian<FMCA::PDKernel<>>("GAUSSIAN", dim);
+    ok &= checkLaplacian<FMCA::PDKernel<>>("INVMULTIQUADRIC", dim);
     ok &= checkLaplacian<FMCA::CPDKernel>("MULTIQUADRIC", dim);
   }
   if (ok) std::cout << "PASSED" << std::endl;

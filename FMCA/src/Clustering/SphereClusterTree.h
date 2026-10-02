@@ -62,12 +62,6 @@ struct SphereClusterTree : public ClusterTreeBase<SphereClusterTree> {
     initializer::init(*this, min_csize, P);
   }
 
-  static Scalar geodesicDistance(const Vector &a, const Vector &b) {
-    const Scalar dot = a.dot(b);
-    const Scalar clamped_dot = std::min(1., std::max(-1., dot));
-    return std::acos(clamped_dot);
-  }
-
   const Vector &center() const { return this->node().c_; }
   const Scalar radius() const { return this->node().r_; }
 

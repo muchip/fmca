@@ -42,12 +42,12 @@ bool checkGradient(const std::string &ktype, FMCA::Index dim,
 int main() {
   bool ok = true;
   for (FMCA::Index dim : {1u, 2u, 3u}) {
-    ok &= checkGradient<FMCA::PDKernel>("MATERN32", dim);
-    ok &= checkGradient<FMCA::PDKernel>("MATERN52", dim);
-    ok &= checkGradient<FMCA::PDKernel>("MATERN72", dim);
-    ok &= checkGradient<FMCA::PDKernel>("MATERN92", dim);
-    ok &= checkGradient<FMCA::PDKernel>("GAUSSIAN", dim);
-    ok &= checkGradient<FMCA::PDKernel>("INVMULTIQUADRIC", dim);
+    ok &= checkGradient<FMCA::PDKernel<>>("MATERN32", dim);
+    ok &= checkGradient<FMCA::PDKernel<>>("MATERN52", dim);
+    ok &= checkGradient<FMCA::PDKernel<>>("MATERN72", dim);
+    ok &= checkGradient<FMCA::PDKernel<>>("MATERN92", dim);
+    ok &= checkGradient<FMCA::PDKernel<>>("GAUSSIAN", dim);
+    ok &= checkGradient<FMCA::PDKernel<>>("INVMULTIQUADRIC", dim);
     ok &= checkGradient<FMCA::CPDKernel>("MULTIQUADRIC", dim);
     ok &= checkGradient<FMCA::CPDKernel>("TPS1D", dim);
   }

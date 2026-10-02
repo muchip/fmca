@@ -18,7 +18,7 @@
 namespace FMCA {
 namespace internal {
 
-template <typename H2STreeType, typename ClusterComparison = CompareCluster>
+template <typename H2STreeType, typename ClusterComparison = CompareClusterBB>
 class CompressorDAG {
  public:
   using PatternIdx = std::ptrdiff_t;

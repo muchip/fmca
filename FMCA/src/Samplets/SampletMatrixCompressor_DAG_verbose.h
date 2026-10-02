@@ -20,7 +20,7 @@ namespace FMCA {
  *  \brief samplet compressor on the CompressorDAG with a column-subtree
  *         schedule, symmetric and unsymmetric
  **/
-template <typename H2STreeType, typename ClusterComparison = CompareCluster>
+template <typename H2STreeType, typename ClusterComparison = CompareClusterBB>
 class SampletMatrixCompressor
     : public SampletMatrixCompressorBase<
           SampletMatrixCompressor<H2STreeType, ClusterComparison>> {

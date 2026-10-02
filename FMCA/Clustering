@@ -21,6 +21,7 @@
  **/
 
 #include "src/util/Macros.h"
+#include "src/util/Metric.h"
 //
 #include "src/util/ForwardDeclarations.h"
 #include "src/util/Graph.h"

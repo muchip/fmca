@@ -132,11 +132,7 @@ struct ClusterTreeInitializer<SphereClusterTree> {
     CT.node().bb_ = bbmat;
     return;
   }
-  static Scalar geodesicDistance(const Vector &a, const Vector &b) {
-    const Scalar dot = a.dot(b);
-    const Scalar clamped_dot = std::min(1., std::max(-1., dot));
-    return std::acos(clamped_dot);
-  }
+
   /**
    *  \brief implements [K. Aftab, R. Hartley, J. Trumpf: Generalized Weiszfeld
    *                     Algorithms for Lq Optimization] for the special case
@@ -157,7 +153,8 @@ struct ClusterTreeInitializer<SphereClusterTree> {
       c_old = c;
       c.setZero();
       for (Index i = 0; i < node.block_size(); ++i) {
-        const Scalar d_i = geodesicDistance(c, P.col(node.indices()[i]));
+        const Scalar d_i =
+            Metric::GeodesicSphere::d(c, P.col(node.indices()[i]));
         const Scalar w_i =
             1.0 / std::max(std::sin(d_i), 100 * FMCA_ZERO_TOLERANCE);
         c += w_i * P.col(node.indices()[i]);
@@ -183,7 +180,7 @@ struct ClusterTreeInitializer<SphereClusterTree> {
     node.node().c_ = sphericalMedian(P, node, node.node().c_, 10);
     for (Index i = 0; i < node.block_size(); ++i) {
       const Scalar dist =
-          geodesicDistance(node.node().c_, P.col(node.indices()[i]));
+          Metric::GeodesicSphere::d(node.node().c_, P.col(node.indices()[i]));
       node.node().r_ = node.node().r_ < dist ? dist : node.node().r_;
     }
   }

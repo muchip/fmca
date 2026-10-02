@@ -28,7 +28,7 @@ static std::array<std::size_t, 5> recursivelyComputeBlockCounters;
 #endif
 
 template <typename H2STreeType, typename EntryGenerator,
-          typename ClusterComparison = CompareCluster>
+          typename ClusterComparison = CompareClusterBB>
 Matrix recursivelyComputeBlock(const H2STreeType &TR, const H2STreeType &TC,
                                const EntryGenerator &e_gen, const Scalar eta) {
   Matrix buf(0, 0);

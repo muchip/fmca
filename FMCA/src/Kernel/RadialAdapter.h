@@ -15,63 +15,35 @@
 namespace FMCA {
 
 /**
- *  \brief metric policies providing the squared distance
- *         s(x, y) entering a radial kernel psi(s).
- **/
-struct SquaredEuclidean {
-  template <typename Derived, typename otherDerived>
-  static Scalar s(const MatrixBase<Derived> &x,
-                  const MatrixBase<otherDerived> &y) {
-    return (x - y).squaredNorm();
-  }
-};
-
-/**
- *  \brief anisotropic squared distance s = (x-y)^T A (x-y) for spd A
- **/
-struct AnisotropicSquaredEuclidean {
-  AnisotropicSquaredEuclidean() {}
-  explicit AnisotropicSquaredEuclidean(const Matrix &A) : A_(A) {}
-  template <typename Derived, typename otherDerived>
-  Scalar s(const MatrixBase<Derived> &x,
-           const MatrixBase<otherDerived> &y) const {
-    const Vector d = x - y;
-    return d.dot(A_ * d);
-  }
-  Matrix A_;
-};
-
-/**
  *  \brief adapter lifting a radial function psi(s, l, c) to a bivariate
  *         kernel evaluable at point pairs, with respect to a metric
  *         policy providing s(x, y).
  **/
-
-template <typename RF, typename Metric = SquaredEuclidean>
+template <typename RF, typename MetricT = Metric::Euclidean>
 struct RadialAdapter {
   typedef RF RadialFunction;
-  typedef Metric MetricType;
+  typedef MetricT MetricType;
 
   static constexpr int cpd_order = RF::cpd_order;
   static constexpr bool has_dpsi = RF::has_dpsi;
   static constexpr bool has_d2psi = RF::has_d2psi;
 
   RadialAdapter() {}
-  explicit RadialAdapter(const Metric &metric) : metric_(metric) {}
+  explicit RadialAdapter(const MetricType &metric) : metric_(metric) {}
 
   template <typename Derived, typename otherDerived>
   Scalar evaluate(const MatrixBase<Derived> &x,
                   const MatrixBase<otherDerived> &y, Scalar l, Scalar c) const {
     return RF::psi(metric_.s(x, y), l, c);
   }
-  Metric metric_;
+  MetricType metric_;
 };
 
 // stateless-metric specialization: fully static evaluate, empty object
 template <typename RF>
-struct RadialAdapter<RF, SquaredEuclidean> {
+struct RadialAdapter<RF, Metric::Euclidean> {
   typedef RF RadialFunction;
-  typedef SquaredEuclidean MetricType;
+  typedef Metric::Euclidean MetricType;
 
   static constexpr int cpd_order = RF::cpd_order;
   static constexpr bool has_dpsi = RF::has_dpsi;
@@ -81,7 +53,7 @@ struct RadialAdapter<RF, SquaredEuclidean> {
   static Scalar evaluate(const MatrixBase<Derived> &x,
                          const MatrixBase<otherDerived> &y, Scalar l,
                          Scalar c) {
-    return RF::psi(SquaredEuclidean::s(x, y), l, c);
+    return RF::psi(Metric::Euclidean::s(x, y), l, c);
   }
 };
 
@@ -91,16 +63,45 @@ struct RadialAdapter<RF, SquaredEuclidean> {
  *         factor x_D - y_D itself. Euclidean metric only.
  **/
 template <typename RF, int D>
-struct RadialAdapter<RadialFunctions::GradientOf<RF, D>, SquaredEuclidean> {
+struct RadialAdapter<RadialFunctions::GradientOf<RF, D>, Metric::Euclidean> {
   typedef RF RadialFunction;
-  typedef SquaredEuclidean MetricType;
+  typedef Metric::Euclidean MetricType;
 
   template <typename Derived, typename otherDerived>
   static Scalar evaluate(const MatrixBase<Derived> &x,
                          const MatrixBase<otherDerived> &y, Scalar l,
                          Scalar c) {
-    return 2. * RF::dpsi(SquaredEuclidean::s(x, y), l, c) * (x(D) - y(D));
+    return 2. * RF::dpsi(Metric::Euclidean::s(x, y), l, c) * (x(D) - y(D));
   }
+};
+
+// stateless-metric specialization: fully static evaluate, empty object
+template <typename RF>
+struct RadialAdapter<RF, Metric::GeodesicSphere> {
+  typedef RF RadialFunction;
+  typedef Metric::GeodesicSphere MetricType;
+
+  static constexpr int cpd_order = RF::cpd_order;
+  static constexpr bool has_dpsi = RF::has_dpsi;
+  static constexpr bool has_d2psi = RF::has_d2psi;
+
+  template <typename Derived, typename otherDerived>
+  static Scalar evaluate(const MatrixBase<Derived> &x,
+                         const MatrixBase<otherDerived> &y, Scalar l,
+                         Scalar c) {
+    return RF::psi(Metric::GeodesicSphere::s(x, y), l, c);
+  }
+};
+
+template <typename RF, int DIM>
+struct RadialAdapter<RadialFunctions::LaplacianOf<RF, DIM>,
+                     Metric::GeodesicSphere> {
+  static_assert(sizeof(RF) == 0, "LaplacianOf is Euclidean only");
+};
+template <typename RF, int D>
+struct RadialAdapter<RadialFunctions::GradientOf<RF, D>,
+                     Metric::GeodesicSphere> {
+  static_assert(sizeof(RF) == 0, "GradientOf is Euclidean only");
 };
 
 }  // namespace FMCA
