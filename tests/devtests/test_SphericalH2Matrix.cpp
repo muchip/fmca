@@ -9,25 +9,25 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#include <Eigen/Dense>
-#include <iostream>
-
-#include <FMCA/Kernel>
-#include <FMCA/H2Matrix>
-#include <FMCA/HMatrix>
 #include <FMCA/src/util/IO.h>
 #include <FMCA/src/util/Tictoc.h>
 #include <FMCA/src/util/uniformSphericalPoints.h>
 
-#define NPTS 100000
-#define DIM 3
-#define MPOLE_DEG 4
+#include <FMCA/H2Matrix>
+#include <FMCA/HMatrix>
+#include <FMCA/Kernel>
+#include <iostream>
 
+#define NPTS 10000
+#define DIM 3
+#define MPOLE_DEG 5
+
+using SphericalKernel = FMCA::PDKernel<FMCA::Metric::GeodesicSphere>;
 using Interpolator = FMCA::TotalDegreeInterpolator;
 using Moments = FMCA::NystromMoments<Interpolator>;
-using MatrixEvaluator = FMCA::NystromEvaluator<Moments, FMCA::CovarianceKernel>;
+using MatrixEvaluator = FMCA::NystromEvaluator<Moments, SphericalKernel>;
 using MatrixEvaluatorUS =
-    FMCA::unsymmetricNystromEvaluator<Moments, FMCA::CovarianceKernel>;
+    FMCA::unsymmetricNystromEvaluator<Moments, SphericalKernel>;
 using H2ClusterTree = FMCA::H2ClusterTree<FMCA::SphereClusterTree>;
 using H2Matrix = FMCA::H2Matrix<H2ClusterTree, FMCA::CompareSphericalCluster>;
 using HMatrix =
@@ -35,8 +35,7 @@ using HMatrix =
 
 int main() {
   FMCA::Tictoc T;
-  FMCA::CovarianceKernel function("EXPONENTIAL", 2.);
-  function.setDistanceType("GEODESIC");
+  SphericalKernel function("EXPONENTIAL", 2.);
   const FMCA::Matrix P = FMCA::uniformSphericalPoints(NPTS, 0);
   FMCA::Vector col0 = function.eval(P, P.col(0));
 
@@ -48,16 +47,14 @@ int main() {
                    FMCA::SphereClusterTree>::Splitter::splitterName()
             << std::endl;
   T.tic();
-  H2ClusterTree ct(mom, 0, P);
   FMCA::SphereClusterTree hct(P, 10);
   T.toc("H2 cluster tree:");
-  FMCA::internal::compute_cluster_bases_impl::check_transfer_matrices(ct, mom);
   const MatrixEvaluatorUS mat_eval(mom, mom, function);
   for (FMCA::Scalar eta = 0.8; eta >= 0.1; eta *= 0.5) {
     std::cout << "eta:                          " << eta << std::endl;
     T.tic();
     HMatrix hmat;
-    hmat.computeHMatrix(hct, hct, mat_eval, eta, 1e-5);
+    hmat.computeHMatrix(hct, hct, mat_eval, eta, 1e-8);
     // hmat.computePattern(ct, ct, eta);
     T.toc("elapsed time:                ");
     hmat.statistics();
@@ -68,9 +65,8 @@ int main() {
       X.setZero();
       for (auto i = 0; i < 10; ++i) {
         FMCA::Index index = rand() % P.cols();
-        FMCA::Vector col = function.eval(P, P.col(ct.indices()[index]));
-        Y1.col(i) =
-            col(Eigen::Map<const FMCA::iVector>(ct.indices(), ct.block_size()));
+        FMCA::Vector col = function.eval(P, P.col(hct.indices()[index]));
+        Y1.col(i) = hct.toClusterOrder(col);
         X(index, i) = 1;
       }
       std::cout << "set test data" << std::endl;

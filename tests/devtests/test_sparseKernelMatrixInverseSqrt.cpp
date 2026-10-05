@@ -16,6 +16,7 @@
 
 #include <FMCA/Clustering>
 #include <FMCA/Kernel>
+#include <FMCA/src/experimental/Kernel/sparseKernelMatrixInverseSqrt.h>
 #include <FMCA/HMatrix>
 #include <FMCA/src/util/Tictoc.h>
 
@@ -33,7 +34,7 @@ int main(int argc, char *argv[]) {
   const FMCA::Index dim = 2;
   const FMCA::Index K = 2;
   const FMCA::Scalar ridge_parameter = 0 * npts;
-  const FMCA::CovarianceKernel kernel("MaternNu", .1, 1., 0.5);
+  const FMCA::CovarianceKernel kernel("Matern12", .1);
   FMCA::Matrix P = FMCA::Matrix::Random(dim, npts);
   const Moments mom(P, 0);
   const MatrixEvaluator mat_eval(mom, kernel);
