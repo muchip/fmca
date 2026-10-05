@@ -8,6 +8,8 @@ endmacro()
 
 add_fmca_test(test_AdaptiveTreeSearch)
 add_fmca_test(test_ClusterTree)
+add_fmca_test(test_KDTree)
+add_fmca_test(test_SphereClusterTree)
 add_fmca_test(test_ClusterTreeMetrics)
 add_fmca_test(test_CompressorDAG)
 add_fmca_test(test_FALKON)
