@@ -13,7 +13,7 @@
 #include <iostream>
 
 #include <FMCA/Samplets>
-#include <FMCA/src/Samplets/samplet_transformer.h>
+#include <FMCA/src/Samplets/SampletTransformer.h>
 #define DIM 2
 #define NPTS 100000
 

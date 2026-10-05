@@ -24,6 +24,7 @@
 #include "src/util/Macros.h"
 #include "src/util/Graph.h"
 #include "src/util/LIsomap.h"
+#include "src/util/RandomTreeAccessor.h"
 
 #include "src/Samplets/SampletTreeBase.h"
 #include "src/Samplets/H2SampletTreeBase.h"
@@ -34,7 +35,7 @@
 #include "src/Samplets/GraphSampletForest.h"
 
 #include "src/Samplets/SampletAdaptiveClustering.h"
-#include "src/Samplets/samplet_transformer.h"
+#include "src/Samplets/SampletTransformer.h"
 #include "src/Samplets/SampletMatrixCompressorBase.h"
 #include "src/Samplets/recursivelyComputeBlock.h"
 #include "src/Samplets/SampletMatrixCompressor_DAG.h"
