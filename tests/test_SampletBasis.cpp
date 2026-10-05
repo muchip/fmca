@@ -29,7 +29,7 @@ int main() {
     const SampletTree st(samp_mom, 0, P);
 
     FMCA::Matrix Pol = samp_mom.moment_matrix(st);
-    Pol.conservativeReszie(samp_mom.mdtilde(), Pol.cols());
+    Pol.conservativeResize(samp_mom.mdtilde(), Pol.cols());
     FMCA::Scalar err = 0;
     Pol = st.sampletTransform(Pol.transpose());
     err = Pol.bottomRows(Pol.rows() - st.nscalfs()).colwise().norm().sum();

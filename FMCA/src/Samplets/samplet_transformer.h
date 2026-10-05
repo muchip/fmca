@@ -53,22 +53,22 @@ class SampletTransformer {
     return;
   }
   template <typename otherDerived>
-  Matrix transform(const MatrixBase<otherDerived> &data) {
+  Matrix transform(const Eigen::MatrixBase<otherDerived> &data) {
     // to parallelize, we need to avoid that a core accesses data that
     // has not been created yet to prevent this, we do a level wise blocking
     Matrix retval(data.rows(), data.cols());
     retval.setZero();
     for (auto it = lvl_mapper_.rbegin(); it != lvl_mapper_.rend(); ++it) {
 #pragma omp parallel for
-      for (Index i = 0; i < it->size(); ++i) {
+      for (auto i = 0; i < it->size(); ++i) {
         const Derived &cluster = *((*it)[i]);
         Matrix &block = tvec_[cluster.block_id()];
         if (!cluster.nSons())
           block =
               data.middleRows(cluster.indices_begin(), cluster.block_size());
         else
-          for (Index j = 0; j < cluster.nSons(); ++j) {
-            block.conservativeResize(block.rows() + cluster.sons(i).nscalfs(),
+          for (auto j = 0; j < cluster.nSons(); ++j) {
+            block.conservativeResize(block.rows() + cluster.sons(j).nscalfs(),
                                      data.cols());
             block.bottomRows(cluster.sons(j).nscalfs()) =
                 tvec_[cluster.sons(j).block_id()].topRows(
@@ -94,14 +94,14 @@ class SampletTransformer {
   }
 
   template <typename otherDerived>
-  Matrix inverseTransform(const MatrixBase<otherDerived> &data) {
+  Matrix inverseTransform(const Eigen::MatrixBase<otherDerived> &data) {
     // to parallelize, we need to avoid that a core accesses data that
     // has not been created yet to prevent this, we do a level wise blocking
     Matrix retval(data.rows(), data.cols());
     retval.setZero();
-    for (Index it = lvl_mapper_.begin(); it != lvl_mapper_.end(); ++it) {
+    for (auto it = lvl_mapper_.begin(); it != lvl_mapper_.end(); ++it) {
 #pragma omp parallel for
-      for (Index i = 0; i < it->size(); ++i) {
+      for (auto i = 0; i < it->size(); ++i) {
         const Derived &cluster = *((*it)[i]);
         Matrix &block = tvec_[cluster.block_id()];
         if (cluster.level() == min_level_)
@@ -112,7 +112,7 @@ class SampletTransformer {
           // the chuck of scaling functions belonging to the current cluster
           // in the scaling functions of the dad
           Index data_offset = 0;
-          for (Index j = 0; j < cluster.dad().nSons(); ++j)
+          for (auto j = 0; j < cluster.dad().nSons(); ++j)
             if (cluster.dad().sons(j).block_id() != cluster.block_id())
               data_offset += cluster.dad().sons(j).nscalfs();
             else
