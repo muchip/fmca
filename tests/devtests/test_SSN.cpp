@@ -64,7 +64,7 @@ int main() {
   const SampletMoments samp_mom(P, dtilde - 1);
   H2SampletTree hst(mom, samp_mom, 0, P);
   T.tic();
-  FMCA::internal::SampletMatrixCompressor<H2SampletTree> Scomp;
+  FMCA::SampletMatrixCompressor<H2SampletTree> Scomp;
   Scomp.init(hst, eta, 100 * FMCA_ZERO_TOLERANCE);
   T.toc("planner:                     ");
   T.tic();

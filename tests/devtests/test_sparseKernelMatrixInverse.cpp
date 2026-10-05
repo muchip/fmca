@@ -9,15 +9,13 @@
 // license and without any warranty, see <https://github.com/muchip/FMCA>
 // for further information.
 //
-#include <fstream>
-#include <iostream>
-//
-#include <Eigen/Dense>
-
-#include <FMCA/Clustering>
-#include <FMCA/CovarianceKernel>
 #include <FMCA/src/util/IO.h>
 #include <FMCA/src/util/Tictoc.h>
+
+#include <FMCA/Clustering>
+#include <FMCA/Kernel>
+//
+#include <FMCA/src/experimental/Kernel/sparseKernelMatrixInverse.h>
 
 int main(int argc, char *argv[]) {
   FMCA::Tictoc T;
@@ -25,7 +23,7 @@ int main(int argc, char *argv[]) {
   const FMCA::Index dim = 3;
   const FMCA::Index K = 1;
   const FMCA::Scalar ridge_parameter = 0 * npts;
-  const FMCA::CovarianceKernel kernel("MaternNu", .1, 1., 0.5);
+  const FMCA::CovarianceKernel kernel("Matern12", .1);
   FMCA::Matrix P = FMCA::Matrix::Random(dim, npts);
   std::cout << std::string(72, '-') << std::endl;
   T.tic();

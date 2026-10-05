@@ -10,9 +10,10 @@
 // for further information.
 //
 // #define EIGEN_DONT_PARALLELIZE
+#include <FMCA/src/util/Tictoc.h>
+
 #include <FMCA/Kernel>
 #include <FMCA/Samplets>
-#include <FMCA/src/util/Tictoc.h>
 
 #define NPTS (1 << 10)
 #define DIM 1
@@ -26,7 +27,7 @@ using H2SampletTree = FMCA::H2SampletTree<FMCA::ClusterTree>;
 
 int main() {
   FMCA::Tictoc T;
-  const FMCA::CovarianceKernel function("MaternNu", 1., 1., 1.5);
+  const FMCA::CovarianceKernel function("Matern12", 1.);
   const FMCA::Matrix P = 0.5 * (FMCA::Matrix::Random(DIM, NPTS).array() + 1);
   const FMCA::Scalar threshold = 1e-8;
   const FMCA::Scalar eta = 0.5;
@@ -41,7 +42,7 @@ int main() {
   const SampletMoments samp_mom(P, dtilde - 1);
   H2SampletTree hst(mom, samp_mom, 0, P);
   T.tic();
-  FMCA::internal::SampletMatrixCompressor<H2SampletTree> Scomp;
+  FMCA::SampletMatrixCompressor<H2SampletTree> Scomp;
   Scomp.init(hst, eta, threshold);
   T.toc("planner:                     ");
   T.tic();

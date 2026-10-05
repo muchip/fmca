@@ -10,52 +10,29 @@
 // for further information.
 //
 // #define EIGEN_DONT_PARALLELIZE
-#define FMCA_MATERNNU
-#include <iostream>
-#include <random>
-//
-#include <Eigen/Dense>
-#include <Eigen/MetisSupport>
-#include <Eigen/Sparse>
-#include <Eigen/SparseCholesky>
 
-#include "../FMCA/Kernel"
-#include "../FMCA/Samplets"
-#include "../FMCA/src/util/IO.h"
-#include "../FMCA/src/util/NormalDistribution.h"
-#include "../FMCA/src/util/Tictoc.h"
+#include <FMCA/src/util/FibonacciLattice.h>
+#include <FMCA/src/util/IO.h>
+#include <FMCA/src/util/NormalDistribution.h>
+#include <FMCA/src/util/Tictoc.h>
 
-using Cholesky = Eigen::SimplicialLLT<Eigen::SparseMatrix<FMCA::Scalar>,
-                                      Eigen::Upper, Eigen::MetisOrdering<int>>;
+#include <FMCA/Kernel>
+#include <FMCA/Samplets>
 
+using SphericalKernel = FMCA::PDKernel<FMCA::Metric::GeodesicSphere>;
 using Interpolator = FMCA::TotalDegreeInterpolator;
 using SampletInterpolator = FMCA::MonomialInterpolator;
 using Moments = FMCA::NystromMoments<Interpolator>;
 using SampletMoments = FMCA::NystromSampletMoments<SampletInterpolator>;
-using MatrixEvaluator = FMCA::NystromEvaluator<Moments, FMCA::CovarianceKernel>;
+using MatrixEvaluator = FMCA::NystromEvaluator<Moments, SphericalKernel>;
 using H2SampletTree = FMCA::H2SampletTree<FMCA::SphereClusterTree>;
-
-FMCA::Matrix FibonacciLattice(const FMCA::Index N) {
-  FMCA::Matrix retval(3, N);
-  const FMCA::Scalar golden_angle = FMCA_PI * (3.0 - std::sqrt(5.0));
-  for (FMCA::Index i = 0; i < N; ++i) {
-    const FMCA::Scalar z = 1.0 - (2.0 * i + 1.0) / N;
-    const FMCA::Scalar radius = std::sqrt(1.0 - z * z);
-    const FMCA::Scalar phi = golden_angle * i;
-    const FMCA::Scalar x = radius * std::cos(phi);
-    const FMCA::Scalar y = radius * std::sin(phi);
-    retval.col(i) << x, y, z;
-  }
-  return retval;
-}
 
 int main() {
   FMCA::Tictoc T;
   //////////////////////////////////////////////////////////////////////////////
-  FMCA::CovarianceKernel function("MaternNu", 0.5, 1., 0.25);
-  function.setDistanceType("GEODESIC");
+  SphericalKernel function("Matern12", 0.5);
   //////////////////////////////////////////////////////////////////////////////
-  FMCA::Matrix P = FibonacciLattice(200000);
+  FMCA::Matrix P = FMCA::FibonacciLattice(50000);
   FMCA::Index npts = P.cols();
   const FMCA::Scalar threshold = 5e-4;
   const FMCA::Scalar eta = .1;
@@ -89,7 +66,6 @@ int main() {
     FMCA::Vector data = function.eval(P, P.col(0));
     FMCA::IO::plotPointsColor("data.vtk", P, data);
   }
-#if 0
   std::vector<FMCA::Matrix> bbvec;
   for (auto &&it : hst) {
     if (!it.nSons() && it.block_size()) {
@@ -101,10 +77,8 @@ int main() {
   }
   FMCA::IO::plotBoxes("boxes.vtk", bbvec);
   FMCA::IO::plotPoints("points.vtk", P);
-#endif
   T.tic();
-  FMCA::internal::SampletMatrixCompressor<H2SampletTree,
-                                          FMCA::CompareSphericalCluster>
+  FMCA::SampletMatrixCompressor<H2SampletTree, FMCA::CompareSphericalCluster>
       Scomp;
   Scomp.init(hst, eta, 1e-7);
   T.toc("planner:                     ");
@@ -145,7 +119,7 @@ int main() {
   std::cout << "compression error:            " << err << std::endl
             << std::flush;
   T.tic();
-  Cholesky llt_;
+  FMCA::SparseCholesky llt_;
   llt_.compute(S);
   if (llt_.info() != Eigen::Success) {
     std::cout << "Factorization failed!" << std::endl;

@@ -25,7 +25,7 @@ void SVD(const MatrixEvaluator &mat_eval, const RowCType &rc,
   svd.compute(A);
   const Scalar fnorm2 = svd.singularValues().squaredNorm();
   Index rank = 0;
-  Scalar cur_fnorm2;
+  Scalar cur_fnorm2 = 0;
   while (fnorm2 - cur_fnorm2 > tol * tol * fnorm2) {
     cur_fnorm2 += svd.singularValues()[rank] * svd.singularValues()[rank];
     ++rank;

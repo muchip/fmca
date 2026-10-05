@@ -39,8 +39,8 @@ int main(int argc, char *argv[]) {
   T.tic();
   rta.init(ct);
   T.toc("tree mapped: ");
-  std::vector<FMCA::Index> s_pattern(rta.nnodes());
-  std::vector<FMCA::Scalar> s_values(rta.nnodes());
+  std::vector<FMCA::Index> s_pattern(rta.nodes().size());
+  std::vector<FMCA::Scalar> s_values(rta.nodes().size());
   for (auto it = rta.nodes().rbegin(); it != rta.nodes().rend(); ++it) {
     const FMCA::ClusterTree &node = *(*it);
     FMCA::Index sample_index = 0;
