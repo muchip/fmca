@@ -10,9 +10,8 @@
 // for further information.
 //
 #include <Eigen/Dense>
-#include <iostream>
-
 #include <FMCA/Samplets>
+#include <iostream>
 
 #define DIM 2
 #define NPTS 1000
@@ -30,7 +29,7 @@ int main() {
     const SampletTree st(samp_mom, 0, P);
 
     FMCA::Matrix Pol = samp_mom.moment_matrix(st);
-    Pol = Pol.topRows(samp_mom.mdtilde());
+    Pol.conservativeReszie(samp_mom.mdtilde(), Pol.cols());
     FMCA::Scalar err = 0;
     Pol = st.sampletTransform(Pol.transpose());
     err = Pol.bottomRows(Pol.rows() - st.nscalfs()).colwise().norm().sum();

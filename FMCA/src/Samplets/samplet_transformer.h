@@ -60,19 +60,19 @@ class SampletTransformer {
     retval.setZero();
     for (auto it = lvl_mapper_.rbegin(); it != lvl_mapper_.rend(); ++it) {
 #pragma omp parallel for
-      for (auto i = 0; i < it->size(); ++i) {
+      for (Index i = 0; i < it->size(); ++i) {
         const Derived &cluster = *((*it)[i]);
         Matrix &block = tvec_[cluster.block_id()];
         if (!cluster.nSons())
           block =
               data.middleRows(cluster.indices_begin(), cluster.block_size());
         else
-          for (auto i = 0; i < cluster.nSons(); ++i) {
+          for (Index j = 0; j < cluster.nSons(); ++j) {
             block.conservativeResize(block.rows() + cluster.sons(i).nscalfs(),
                                      data.cols());
-            block.bottomRows(cluster.sons(i).nscalfs()) =
-                tvec_[cluster.sons(i).block_id()].topRows(
-                    cluster.sons(i).nscalfs());
+            block.bottomRows(cluster.sons(j).nscalfs()) =
+                tvec_[cluster.sons(j).block_id()].topRows(
+                    cluster.sons(j).nscalfs());
           }
         if (min_level_ > 0 && cluster.level() == min_level_)
           ;
@@ -99,9 +99,9 @@ class SampletTransformer {
     // has not been created yet to prevent this, we do a level wise blocking
     Matrix retval(data.rows(), data.cols());
     retval.setZero();
-    for (auto it = lvl_mapper_.begin(); it != lvl_mapper_.end(); ++it) {
+    for (Index it = lvl_mapper_.begin(); it != lvl_mapper_.end(); ++it) {
 #pragma omp parallel for
-      for (auto i = 0; i < it->size(); ++i) {
+      for (Index i = 0; i < it->size(); ++i) {
         const Derived &cluster = *((*it)[i]);
         Matrix &block = tvec_[cluster.block_id()];
         if (cluster.level() == min_level_)
@@ -112,7 +112,7 @@ class SampletTransformer {
           // the chuck of scaling functions belonging to the current cluster
           // in the scaling functions of the dad
           Index data_offset = 0;
-          for (auto j = 0; j < cluster.dad().nSons(); ++j)
+          for (Index j = 0; j < cluster.dad().nSons(); ++j)
             if (cluster.dad().sons(j).block_id() != cluster.block_id())
               data_offset += cluster.dad().sons(j).nscalfs();
             else
