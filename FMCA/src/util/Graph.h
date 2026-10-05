@@ -199,6 +199,23 @@ std::vector<Graph> splitGraph(const Graph &G, const T &part) {
   return retval;
 }
 
+/**
+ *  \brief METIS cut costs from distance-valued edge weights: the shortest
+ *         edge gets cost wmax, the longest cost 1, affine in between.
+ **/
+template <typename ValueType>
+std::vector<idx_t> distanceToCutCost(const Graph<idx_t, ValueType> &G,
+                                     const idx_t wmax = 1000) {
+  const ValueType *d = G.graph().valuePtr();
+  std::vector<idx_t> adjwgt(G.nedges(), 1);
+  if (!G.nedges()) return adjwgt;
+  const ValueType dmin = *std::min_element(d, d + G.nedges());
+  const ValueType dmax = *std::max_element(d, d + G.nedges());
+  const ValueType scale = dmax > dmin ? (wmax - 1) / (dmax - dmin) : 0;
+  for (idx_t i = 0; i < G.nedges(); ++i) adjwgt[i] = 1 + scale * (dmax - d[i]);
+  return adjwgt;
+}
+
 template <typename ValueType>
 std::vector<idx_t> partitionGraph(Graph<idx_t, ValueType> &G, Index K) {
   idx_t nvtxs = G.nnodes();
@@ -213,14 +230,13 @@ std::vector<idx_t> partitionGraph(Graph<idx_t, ValueType> &G, Index K) {
   std::vector<idx_t> part(nvtxs);
   idx_t *xadj = (G.graph()).outerIndexPtr();
   idx_t *adjncy = (G.graph()).innerIndexPtr();
-  std::vector<idx_t> adjwgt(G.nedges());
-  for (idx_t i = 0; i < adjwgt.size(); ++i)
-    adjwgt[i] = 1. / (1e-6 + G.graph().valuePtr()[i] * G.graph().valuePtr()[i]);
+  std::vector<idx_t> adjwgt = distanceToCutCost(G);
 
-  int status = METIS_PartGraphRecursive(
-      &nvtxs, &ncon, xadj, adjncy, adjwgt.data(), NULL, NULL, &nparts, NULL,
-      NULL, options, &objval, part.data());
+  int status = METIS_PartGraphRecursive(&nvtxs, &ncon, xadj, adjncy, NULL, NULL,
+                                        adjwgt.data(), &nparts, NULL, NULL,
+                                        options, &objval, part.data());
   assert(status == METIS_OK);
+  (void)status;
   return part;
 }
 
@@ -238,14 +254,13 @@ std::vector<idx_t> partitionGraphKWay(Graph<idx_t, ValueType> &G, Index K) {
   std::vector<idx_t> part(nvtxs);
   idx_t *xadj = (G.graph()).outerIndexPtr();
   idx_t *adjncy = (G.graph()).innerIndexPtr();
-  std::vector<idx_t> adjwgt(G.nedges());
-  for (idx_t i = 0; i < adjwgt.size(); ++i)
-    adjwgt[i] = 1. / (1e-6 + G.graph().valuePtr()[i] * G.graph().valuePtr()[i]);
+  std::vector<idx_t> adjwgt = distanceToCutCost(G);
 
   int status = METIS_PartGraphKway(&nvtxs, &ncon, xadj, adjncy, NULL, NULL,
                                    adjwgt.data(), &nparts, NULL, NULL, options,
                                    &objval, part.data());
   assert(status == METIS_OK);
+  (void)status;
   return part;
 }
 
