@@ -13,9 +13,8 @@
 #include <Eigen/Dense>
 #include <iostream>
 
-#include <FMCA/CovarianceKernel>
+#include <FMCA/Kernel>
 #include <FMCA/Samplets>
-#include <FMCA/src/Samplets/samplet_matrix_compressor.h>
 #include <FMCA/src/util/IO.h>
 #include <FMCA/src/util/SSN.h>
 #include <FMCA/src/util/Tictoc.h>

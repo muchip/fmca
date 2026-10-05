@@ -15,7 +15,7 @@
 #include <Eigen/Dense>
 
 #include <FMCA/Clustering>
-#include <FMCA/CovarianceKernel>
+#include <FMCA/Kernel>
 #include <FMCA/HMatrix>
 #include <FMCA/src/util/Tictoc.h>
 

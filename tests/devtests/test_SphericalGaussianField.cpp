@@ -19,9 +19,8 @@
 #include <Eigen/Sparse>
 #include <Eigen/SparseCholesky>
 
-#include "../FMCA/CovarianceKernel"
+#include "../FMCA/Kernel"
 #include "../FMCA/Samplets"
-#include "../FMCA/src/Samplets/samplet_matrix_compressor.h"
 #include "../FMCA/src/util/IO.h"
 #include "../FMCA/src/util/NormalDistribution.h"
 #include "../FMCA/src/util/Tictoc.h"

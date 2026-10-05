@@ -13,7 +13,7 @@
 #include <Eigen/Dense>
 #include <iostream>
 
-#include <FMCA/CovarianceKernel>
+#include <FMCA/Kernel>
 #include <FMCA/Samplets>
 #include <FMCA/src/util/IO.h>
 #include <FMCA/src/util/SSN.h>

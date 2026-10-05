@@ -10,7 +10,7 @@
 // for further information.
 //
 // #define EIGEN_DONT_PARALLELIZE
-#include <FMCA/CovarianceKernel>
+#include <FMCA/Kernel>
 #include <FMCA/Samplets>
 #include <FMCA/src/util/Tictoc.h>
 

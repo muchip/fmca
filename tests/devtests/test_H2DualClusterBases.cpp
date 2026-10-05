@@ -12,7 +12,7 @@
 #include <Eigen/Dense>
 #include <iostream>
 
-#include <FMCA/CovarianceKernel>
+#include <FMCA/Kernel>
 #include <FMCA/H2Matrix>
 #include <FMCA/src/H2Matrix/compute_dual_cluster_bases_impl.h>
 #include <FMCA/src/util/Tictoc.h>

@@ -12,7 +12,7 @@
 #include <Eigen/Dense>
 #include <iostream>
 
-#include <FMCA/CovarianceKernel>
+#include <FMCA/Kernel>
 #include <FMCA/H2Matrix>
 #include <FMCA/HMatrix>
 #include <FMCA/src/util/IO.h>
