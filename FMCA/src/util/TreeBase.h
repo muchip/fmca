@@ -64,7 +64,7 @@ class TreeBase {
     while (stack.size()) {
       TreeBase *node = stack.back();
       stack.pop_back();
-      for (TreeBase &s : node->sons_) {
+      for (TreeBase &s : sons_) {
         s.dad_ = node;
         s.level_ = node->level_ + 1;
         stack.push_back(std::addressof(s));
@@ -110,6 +110,8 @@ class TreeBase {
   const Derived &sons(typename std::vector<TreeBase>::size_type i) const {
     return sons_[i].derived();
   }
+
+  std::vector<TreeBase> &sons_vector() { return sons_; }
   //////////////////////////////////////////////////////////////////////////////
   Derived &dad() { return dad_->derived(); }
   const Derived &dad() const { return dad_->derived(); }
