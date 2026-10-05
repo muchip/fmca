@@ -35,6 +35,7 @@ class GraphSampletForest {
     parts_ = std::vector<IndexType>(G.nnodes(), 0);
     if (M_ > 1) parts_ = METIS::partitionGraphKWay(G, M_);
     sub_graphs_ = METIS::splitGraph(G, parts_);
+    M_ = sub_graphs_.size();
     global_ids_.resize(M_);
     lm_ids_.resize(M_);
     points_.resize(M_);

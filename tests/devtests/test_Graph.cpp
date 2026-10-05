@@ -76,14 +76,11 @@ int main(int argc, char *argv[]) {
   parts[1].print("graph1.vtk", P);
   FMCA::IO::plotPointsColor(
       "points.vtk", P, FMCA::Map<Eigen::VectorXi>(part.data(), part.size()));
-  FMCA::Matrix Psub(P.rows(), parts[0].nnodes());
-  for (FMCA::Index i = 0; i < Psub.cols(); ++i)
-    Psub.col(i) = P.col(parts[0].labels()[i]);
   part = FMCA::METIS::partitionGraph(parts[0], 2);
   std::vector<FMCA::Graph<idx_t, FMCA::Scalar>> subparts =
       FMCA::METIS::splitGraph(parts[0], part);
-  subparts[0].print("graph00.vtk", Psub);
-  subparts[1].print("graph01.vtk", Psub);
+  subparts[0].print("graph00.vtk", P);
+  subparts[1].print("graph01.vtk", P);
   // check distance matrices
 
   FMCA::Graph<idx_t, FMCA::Scalar> G2;

@@ -194,7 +194,7 @@ std::vector<Graph> splitGraph(const Graph &G, const T &part) {
         }
     retval[l].init(nnodes, trips);
     for (IndexType i = 0; i < G.nnodes(); ++i)
-      if (part[i] == l) retval[l].labels()[index_map[i]] = i;
+      if (part[i] == l) retval[l].labels()[index_map[i]] = G.labels()[i];
   }
   return retval;
 }
