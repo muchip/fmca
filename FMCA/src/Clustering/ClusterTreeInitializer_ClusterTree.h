@@ -63,7 +63,8 @@ struct ClusterTreeInitializer<ClusterTree> {
                                     Index min_csize, const Matrix &P) {
     typename traits<Derived>::Splitter split;
     const Index split_threshold = min_csize >= 1 ? (2 * min_csize - 1) : 1;
-    if (CT.node().block_size_ > split_threshold) {
+    if (CT.node().block_size_ > split_threshold &&
+        CT.node().bb_.col(2).maxCoeff() > FMCA_ZERO_TOLERANCE) {
       CT.appendSons(2);
       // set up bounding boxes for sons
       for (Index i = 0; i < 2; ++i) {
