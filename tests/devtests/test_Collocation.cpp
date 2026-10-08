@@ -5,10 +5,6 @@
 //
 // All rights reserved.
 //
-// This source code is subject to the GNU Affero General Public License v3.0
-// license and without any warranty, see <https://github.com/muchip/FMCA>
-// for further information.
-//
 //  Unit test of the Collocation module on the 2D Poisson problem
 //      -Delta u = -Delta(x(1-x)y(1-y))  in (0,1)^2,   u = 0 on the boundary.
 //  Two things are checked:
@@ -19,7 +15,7 @@
 #include <cmath>
 #include <iostream>
 
-#include "../FMCA/Collocation"
+#include "../../FMCA/Collocation"
 
 FMCA::Matrix makeInterior(int n) {
   FMCA::Matrix P(2, n * n);
@@ -60,7 +56,7 @@ template <typename MultiscaleSolver>
 FMCA::Vector run(MultiscaleSolver &mc, const std::vector<FMCA::Matrix> &PI,
                  const std::vector<FMCA::Matrix> &PB,
                  FMCA::MultiscaleEvaluator &evaluator, FMCA::Index n_eval) {
-  mc.init(PI, PB, 3.0, "MATERN52", "MATERN52_SECOND_DERIVATIVE");
+  mc.init(PI, PB, 3.0, "MATERN52");
   mc.setComputeCondition(false);
   FMCA::Vector u = FMCA::Vector::Zero(n_eval);
   for (FMCA::Index l = 0; l < mc.numLevels(); ++l) {
@@ -86,7 +82,7 @@ int main() {
 
   // PIKL in the limit lambda2 = 0
   FMCA::MultiscalePIKLSolver mp;
-  mp.solver().setRegularization(1e4, 0.0);
+  mp.solver().setRegularization(1e4, 1e-2);
   mp.solver().setParameters(1e-12, 200);
   mp.solver().setInteriorParameters(1e-12, 500);
   const FMCA::Vector u_pikl = run(mp, PI, PB, evaluator, P_eval.cols());

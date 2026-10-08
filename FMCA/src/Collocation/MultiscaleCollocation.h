@@ -41,7 +41,7 @@ class MultiscaleCollocation {
   void init(const std::vector<Matrix>& PI_levels,
             const std::vector<Matrix>& PB_levels, Scalar nu,
             const std::string& kernel_type,
-            const std::string& laplace_kernel_type, Index dtilde = 4,
+            Index dtilde = 4,
             Scalar eta = 0.5, Scalar threshold = 1e-6) {
     std::vector<Scalar> sigmas(PI_levels.size());
     for (size_t l = 0; l < PI_levels.size(); ++l) {
@@ -51,7 +51,7 @@ class MultiscaleCollocation {
       P.rightCols(PB_levels[l].cols()) = PB_levels[l];
       sigmas[l] = nu * fillDistance(P);
     }
-    init(PI_levels, PB_levels, sigmas, kernel_type, laplace_kernel_type, dtilde,
+    init(PI_levels, PB_levels, sigmas, kernel_type, dtilde,
          eta, threshold);
     return;
   }
@@ -63,7 +63,7 @@ class MultiscaleCollocation {
   void init(const std::vector<Matrix>& PI_levels,
             const std::vector<Matrix>& PB_levels,
             const std::vector<Scalar>& sigmas, const std::string& kernel_type,
-            const std::string& laplace_kernel_type, Index dtilde = 4,
+            Index dtilde = 4,
             Scalar eta = 0.5, Scalar threshold = 1e-6) {
     assert(PI_levels.size() == PB_levels.size() &&
            PI_levels.size() == sigmas.size() &&
@@ -75,7 +75,7 @@ class MultiscaleCollocation {
     for (Index l = 0; l < num_levels_; ++l) {
       matrices_.emplace_back();
       matrices_[l].init(PI_levels[l], PB_levels[l], kernel_type,
-                        laplace_kernel_type, sigmas[l], dtilde, eta, threshold);
+                        sigmas[l], dtilde, eta, threshold);
     }
     coefficients_.assign(num_levels_, Vector());
     iterations_.assign(num_levels_, 0);

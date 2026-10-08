@@ -65,7 +65,8 @@ class SchurSolver {
     cg_.setMaxIterations(maxit_);
     cg_.compute(Aspd_);
     YB_ = interiorSolve(Matrix(B));
-    lu_.compute(Matrix(D) - C * YB_);  // C stays sparse in this product
+    S_ = Matrix(D) - C * YB_;  // C stays sparse in this product
+    lu_.compute(S_);
     return;
   }
 
@@ -143,6 +144,9 @@ class SchurSolver {
   const Index iterations() const { return iterations_; }
   const Index interiorIterations() const { return iterations_; }
   const Scalar residual() const { return cg_.error(); }
+  // A^{-1}B and the Schur complement, needed by the deflated PIKL solver
+  const Matrix& YB() const { return YB_; }
+  const Matrix& S() const { return S_; }
 
  private:
   //////////////////////////////////////////////////////////////////////////////
@@ -178,6 +182,7 @@ class SchurSolver {
   CG cg_;
   SparseMatrix Aspd_;
   Matrix YB_;
+  Matrix S_;
   Eigen::PartialPivLU<Matrix> lu_;
   const SparseMatrix* B_;
   const SparseMatrix* C_;

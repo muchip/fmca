@@ -31,9 +31,9 @@ class CollocationMatrix {
   using Moments = NystromMoments<Interpolator>;
   using SampletMoments = NystromSampletMoments<SampletInterpolator>;
   using SampletTree = H2SampletTree<ClusterTree>;
-  using KernelEvaluator =
-      unsymmetricNystromEvaluator<Moments, CovarianceKernel>;
-  using GradEvaluator = unsymmetricNystromEvaluator<Moments, GradKernel>;
+  using KernelEvaluator = unsymmetricNystromEvaluator<Moments, CovarianceKernel>;
+  using LaplaceEvaluator =
+      unsymmetricNystromEvaluator<Moments, KernelLaplacian>;
 
   CollocationMatrix() noexcept {}
 
@@ -49,12 +49,11 @@ class CollocationMatrix {
    *         builds the samplet trees.
    **/
   void init(const Matrix& PI, const Matrix& PB, const std::string& kernel_type,
-            const std::string& laplace_kernel_type, Scalar sigma,
-            Index dtilde = 4, Scalar eta = 0.5, Scalar threshold = 1e-6) {
+            Scalar sigma, Index dtilde = 4, Scalar eta = 0.5,
+            Scalar threshold = 1e-6) {
     PI_ = PI;
     PB_ = PB;
     kernel_type_ = kernel_type;
-    laplace_kernel_type_ = laplace_kernel_type;
     sigma_ = sigma > 0 ? sigma : 1.;
     dtilde_ = dtilde > 0 ? dtilde : 1;
     mpole_deg_ = dtilde_ > 1 ? (2 * (dtilde_ - 1)) : 1;
@@ -79,15 +78,10 @@ class CollocationMatrix {
   void compute() {
     const Moments mom_I(PI_, mpole_deg_);
     const Moments mom_B(PB_, mpole_deg_);
-    A_.resize(nI_, nI_);
-    A_.setZero();
-    B_.resize(nI_, nB_);
-    B_.setZero();
-    for (Index d = 0; d < PI_.rows(); ++d) {
-      const GradKernel gk(laplace_kernel_type_, sigma_, 1, d);
-      A_ += block(TI_, TI_, GradEvaluator(mom_I, mom_I, gk), nI_, nI_);
-      B_ += block(TI_, TB_, GradEvaluator(mom_I, mom_B, gk), nI_, nB_);
-    }
+    // KernelLaplacian is -Delta_x K; the solvers expect A = Delta_x K
+    const KernelLaplacian lap(kernel_type_, PI_.rows(), sigma_);
+    A_ = -block(TI_, TI_, LaplaceEvaluator(mom_I, mom_I, lap), nI_, nI_);
+    B_ = -block(TI_, TB_, LaplaceEvaluator(mom_I, mom_B, lap), nI_, nB_);
     const CovarianceKernel kernel(kernel_type_, sigma_);
     C_ = block(TB_, TI_, KernelEvaluator(mom_B, mom_I, kernel), nB_, nI_);
     D_ = block(TB_, TB_, KernelEvaluator(mom_B, mom_B, kernel), nB_, nB_);
@@ -135,11 +129,10 @@ class CollocationMatrix {
     const Moments mom_C(coarse.P_, mpole_deg_);
     const Vector a =
         coarse.T_.sampletTransform(coarse.T_.toClusterOrder(a_coarse));
-    for (Index d = 0; d < PI_.rows(); ++d) {
-      const GradKernel gk(laplace_kernel_type_, coarse.sigma_, 1, d);
-      rhs.head(nI_) -=
-          block(TI_, coarse.T_, GradEvaluator(mom_I, mom_C, gk), nI_, nC) * a;
-    }
+    // f - Delta u_coarse, and the block is -Delta_x K: hence the plus
+    const KernelLaplacian lap(kernel_type_, PI_.rows(), coarse.sigma_);
+    rhs.head(nI_) +=
+        block(TI_, coarse.T_, LaplaceEvaluator(mom_I, mom_C, lap), nI_, nC) * a;
     const CovarianceKernel kernel(kernel_type_, coarse.sigma_);
     rhs.tail(nB_) -=
         block(TB_, coarse.T_, KernelEvaluator(mom_B, mom_C, kernel), nB_, nC) *
@@ -188,7 +181,7 @@ class CollocationMatrix {
   template <typename Evaluator>
   SparseMatrix block(SampletTree& row, SampletTree& col,
                      const Evaluator& mat_eval, Index rows, Index cols) {
-    internal::SampletMatrixCompressorUnsymmetric<SampletTree> compressor;
+    SampletMatrixCompressorUnsymmetric<SampletTree, CompareCluster> compressor;
     compressor.init(row, col, eta_, 100 * FMCA_ZERO_TOLERANCE);
     compressor.compress(mat_eval);
     compressor.triplets();
@@ -210,7 +203,6 @@ class CollocationMatrix {
   Matrix PB_;
   Matrix P_;
   std::string kernel_type_;
-  std::string laplace_kernel_type_;
   Scalar sigma_;
   Index dtilde_;
   Index mpole_deg_;

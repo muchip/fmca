@@ -26,7 +26,7 @@
 #include <Eigen/IterativeLinearSolvers>
 #include <Eigen/Sparse>
 
-#include "CovarianceKernel"
+#include "Kernel"
 #include "H2Matrix"
 #include "Samplets"
 
