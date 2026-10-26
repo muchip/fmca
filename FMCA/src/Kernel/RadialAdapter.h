@@ -16,6 +16,27 @@ namespace FMCA {
 
 /**
  *  \brief adapter lifting a radial function psi(s, l, c) to a bivariate
+ *         kernel evaluable at point pairs using a dimensionwise tensorproduct
+ *         construction
+ **/
+template <typename RF>
+struct TensorProductRadialAdapter {
+  typedef RF RadialFunction;
+
+  template <typename Derived, typename otherDerived>
+  static Scalar evaluate(const MatrixBase<Derived> &x,
+                         const MatrixBase<otherDerived> &y, Scalar l,
+                         Scalar c) {
+    return (x - y)
+        .array()
+        .square()
+        .unaryExpr([l, c](Scalar s) { return RF::psi(s, l, c); })
+        .prod();
+  }
+};
+
+/**
+ *  \brief adapter lifting a radial function psi(s, l, c) to a bivariate
  *         kernel evaluable at point pairs, with respect to a metric
  *         policy providing s(x, y).
  **/

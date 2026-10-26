@@ -18,6 +18,8 @@ namespace FMCA {
  *  \brief positive definite kernels, string dispatched.
  *         k(x, y) = psi(s(x, y)) with psi from RadialFunctions of
  *         cpd_order == 0 and s(x, y) = ||x - y||^2 (RadialAdapter).
+ *         Alternatively, it offers access to tensor product kernels
+ *         via TensorProductRadialAdapter.
  **/
 template <typename MetricT = Metric::Euclidean>
 class PDKernel final : public PDKernelBase<PDKernel<MetricT>> {
@@ -47,36 +49,46 @@ class PDKernel final : public PDKernelBase<PDKernel<MetricT>> {
   typedef Scalar (*EvalFn)(const ConstVecRef &, const ConstVecRef &, Scalar,
                            Scalar);
 
-  template <typename RF>
+  template <typename Adapter>
   static Scalar call(const ConstVecRef &x, const ConstVecRef &y, Scalar l,
                      Scalar c) {
-    return RadialAdapter<RF, MetricType>::evaluate(x, y, l, c);
+    return Adapter::evaluate(x, y, l, c);
   }
-
-  template <typename RF>
+  template <typename Adapter>
   void set() {
-    eval_ = &call<RF>;
-    return;
+    eval_ = &call<Adapter>;
   }
 
   void init(const std::string &ktype) {
     ktype_ = ktype;
     for (auto &chr : ktype_) chr = (char)toupper(chr);
     if (ktype_ == "EXPONENTIAL" || ktype_ == "MATERN12")
-      set<RadialFunctions::Matern12>();
+      set<RadialAdapter<RadialFunctions::Matern12, MetricT>>();
     else if constexpr (std::is_same_v<MetricT, Metric::Euclidean>) {
       if (ktype_ == "MATERN32")
-        set<RadialFunctions::Matern32>();
+        set<RadialAdapter<RadialFunctions::Matern32>>();
       else if (ktype_ == "MATERN52")
-        set<RadialFunctions::Matern52>();
+        set<RadialAdapter<RadialFunctions::Matern52>>();
       else if (ktype_ == "MATERN72")
-        set<RadialFunctions::Matern72>();
+        set<RadialAdapter<RadialFunctions::Matern72>>();
       else if (ktype_ == "MATERN92")
-        set<RadialFunctions::Matern92>();
+        set<RadialAdapter<RadialFunctions::Matern92>>();
       else if (ktype_ == "GAUSSIAN" || ktype_ == "MATERNINF")
-        set<RadialFunctions::MaternInf>();
+        set<RadialAdapter<RadialFunctions::MaternInf>>();
       else if (ktype_ == "INVMULTIQUADRIC")
-        set<RadialFunctions::InvMultiquadric>();
+        set<RadialAdapter<RadialFunctions::InvMultiquadric>>();
+      else if (ktype_ == "TPEXPONENTIAL" || ktype_ == "TPMATERN12")
+        set<TensorProductRadialAdapter<RadialFunctions::Matern12>>();
+      else if (ktype_ == "TPMATERN32")
+        set<TensorProductRadialAdapter<RadialFunctions::Matern32>>();
+      else if (ktype_ == "TPMATERN52")
+        set<TensorProductRadialAdapter<RadialFunctions::Matern52>>();
+      else if (ktype_ == "TPMATERN72")
+        set<TensorProductRadialAdapter<RadialFunctions::Matern72>>();
+      else if (ktype_ == "TPMATERN92")
+        set<TensorProductRadialAdapter<RadialFunctions::Matern92>>();
+      else if (ktype_ == "TPINVMULTIQUADRIC")
+        set<TensorProductRadialAdapter<RadialFunctions::InvMultiquadric>>();
       else
         assert(false && "desired PD kernel not implemented");
     } else
