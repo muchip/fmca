@@ -435,32 +435,24 @@ struct pySampletKernelCompressor {
     thres_ = thres;
     m_ = P1.cols();
     n_ = P2.cols();
+    const bool tp = ker.kernelType().rfind("TP", 0) == 0;
     if (sym)
       std::cout << "using symmetric compressor    " << std::endl;
     else
       std::cout << "using unsymmetric compressor  " << std::endl;
+    if (tp) std::cout << "using tensor product admissibility" << std::endl;
     std::cout << "mpole deg:                    " << hst1.p_ << std::endl;
     std::cout << "mpole deg:                    " << hst2.p_ << std::endl;
     std::cout << "dtilde:                       " << hst1.dtilde_ << std::endl;
     std::cout << "dtilde:                       " << hst2.dtilde_ << std::endl;
     std::cout << "eta:                          " << eta << std::endl;
     std::cout << "thres:                        " << thres << std::endl;
-    {
-      FMCA::SampletMatrixCompressor<H2SampletTree> scomp;
-      if (sym) {
-        const Moments mom(P1, hst1.p_);
-        const MatrixEvaluator mat_eval(mom, ker);
-        scomp.init(hst1.ST_, eta, thres);
-        scomp.compress(mat_eval);
-      } else {
-        const Moments mom1(P1, hst1.p_);
-        const Moments mom2(P2, hst2.p_);
-        const usMatrixEvaluator mat_eval(mom1, mom2, ker);
-        scomp.init(hst1.ST_, hst2.ST_, eta, thres);
-        scomp.compress(mat_eval);
-      }
-      trips_ = scomp.triplets();
-    }
+    if (tp)
+      compress<FMCA::CompareClusterTP>(hst1, hst2, ker, P1, P2, eta, thres,
+                                       sym);
+    else
+      compress<FMCA::CompareClusterBB>(hst1, hst2, ker, P1, P2, eta, thres,
+                                       sym);
     std::cout << "anz:                          "
               << std::round(trips_.size() / FMCA::Scalar(P1.cols()))
               << std::endl;
@@ -511,6 +503,29 @@ struct pySampletKernelCompressor {
   FMCA::Scalar err_;
   FMCA::Index m_;
   FMCA::Index n_;
+
+ private:
+  // not exposed to python: compile-time admissibility selected in init
+  template <typename ClusterComparison>
+  void compress(const pySampletTree &hst1, const pySampletTree &hst2,
+                const FMCA::CovarianceKernel &ker, const FMCA::Matrix &P1,
+                const FMCA::Matrix &P2, const FMCA::Scalar eta,
+                const FMCA::Scalar thres, const bool sym) {
+    FMCA::SampletMatrixCompressor<H2SampletTree, ClusterComparison> scomp;
+    if (sym) {
+      const Moments mom(P1, hst1.p_);
+      const MatrixEvaluator mat_eval(mom, ker);
+      scomp.init(hst1.ST_, eta, thres);
+      scomp.compress(mat_eval);
+    } else {
+      const Moments mom1(P1, hst1.p_);
+      const Moments mom2(P2, hst2.p_);
+      const usMatrixEvaluator mat_eval(mom1, mom2, ker);
+      scomp.init(hst1.ST_, hst2.ST_, eta, thres);
+      scomp.compress(mat_eval);
+    }
+    trips_ = scomp.triplets();
+  }
 };
 ////////////////////////////////////////////////////////////////////////////////
 /**

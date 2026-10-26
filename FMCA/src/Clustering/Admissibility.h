@@ -81,6 +81,38 @@ struct CompareClusterBB {
       return LowRank;
   }
 };
+
+/**
+ *  \brief tensor product admissibility: the bounding boxes have to be
+ *         eta-separated in every coordinate direction. Suited for
+ *         tensor product kernels, which are non-smooth on the hyperplanes
+ *         x_i = y_i
+ **/
+struct CompareClusterTP {
+  template <typename Derived, typename otherDerived>
+  static Admissibility compare(const ClusterTreeBase<Derived> &cluster1,
+                               const ClusterTreeBase<otherDerived> &cluster2,
+                               Scalar eta) {
+    const FMCA::Vector u =
+        (cluster1.bb().col(0) - cluster2.bb().col(1)).cwiseMax(0);
+    const FMCA::Vector v =
+        (cluster2.bb().col(0) - cluster1.bb().col(1)).cwiseMax(0);
+    const Vector cwise_dist = (u + v);
+    const Vector cwise_row_radius = 0.5 * cluster1.bb().col(2);
+    const Vector cwise_col_radius = 0.5 * cluster2.bb().col(2);
+    const Vector radius = cwise_row_radius.cwiseMax(cwise_col_radius);
+    if ((radius.array() > eta * cwise_dist.array()).any()) {
+      // check if either cluster is a leaf in that case,
+      // compute the full matrix block
+      if (!cluster1.nSons() || !cluster2.nSons())
+        return Dense;
+      else
+        return Refine;
+    } else
+      return LowRank;
+  }
+};
+
 /**
  *  \brief classical admissibility condition based on the relative
  *         distance of the enclosing balls
