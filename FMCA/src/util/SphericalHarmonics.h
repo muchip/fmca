@@ -30,11 +30,11 @@ struct SphericalHarmonics {
    *   \brief evaluates all spherical harmonics from degree 0 to l at x,
    *          which is supposed to be on S^2
    **/
-  static Vector Ylm(const Eigen::Vector3d &x, Index deg) {
+  static Vector Ylm(const Vector &x, Index deg) {
     // spherical harmonics are defined on the unit sphere only
     assert(std::abs(x.norm() - 1) < 1e-10 && "Ylm: x has to be on S^2");
     Vector retval = Vector::Zero((deg + 1) * (deg + 1));
-    Eigen::Vector2d sc;
+    Vector sc(2);
     sc << 0., 1.;
     Scalar P0 = 0.;
     Scalar P1 = 0.;

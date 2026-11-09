@@ -14,7 +14,6 @@
 #define FMCA_KERNELINTERPOLATION_SAMPLETKERNELSOLVER_H_
 
 namespace FMCA {
-template <typename SparseMatrix = Eigen::SparseMatrix<FMCA::Scalar>>
 class SampletKernelSolver {
  public:
   using Interpolator = TotalDegreeInterpolator;
@@ -23,14 +22,6 @@ class SampletKernelSolver {
   using SampletMoments = NystromSampletMoments<SampletInterpolator>;
   using MatrixEvaluator = NystromEvaluator<Moments, FMCA::CovarianceKernel>;
   using SampletTree = H2SampletTree<ClusterTree>;
-#ifdef CHOLMOD_SUPPORT
-  using Cholesky = Eigen::CholmodSupernodalLLT<SparseMatrix, Eigen::Upper>;
-#elif METIS_SUPPORT
-  using Cholesky = Eigen::SimplicialLDLT<SparseMatrix, Eigen::Upper,
-                                         Eigen::MetisOrdering<int>>;
-#else
-  using Cholesky = Eigen::SimplicialLDLT<SparseMatrix, Eigen::Upper>;
-#endif
 
   SampletKernelSolver() noexcept {}
 
@@ -94,7 +85,7 @@ class SampletKernelSolver {
       Vector col = kernel_.eval(P, P.col(hst_.indices()[index]));
       y1 = hst_.toClusterOrder(col);
       x = hst_.sampletTransform(x);
-      y2 = K_.template selfadjointView<Eigen::Upper>() * x;
+      y2 = K_.selfadjointView<Upper>() * x;
       y2 = hst_.inverseSampletTransform(y2);
       err += (y1 - y2).squaredNorm();
       nrm += y1.squaredNorm();
@@ -103,28 +94,71 @@ class SampletKernelSolver {
   }
 
   //////////////////////////////////////////////////////////////////////////////
-  void factorize() { llt_.compute(K_); }
+  void factorize() {
+    llt_.compute(K_);
+    if (llt_.info() != Success) {
+      std::cout << "factorization failed" << std::endl;
+      return;
+    }
+  }
 
+  //////////////////////////////////////////////////////////////////////////////
+  Matrix solveDirectly(const Matrix& rhs) {
+    Matrix sol = hst_.toClusterOrder(rhs);
+    const Matrix trhs = hst_.sampletTransform(sol);
+    sol = llt_.solve(trhs);
+    sol = hst_.inverseSampletTransform(sol);
+    sol = hst_.toNaturalOrder(sol);
+    solver_iterations_ = 1;
+    return sol;
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  Vector solveIteratively(const Vector& rhs, bool CGwithPreconditioner = true,
+                          Scalar threshold_CG = 1e-6) {
+    Vector rhs_copy = rhs;
+    rhs_copy = hst_.toClusterOrder(rhs_copy);
+    rhs_copy = hst_.sampletTransform(rhs_copy);
+    Vector sol;
+
+    if (!CGwithPreconditioner) {
+      SparseCG solver;
+      solver.setTolerance(threshold_CG);
+      solver.compute(K_);
+      sol = solver.solve(rhs_copy);
+      solver_iterations_ = solver.iterations();
+    } else {
+      SparsePCG solver;
+      solver.setTolerance(threshold_CG);
+      solver.compute(K_);
+      sol = solver.solve(rhs_copy);
+      solver_iterations_ = solver.iterations();
+    }
+    sol = hst_.inverseSampletTransform(sol);
+    sol = hst_.toNaturalOrder(sol);
+    return sol;
+  }
   //////////////////////////////////////////////////////////////////////////////
   // getter
   const SparseMatrix& K() const { return K_; }
   const Scalar fill_distance() const { return fill_distance_; }
   const Scalar separation_radius() const { return separation_radius_; }
+  const Index solver_iterations() const { return solver_iterations_; }
   //////////////////////////////////////////////////////////////////////////////
   Matrix solve(const Matrix& rhs) {
     Matrix sol = hst_.toClusterOrder(rhs);
-    sol = hst_.sampletTransform(sol);
-    sol = llt_.solve(sol);
+    const Matrix trhs = hst_.sampletTransform(sol);
+    sol = llt_.solve(trhs);
     sol = hst_.inverseSampletTransform(sol);
     sol = hst_.toNaturalOrder(sol);
     return sol;
   }
 
  private:
-  internal::SampletMatrixCompressor<SampletTree> compressor_;
+  SampletMatrixCompressor<SampletTree> compressor_;
   SampletTree hst_;
   CovarianceKernel kernel_;
-  Cholesky llt_;
+  SparseCholesky llt_;
   SparseMatrix K_;
   Scalar dtilde_;
   Scalar mpole_deg_;
@@ -133,6 +167,7 @@ class SampletKernelSolver {
   Scalar ridgep_;
   Scalar fill_distance_;
   Scalar separation_radius_;
+  Index solver_iterations_;
 };
 }  // namespace FMCA
 

@@ -10,9 +10,8 @@
 // for further information.
 //
 #include <Eigen/Dense>
+#include <FMCA/Samplets>
 #include <iostream>
-
-#include "../FMCA/Samplets"
 
 #define DIM 2
 #define NPTS 1000
@@ -30,10 +29,10 @@ int main() {
     const SampletTree st(samp_mom, 0, P);
 
     FMCA::Matrix Pol = samp_mom.moment_matrix(st);
-    Pol = Pol.topRows(samp_mom.mdtilde());
+    Pol.conservativeResize(samp_mom.mdtilde(), Pol.cols());
     FMCA::Scalar err = 0;
     Pol = st.sampletTransform(Pol.transpose());
-    err = Pol.bottomRows(Pol.cols() - st.nscalfs()).colwise().norm().sum();
+    err = Pol.bottomRows(Pol.rows() - st.nscalfs()).colwise().norm().sum();
     std::cout << "average vanishing error:      " << err / Pol.rows()
               << std::endl;
     FMCA::Matrix Q =

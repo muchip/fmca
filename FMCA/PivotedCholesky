@@ -12,7 +12,10 @@
 #ifndef FMCA_PIVOTEDCHOLESKY_MODULE_
 #define FMCA_PIVOTEDCHOLESKY_MODULE_
 
-#include "CovarianceKernel"
+#include "src/util/Macros.h"
+//
+
+#include "Kernel"
 
 #include "src/PivotedCholesky/PivotedCholesky.h"
 

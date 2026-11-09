@@ -33,6 +33,12 @@ struct ClusterTreeInitializer;
 
 class ClusterTree;
 
+class KDTree;
+
+class UnitKDTree;
+
+class UnitBinaryTree;
+
 class MetisClusterTree;
 
 class SphereClusterTree;

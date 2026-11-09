@@ -45,20 +45,21 @@ struct ClusterTreeInitializer<MetisClusterTree> {
   template <typename Derived, typename Graph>
   static void init_ClusterTree_impl(ClusterTreeBase<Derived> &CT,
                                     Index min_csize, Graph &G) {
-    typename traits<Derived>::Splitter split;
     const Index split_threshold = min_csize >= 1 ? (2 * min_csize - 1) : 1;
     if (CT.node().block_size_ > split_threshold) {
       CT.appendSons(2);
       CT.sons(0).node().indices_ = CT.node().indices_;
       CT.sons(1).node().indices_ = CT.node().indices_;
-      std::vector<idx_t> part = partitionGraph(G);
-      Graph G1 = G.split(part);
+      std::vector<idx_t> part = METIS::partitionGraph(G, 2);
+      std::vector<Graph> parts = METIS::splitGraph(G, part);
+      Graph &G0 = parts[0];
+      Graph &G1 = parts[1];
       CT.sons(0).node().indices_begin_ = CT.node().indices_begin_;
-      CT.sons(0).node().block_size_ = G.labels().size();
+      CT.sons(0).node().block_size_ = G0.labels().size();
       {
         Index *indices = CT.sons(0).node().indices_.get();
         for (Index i = 0; i < CT.sons(0).block_size(); ++i)
-          indices[CT.sons(0).node().indices_begin_ + i] = G.labels()[i];
+          indices[CT.sons(0).node().indices_begin_ + i] = G0.labels()[i];
       }
       CT.sons(1).node().indices_begin_ =
           CT.node().indices_begin_ + CT.sons(0).block_size();
@@ -68,7 +69,7 @@ struct ClusterTreeInitializer<MetisClusterTree> {
         for (Index i = 0; i < CT.sons(1).block_size(); ++i)
           indices[CT.sons(1).node().indices_begin_ + i] = G1.labels()[i];
       }
-      init_ClusterTree_impl<Derived>(CT.sons(0), min_csize, G);
+      init_ClusterTree_impl<Derived>(CT.sons(0), min_csize, G0);
       init_ClusterTree_impl<Derived>(CT.sons(1), min_csize, G1);
     }
     return;

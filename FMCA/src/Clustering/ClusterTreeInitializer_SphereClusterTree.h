@@ -38,6 +38,7 @@ struct ClusterTreeInitializer<SphereClusterTree> {
       it.node().block_id_ = i;
       ++i;
     }
+    // this needs to be done last, as c_,r_ are written by the splitters now.
     computeCR(P, CT);
   }
   //////////////////////////////////////////////////////////////////////////////
@@ -63,18 +64,20 @@ struct ClusterTreeInitializer<SphereClusterTree> {
   static void init_ClusterTree_impl(ClusterTreeBase<Derived> &CT,
                                     Index min_csize, const Matrix &P) {
     typename traits<Derived>::Splitter split;
-    const Index split_threshold = min_csize >= 1 ? (2 * min_csize - 1) : 1;
-    if (CT.node().block_size_ > split_threshold) {
-      CT.appendSons(2);
+    const Index K = 1 << P.rows();
+    const Index split_threshold = min_csize >= 1 ? (K * min_csize - 1) : 1;
+    if (CT.node().block_size_ > split_threshold &&
+        CT.node().bb_.col(2).maxCoeff() > FMCA_ZERO_TOLERANCE) {
+      CT.appendSons(K);
       // set up bounding boxes for sons
-      for (Index i = 0; i < 2; ++i) {
+      for (Index i = 0; i < K; ++i) {
         CT.sons(i).node().bb_ = CT.node().bb_;
         CT.sons(i).node().indices_ = CT.node().indices_;
         CT.sons(i).node().block_size_ = CT.node().block_size_;
         CT.sons(i).node().indices_begin_ = CT.node().indices_begin_;
       }
       // split index set and set sons bounding boxes
-      split(P, CT.sons(0).node(), CT.sons(1).node());
+      split(P, CT.sons_vector());
       // let recursion handle the rest
       for (Index i = 0; i < CT.nSons(); ++i)
         init_ClusterTree_impl<Derived>(CT.sons(i), min_csize, P);
@@ -120,22 +123,11 @@ struct ClusterTreeInitializer<SphereClusterTree> {
       bbmat.col(1) *= -FMCA_INF;
     }
     bbmat.col(2) = bbmat.col(1) - bbmat.col(0);
-    // fix potential flat bounding boxes
-    for (Index i = 0; i < bbmat.rows(); ++i)
-      if (bbmat(i, 1) - bbmat(i, 0) < 2e2 * FMCA_ZERO_TOLERANCE) {
-        bbmat(i, 1) += 1e2 * FMCA_BBOX_THREASHOLD;
-        bbmat(i, 0) -= 1e2 * FMCA_BBOX_THREASHOLD;
-        bbmat(i, 2) = bbmat(i, 1) - bbmat(i, 0);
-      }
 
     CT.node().bb_ = bbmat;
     return;
   }
-  static Scalar geodesicDistance(const Vector &a, const Vector &b) {
-    const Scalar dot = a.dot(b);
-    const Scalar clamped_dot = std::min(1., std::max(-1., dot));
-    return std::acos(clamped_dot);
-  }
+
   /**
    *  \brief implements [K. Aftab, R. Hartley, J. Trumpf: Generalized Weiszfeld
    *                     Algorithms for Lq Optimization] for the special case
@@ -156,7 +148,8 @@ struct ClusterTreeInitializer<SphereClusterTree> {
       c_old = c;
       c.setZero();
       for (Index i = 0; i < node.block_size(); ++i) {
-        const Scalar d_i = geodesicDistance(c, P.col(node.indices()[i]));
+        const Scalar d_i =
+            Metric::GeodesicSphere::d(c, P.col(node.indices()[i]));
         const Scalar w_i =
             1.0 / std::max(std::sin(d_i), 100 * FMCA_ZERO_TOLERANCE);
         c += w_i * P.col(node.indices()[i]);
@@ -182,7 +175,7 @@ struct ClusterTreeInitializer<SphereClusterTree> {
     node.node().c_ = sphericalMedian(P, node, node.node().c_, 10);
     for (Index i = 0; i < node.block_size(); ++i) {
       const Scalar dist =
-          geodesicDistance(node.node().c_, P.col(node.indices()[i]));
+          Metric::GeodesicSphere::d(node.node().c_, P.col(node.indices()[i]));
       node.node().r_ = node.node().r_ < dist ? dist : node.node().r_;
     }
   }

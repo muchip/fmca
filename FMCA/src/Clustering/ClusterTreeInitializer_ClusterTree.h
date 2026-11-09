@@ -63,7 +63,8 @@ struct ClusterTreeInitializer<ClusterTree> {
                                     Index min_csize, const Matrix &P) {
     typename traits<Derived>::Splitter split;
     const Index split_threshold = min_csize >= 1 ? (2 * min_csize - 1) : 1;
-    if (CT.node().block_size_ > split_threshold) {
+    if (CT.node().block_size_ > split_threshold &&
+        CT.node().bb_.col(2).maxCoeff() > FMCA_ZERO_TOLERANCE) {
       CT.appendSons(2);
       // set up bounding boxes for sons
       for (Index i = 0; i < 2; ++i) {
@@ -74,6 +75,9 @@ struct ClusterTreeInitializer<ClusterTree> {
       }
       // split index set and set sons bounding boxes
       split(P, CT.sons(0).node(), CT.sons(1).node());
+      // steal projection hyperplane
+      CT.node().c_ = std::move(CT.sons(0).node().c_);
+      CT.node().r_ = CT.sons(0).node().r_;
       // let recursion handle the rest
       for (Index i = 0; i < CT.nSons(); ++i)
         init_ClusterTree_impl<Derived>(CT.sons(i), min_csize, P);
@@ -119,13 +123,6 @@ struct ClusterTreeInitializer<ClusterTree> {
       bbmat.col(1) *= -FMCA_INF;
     }
     bbmat.col(2) = bbmat.col(1) - bbmat.col(0);
-    // fix potential flat bounding boxes
-    for (Index i = 0; i < bbmat.rows(); ++i)
-      if (bbmat(i, 1) - bbmat(i, 0) < 2e2 * FMCA_ZERO_TOLERANCE) {
-        bbmat(i, 1) += 1e2 * FMCA_BBOX_THREASHOLD;
-        bbmat(i, 0) -= 1e2 * FMCA_BBOX_THREASHOLD;
-        bbmat(i, 2) = bbmat(i, 1) - bbmat(i, 0);
-      }
 
     CT.node().bb_ = bbmat;
     return;

@@ -11,7 +11,6 @@
 //
 #ifndef FMCA_LOWRANKAPPROXIMATION_FALKON_H_
 #define FMCA_LOWRANKAPPROXIMATION_FALKON_H_
-#include <random>
 
 namespace FMCA {
 class FALKON {
@@ -126,8 +125,8 @@ class FALKON {
         p = res + beta * p;
         err = std::sqrt(rtr) / rhsnorm;
       }
-      std::cout << "CG iterations: " << k << " relative residual: " << err
-                << std::endl;
+      iter_ = k;
+      err_ = err;
     }
     // alpha = T\(A\conjgrad(BHB, r, t));
     return invT_ * invA_ * x;
@@ -136,6 +135,8 @@ class FALKON {
   const iVector &indices() const { return indices_; }
   const Matrix &matrixC() const { return C_; }
   const Matrix &matrixKPC() const { return KPC_; }
+  const Scalar err() const { return err_; }
+  const Index iter() const { return iter_; }
 
  private:
   // member variables
@@ -148,6 +149,8 @@ class FALKON {
   Matrix invA_;
   iVector indices_;
   Scalar lambda_;
+  Scalar err_;
+  Index iter_;
   // we cap the maximum matrix size at 8GB
   const Index max_size_ = Index(1e9);
 };

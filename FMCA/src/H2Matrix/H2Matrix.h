@@ -40,7 +40,7 @@ struct traits<H2Matrix<ClusterTreeType, ClusterComparison>>
  *         H2ClusterTree.
 
  */
-template <typename Derived, typename ClusterComparison = CompareCluster>
+template <typename Derived, typename ClusterComparison = CompareClusterBB>
 struct H2Matrix : public H2MatrixBase<H2Matrix<Derived, ClusterComparison>> {
   typedef H2MatrixBase<H2Matrix<Derived, ClusterComparison>> Base;
   typedef ClusterComparison CC;

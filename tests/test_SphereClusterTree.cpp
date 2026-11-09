@@ -1,7 +1,7 @@
 // This file is part of FMCA, the Fast Multiresolution Covariance Analysis
 // package.
 //
-// Copyright (c) 2022, Michael Multerer
+// Copyright (c) 2026, Michael Multerer
 //
 // All rights reserved.
 //
@@ -13,64 +13,47 @@
 #include <iostream>
 
 #include "../FMCA/Clustering"
-//
-#include "../FMCA/src/util/IO.h"
+#include "../FMCA/src/util/FibonacciLattice.h"
 #include "../FMCA/src/util/Tictoc.h"
-#include "../FMCA/src/util/uniformSphericalPoints.h"
 
 int main() {
-  constexpr FMCA::Index npts = 1000000;
   FMCA::Tictoc T;
-  const FMCA::Matrix P = FMCA::uniformSphericalPoints(npts, 0);
-  const FMCA::SphereClusterTree ct(P, 100);
-  FMCA::Matrix cs(3, npts);
-  FMCA::Vector colors(npts);
-  FMCA::Index k = 0;
-  for (const auto &it : ct) {
-    if (it.level() == 7) {
-      if (it.block_size())
-        cs.col(k++) = it.center();
-      else
-        std::cout << "empty cluster\n";
-      for (FMCA::Index i = 0; i < it.block_size(); ++i)
-        colors(it.indices()[i]) = it.radius();
-    }
-  }
-  FMCA::IO::plotPointsColor("pts.vtk", P, colors);
-  cs.conservativeResize(3, k);
-  FMCA::IO::plotPoints("centers.vtk", cs);
-#if 0
-#if 0
-#pragma omp parallel for
-  for (auto j = 0; j < P.cols(); ++j) {
-    FMCA::Scalar dist = FMCA::Scalar(1. / 0.);
-    for (auto i = 0; i < P.cols(); ++i) {
-      if (i != j) {
-        FMCA::Scalar rad = 0.5 * (P.col(i) - P.col(j)).norm();
-        dist = dist > (2 * rad) ? (2 * rad) : dist;
-        separation_radius = separation_radius < rad ? separation_radius : rad;
-      }
-    }
-    fill_distance = fill_distance < dist ? dist : fill_distance;
-  }
-  std::cout << "fill_distance:                " << fill_distance << std::endl;
-  std::cout << "separation_radius:            " << separation_radius
+  const FMCA::Matrix P = FMCA::FibonacciLattice(100000);
+  std::cout << "Cluster splitter:             "
+            << FMCA::internal::traits<
+                   FMCA::SphereClusterTree>::Splitter::splitterName()
             << std::endl;
-#endif
-  std::cout
-      << "Cluster splitter:             "
-      << FMCA::internal::traits<FMCA::ClusterTree>::Splitter::splitterName()
-      << std::endl;
   T.tic();
   for (auto i = 0; i < 10; ++i) {
     FMCA::iVector index_hits(P.cols());
     index_hits.setZero();
     FMCA::Index leaf_size = rand() % 200 + 5;
-    FMCA::ClusterTree CT(P, leaf_size);
-    for (i = 0; i < P.cols(); ++i) index_hits(CT.indices()[i]) = 1;
+    FMCA::SphereClusterTree CT(P, leaf_size);
+    for (auto j = 0; j < P.cols(); ++j) index_hits(CT.indices()[j]) = 1;
     assert(index_hits.sum() == P.cols() && "CT lost indices");
+    std::vector<const FMCA::SphereClusterTree *> stack{&CT};
+    while (stack.size()) {
+      const auto &node = *stack.back();
+      stack.pop_back();
+      // index sets: father is the union of its sons
+      std::set<FMCA::Index> pidx(node.indices(),
+                                 node.indices() + node.block_size());
+      std::set<FMCA::Index> cidx;
+      for (auto i = 0; i < node.nSons(); ++i) {
+        cidx.insert(node.sons(i).indices(),
+                    node.sons(i).indices() + node.sons(i).block_size());
+        stack.push_back(&node.sons(i));
+      }
+      assert((!node.nSons() || pidx == cidx) &&
+             "parent indices != union of sons");
+      // all points of a cluster lie in its spherical cap
+      for (auto j = 0; j < node.block_size(); ++j)
+        assert(FMCA::Metric::GeodesicSphere::d(node.center(),
+                                               P.col(node.indices()[j])) <=
+                   node.radius() + 1e3 * FMCA_ZERO_TOLERANCE &&
+               "point outside spherical cap");
+    }
   }
-  T.toc("construction of 10 cluster trees: ");
+  T.toc("construction of 10 sphere cluster trees: ");
   return 0;
-#endif
 }

@@ -39,7 +39,7 @@ class NormalDistribution {
   void visDist(Index Indexervals, Index samples) {
     Scalar h = 6. * _sigma / Indexervals;
     Scalar rand_number;
-    Eigen::VectorXd values;
+    Vector values;
 
     values.resize(Indexervals);
     values.setZero();
@@ -66,7 +66,7 @@ class NormalDistribution {
   }
 
   /*
-   *  get Eigen::MatrixXd of normally distributed random variables
+   *  get Matrix of normally distributed random variables
    */
   Matrix randN(Index m, Index n) {
     Matrix retval(m, n);

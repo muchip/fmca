@@ -106,14 +106,14 @@ struct GraphSampletTree : public SampletTreeBase<GraphSampletTree> {
     } else {
       Scalar nrg = 0;
       // compute cluster basis of the leaf
-      std::vector<Eigen::Triplet<FMCA::Scalar>> trips;
+      std::vector<Triplet> trips;
       trips.reserve(block_size() * block_size());
       for (FMCA::Index i = 0; i < block_size(); ++i)
         for (FMCA::Index j = 0; j < i; ++j) {
           const FMCA::Scalar w = G.graph().coeff(indices()[i], indices()[j]);
           if (std::abs(w) > FMCA_ZERO_TOLERANCE) {
-            trips.push_back(Eigen::Triplet<FMCA::Scalar>(i, j, w));
-            trips.push_back(Eigen::Triplet<FMCA::Scalar>(j, i, w));
+            trips.push_back(Triplet(i, j, w));
+            trips.push_back(Triplet(j, i, w));
           }
         }
       Graph G2;
@@ -133,14 +133,14 @@ struct GraphSampletTree : public SampletTreeBase<GraphSampletTree> {
     }
     // are there samplets?
     if (nmom < node().mom_buffer_.cols()) {
-      Eigen::HouseholderQR<Matrix> qr(node().mom_buffer_.transpose());
+      HouseholderQR qr(node().mom_buffer_.transpose());
       node().Q_ = qr.householderQ();
       node().nscalfs_ = nmom;
       node().nsamplets_ = node().Q_.cols() - node().nscalfs_;
       // this is the moment for the dad cluster
       node().mom_buffer_ = qr.matrixQR()
                                .block(0, 0, nmom, qr.matrixQR().cols())
-                               .template triangularView<Eigen::Upper>()
+                               .template triangularView<Upper>()
                                .transpose();
     } else {
       node().Q_ = Matrix::Identity(node().mom_buffer_.cols(),
@@ -152,81 +152,4 @@ struct GraphSampletTree : public SampletTreeBase<GraphSampletTree> {
   }
 };
 }  // namespace FMCA
-#endif
-
-#if 0
-  //////////////////////////////////////////////////////////////////////////////
-  void visualizeCoefficients(const eigenVector &coeffs,
-                             const std::string &filename,
-                             value_type thresh = 1e-6) {
-    std::vector<Eigen::Matrix3d> bbvec;
-    std::vector<value_type> cell_values;
-    visualizeCoefficientsRecursion(coeffs, bbvec, cell_values, thresh);
-    IO::plotBoxes(filename, bbvec, cell_values);
-    return;
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-  void visualizeCoefficientsRecursion(const eigenVector &coeffs,
-                                      std::vector<Eigen::Matrix3d> &bbvec,
-                                      std::vector<value_type> &cval,
-                                      value_type thresh) {
-    double color = 0;
-    if (!wlevel_) {
-      color = coeffs.segment(start_index_, nscalfs_ + nsamplets_)
-                  .cwiseAbs()
-                  .maxCoeff();
-    } else {
-      if (nsamplets_)
-        color = coeffs.segment(start_index_, nsamplets_).cwiseAbs().maxCoeff();
-    }
-    if (color > thresh) {
-      Eigen::Matrix3d bla;
-      bla.setZero();
-      if (dimension == 2) {
-        bla.topRows(2) = cluster_->get_bb();
-      }
-      // if (dimension == 3) {
-      //   bla = cluster_->get_bb();
-      // }
-      bbvec.push_back(bla);
-      cval.push_back(color);
-    }
-    if (sons_.size()) {
-      for (auto i = 0; i < sons_.size(); ++i)
-        sons_[i].visualizeCoefficientsRecursion(coeffs, bbvec, cval, thresh);
-    }
-    return;
-  }
-  //////////////////////////////////////////////////////////////////////////////
-  template <typename H2ClusterTree>
-  void computeMultiscaleClusterBases(const H2ClusterTree &CT) {
-    assert(&(CT.get_cluster()) == cluster_);
-
-    if (!wlevel_) {
-      // as I do not have a better solution right now, store the interpolation
-      // points within the samplet tree
-      pXi_ = std::make_shared<Matrix>();
-      *pXi_ = CT.get_Xi();
-    }
-    if (!sons_.size()) {
-      V_ = CT.get_V() * Q_;
-    } else {
-      // compute multiscale cluster bases of sons and update own
-      for (auto i = 0; i < sons_.size(); ++i) {
-        sons_[i].pXi_ = pXi_;
-        sons_[i].computeMultiscaleClusterBases(CT.get_sons()[i]);
-      }
-      V_.resize(0, 0);
-      for (auto i = 0; i < sons_.size(); ++i) {
-        V_.conservativeResize(sons_[i].V_.rows(),
-                              V_.cols() + sons_[i].nscalfs_);
-        V_.rightCols(sons_[i].nscalfs_) =
-            CT.get_E()[i] * sons_[i].V_.leftCols(sons_[i].nscalfs_);
-      }
-      V_ *= Q_;
-    }
-    return;
-  }
-
 #endif

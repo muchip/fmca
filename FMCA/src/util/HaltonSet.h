@@ -12,18 +12,18 @@
 #ifndef FMCA_UTIL_HALTONSET_H_
 #define FMCA_UTIL_HALTONSET_H_
 
+#include <Eigen/Dense>
 #include <array>
 #include <cmath>
 #include <limits>
 #include <vector>
 
-#include <Eigen/Dense>
-
 #include "Macros.h"
 
 namespace FMCA {
-template <Index S, Index B> class HaltonSetBase {
-public:
+template <Index S, Index B>
+class HaltonSetBase {
+ public:
   //////////////////////////////////////////////////////////////////////////////
   //  constructors
   //////////////////////////////////////////////////////////////////////////////
@@ -53,8 +53,7 @@ public:
       }
       assert(digit < B && "overflow in bAdic representation");
       // update length of bAdic representation
-      if (maxDigit_[i] < digit)
-        maxDigit_[i] = digit;
+      if (maxDigit_[i] < digit) maxDigit_[i] = digit;
       // evaluate the radical inverse by the Horner scheme
       bInv = (long double)1 / (long double)primes_[i];
       radInverse = bAdic_[i][maxDigit_[i]];
@@ -84,14 +83,14 @@ public:
   //  getter
   //////////////////////////////////////////////////////////////////////////////
   const std::vector<Scalar> &HaltonVector(void) const { return HaltonVector_; }
-  const Eigen::Map<const Vector> EigenHaltonVector(void) const {
-    return Eigen::Map<const Vector>(HaltonVector_.data(), M_);
+  const Map<const Vector> MapHaltonVector(void) const {
+    return Map<const Vector>(HaltonVector_.data(), M_);
   }
   const std::vector<Index> &primes(void) const { return primes_; }
   //////////////////////////////////////////////////////////////////////////////
   //  private members
   //////////////////////////////////////////////////////////////////////////////
-private:
+ private:
   // set up array of prime numbers
   void init_primes() {
     primes_.resize(M_);
@@ -106,8 +105,7 @@ private:
     // all primes following 2 have to be odd!
     while (number_of_primes < M_) {
       // compute next prime number
-      while (!isPrime(current_integer, number_of_primes))
-        current_integer += 2;
+      while (!isPrime(current_integer, number_of_primes)) current_integer += 2;
       // store prime new prime
       primes_[number_of_primes] = current_integer;
       ++number_of_primes;
@@ -119,8 +117,7 @@ private:
   bool isPrime(Index test_number, Index number_of_primes) {
     Index upper = std::sqrt(test_number);
     for (auto i = 0; i < number_of_primes && primes_[i] <= upper; ++i)
-      if (!(test_number % primes_[i]))
-        return false;
+      if (!(test_number % primes_[i])) return false;
     return true;
   }
   /** \brief initializes the HaltonVector with respect to the warm up defined
@@ -128,8 +125,7 @@ private:
    */
   void init_HaltonVector(void) {
     reset();
-    for (auto i = 0; i < S; ++i)
-      next();
+    for (auto i = 0; i < S; ++i) next();
     return;
   }
   // member variables (using std::vector since std::array is stack allocated
@@ -146,6 +142,7 @@ private:
  *           maximum base length 40bits, i.e. for b=2
  *           maximum index is 1099511627776-1 \approx 10^12
  **/
-template <Index S> using HaltonSet = HaltonSetBase<S, 40u>;
-} // namespace FMCA
+template <Index S>
+using HaltonSet = HaltonSetBase<S, 40u>;
+}  // namespace FMCA
 #endif

@@ -11,9 +11,6 @@
 //
 #ifndef FMCA_UTIL_GRAPH_H_
 #define FMCA_UTIL_GRAPH_H_
-#include <queue>
-//
-#include <Eigen/Sparse>
 //
 #include "Macros.h"
 #include "graphIO.h"
@@ -52,13 +49,13 @@ class Graph {
       ValueType max = 0;
       // look for maximally distant node
       for (IndexType i = 0; i < min_dists.size(); ++i)
-        if (not is_member[i] && min_dists[i] > max) {
+        if (!is_member[i] && min_dists[i] > max) {
           max_id = i;
           max = min_dists[i];
         }
       if (is_member[max_id]) {
         for (IndexType i = 0; i < is_member.size(); ++i) {
-          if (not is_member[i]) {
+          if (!is_member[i]) {
             max_id = i;
             break;
           }
@@ -92,7 +89,7 @@ class Graph {
   }
 
   template <typename Derived>
-  void print(const std::string &fileName, const Eigen::MatrixBase<Derived> &P,
+  void print(const std::string &fileName, const MatrixBase<Derived> &P,
              const bool use_labels = true) const {
     Derived Ploc(P.rows(), labels_.size());
     if (use_labels)
@@ -106,8 +103,7 @@ class Graph {
   }
 
   template <typename Derived>
-  void printSignal(const std::string &fileName,
-                   const Eigen::MatrixBase<Derived> &P,
+  void printSignal(const std::string &fileName, const MatrixBase<Derived> &P,
                    const Vector &sig) const {
     IO::plotGraphSignal(fileName, P, A_, sig);
     return;
@@ -143,7 +139,7 @@ class Graph {
     std::vector<bool> settled(nnodes(), false);
     dists[node] = 0;
     pqueue.push(std::make_pair(0., node));
-    while (not pqueue.empty()) {
+    while (!pqueue.empty()) {
       const ValueType du = pqueue.top().first;
       const IndexType u = pqueue.top().second;
       pqueue.pop();
@@ -198,9 +194,26 @@ std::vector<Graph> splitGraph(const Graph &G, const T &part) {
         }
     retval[l].init(nnodes, trips);
     for (IndexType i = 0; i < G.nnodes(); ++i)
-      if (part[i] == l) retval[l].labels()[index_map[i]] = i;
+      if (part[i] == l) retval[l].labels()[index_map[i]] = G.labels()[i];
   }
   return retval;
+}
+
+/**
+ *  \brief METIS cut costs from distance-valued edge weights: the shortest
+ *         edge gets cost wmax, the longest cost 1, affine in between.
+ **/
+template <typename ValueType>
+std::vector<idx_t> distanceToCutCost(const Graph<idx_t, ValueType> &G,
+                                     const idx_t wmax = 1000) {
+  const ValueType *d = G.graph().valuePtr();
+  std::vector<idx_t> adjwgt(G.nedges(), 1);
+  if (!G.nedges()) return adjwgt;
+  const ValueType dmin = *std::min_element(d, d + G.nedges());
+  const ValueType dmax = *std::max_element(d, d + G.nedges());
+  const ValueType scale = dmax > dmin ? (wmax - 1) / (dmax - dmin) : 0;
+  for (idx_t i = 0; i < G.nedges(); ++i) adjwgt[i] = 1 + scale * (dmax - d[i]);
+  return adjwgt;
 }
 
 template <typename ValueType>
@@ -217,14 +230,13 @@ std::vector<idx_t> partitionGraph(Graph<idx_t, ValueType> &G, Index K) {
   std::vector<idx_t> part(nvtxs);
   idx_t *xadj = (G.graph()).outerIndexPtr();
   idx_t *adjncy = (G.graph()).innerIndexPtr();
-  std::vector<idx_t> adjwgt(G.nedges());
-  for (idx_t i = 0; i < adjwgt.size(); ++i)
-    adjwgt[i] = 1. / (1e-6 + G.graph().valuePtr()[i] * G.graph().valuePtr()[i]);
+  std::vector<idx_t> adjwgt = distanceToCutCost(G);
 
-  int status = METIS_PartGraphRecursive(
-      &nvtxs, &ncon, xadj, adjncy, adjwgt.data(), NULL, NULL, &nparts, NULL,
-      NULL, options, &objval, part.data());
+  int status = METIS_PartGraphRecursive(&nvtxs, &ncon, xadj, adjncy, NULL, NULL,
+                                        adjwgt.data(), &nparts, NULL, NULL,
+                                        options, &objval, part.data());
   assert(status == METIS_OK);
+  (void)status;
   return part;
 }
 
@@ -242,14 +254,13 @@ std::vector<idx_t> partitionGraphKWay(Graph<idx_t, ValueType> &G, Index K) {
   std::vector<idx_t> part(nvtxs);
   idx_t *xadj = (G.graph()).outerIndexPtr();
   idx_t *adjncy = (G.graph()).innerIndexPtr();
-  std::vector<idx_t> adjwgt(G.nedges());
-  for (idx_t i = 0; i < adjwgt.size(); ++i)
-    adjwgt[i] = 1. / (1e-6 + G.graph().valuePtr()[i] * G.graph().valuePtr()[i]);
+  std::vector<idx_t> adjwgt = distanceToCutCost(G);
 
   int status = METIS_PartGraphKway(&nvtxs, &ncon, xadj, adjncy, NULL, NULL,
                                    adjwgt.data(), &nparts, NULL, NULL, options,
                                    &objval, part.data());
   assert(status == METIS_OK);
+  (void)status;
   return part;
 }
 

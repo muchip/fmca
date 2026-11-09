@@ -20,7 +20,7 @@ class MultipoleFunctionEvaluator {
   using Interpolator = TotalDegreeInterpolator;
   using Moments = NystromMoments<Interpolator>;
   using H2CT = H2ClusterTree<ClusterTree>;
-  using H2Mat = H2Matrix<H2CT, CompareCluster>;
+  using H2Mat = H2Matrix<H2CT, CompareClusterBB>;
   using MatEval = unsymmetricNystromEvaluator<Moments, CovarianceKernel>;
 
   MultipoleFunctionEvaluator() {}

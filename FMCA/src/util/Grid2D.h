@@ -42,7 +42,7 @@ class Grid2D {
   const Matrix &px() const { return px_; }
   const Matrix &py() const { return py_; }
 
-  void plotFunction(const std::string &fileName, const Eigen::VectorXd &f) {
+  void plotFunction(const std::string &fileName, const Vector &f) {
     std::ofstream myfile;
     myfile.open(fileName);
     myfile << "# vtk DataFile Version 3.1\n";

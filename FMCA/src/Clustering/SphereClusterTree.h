@@ -21,7 +21,7 @@ namespace internal {
 template <>
 struct traits<SphereClusterTree> {
   typedef SphereClusterTreeNode Node;
-  typedef ClusterSplitter::CardinalityBisection Splitter;
+  typedef ClusterSplitter::GeometricKDSplitting Splitter;
 };
 }  // namespace internal
 
@@ -60,12 +60,6 @@ struct SphereClusterTree : public ClusterTreeBase<SphereClusterTree> {
     // we initialize the tree as a classical 3D cluster tree. Afterwards, we
     // assign centers and radii
     initializer::init(*this, min_csize, P);
-  }
-
-  static Scalar geodesicDistance(const Vector &a, const Vector &b) {
-    const Scalar dot = a.dot(b);
-    const Scalar clamped_dot = std::min(1., std::max(-1., dot));
-    return std::acos(clamped_dot);
   }
 
   const Vector &center() const { return this->node().c_; }

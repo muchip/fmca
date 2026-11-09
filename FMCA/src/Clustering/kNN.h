@@ -95,10 +95,10 @@ iMatrix kNN(const ClusterTreeBase<Derived> &CT, const Matrix &P,
 }
 
 template <typename Derived>
-std::vector<Eigen::Triplet<Scalar>> symKNN(const ClusterTreeBase<Derived> &CT,
-                                           const Matrix &P, const Index k = 1) {
+std::vector<Triplet> symKNN(const ClusterTreeBase<Derived> &CT, const Matrix &P,
+                            const Index k = 1) {
   assert(k < P.cols() && "too few data points for kmin");
-  std::vector<Eigen::Triplet<Scalar>> retval;
+  std::vector<Triplet> retval;
   std::vector<KMinList> qvec(P.cols());
 #pragma omp parallel for
   for (Index i = 0; i < qvec.size(); ++i) qvec[i] = KMinList(k);
@@ -130,8 +130,8 @@ std::vector<Eigen::Triplet<Scalar>> symKNN(const ClusterTreeBase<Derived> &CT,
   for (Index i = 0; i < qvec.size(); ++i)
     for (const auto &it : qvec[i].list())
       if (i > it.first) {
-        retval.push_back(Eigen::Triplet<Scalar>(i, it.first, it.second));
-        retval.push_back(Eigen::Triplet<Scalar>(it.first, i, it.second));
+        retval.push_back(Triplet(i, it.first, it.second));
+        retval.push_back(Triplet(it.first, i, it.second));
       }
   retval.shrink_to_fit();
   return retval;
