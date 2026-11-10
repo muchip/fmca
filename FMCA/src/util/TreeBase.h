@@ -127,6 +127,12 @@ class TreeBase {
       s.dad_ = this;
       s.level_ = level_ + 1;
     }
+    return;
+  }
+  //////////////////////////////////////////////////////////////////////////////
+  void pruneSons() {
+    std::vector<TreeBase>().swap(sons_);
+    return;
   }
   //////////////////////////////////////////////////////////////////////////////
   Index level() { return level_; };
@@ -139,6 +145,7 @@ class TreeBase {
     if (level() >= tree.size()) tree.resize(level() + 1);
     tree[level()].push_back(node().indices_.size());
     for (auto i = 0; i < nSons(); ++i) sons(i).exportTreeStructure(tree);
+    return;
   }
   //////////////////////////////////////////////////////////////////////////////
  private:
