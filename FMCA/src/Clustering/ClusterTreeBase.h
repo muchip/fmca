@@ -83,7 +83,12 @@ struct ClusterTreeBase : public TreeBase<Derived> {
       retval.row(indices()[j]) = mat.row(j);
     return retval;
   }
-};
 
+  template <typename OtherDerived>
+  void steal(ClusterTreeBase<OtherDerived>&& other) {
+    internal::ClusterTreeStealer::steal(*this, other);
+    return;
+  }
+};
 }  // namespace FMCA
 #endif

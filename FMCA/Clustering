@@ -31,6 +31,7 @@
 #include "src/Clustering/Admissibility.h"
 #include "src/Clustering/MortonCompare.h"
 #include "src/Clustering/ClusterTreeSplitter.h"
+#include "src/Clustering/ClusterTreeStealer.h"
 #include "src/Clustering/ClusterTreeBase.h"
 #include "src/Clustering/ClusterTreeInitializer_ClusterTree.h"
 #include "src/Clustering/ClusterTreeInitializer_KDTree.h"
