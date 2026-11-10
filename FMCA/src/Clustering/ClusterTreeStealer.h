@@ -37,5 +37,4 @@ struct ClusterTreeStealer {
 };
 }  // namespace internal
 }  // namespace FMCA
-   //
 #endif
