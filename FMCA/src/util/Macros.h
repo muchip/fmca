@@ -125,6 +125,11 @@ constexpr auto ComputeEigenvectors = Eigen::ComputeEigenvectors;
 
 #ifdef CHOLMOD_SUPPORT
 using SparseCholesky = Eigen::CholmodSupernodalLLT<SparseMatrix, Eigen::Upper>;
+// version for 64bit storage indices
+using SparseMatrix64 =
+    Eigen::SparseMatrix<Scalar, Eigen::ColMajor, std::int64_t>;
+using SparseCholesky64 =
+    Eigen::CholmodSupernodalLLT<SparseMatrix64, Eigen::Upper>;
 #elif METIS_SUPPORT
 using SparseCholesky = Eigen::SimplicialLDLT<SparseMatrix, Eigen::Upper,
                                              Eigen::MetisOrdering<int> >;
